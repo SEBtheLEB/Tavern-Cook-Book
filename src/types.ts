@@ -1,5 +1,4 @@
 export type ThemeMode = "light" | "dream";
-export type AppMode = "view" | "edit";
 
 export type EntryStatus =
   | "Canon"
@@ -111,6 +110,10 @@ export interface MediaAsset {
 export interface EntryMedia {
   iconImage?: string;
   mainImage?: string;
+  characterPortrait?: string;
+  characterHoverImage?: string;
+  ingameSpriteImage?: string;
+  dialogueSpriteImage?: string;
   galleryImages: string[];
   videoLinks: string[];
   uploadedVideos: MediaAsset[];

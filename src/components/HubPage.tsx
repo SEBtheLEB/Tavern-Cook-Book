@@ -1,18 +1,22 @@
-import type { ActiveView, AppMode, LoreEntry, ViewConfig } from "../types";
+import type { ActiveView, LoreEntry, ViewConfig } from "../types";
 import { hubSections } from "../data/navigation";
+import { CharacterRoster } from "./CharacterRoster";
 import { EntryGrid } from "./EntryGrid";
 import { Icon } from "./Icon";
 
 interface HubPageProps {
   view: ViewConfig;
   entries: LoreEntry[];
-  mode: AppMode;
   onNavigate: (view: ActiveView) => void;
   onOpenEntry: (entry: LoreEntry) => void;
-  onUpdateEntry: (entry: LoreEntry) => void;
 }
 
-export function HubPage({ view, entries, mode, onNavigate, onOpenEntry, onUpdateEntry }: HubPageProps) {
+export function HubPage({
+  view,
+  entries,
+  onNavigate,
+  onOpenEntry
+}: HubPageProps) {
   const sections = hubSections[view.id] || [];
 
   return (
@@ -51,7 +55,11 @@ export function HubPage({ view, entries, mode, onNavigate, onOpenEntry, onUpdate
         </section>
       )}
 
-      <EntryGrid entries={entries} mode={mode} onOpenEntry={onOpenEntry} onUpdateEntry={onUpdateEntry} />
+      {view.id === "characters" ? (
+        <CharacterRoster entries={entries} onOpenEntry={onOpenEntry} />
+      ) : (
+        <EntryGrid entries={entries} onOpenEntry={onOpenEntry} />
+      )}
     </div>
   );
 }

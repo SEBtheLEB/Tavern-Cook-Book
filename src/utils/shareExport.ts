@@ -29,6 +29,10 @@ const publicEntry = (entry: LoreEntry) => ({
   media: {
     iconImage: entry.media.iconImage,
     mainImage: entry.media.mainImage,
+    characterPortrait: entry.media.characterPortrait,
+    characterHoverImage: entry.media.characterHoverImage,
+    ingameSpriteImage: entry.media.ingameSpriteImage,
+    dialogueSpriteImage: entry.media.dialogueSpriteImage,
     galleryImages: entry.media.galleryImages,
     videoLinks: entry.media.videoLinks,
     mediaNotes: entry.media.mediaNotes
@@ -548,7 +552,7 @@ export const createShareableHtml = (database: LoreDatabase) => {
         '<section class="hero"><h2 class="title">Timeline</h2><div class="badges" style="margin-top:12px;">' +
           modes.map(([key, label]) => '<button class="badge timeline-mode" data-mode="' + key + '">' + escapeHtml(label) + '</button>').join("") +
         '</div></section><section class="soft-panel" style="padding:16px; display:grid; gap:10px;">' +
-          entries.map(entry => '<button class="timeline-row entry-link" data-id="' + escapeAttr(entry.id) + '"><strong class="muted">' + escapeHtml(entry.timeline?.era || "Unplaced") + '</strong><span><strong>' + escapeHtml(entry.title) + '</strong><p>' + escapeHtml(entry.timeline?.[state.timelineMode] || entry.summary) + '</p></span></button>').join("") +
+          entries.map(entry => '<button class="timeline-row entry-link" data-id="' + escapeAttr(entry.id) + '"><strong class="muted">' + escapeHtml(entry.timeline?.era || "Unplaced") + '</strong><span><strong>' + escapeHtml(entry.title) + '</strong><p>' + escapeHtml(plainText(entry.timeline?.[state.timelineMode] || entry.summary)) + '</p></span></button>').join("") +
         '</section>';
       content.querySelectorAll(".timeline-mode").forEach(button => {
         button.addEventListener("click", () => {
@@ -563,7 +567,7 @@ export const createShareableHtml = (database: LoreDatabase) => {
       const secrets = data.entries.filter(entry => entry.type === "Secret" || entry.secret);
       content.innerHTML =
         '<section class="hero"><h2 class="title">Secrets / Who Knows What</h2><p class="muted" style="margin-top:10px;">Canon facts, who knows, who suspects, and when the player learns.</p></section>' +
-        '<section class="secret-grid">' + secrets.map(entry => '<button class="hub-card entry-link" data-id="' + escapeAttr(entry.id) + '"><h3>' + escapeHtml(entry.title.replace("Secret: ", "")) + '</h3><p style="margin-top:10px;">' + escapeHtml(entry.secret?.trueFact || entry.summary) + '</p><div class="badges" style="margin-top:12px;"><span class="badge">' + escapeHtml(entry.spoilerLevel) + '</span><span class="badge">Known by: ' + escapeHtml((entry.secret?.knownBy || []).join(", ")) + '</span></div></button>').join("") + '</section>';
+        '<section class="secret-grid">' + secrets.map(entry => '<button class="hub-card entry-link" data-id="' + escapeAttr(entry.id) + '"><h3>' + escapeHtml(entry.title.replace("Secret: ", "")) + '</h3><p style="margin-top:10px;">' + escapeHtml(plainText(entry.secret?.trueFact || entry.summary)) + '</p><div class="badges" style="margin-top:12px;"><span class="badge">' + escapeHtml(entry.spoilerLevel) + '</span><span class="badge">Known by: ' + escapeHtml((entry.secret?.knownBy || []).join(", ")) + '</span></div></button>').join("") + '</section>';
     }
 
     function entryGrid(entries) {
@@ -572,12 +576,12 @@ export const createShareableHtml = (database: LoreDatabase) => {
     }
 
     function entryCard(entry) {
-      const image = entry.media?.iconImage || entry.media?.mainImage;
+      const image = entry.media?.characterPortrait || entry.media?.iconImage || entry.media?.mainImage;
       return '<button class="entry-card entry-link" data-id="' + escapeAttr(entry.id) + '">' +
         '<div class="entry-top"><div class="entry-icon">' + (image ? '<img alt="" src="' + image + '" />' : 'TCB') + '</div><div class="entry-main">' +
         '<div class="badges"><span class="badge">' + escapeHtml(entry.status) + '</span><span class="badge">' + escapeHtml(entry.spoilerLevel) + '</span></div>' +
         '<h3 class="entry-title">' + escapeHtml(entry.title) + '</h3><p class="muted">' + escapeHtml(entry.category + " / " + entry.type) + '</p></div></div>' +
-        '<p class="entry-summary">' + escapeHtml(entry.summary || entry.publicDescription || entry.internalLore || "No summary yet.") + '</p>' +
+        '<p class="entry-summary">' + escapeHtml(plainText(entry.summary || entry.publicDescription || entry.internalLore || "No summary yet.")) + '</p>' +
         '<div class="badges">' + (entry.tags || []).slice(0, 5).map(tag => '<span class="badge">' + escapeHtml(tag) + '</span>').join("") + '</div>' +
       '</button>';
     }
@@ -606,7 +610,7 @@ export const createShareableHtml = (database: LoreDatabase) => {
     function openEntry(id) {
       const entry = data.entries.find(item => item.id === id);
       if (!entry) return;
-      const image = entry.media?.iconImage || entry.media?.mainImage;
+      const image = entry.media?.characterPortrait || entry.media?.iconImage || entry.media?.mainImage;
       modalIcon.innerHTML = image ? '<img alt="" src="' + image + '" />' : "TCB";
       modalTitle.textContent = entry.title;
       modalMeta.textContent = entry.category + " / " + entry.type + " / " + entry.status + " / " + entry.spoilerLevel;
@@ -627,8 +631,15 @@ export const createShareableHtml = (database: LoreDatabase) => {
         ["Wiki", pretty(entry.wiki)],
         ["Video Links", (entry.media?.videoLinks || []).join("\\n")]
       ].filter(([, value]) => value && value !== "{}");
-      const gallery = [entry.media?.mainImage, ...(entry.media?.galleryImages || [])].filter(Boolean);
-      modalBody.innerHTML = '<div class="field-grid">' + blocks.map(([label, value]) => '<div class="field-block"><span class="field-label">' + escapeHtml(label) + '</span>' + escapeHtml(value) + '</div>').join("") + '</div>' + (gallery.length ? '<div class="gallery">' + gallery.map(src => '<img alt="" src="' + src + '" />').join("") + '</div>' : "");
+      const gallery = [
+        entry.media?.characterPortrait,
+        entry.media?.characterHoverImage,
+        entry.media?.ingameSpriteImage,
+        entry.media?.dialogueSpriteImage,
+        entry.media?.mainImage,
+        ...(entry.media?.galleryImages || [])
+      ].filter(Boolean);
+      modalBody.innerHTML = '<div class="field-grid">' + blocks.map(([label, value]) => '<div class="field-block"><span class="field-label">' + escapeHtml(label) + '</span>' + escapeHtml(plainText(value)) + '</div>').join("") + '</div>' + (gallery.length ? '<div class="gallery">' + gallery.map(src => '<img alt="" src="' + src + '" />').join("") + '</div>' : "");
       modal.showModal();
     }
 
@@ -653,11 +664,37 @@ export const createShareableHtml = (database: LoreDatabase) => {
       return String(label || "TCB").split(/\\s+/).slice(0, 2).map(word => word[0] || "").join("").toUpperCase();
     }
     function pretty(value) {
-      if (!value) return "";
-      return typeof value === "string" ? value : JSON.stringify(value, null, 2);
+      if (!hasValue(value)) return "";
+      if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return String(value);
+      if (Array.isArray(value)) return value.filter(hasValue).map(item => pretty(item)).filter(Boolean).join(", ");
+      if (typeof value === "object") {
+        return Object.entries(value)
+          .filter(([, item]) => hasValue(item))
+          .map(([key, item]) => humanLabel(key) + ": " + pretty(item))
+          .join("\\n");
+      }
+      return String(value);
+    }
+    function hasValue(value) {
+      if (value == null || value === "") return false;
+      if (Array.isArray(value)) return value.some(hasValue);
+      if (typeof value === "object") return Object.values(value).some(hasValue);
+      return true;
+    }
+    function humanLabel(value) {
+      return String(value)
+        .replace(/([A-Z])/g, " $1")
+        .replace(/^./, char => char.toUpperCase());
     }
     function escapeHtml(value) {
       return String(value ?? "").replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[char]));
+    }
+    function plainText(value) {
+      const text = String(value ?? "");
+      if (!/<\\/?(strong|b|em|i|u|span|font|h2|h3|h4|p|div|br|ul|ol|li)(\\s|>|\\/)/i.test(text)) return text;
+      const holder = document.createElement("div");
+      holder.innerHTML = text.replace(/<br\\s*\\/?>/gi, "\\n").replace(/<\\/(p|div|h2|h3|h4|li)>/gi, "\\n");
+      return (holder.textContent || "").replace(/\\n{3,}/g, "\\n\\n").trim();
     }
     function escapeAttr(value) {
       return escapeHtml(value).replace(/\\n/g, " ");

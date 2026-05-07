@@ -1,13 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import type { AppMode, ThemeMode } from "../types";
+import type { ThemeMode } from "../types";
 import { Icon } from "./Icon";
 
 interface TopBarProps {
   theme: ThemeMode;
-  mode: AppMode;
   searchQuery: string;
   onThemeChange: (theme: ThemeMode) => void;
-  onModeChange: (mode: AppMode) => void;
   onSearchQueryChange: (query: string) => void;
   onSubmitSearch: () => void;
   onCreateEntry: () => void;
@@ -17,10 +15,8 @@ interface TopBarProps {
 
 export function TopBar({
   theme,
-  mode,
   searchQuery,
   onThemeChange,
-  onModeChange,
   onSearchQueryChange,
   onSubmitSearch,
   onCreateEntry,
@@ -59,18 +55,7 @@ export function TopBar({
             <Icon name="Eye" className="h-4 w-4" />
             Live View Copy
           </span>
-        ) : (
-          <button
-            className={`tab-frame inline-flex items-center gap-2 rounded px-3 py-2 text-sm ${
-              mode === "view" ? "shadow-glow" : ""
-            }`}
-            onClick={() => onModeChange(mode === "view" ? "edit" : "view")}
-            title={mode === "view" ? "Switch to edit mode" : "Switch to view mode"}
-          >
-            <Icon name={mode === "view" ? "Eye" : "Edit3"} className="h-4 w-4" />
-            {mode === "view" ? "View Mode" : "Edit Mode"}
-          </button>
-        )}
+        ) : null}
         <button
           className="tab-frame inline-flex items-center gap-2 rounded px-3 py-2 text-sm"
           onClick={() => onThemeChange(theme === "light" ? "dream" : "light")}
@@ -81,7 +66,7 @@ export function TopBar({
         </button>
       </div>
 
-      {!readOnly && mode === "edit" && (
+      {!readOnly && (
         <button
           className="button-frame inline-flex items-center gap-2 rounded px-3 py-2 text-sm"
           onClick={onCreateEntry}

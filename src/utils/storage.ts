@@ -1,10 +1,10 @@
 import { createStarterDatabase } from "../data/starterData";
-import type { AppMode, LoreBackup, LoreDatabase, LoreEntry, ThemeMode } from "../types";
+import type { LoreBackup, LoreDatabase, LoreEntry, ThemeMode } from "../types";
 import { cloneDatabase, normalizeEntry, nowIso } from "./entries";
 
 export const DATABASE_KEY = "tavern-cook-book:data";
 export const THEME_KEY = "tavern-cook-book:theme";
-const MODE_KEY = "tavern-cook-book:mode";
+const LEGACY_MODE_KEY = "tavern-cook-book:mode";
 
 export const currentSchemaVersion = 1;
 
@@ -54,7 +54,20 @@ export const loadDatabase = (): LoreDatabase => {
 };
 
 export const saveDatabase = (database: LoreDatabase) => {
-  localStorage.setItem(DATABASE_KEY, JSON.stringify(database));
+  try {
+    localStorage.setItem(DATABASE_KEY, JSON.stringify(database));
+    return { ok: true };
+  } catch (error) {
+    const isQuotaError =
+      error instanceof DOMException &&
+      (error.name === "QuotaExceededError" || error.name === "NS_ERROR_DOM_QUOTA_REACHED");
+    return {
+      ok: false,
+      message: isQuotaError
+        ? "Browser storage is full. The app stayed open, but this latest change may not survive a restart. Try smaller images or remove a few gallery images."
+        : "The app could not save to browser storage. Export a backup before closing."
+    };
+  }
 };
 
 export const loadTheme = (): ThemeMode =>
@@ -64,13 +77,6 @@ export const saveTheme = (theme: ThemeMode) => {
   localStorage.setItem(THEME_KEY, theme);
 };
 
-export const loadAppMode = (): AppMode =>
-  localStorage.getItem(MODE_KEY) === "edit" ? "edit" : "view";
-
-export const saveAppMode = (mode: AppMode) => {
-  localStorage.setItem(MODE_KEY, mode);
-};
-
 export const resetStorage = () => {
   localStorage.removeItem(DATABASE_KEY);
 };
@@ -78,7 +84,7 @@ export const resetStorage = () => {
 export const clearAllAppStorage = () => {
   localStorage.removeItem(DATABASE_KEY);
   localStorage.removeItem(THEME_KEY);
-  localStorage.removeItem(MODE_KEY);
+  localStorage.removeItem(LEGACY_MODE_KEY);
 };
 
 export const createBackup = (database: LoreDatabase, label: string): LoreDatabase => {

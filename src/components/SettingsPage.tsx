@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type { LoreDatabase, ThemeMode } from "../types";
 import { createStarterDatabase } from "../data/starterData";
 import { estimateStorageBytes, formatBytes, migrateDatabase } from "../utils/storage";
-import { isSupportedImage, readFileAsDataUrl } from "../utils/media";
+import { isSupportedImage, readImageFileForStorage } from "../utils/media";
 import { createShareableHtml } from "../utils/shareExport";
 import { Icon } from "./Icon";
 
@@ -102,11 +102,19 @@ export function SettingsPage({ database, theme, onDatabaseChange, onThemeChange 
       setMessage("Please choose a PNG, JPG, JPEG, WEBP, or GIF image.");
       return;
     }
-    const dataUrl = await readFileAsDataUrl(file);
-    onDatabaseChange({
-      ...database,
-      branding: { ...database.branding, logoImage: dataUrl }
-    });
+    try {
+      const dataUrl = await readImageFileForStorage(file, {
+        maxDimension: 600,
+        maxDataUrlLength: 320_000
+      });
+      onDatabaseChange({
+        ...database,
+        branding: { ...database.branding, logoImage: dataUrl }
+      });
+      setMessage("Logo image saved.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not prepare this logo image for storage.");
+    }
   };
 
   return (

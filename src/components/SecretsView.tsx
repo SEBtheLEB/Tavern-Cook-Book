@@ -1,14 +1,13 @@
-import type { AppMode, LoreEntry } from "../types";
+import type { LoreEntry } from "../types";
+import { richTextToPlainText } from "../utils/richText";
 import { EntryGrid } from "./EntryGrid";
 
 interface SecretsViewProps {
   entries: LoreEntry[];
-  mode: AppMode;
   onOpenEntry: (entry: LoreEntry) => void;
-  onUpdateEntry: (entry: LoreEntry) => void;
 }
 
-export function SecretsView({ entries, mode, onOpenEntry, onUpdateEntry }: SecretsViewProps) {
+export function SecretsView({ entries, onOpenEntry }: SecretsViewProps) {
   const secrets = entries.filter((entry) => entry.type === "Secret" || entry.secret);
 
   return (
@@ -33,7 +32,7 @@ export function SecretsView({ entries, mode, onOpenEntry, onUpdateEntry }: Secre
                 {entry.spoilerLevel}
               </span>
             </div>
-            <p className="mt-3 leading-6">{entry.secret?.trueFact || entry.summary}</p>
+            <p className="mt-3 leading-6">{richTextToPlainText(entry.secret?.trueFact || entry.summary)}</p>
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               <Info label="Known by" value={entry.secret?.knownBy} />
               <Info label="Suspected by" value={entry.secret?.suspectedBy} />
@@ -46,7 +45,7 @@ export function SecretsView({ entries, mode, onOpenEntry, onUpdateEntry }: Secre
         ))}
       </section>
 
-      <EntryGrid entries={secrets} mode={mode} onOpenEntry={onOpenEntry} onUpdateEntry={onUpdateEntry} />
+      <EntryGrid entries={secrets} onOpenEntry={onOpenEntry} />
     </div>
   );
 }

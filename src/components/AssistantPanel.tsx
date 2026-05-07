@@ -60,9 +60,9 @@ export function AssistantPanel({ database, onDatabaseChange }: AssistantPanelPro
       const parsed = parseAssistantPatch(manualPatch);
       setPatch(parsed);
       setSelected(parsed.changes.map((_, index) => index));
-      setMessage("Manual JSON patch loaded.");
+      setMessage("Manual assistant changes loaded.");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not parse assistant JSON.");
+      setMessage(error instanceof Error ? error.message : "Could not read the assistant changes.");
     }
   };
 
@@ -188,15 +188,16 @@ export function AssistantPanel({ database, onDatabaseChange }: AssistantPanelPro
               {manualPrompt && (
                 <section className="space-y-2">
                   <h3 className="font-display text-xl">Manual Prompt</h3>
-                  <textarea className="field min-h-40 w-full rounded px-3 py-2 font-mono text-xs" value={manualPrompt} onChange={(event) => setManualPrompt(event.target.value)} />
+                  <textarea className="field min-h-40 w-full rounded px-3 py-2 text-sm" value={manualPrompt} onChange={(event) => setManualPrompt(event.target.value)} />
                 </section>
               )}
 
               <section className="space-y-2">
-                <h3 className="font-display text-xl">Paste Returned JSON Patch</h3>
+                <h3 className="font-display text-xl">Paste Returned Assistant Changes</h3>
                 <textarea
-                  className="field min-h-32 w-full rounded px-3 py-2 font-mono text-xs"
+                  className="field min-h-32 w-full rounded px-3 py-2 text-sm"
                   value={manualPatch}
+                  placeholder="Paste the structured changes ChatGPT gave you, then preview them before applying."
                   onChange={(event) => setManualPatch(event.target.value)}
                 />
                 <button className="rounded border px-3 py-2 text-sm" style={{ borderColor: "var(--panel-border)" }} onClick={loadManualPatch}>
@@ -267,9 +268,9 @@ function describeChange(change: AssistantAction) {
 function ChangeDetails({ change }: { change: AssistantAction }) {
   if (change.action === "update") {
     return (
-      <div className="mt-2 grid gap-2 text-xs">
-        <pre className="entry-scroll max-h-32 overflow-auto rounded bg-black/10 p-2">{JSON.stringify(change.oldValue, null, 2)}</pre>
-        <pre className="entry-scroll max-h-32 overflow-auto rounded bg-black/10 p-2">{JSON.stringify(change.newValue, null, 2)}</pre>
+      <div className="mt-2 grid gap-2 text-sm">
+        <ValuePreview label="Before" value={change.oldValue} />
+        <ValuePreview label="After" value={change.newValue} />
       </div>
     );
   }
@@ -277,7 +278,41 @@ function ChangeDetails({ change }: { change: AssistantAction }) {
     return <p className="mt-1 text-sm">Scope: {change.scope || "all"}</p>;
   }
   if (change.action === "add") {
-    return <pre className="entry-scroll mt-2 max-h-36 overflow-auto rounded bg-black/10 p-2 text-xs">{JSON.stringify(change.entry, null, 2)}</pre>;
+    return <ValuePreview label="New entry details" value={change.entry} />;
   }
   return <p className="mt-1 text-sm">{change.content}</p>;
+}
+
+function ValuePreview({ label, value }: { label: string; value: unknown }) {
+  return (
+    <div className="rounded border p-2" style={{ borderColor: "var(--card-border)", background: "var(--panel-bg)" }}>
+      <p className="text-xs font-semibold uppercase" style={{ color: "var(--muted-ink)" }}>
+        {label}
+      </p>
+      <div className="mt-1 whitespace-pre-wrap leading-6">{formatPreviewValue(value)}</div>
+    </div>
+  );
+}
+
+function formatPreviewValue(value: unknown): string {
+  if (value == null || value === "") return "Empty";
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => formatPreviewValue(item)).join(", ");
+  }
+  if (typeof value === "object") {
+    return Object.entries(value)
+      .filter(([, item]) => item != null && item !== "" && (!Array.isArray(item) || item.length > 0))
+      .map(([key, item]) => `${humanLabel(key)}: ${formatPreviewValue(item)}`)
+      .join("\n");
+  }
+  return String(value);
+}
+
+function humanLabel(value: string) {
+  return value
+    .replace(/([A-Z])/g, " $1")
+    .replace(/^./, (letter) => letter.toUpperCase());
 }

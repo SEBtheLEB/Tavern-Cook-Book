@@ -1,12 +1,11 @@
 import { useState } from "react";
-import type { AppMode, LoreEntry } from "../types";
+import type { LoreEntry } from "../types";
+import { richTextToPlainText } from "../utils/richText";
 import { EntryGrid } from "./EntryGrid";
 
 interface TimelineViewProps {
   entries: LoreEntry[];
-  mode: AppMode;
   onOpenEntry: (entry: LoreEntry) => void;
-  onUpdateEntry: (entry: LoreEntry) => void;
 }
 
 const timelineModes = [
@@ -16,7 +15,7 @@ const timelineModes = [
   ["emotionalTimeline", "Emotional Timeline"]
 ] as const;
 
-export function TimelineView({ entries, mode, onOpenEntry, onUpdateEntry }: TimelineViewProps) {
+export function TimelineView({ entries, onOpenEntry }: TimelineViewProps) {
   const [timelineMode, setTimelineMode] = useState<(typeof timelineModes)[number][0]>("trueTimeline");
   const timelineEntries = entries.filter((entry) => entry.type === "Timeline Event" || entry.timeline);
 
@@ -52,7 +51,7 @@ export function TimelineView({ entries, mode, onOpenEntry, onUpdateEntry }: Time
               <div>
                 <p className="font-display text-xl">{entry.title}</p>
                 <p className="mt-1 text-sm leading-6">
-                  {entry.timeline?.[timelineMode] || entry.summary}
+                  {richTextToPlainText(entry.timeline?.[timelineMode] || entry.summary)}
                 </p>
               </div>
             </button>
@@ -62,9 +61,7 @@ export function TimelineView({ entries, mode, onOpenEntry, onUpdateEntry }: Time
 
       <EntryGrid
         entries={timelineEntries}
-        mode={mode}
         onOpenEntry={onOpenEntry}
-        onUpdateEntry={onUpdateEntry}
         emptyTitle="No timeline entries yet"
       />
     </div>

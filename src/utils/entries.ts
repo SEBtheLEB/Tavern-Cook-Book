@@ -79,11 +79,14 @@ export const normalizeEntry = (
   const rawMedia = { ...emptyMedia(), ...(input.media || {}) };
   const media = {
     ...rawMedia,
+    characterPortrait: rawMedia.characterPortrait,
+    characterHoverImage: rawMedia.characterHoverImage,
+    ingameSpriteImage: rawMedia.ingameSpriteImage,
+    dialogueSpriteImage: rawMedia.dialogueSpriteImage,
     galleryImages: normalizeStringArray(rawMedia.galleryImages),
     videoLinks: normalizeStringArray(rawMedia.videoLinks),
     uploadedVideos: Array.isArray(rawMedia.uploadedVideos) ? rawMedia.uploadedVideos : []
   };
-
   return {
     id: input.id || `${slugify(title)}-${Math.random().toString(36).slice(2, 7)}`,
     title,

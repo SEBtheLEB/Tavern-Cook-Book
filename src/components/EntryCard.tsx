@@ -1,12 +1,10 @@
-import type { AppMode, LoreEntry } from "../types";
-import { isSupportedImage, readFileAsDataUrl } from "../utils/media";
+import type { LoreEntry } from "../types";
+import { richTextToPlainText } from "../utils/richText";
 import { Icon } from "./Icon";
 
 interface EntryCardProps {
   entry: LoreEntry;
-  mode: AppMode;
   onOpen: (entry: LoreEntry) => void;
-  onUpdate: (entry: LoreEntry) => void;
 }
 
 const statusTone: Record<string, string> = {
@@ -19,22 +17,9 @@ const statusTone: Record<string, string> = {
   "Playtest Scope": "border-sky-500/50 bg-sky-500/10"
 };
 
-export function EntryCard({ entry, mode, onOpen, onUpdate }: EntryCardProps) {
+export function EntryCard({ entry, onOpen }: EntryCardProps) {
   const iconImage = entry.media.iconImage || entry.media.mainImage;
-
-  const uploadIcon = async (file: File | undefined) => {
-    if (!file) return;
-    if (!isSupportedImage(file)) {
-      alert("Please choose a PNG, JPG, JPEG, WEBP, or GIF image.");
-      return;
-    }
-    const dataUrl = await readFileAsDataUrl(file);
-    onUpdate({
-      ...entry,
-      media: { ...entry.media, iconImage: dataUrl },
-      updatedAt: new Date().toISOString()
-    });
-  };
+  const summary = richTextToPlainText(entry.summary || entry.internalLore || "No summary yet.");
 
   return (
     <article
@@ -47,25 +32,11 @@ export function EntryCard({ entry, mode, onOpen, onUpdate }: EntryCardProps) {
       }}
     >
       <div className="flex items-start gap-3">
-        <div className="relative grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded border" style={{ borderColor: "var(--card-border)", background: "var(--field-bg)" }}>
+        <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded border" style={{ borderColor: "var(--card-border)", background: "var(--field-bg)" }}>
           {iconImage ? (
             <img src={iconImage} alt="" className="h-full w-full object-cover" />
           ) : (
             <Icon name="BookOpen" className="h-7 w-7" />
-          )}
-          {mode === "edit" && (
-            <label
-              className="absolute inset-x-1 bottom-1 cursor-pointer rounded bg-black/65 px-1 py-0.5 text-center text-[10px] text-white opacity-0 transition group-hover:opacity-100"
-              onClick={(event) => event.stopPropagation()}
-            >
-              Replace
-              <input
-                className="hidden"
-                type="file"
-                accept="image/png,image/jpeg,image/webp,image/gif"
-                onChange={(event) => uploadIcon(event.target.files?.[0])}
-              />
-            </label>
           )}
         </div>
         <div className="min-w-0 flex-1">
@@ -84,7 +55,7 @@ export function EntryCard({ entry, mode, onOpen, onUpdate }: EntryCardProps) {
         </div>
       </div>
 
-      <p className="mt-4 line-clamp-4 text-sm leading-6">{entry.summary || entry.internalLore || "No summary yet."}</p>
+      <p className="mt-4 line-clamp-4 text-sm leading-6">{summary}</p>
 
       <div className="mt-auto pt-4">
         <div className="flex flex-wrap gap-1.5">

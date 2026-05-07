@@ -1,20 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
-import type { ActiveView, AppMode, LoreDatabase, LoreEntry, ThemeMode, ViewConfig } from "./types";
+import type { ActiveView, LoreDatabase, LoreEntry, ThemeMode, ViewConfig } from "./types";
 import { createStarterDatabase } from "./data/starterData";
 import { mainNavigation } from "./data/navigation";
 import { createBlankEntry, normalizeEntry, slugify } from "./utils/entries";
 import {
   DATABASE_KEY,
   THEME_KEY,
-  loadAppMode,
   loadDatabase,
   loadTheme,
   migrateDatabase,
-  saveAppMode,
   saveDatabase,
   saveTheme
 } from "./utils/storage";
 import { searchEntries } from "./utils/search";
+import { richTextToPlainText } from "./utils/richText";
 import { AssistantPanel } from "./components/AssistantPanel";
 import { Dashboard } from "./components/Dashboard";
 import { EntryGrid } from "./components/EntryGrid";
@@ -26,6 +25,7 @@ import { SettingsPage } from "./components/SettingsPage";
 import { Sidebar } from "./components/Sidebar";
 import { TimelineView } from "./components/TimelineView";
 import { TopBar } from "./components/TopBar";
+import { buildLoreKeywords, LoreKeywordProvider } from "./components/LoreKeywordText";
 
 const extraViews: ViewConfig[] = [
   {
@@ -82,29 +82,27 @@ export default function App() {
     hostedViewer ? createStarterDatabase() : loadDatabase()
   );
   const [theme, setTheme] = useState<ThemeMode>(() => loadTheme());
-  const [mode, setMode] = useState<AppMode>(() => loadAppMode());
   const [activeView, setActiveView] = useState<ActiveView>("dashboard");
   const [selectedEntry, setSelectedEntry] = useState<LoreEntry | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [committedSearch, setCommittedSearch] = useState("");
+  const [referenceQuery, setReferenceQuery] = useState("");
+  const [selectedReferenceKeyword, setSelectedReferenceKeyword] = useState("");
+  const [keywordPopup, setKeywordPopup] = useState("");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [storageWarning, setStorageWarning] = useState("");
 
   useEffect(() => {
     if (!readOnly) {
-      saveDatabase(database);
+      const result = saveDatabase(database);
+      setStorageWarning(result.ok ? "" : result.message || "The app could not save this change.");
     }
   }, [database, readOnly]);
 
   useEffect(() => {
     saveTheme(theme);
   }, [theme]);
-
-  useEffect(() => {
-    if (!readOnly) {
-      saveAppMode(mode);
-    }
-  }, [mode, readOnly]);
 
   useEffect(() => {
     document.title = readOnly ? "The Tavern Cook Book - Live View" : "The Tavern Cook Book";
@@ -150,6 +148,11 @@ export default function App() {
     [database.entries, committedSearch]
   );
 
+  const loreKeywords = useMemo(
+    () => buildLoreKeywords(database.entries),
+    [database.entries]
+  );
+
   const viewEntries = useMemo(
     () => selectEntriesForView(database.entries, activeView),
     [database.entries, activeView]
@@ -184,6 +187,7 @@ export default function App() {
     });
     setDatabase((current) => ({ ...current, entries: [duplicate, ...current.entries] }));
     setSelectedEntry(duplicate);
+    setSelectedReferenceKeyword("");
   };
 
   const deleteEntry = (entry: LoreEntry) => {
@@ -201,12 +205,40 @@ export default function App() {
     const blank = createBlankEntry(category);
     setDatabase((current) => ({ ...current, entries: [blank, ...current.entries] }));
     setSelectedEntry(blank);
+    setSelectedReferenceKeyword("");
+  };
+
+  const openEntry = (entry: LoreEntry) => {
+    setSelectedEntry(entry);
+    setSelectedReferenceKeyword("");
   };
 
   const submitSearch = () => {
     if (!searchQuery.trim()) return;
     setCommittedSearch(searchQuery.trim());
+    setReferenceQuery("");
     setActiveView("search");
+  };
+
+  const openAllReferences = (keyword: string) => {
+    setSearchQuery(keyword);
+    setCommittedSearch(keyword);
+    setReferenceQuery(keyword);
+    setSelectedEntry(null);
+    setSelectedReferenceKeyword("");
+    setKeywordPopup("");
+    setActiveView("search");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const openKeywordReference = (keyword: string) => {
+    setKeywordPopup(keyword);
+  };
+
+  const openEntryFromKeywordPopup = (entry: LoreEntry) => {
+    setSelectedEntry(entry);
+    setSelectedReferenceKeyword(keywordPopup);
+    setKeywordPopup("");
   };
 
   const navigate = (view: ActiveView) => {
@@ -220,6 +252,7 @@ export default function App() {
 
   return (
     <div className={theme === "dream" ? "theme-dream" : ""}>
+      <LoreKeywordProvider keywords={loreKeywords} onKeywordClick={openKeywordReference}>
       <div className="app-shell flex min-h-screen">
         <Sidebar
           database={database}
@@ -235,10 +268,8 @@ export default function App() {
         <main className="min-w-0 flex-1">
           <TopBar
             theme={theme}
-            mode={readOnly ? "view" : mode}
             searchQuery={searchQuery}
             onThemeChange={setTheme}
-            onModeChange={setMode}
             onSearchQueryChange={setSearchQuery}
             onSubmitSearch={submitSearch}
             onCreateEntry={createEntry}
@@ -246,40 +277,42 @@ export default function App() {
             readOnly={readOnly}
           />
 
+          {storageWarning && (
+            <div className="mx-4 mt-4 rounded border border-amber-500/60 bg-amber-500/10 p-3 text-sm md:mx-6">
+              {storageWarning}
+            </div>
+          )}
+
           {activeView === "dashboard" && (
-            <Dashboard database={database} onNavigate={navigate} onOpenEntry={setSelectedEntry} />
+            <Dashboard database={database} onNavigate={navigate} onOpenEntry={openEntry} />
           )}
 
           {activeView === "search" && (
             <SearchResults
               query={committedSearch}
+              referenceQuery={referenceQuery}
               results={results}
-              mode={readOnly ? "view" : mode}
               onClear={() => {
                 setSearchQuery("");
                 setCommittedSearch("");
+                setReferenceQuery("");
                 setActiveView("dashboard");
               }}
-              onOpenEntry={setSelectedEntry}
-              onUpdateEntry={upsertEntry}
+              onOpenEntry={openEntry}
             />
           )}
 
           {activeView === "timeline" && (
             <TimelineView
               entries={database.entries}
-              mode={readOnly ? "view" : mode}
-              onOpenEntry={setSelectedEntry}
-              onUpdateEntry={upsertEntry}
+              onOpenEntry={openEntry}
             />
           )}
 
           {activeView === "secrets" && (
             <SecretsView
               entries={database.entries}
-              mode={readOnly ? "view" : mode}
-              onOpenEntry={setSelectedEntry}
-              onUpdateEntry={upsertEntry}
+              onOpenEntry={openEntry}
             />
           )}
 
@@ -296,10 +329,8 @@ export default function App() {
             <HubPage
               view={activeConfig}
               entries={viewEntries}
-              mode={readOnly ? "view" : mode}
               onNavigate={navigate}
-              onOpenEntry={setSelectedEntry}
-              onUpdateEntry={upsertEntry}
+              onOpenEntry={openEntry}
             />
           )}
 
@@ -309,16 +340,147 @@ export default function App() {
         {selectedEntry && (
           <EntryModal
             entry={selectedEntry}
-            mode={readOnly ? "view" : mode}
+            readOnly={readOnly}
+            referenceKeyword={selectedReferenceKeyword}
             onClose={() => setSelectedEntry(null)}
+            onViewReferences={openAllReferences}
             onSave={upsertEntry}
             onDuplicate={duplicateEntry}
             onDelete={deleteEntry}
           />
         )}
+
+        {keywordPopup && (
+          <KeywordReferencePopup
+            keyword={keywordPopup}
+            entries={database.entries}
+            onClose={() => setKeywordPopup("")}
+            onOpenEntry={openEntryFromKeywordPopup}
+            onViewAllReferences={openAllReferences}
+          />
+        )}
       </div>
+      </LoreKeywordProvider>
     </div>
   );
+}
+
+function KeywordReferencePopup({
+  keyword,
+  entries,
+  onClose,
+  onOpenEntry,
+  onViewAllReferences
+}: {
+  keyword: string;
+  entries: LoreEntry[];
+  onClose: () => void;
+  onOpenEntry: (entry: LoreEntry) => void;
+  onViewAllReferences: (keyword: string) => void;
+}) {
+  const primaryEntry = findPrimaryKeywordEntry(entries, keyword);
+  const referenceEntries = orderKeywordReferences(searchEntries(entries, keyword), primaryEntry);
+  const previewEntries = referenceEntries.slice(0, 8);
+
+  return (
+    <div className="keyword-reference-backdrop">
+      <section className="keyword-reference-popup">
+        <header className="keyword-reference-header">
+          <div>
+            <p>Linked lore keyword</p>
+            <h2 className="font-display">{keyword}</h2>
+          </div>
+          <button className="keyword-reference-close" onClick={onClose} title="Close keyword references">
+            X
+          </button>
+        </header>
+
+        <div className="keyword-reference-body entry-scroll">
+          {primaryEntry && (
+            <article className="keyword-reference-primary">
+              <div>
+                <p>Main module</p>
+                <h3>{primaryEntry.title}</h3>
+                <span>{primaryEntry.category} / {primaryEntry.type}</span>
+              </div>
+              <button onClick={() => onOpenEntry(primaryEntry)}>
+                Open Main Module
+              </button>
+            </article>
+          )}
+
+          <div className="keyword-reference-list">
+            {previewEntries.map((entry) => (
+              <article key={entry.id} className="keyword-reference-card">
+                <div className="keyword-reference-thumb">
+                  {entry.media.iconImage || entry.media.mainImage || entry.media.characterPortrait ? (
+                    <img src={entry.media.iconImage || entry.media.mainImage || entry.media.characterPortrait} alt="" />
+                  ) : (
+                    <span>{entry.title.slice(0, 1)}</span>
+                  )}
+                </div>
+                <div>
+                  <p>{entry.category} / {entry.type}</p>
+                  <h3>{entry.title}</h3>
+                  <span>{richTextToPlainText(entry.summary || entry.publicDescription || entry.internalLore || "No summary yet.")}</span>
+                </div>
+                <button onClick={() => onOpenEntry(entry)}>
+                  Open
+                </button>
+              </article>
+            ))}
+          </div>
+
+          {!referenceEntries.length && (
+            <div className="keyword-reference-empty">
+              No modules reference this keyword yet.
+            </div>
+          )}
+        </div>
+
+        <footer className="keyword-reference-footer">
+          <button onClick={onClose}>Stay Here</button>
+          <button className="button-frame" onClick={() => onViewAllReferences(keyword)}>
+            View Full References Page
+          </button>
+        </footer>
+      </section>
+    </div>
+  );
+}
+
+function orderKeywordReferences(results: LoreEntry[], primaryEntry: LoreEntry | null) {
+  if (!primaryEntry) return results;
+  return [
+    primaryEntry,
+    ...results.filter((entry) => entry.id !== primaryEntry.id)
+  ];
+}
+
+function findPrimaryKeywordEntry(entries: LoreEntry[], keyword: string) {
+  const normalizedKeyword = normalizeKeyword(keyword);
+  if (!normalizedKeyword) return null;
+
+  return (
+    entries.find((entry) =>
+      getEntryKeywordAliases(entry).some((alias) => normalizeKeyword(alias) === normalizedKeyword)
+    ) || null
+  );
+}
+
+function getEntryKeywordAliases(entry: LoreEntry) {
+  const aliases = [
+    entry.title,
+    entry.title.replace(/^Secret:\s*/i, ""),
+    entry.title.replace(/^Public\s+/i, ""),
+    ...entry.title.split(/\s*\/\s*/)
+  ];
+
+  return aliases.filter(Boolean);
+}
+
+function normalizeKeyword(value: string) {
+  return value.trim().replace(/\s+/g, " ").toLowerCase();
 }
 
 function selectEntriesForView(entries: LoreEntry[], view: ActiveView) {
