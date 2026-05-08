@@ -120,6 +120,19 @@ export interface EntryMedia {
   mediaNotes?: string;
 }
 
+export interface CharacterArtGalleryItem {
+  id: string;
+  title: string;
+  category: string;
+  driveFileId: string;
+  thumbnailUrl: string;
+  webViewLink: string;
+  dateAdded: string;
+  isFeatured: boolean;
+  notes: string;
+  uploadStatus?: "mock-local-preview" | string;
+}
+
 export interface LoreEntry {
   id: string;
   title: string;
@@ -138,6 +151,9 @@ export interface LoreEntry {
   secret?: SecretInfo;
   wiki?: WikiFields;
   media: EntryMedia;
+  artGallery: CharacterArtGalleryItem[];
+  driveFolderId: string;
+  driveFolderLink: string;
   createdAt: string;
   updatedAt: string;
 }

@@ -1,7 +1,16 @@
 import { useEffect, useState } from "react";
 import type { LoreDatabase, ThemeMode } from "../types";
 import { createStarterDatabase } from "../data/starterData";
-import { estimateStorageBytes, formatBytes, migrateDatabase } from "../utils/storage";
+import type { DriveSettings } from "../utils/driveSettings";
+import {
+  clearDriveSettings,
+  createEmptyDriveSettings,
+  findUnsafeDriveSettings,
+  getDriveSettings,
+  isDriveConfigured,
+  saveDriveSettings
+} from "../utils/driveSettings";
+import { estimateStorageBytes, formatBytes, migrateDatabase, sanitizeDatabaseForPersistence } from "../utils/storage";
 import { isSupportedImage, readImageFileForStorage } from "../utils/media";
 import { createShareableHtml } from "../utils/shareExport";
 import { Icon } from "./Icon";
@@ -23,7 +32,9 @@ interface HealthState {
 export function SettingsPage({ database, theme, onDatabaseChange, onThemeChange }: SettingsPageProps) {
   const [message, setMessage] = useState("");
   const [health, setHealth] = useState<HealthState | null>(null);
+  const [driveSettings, setDriveSettingsState] = useState<DriveSettings>(() => getDriveSettings());
   const storageBytes = estimateStorageBytes(database);
+  const driveConfigured = isDriveConfigured(driveSettings);
 
   useEffect(() => {
     fetch("/api/health")
@@ -39,7 +50,7 @@ export function SettingsPage({ database, theme, onDatabaseChange, onThemeChange 
   }, []);
 
   const exportJson = () => {
-    const blob = new Blob([JSON.stringify(database, null, 2)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify(sanitizeDatabaseForPersistence(database), null, 2)], { type: "application/json" });
     const href = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = href;
@@ -49,7 +60,7 @@ export function SettingsPage({ database, theme, onDatabaseChange, onThemeChange 
   };
 
   const exportWebsiteDataJson = () => {
-    const blob = new Blob([JSON.stringify(database, null, 2)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify(sanitizeDatabaseForPersistence(database), null, 2)], { type: "application/json" });
     const href = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = href;
@@ -114,6 +125,58 @@ export function SettingsPage({ database, theme, onDatabaseChange, onThemeChange 
       setMessage("Logo image saved.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not prepare this logo image for storage.");
+    }
+  };
+
+  const updateDriveSetting = (key: keyof DriveSettings, value: string) => {
+    setDriveSettingsState((current) => ({ ...current, [key]: value }));
+  };
+
+  const saveCurrentDriveSettings = () => {
+    const findings = findUnsafeDriveSettings(driveSettings);
+    if (findings.length) {
+      setMessage(
+        `Drive settings were not saved. ${findings.map((finding) => `${finding.label} ${finding.reason}`).join("; ")}.`
+      );
+      return;
+    }
+
+    try {
+      saveDriveSettings(driveSettings);
+      setMessage("Google Drive settings saved locally. Upload and Picker import can use them now.");
+    } catch {
+      setMessage("Could not save Google Drive settings in this browser.");
+    }
+  };
+
+  const testDriveSetup = () => {
+    if (!isDriveConfigured(driveSettings)) {
+      setMessage("Google Drive is not connected yet. Add your API Key and OAuth Client ID in Settings first.");
+      return;
+    }
+
+    const optionalFoldersMissing = [
+      driveSettings.defaultTalesFolderId,
+      driveSettings.defaultCharactersFolderId,
+      driveSettings.defaultWorldArtFolderId,
+      driveSettings.defaultMarketingArtFolderId
+    ].some((field) => !field.trim());
+
+    setMessage(
+      optionalFoldersMissing
+        ? "Drive setup has the required API Key and OAuth Client ID. Folder IDs can be added now or later."
+        : "Drive setup looks ready locally. No Google connection or upload was attempted."
+    );
+  };
+
+  const clearCurrentDriveSettings = () => {
+    if (!window.confirm("Clear saved Google Drive settings from this browser?")) return;
+    try {
+      clearDriveSettings();
+      setDriveSettingsState(createEmptyDriveSettings());
+      setMessage("Google Drive settings cleared.");
+    } catch {
+      setMessage("Could not clear Google Drive settings in this browser.");
     }
   };
 
@@ -222,6 +285,92 @@ export function SettingsPage({ database, theme, onDatabaseChange, onThemeChange 
         </div>
       </section>
 
+      <section className="soft-panel rounded p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="font-display text-2xl">Google Drive Integration</h3>
+            <p className="mt-2 max-w-3xl text-sm leading-6" style={{ color: "var(--muted-ink)" }}>
+              Add your Google API Key and OAuth Client ID from Google Cloud Console. The app stores setup
+              details locally and saves only lightweight Drive metadata for gallery images.
+            </p>
+          </div>
+          <span className="rounded-full border px-3 py-1 text-sm" style={{ borderColor: "var(--card-border)", background: "var(--field-bg)" }}>
+            {driveConfigured ? "Configured locally" : "Not connected"}
+          </span>
+        </div>
+
+        <div className="mt-4 rounded border p-3" style={{ borderColor: "var(--danger-border)", background: "var(--danger-bg)" }}>
+          <p className="font-semibold" style={{ color: "var(--danger-ink)" }}>
+            Only use a restricted Google API key. Do not paste service account keys, client secrets, private keys, access tokens, or refresh tokens here.
+          </p>
+        </div>
+
+        <div className="mt-4 rounded border p-3" style={{ borderColor: "var(--card-border)", background: "var(--field-bg)" }}>
+          <h4 className="font-display text-xl">Drive Security Checklist</h4>
+          <ul className="mt-2 grid gap-1 text-sm" style={{ color: "var(--muted-ink)" }}>
+            <li>API key restricted to this website/domain</li>
+            <li>API key restricted to only required Google APIs</li>
+            <li>OAuth JavaScript origins restricted to this app domain</li>
+            <li>Drive scope limited to drive.file</li>
+            <li>Shared Drive folder permissions configured manually in Google Drive</li>
+          </ul>
+        </div>
+
+        <div className="mt-4 grid gap-3 lg:grid-cols-2">
+          <DriveSettingsInput
+            label="Google API Key"
+            value={driveSettings.googleApiKey}
+            placeholder="Paste API key from Google Cloud Console"
+            type="password"
+            onChange={(value) => updateDriveSetting("googleApiKey", value)}
+          />
+          <DriveSettingsInput
+            label="Google OAuth Client ID"
+            value={driveSettings.googleOAuthClientId}
+            placeholder="Paste OAuth client ID from Google Cloud Console"
+            onChange={(value) => updateDriveSetting("googleOAuthClientId", value)}
+          />
+          <DriveSettingsInput
+            label="Default Tales of the Tavern Drive Folder ID"
+            value={driveSettings.defaultTalesFolderId}
+            placeholder="Main lore bible Drive folder ID"
+            onChange={(value) => updateDriveSetting("defaultTalesFolderId", value)}
+          />
+          <DriveSettingsInput
+            label="Default Characters Folder ID"
+            value={driveSettings.defaultCharactersFolderId}
+            placeholder="Characters art/reference folder ID"
+            onChange={(value) => updateDriveSetting("defaultCharactersFolderId", value)}
+          />
+          <DriveSettingsInput
+            label="Default World Art Folder ID"
+            value={driveSettings.defaultWorldArtFolderId}
+            placeholder="World art/reference folder ID"
+            onChange={(value) => updateDriveSetting("defaultWorldArtFolderId", value)}
+          />
+          <DriveSettingsInput
+            label="Default Marketing Art Folder ID"
+            value={driveSettings.defaultMarketingArtFolderId}
+            placeholder="Marketing art folder ID"
+            onChange={(value) => updateDriveSetting("defaultMarketingArtFolderId", value)}
+          />
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-3">
+          <button className="button-frame inline-flex items-center gap-2 rounded px-4 py-2" onClick={saveCurrentDriveSettings}>
+            <Icon name="Save" className="h-4 w-4" />
+            Save Drive Settings
+          </button>
+          <button className="button-frame inline-flex items-center gap-2 rounded px-4 py-2" onClick={testDriveSetup}>
+            <Icon name="Activity" className="h-4 w-4" />
+            Test Drive Setup
+          </button>
+          <button className="rounded border border-rose-500/50 px-4 py-2 text-rose-700" onClick={clearCurrentDriveSettings}>
+            Clear Drive Settings
+          </button>
+        </div>
+      </section>
+
       <section className="grid gap-4 xl:grid-cols-2">
         <div className="soft-panel rounded p-4">
           <h3 className="font-display text-2xl">AI Backend Status</h3>
@@ -263,5 +412,34 @@ export function SettingsPage({ database, theme, onDatabaseChange, onThemeChange 
         </div>
       </section>
     </div>
+  );
+}
+
+function DriveSettingsInput({
+  label,
+  value,
+  placeholder,
+  type = "text",
+  onChange
+}: {
+  label: string;
+  value: string;
+  placeholder: string;
+  type?: "text" | "password";
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="block text-sm">
+      <span className="font-semibold">{label}</span>
+      <input
+        className="mt-1 w-full rounded border px-3 py-2"
+        style={{ borderColor: "var(--card-border)", background: "var(--field-bg)", color: "var(--ink)" }}
+        type={type}
+        value={value}
+        placeholder={placeholder}
+        autoComplete="off"
+        onChange={(event) => onChange(event.target.value)}
+      />
+    </label>
   );
 }

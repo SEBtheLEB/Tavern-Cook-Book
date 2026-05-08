@@ -1,4 +1,5 @@
 import type {
+  CharacterArtGalleryItem,
   EntryConnections,
   EntryMedia,
   EntryNotes,
@@ -56,6 +57,28 @@ const normalizeStringArray = (value: unknown): string[] => {
   return [];
 };
 
+const normalizeArtGallery = (value: unknown): CharacterArtGalleryItem[] => {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item): item is Partial<CharacterArtGalleryItem> => Boolean(item) && typeof item === "object")
+    .map((item, index) => ({
+      id: typeof item.id === "string" && item.id.trim() ? item.id : `art-${Date.now()}-${index}`,
+      title: typeof item.title === "string" ? item.title : "",
+      category: typeof item.category === "string" ? item.category : "",
+      driveFileId: typeof item.driveFileId === "string" ? item.driveFileId : "",
+      thumbnailUrl: typeof item.thumbnailUrl === "string" && !item.thumbnailUrl.trim().toLowerCase().startsWith("data:") ? item.thumbnailUrl : "",
+      webViewLink: typeof item.webViewLink === "string" ? item.webViewLink : "",
+      dateAdded: typeof item.dateAdded === "string" && item.dateAdded ? item.dateAdded : nowIso(),
+      isFeatured: Boolean(item.isFeatured),
+      notes: typeof item.notes === "string" ? item.notes : "",
+      uploadStatus: typeof item.uploadStatus === "string" ? item.uploadStatus : undefined
+    }))
+    .map((item, index, items) => ({
+      ...item,
+      isFeatured: item.isFeatured && items.findIndex((candidate) => candidate.isFeatured) === index
+    }));
+};
+
 export const normalizeEntry = (
   input: Partial<LoreEntry> & { title?: string },
   fallbackCategory = "Story"
@@ -105,6 +128,9 @@ export const normalizeEntry = (
     secret: input.secret,
     wiki: input.wiki,
     media,
+    artGallery: normalizeArtGallery(input.artGallery),
+    driveFolderId: typeof input.driveFolderId === "string" ? input.driveFolderId : "",
+    driveFolderLink: typeof input.driveFolderLink === "string" ? input.driveFolderLink : "",
     createdAt,
     updatedAt: input.updatedAt || createdAt
   };

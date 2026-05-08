@@ -1,7 +1,14 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import type { EntryConnections, EntryMedia, EntryNotes, LoreEntry } from "../types";
-import { isSupportedImage, readImageFileForStorage } from "../utils/media";
+import type { CharacterArtGalleryItem, EntryConnections, EntryMedia, EntryNotes, LoreEntry } from "../types";
+import { isDriveConfigured, showDriveSetupMessage } from "../utils/driveSettings";
+import {
+  addUploadedDriveImageToCharacter,
+  handlePickedDriveFile,
+  openGooglePickerForCharacter,
+  uploadImageToDrive
+} from "../utils/googlePicker";
+import { fileSizeLabel, isSupportedImage, readImageFileForStorage } from "../utils/media";
 import { Icon } from "./Icon";
 import { LoreKeywordText } from "./LoreKeywordText";
 import { RichLoreText, RichTextEditor } from "./RichText";
@@ -94,7 +101,19 @@ interface CharacterAssistantPayload {
   notes?: Partial<EntryNotes>;
 }
 
+interface DriveUploadDraft {
+  file: File;
+  previewUrl: string;
+  category: string;
+  notes: string;
+  uploading: boolean;
+  message: string;
+}
+
 const spoilerOptions = ["No Spoiler", "Minor Spoiler", "Major Spoiler", "Ending Spoiler"];
+const artUploadCategories = ["Portraits", "Expressions", "Turnarounds", "Screenshots", "Concept Art", "Marketing Art", "Reference", "Imported From Drive"];
+const artGalleryFilters = ["All", "Featured", "Portraits", "Expressions", "Turnarounds", "Screenshots", "Concept Art", "Marketing Art", "Imported From Drive"];
+const artGallerySortOptions = ["Newest first", "Oldest first", "Title A-Z", "Category"];
 
 const storySections: Array<{
   key: StoryKey;
@@ -181,8 +200,16 @@ export function CharacterProfileView({
   const [assistantPrompt, setAssistantPrompt] = useState("");
   const [assistantImport, setAssistantImport] = useState("");
   const [assistantMessage, setAssistantMessage] = useState("");
+  const [artGalleryModalOpen, setArtGalleryModalOpen] = useState(false);
+  const [editingArtGalleryId, setEditingArtGalleryId] = useState<string | null>(null);
+  const [artGalleryDraft, setArtGalleryDraft] = useState<CharacterArtGalleryItem>(() => createBlankArtGalleryItem());
+  const [driveFolderModalOpen, setDriveFolderModalOpen] = useState(false);
+  const [driveFolderDraft, setDriveFolderDraft] = useState({ id: entry.driveFolderId || "", link: entry.driveFolderLink || "" });
+  const [driveUploadDraft, setDriveUploadDraft] = useState<DriveUploadDraft | null>(null);
+  const driveUploadInputRef = useRef<HTMLInputElement | null>(null);
   const character = useMemo(() => buildCharacterView(entry), [entry]);
   const galleryItems = useMemo(() => buildGalleryItems(entry), [entry]);
+  const artGallery = entry.artGallery || [];
   const visibleGallery = galleryItems.slice(0, 4);
   const visibleRelationships = showAllRelationships
     ? character.relationships
@@ -227,6 +254,228 @@ export function CharacterProfileView({
       return;
     }
     onRemoveImage("galleryImages", item.galleryIndex);
+  };
+
+  const confirmDuplicateDriveFile = (driveFileId: string, ignoreGalleryId?: string | null) => {
+    const normalizedId = driveFileId.trim();
+    if (!normalizedId) return true;
+
+    const duplicate = artGallery.find(
+      (item) => item.driveFileId.trim() === normalizedId && item.id !== ignoreGalleryId
+    );
+    if (!duplicate) return true;
+
+    return window.confirm(
+      `"${duplicate.title || "This Drive file"}" is already in this character's gallery. Add it again anyway?`
+    );
+  };
+
+  const openDriveUploadPicker = () => {
+    if (!isDriveConfigured()) {
+      showDriveSetupMessage();
+      return;
+    }
+    if (!entry.driveFolderId.trim()) {
+      window.alert("Set a Drive folder for this character before uploading art.");
+      return;
+    }
+    if (!isEditing) {
+      window.alert("Click Edit first, then upload art for this character.");
+      return;
+    }
+
+    driveUploadInputRef.current?.click();
+  };
+
+  const prepareDriveUpload = (file: File | undefined) => {
+    if (!file) return;
+    if (!isSupportedImage(file)) {
+      window.alert("Choose a JPG, JPEG, PNG, WEBP, or GIF image.");
+      return;
+    }
+
+    const previewUrl = URL.createObjectURL(file);
+    setDriveUploadDraft((current) => {
+      if (current?.previewUrl) URL.revokeObjectURL(current.previewUrl);
+      return {
+        file,
+        previewUrl,
+        category: "Concept Art",
+        notes: "",
+        uploading: false,
+        message: ""
+      };
+    });
+  };
+
+  const closeDriveUpload = () => {
+    if (driveUploadDraft?.previewUrl) URL.revokeObjectURL(driveUploadDraft.previewUrl);
+    setDriveUploadDraft(null);
+  };
+
+  const uploadSelectedImageToDrive = async () => {
+    if (!driveUploadDraft) return;
+
+    setDriveUploadDraft((current) => current ? { ...current, uploading: true, message: "Uploading image to Google Drive..." } : current);
+    try {
+      const uploadedFile = await uploadImageToDrive(driveUploadDraft.file, entry.driveFolderId);
+      if (!confirmDuplicateDriveFile(uploadedFile.id)) {
+        setDriveUploadDraft((current) => current
+          ? {
+              ...current,
+              uploading: false,
+              message: "Upload finished, but it was not added because this Drive file is already in the gallery."
+            }
+          : current);
+        return;
+      }
+      addUploadedDriveImageToCharacter(
+        entry.id,
+        uploadedFile,
+        driveUploadDraft.category,
+        driveUploadDraft.notes.trim(),
+        (uploadedItem) => {
+          onChange({ artGallery: [uploadedItem, ...artGallery] });
+        }
+      );
+      URL.revokeObjectURL(driveUploadDraft.previewUrl);
+      setDriveUploadDraft(null);
+      window.alert(`Uploaded "${uploadedFile.name}" to Google Drive and added it to ${entry.title}'s gallery.`);
+    } catch (uploadError) {
+      setDriveUploadDraft((current) => current
+        ? {
+            ...current,
+            uploading: false,
+            message: uploadError instanceof Error ? uploadError.message : "Upload failed. Try again."
+          }
+        : current);
+    }
+  };
+
+  const importArtFromDrive = async () => {
+    if (!isEditing) {
+      window.alert("Click Edit first, then import Drive art for this character.");
+      return;
+    }
+
+    try {
+      const pickedFile = await openGooglePickerForCharacter(entry.id);
+      if (!pickedFile) return;
+      if (!confirmDuplicateDriveFile(pickedFile.id)) return;
+
+      handlePickedDriveFile(pickedFile, entry.id, (pickedItem) => {
+        onChange({ artGallery: [pickedItem, ...artGallery] });
+      });
+      window.alert(`Imported "${pickedFile.name}" from Google Drive into ${entry.title}'s gallery.`);
+    } catch (pickerError) {
+      window.alert(pickerError instanceof Error ? pickerError.message : "Google Picker could not import that image.");
+    }
+  };
+
+  const openAddArtGalleryItem = () => {
+    if (!isEditing) {
+      window.alert("Click Edit first, then add image link metadata.");
+      return;
+    }
+    setEditingArtGalleryId(null);
+    setArtGalleryDraft(createBlankArtGalleryItem());
+    setArtGalleryModalOpen(true);
+  };
+
+  const openEditArtGalleryItem = (item: CharacterArtGalleryItem) => {
+    if (!isEditing) {
+      window.alert("Click Edit first, then edit image metadata.");
+      return;
+    }
+    setEditingArtGalleryId(item.id);
+    setArtGalleryDraft({ ...item });
+    setArtGalleryModalOpen(true);
+  };
+
+  const saveArtGalleryItem = () => {
+    if (!isEditing) return;
+    if (isStoredImageData(artGalleryDraft.thumbnailUrl) || isStoredImageData(artGalleryDraft.webViewLink)) {
+      window.alert("Use a normal image/link URL. This gallery stores metadata only, not pasted image data.");
+      return;
+    }
+
+    const cleanItem: CharacterArtGalleryItem = {
+      ...artGalleryDraft,
+      id: artGalleryDraft.id || `art-${Date.now()}`,
+      title: artGalleryDraft.title.trim() || "Untitled Art Reference",
+      category: artGalleryDraft.category.trim() || "Reference",
+      driveFileId: artGalleryDraft.driveFileId.trim(),
+      thumbnailUrl: artGalleryDraft.thumbnailUrl.trim(),
+      webViewLink: artGalleryDraft.webViewLink.trim(),
+      dateAdded: artGalleryDraft.dateAdded || new Date().toISOString(),
+      notes: artGalleryDraft.notes.trim()
+    };
+    if (!confirmDuplicateDriveFile(cleanItem.driveFileId, editingArtGalleryId)) return;
+    const nextGallery = editingArtGalleryId
+      ? artGallery.map((item) => (item.id === editingArtGalleryId ? cleanItem : item))
+      : [cleanItem, ...artGallery];
+    onChange({ artGallery: nextGallery });
+    setArtGalleryModalOpen(false);
+  };
+
+  const setFeaturedArtGalleryItem = (id: string) => {
+    if (!isEditing) {
+      window.alert("Click Edit first, then choose a featured image.");
+      return;
+    }
+    onChange({
+      artGallery: artGallery.map((item) => ({
+        ...item,
+        isFeatured: item.id === id
+      }))
+    });
+  };
+
+  const removeArtGalleryItem = (item: CharacterArtGalleryItem) => {
+    if (!isEditing) {
+      window.alert("Click Edit first, then remove image metadata.");
+      return;
+    }
+    if (!window.confirm(`Remove "${item.title || "this art reference"}" from this character? This will not delete anything from Google Drive.`)) {
+      return;
+    }
+    if (isTemporaryObjectUrl(item.thumbnailUrl)) {
+      URL.revokeObjectURL(item.thumbnailUrl);
+    }
+    onChange({ artGallery: artGallery.filter((galleryItem) => galleryItem.id !== item.id) });
+  };
+
+  const viewArtGalleryItem = (item: CharacterArtGalleryItem) => {
+    if (!item.webViewLink) {
+      window.alert("No view link has been added for this art reference yet.");
+      return;
+    }
+    window.open(item.webViewLink, "_blank", "noopener,noreferrer");
+  };
+
+  const openDriveFolderModal = () => {
+    if (!isEditing) {
+      window.alert("Click Edit first, then set the character Drive folder.");
+      return;
+    }
+    setDriveFolderDraft({ id: entry.driveFolderId || "", link: entry.driveFolderLink || "" });
+    setDriveFolderModalOpen(true);
+  };
+
+  const saveDriveFolder = () => {
+    onChange({
+      driveFolderId: driveFolderDraft.id.trim(),
+      driveFolderLink: driveFolderDraft.link.trim()
+    });
+    setDriveFolderModalOpen(false);
+  };
+
+  const openDriveFolder = () => {
+    if (!entry.driveFolderLink) {
+      window.alert("No Drive folder link has been set for this character yet.");
+      return;
+    }
+    window.open(entry.driveFolderLink, "_blank", "noopener,noreferrer");
   };
 
   const updateMedia = (patch: Partial<EntryMedia>) => {
@@ -610,6 +859,38 @@ export function CharacterProfileView({
               />
             )}
           </CodexCard>
+
+          <CodexCard title="Art Gallery" icon="Image" wide>
+            <CharacterDriveFolderModule
+              driveFolderId={entry.driveFolderId || ""}
+              driveFolderLink={entry.driveFolderLink || ""}
+              isEditing={isEditing}
+              onSetFolder={openDriveFolderModal}
+              onOpenFolder={openDriveFolder}
+            />
+            <CharacterArtGallery
+              items={artGallery}
+              isEditing={isEditing}
+              onAdd={openAddArtGalleryItem}
+              onUploadToDrive={openDriveUploadPicker}
+              onOpenDriveFolder={openDriveFolder}
+              onImportFromDrive={importArtFromDrive}
+              onView={viewArtGalleryItem}
+              onSetFeatured={setFeaturedArtGalleryItem}
+              onEdit={openEditArtGalleryItem}
+              onRemove={removeArtGalleryItem}
+            />
+            <input
+              ref={driveUploadInputRef}
+              className="hidden"
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              onChange={(event) => {
+                prepareDriveUpload(event.target.files?.[0]);
+                event.currentTarget.value = "";
+              }}
+            />
+          </CodexCard>
         </section>
       </main>
 
@@ -640,7 +921,567 @@ export function CharacterProfileView({
           onClose={() => setAssistantOpen(false)}
         />
       )}
+
+      {artGalleryModalOpen && (
+        <CharacterArtGalleryModal
+          draft={artGalleryDraft}
+          onChange={(patch) => setArtGalleryDraft((current) => ({ ...current, ...patch }))}
+          onSave={saveArtGalleryItem}
+          onClose={() => setArtGalleryModalOpen(false)}
+        />
+      )}
+
+      {driveFolderModalOpen && (
+        <CharacterDriveFolderModal
+          driveFolderId={driveFolderDraft.id}
+          driveFolderLink={driveFolderDraft.link}
+          onChange={setDriveFolderDraft}
+          onSave={saveDriveFolder}
+          onClose={() => setDriveFolderModalOpen(false)}
+        />
+      )}
+
+      {driveUploadDraft && (
+        <DriveUploadModal
+          draft={driveUploadDraft}
+          characterName={entry.title}
+          driveFolderId={entry.driveFolderId}
+          onChange={(patch) => setDriveUploadDraft((current) => current ? { ...current, ...patch } : current)}
+          onCancel={closeDriveUpload}
+          onUpload={uploadSelectedImageToDrive}
+        />
+      )}
     </article>
+  );
+}
+
+function CharacterDriveFolderModule({
+  driveFolderId,
+  driveFolderLink,
+  isEditing,
+  onSetFolder,
+  onOpenFolder
+}: {
+  driveFolderId: string;
+  driveFolderLink: string;
+  isEditing: boolean;
+  onSetFolder: () => void;
+  onOpenFolder: () => void;
+}) {
+  const connected = Boolean(driveFolderId.trim());
+
+  return (
+    <section className="character-drive-folder-module">
+      <div>
+        <span className={connected ? "connected" : ""}>
+          <Icon name={connected ? "FolderOpen" : "Folder"} className="h-4 w-4" />
+          {connected ? "Drive folder connected" : "No Drive folder set"}
+        </span>
+        {connected && <small>{driveFolderId}</small>}
+      </div>
+      <div>
+        <button onClick={onSetFolder} disabled={!isEditing} title={isEditing ? "Set Drive folder metadata" : "Click Edit first"}>
+          <Icon name="Edit3" className="h-4 w-4" />
+          Set Drive Folder
+        </button>
+        <button onClick={onOpenFolder} disabled={!driveFolderLink}>
+          <Icon name="FolderOpen" className="h-4 w-4" />
+          Open Folder
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function CharacterDriveFolderModal({
+  driveFolderId,
+  driveFolderLink,
+  onChange,
+  onSave,
+  onClose
+}: {
+  driveFolderId: string;
+  driveFolderLink: string;
+  onChange: (value: { id: string; link: string }) => void;
+  onSave: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="character-drive-folder-modal-backdrop">
+      <section className="character-drive-folder-modal">
+        <header>
+          <div>
+            <p>Character Drive Folder</p>
+            <h2 className="font-display">Set Drive Folder</h2>
+          </div>
+          <button className="character-codex-icon-button" onClick={onClose} title="Close Drive folder form">
+            <Icon name="X" className="h-5 w-5" />
+          </button>
+        </header>
+        <div className="character-drive-folder-form">
+          <label>
+            <span>Google Drive Folder ID</span>
+            <EditInput
+              value={driveFolderId}
+              placeholder="Folder ID"
+              onChange={(id) => onChange({ id, link: driveFolderLink })}
+            />
+          </label>
+          <label>
+            <span>Google Drive Folder Link</span>
+            <EditInput
+              value={driveFolderLink}
+              placeholder="https://drive.google.com/drive/folders/..."
+              onChange={(link) => onChange({ id: driveFolderId, link })}
+            />
+          </label>
+        </div>
+        <footer>
+          <p>This stores the folder target only. Upload and import actions use this folder metadata when needed.</p>
+          <div>
+            <button className="character-codex-action-button" onClick={onClose}>Cancel</button>
+            <button className="button-frame character-codex-action-button" onClick={onSave}>
+              <Icon name="Save" className="h-4 w-4" />
+              Save Folder
+            </button>
+          </div>
+        </footer>
+      </section>
+    </div>
+  );
+}
+
+function DriveUploadModal({
+  draft,
+  characterName,
+  driveFolderId,
+  onChange,
+  onCancel,
+  onUpload
+}: {
+  draft: DriveUploadDraft;
+  characterName: string;
+  driveFolderId: string;
+  onChange: (patch: Partial<Pick<DriveUploadDraft, "category" | "notes">>) => void;
+  onCancel: () => void;
+  onUpload: () => void;
+}) {
+  return (
+    <div className="character-drive-upload-modal-backdrop">
+      <section className="character-drive-upload-modal">
+        <header>
+          <div>
+            <p>Google Drive Upload</p>
+            <h2 className="font-display">Upload to Drive</h2>
+          </div>
+          <button className="character-codex-icon-button" onClick={onCancel} title="Close upload form">
+            <Icon name="X" className="h-5 w-5" />
+          </button>
+        </header>
+
+        <div className="character-drive-upload-body">
+          <div className="character-drive-upload-preview">
+            <img src={draft.previewUrl} alt="" />
+            <span>Preview only. The saved gallery item will use Google Drive metadata.</span>
+          </div>
+
+          <div className="character-drive-upload-details">
+            <InfoRow label="File Name" value={draft.file.name} />
+            <InfoRow label="File Type" value={draft.file.type || "Unknown image type"} />
+            <InfoRow label="File Size" value={fileSizeLabel(draft.file.size)} />
+            <InfoRow label="Selected Character" value={characterName} />
+            <InfoRow label="Target Drive Folder ID" value={driveFolderId} />
+
+            <label>
+              <span>Category</span>
+              <select
+                className="character-codex-edit-field"
+                value={draft.category}
+                disabled={draft.uploading}
+                onChange={(event) => onChange({ category: event.target.value })}
+              >
+                {artUploadCategories.map((category) => (
+                  <option key={category}>{category}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>Notes</span>
+              <textarea
+                className="character-codex-edit-field"
+                value={draft.notes}
+                placeholder="What is this art for? Pose notes, expression notes, version notes, etc."
+                disabled={draft.uploading}
+                onChange={(event) => onChange({ notes: event.target.value })}
+              />
+            </label>
+            {draft.message && (
+              <p className={`character-drive-upload-message ${draft.uploading ? "loading" : "error"}`}>
+                {draft.message}
+              </p>
+            )}
+          </div>
+        </div>
+
+        <footer>
+          <p>The file is uploaded to Google Drive. The Cook Book stores only Drive metadata.</p>
+          <div>
+            <button className="character-codex-action-button" onClick={onCancel} disabled={draft.uploading}>Cancel</button>
+            <button className="button-frame character-codex-action-button" onClick={onUpload} disabled={draft.uploading}>
+              <Icon name="Upload" className="h-4 w-4" />
+              {draft.uploading ? "Uploading..." : "Upload to Drive"}
+            </button>
+          </div>
+        </footer>
+      </section>
+    </div>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="character-drive-upload-info-row">
+      <span>{label}</span>
+      <strong>{value || "Not set"}</strong>
+    </div>
+  );
+}
+
+function CharacterArtGallery({
+  items,
+  isEditing,
+  onAdd,
+  onUploadToDrive,
+  onOpenDriveFolder,
+  onImportFromDrive,
+  onView,
+  onSetFeatured,
+  onEdit,
+  onRemove
+}: {
+  items: CharacterArtGalleryItem[];
+  isEditing: boolean;
+  onAdd: () => void;
+  onUploadToDrive: () => void;
+  onOpenDriveFolder: () => void;
+  onImportFromDrive: () => void;
+  onView: (item: CharacterArtGalleryItem) => void;
+  onSetFeatured: (id: string) => void;
+  onEdit: (item: CharacterArtGalleryItem) => void;
+  onRemove: (item: CharacterArtGalleryItem) => void;
+}) {
+  const [activeFilter, setActiveFilter] = useState("All");
+  const [sortMode, setSortMode] = useState("Newest first");
+  const [previewItem, setPreviewItem] = useState<CharacterArtGalleryItem | null>(null);
+  const visibleItems = sortArtGalleryItems(
+    items.filter((item) => artGalleryFilterMatches(item, activeFilter)),
+    sortMode
+  );
+  const hasItems = items.length > 0;
+
+  return (
+    <div className="character-art-gallery-section">
+      <div className="character-art-gallery-header">
+        <div>
+          <h2 className="font-display">Art Gallery</h2>
+          <p>Store art references, expression sheets, turnarounds, screenshots, and concept art for this character.</p>
+        </div>
+        <div className="character-art-gallery-actions">
+          <button className="button-frame" onClick={onAdd} disabled={!isEditing} title={isEditing ? "Add image link metadata" : "Click Edit first"}>
+            <Icon name="Plus" className="h-4 w-4" />
+            Add Image Link
+          </button>
+          <button onClick={onUploadToDrive} title="Choose art to upload to Google Drive">
+            <Icon name="Upload" className="h-4 w-4" />
+            Upload to Drive
+          </button>
+          <button onClick={onImportFromDrive} title="Import art metadata from Google Drive">
+            <Icon name="Import" className="h-4 w-4" />
+            Import From Drive
+          </button>
+          <button onClick={onOpenDriveFolder} title="Open this character's Drive folder">
+            <Icon name="Folder" className="h-4 w-4" />
+            Open Character Drive Folder
+          </button>
+        </div>
+      </div>
+
+      {hasItems && (
+        <div className="character-art-gallery-toolbar">
+          <div className="character-art-gallery-filter-row">
+            {artGalleryFilters.map((filter) => (
+              <button
+                key={filter}
+                className={activeFilter === filter ? "active" : ""}
+                onClick={() => setActiveFilter(filter)}
+              >
+                {filter}
+              </button>
+            ))}
+          </div>
+          <label>
+            <span>Sort</span>
+            <select value={sortMode} onChange={(event) => setSortMode(event.target.value)}>
+              {artGallerySortOptions.map((option) => (
+                <option key={option}>{option}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+      )}
+
+      {hasItems && visibleItems.length ? (
+        <div className="character-art-gallery-grid">
+          {visibleItems.map((item) => (
+            <article key={item.id} className={`character-art-gallery-card ${item.isFeatured ? "featured" : ""}`}>
+              <button className="character-art-gallery-preview character-art-gallery-preview-button" onClick={() => setPreviewItem(item)}>
+                <GalleryThumbnail src={item.thumbnailUrl} title={item.title} />
+                <span className={`character-art-gallery-status ${galleryStatusClass(item)}`}>
+                  {galleryStatusLabel(item)}
+                </span>
+                {item.isFeatured && (
+                  <span className="character-art-gallery-featured">
+                    <Icon name="Star" className="h-3.5 w-3.5" />
+                    Featured
+                  </span>
+                )}
+              </button>
+              <div className="character-art-gallery-card-body">
+                <span className="character-art-gallery-category">{item.category || "Reference"}</span>
+                <h3>{item.title || "Untitled Art Reference"}</h3>
+                <p>{formatGalleryDate(item.dateAdded)}</p>
+                {item.uploadStatus === "mock-local-preview" && (
+                  <em className="character-art-gallery-warning">Local preview only. Not uploaded to Drive yet.</em>
+                )}
+                {item.notes && <small>{item.notes}</small>}
+              </div>
+              <div className="character-art-gallery-card-actions">
+                <button onClick={() => onView(item)}>View</button>
+                <button onClick={() => onSetFeatured(item.id)} disabled={!isEditing || item.isFeatured}>
+                  Set Featured
+                </button>
+                <button onClick={() => onEdit(item)} disabled={!isEditing}>Edit</button>
+                <button className="danger" onClick={() => onRemove(item)} disabled={!isEditing}>
+                  Remove From Character
+                </button>
+              </div>
+            </article>
+          ))}
+        </div>
+      ) : hasItems ? (
+        <div className="character-art-gallery-empty">
+          <Icon name="Search" className="h-10 w-10" />
+          <strong>No art matches this filter.</strong>
+          <p>Try All, another category, or a different sort order.</p>
+        </div>
+      ) : (
+        <div className="character-art-gallery-empty">
+          <Icon name="Image" className="h-10 w-10" />
+          <strong>Nothing in this character's gallery yet.</strong>
+          <p>Add Drive links, upload new art, or import existing image files from Google Drive.</p>
+          <div className="character-art-gallery-empty-actions">
+            <button className="button-frame" onClick={onAdd} disabled={!isEditing} title={isEditing ? "Add image link metadata" : "Click Edit first"}>
+              <Icon name="Plus" className="h-4 w-4" />
+              Add Image Link
+            </button>
+            <button onClick={onUploadToDrive}>
+              <Icon name="Upload" className="h-4 w-4" />
+              Upload to Drive
+            </button>
+            <button onClick={onImportFromDrive}>
+              <Icon name="Import" className="h-4 w-4" />
+              Import From Drive
+            </button>
+          </div>
+        </div>
+      )}
+
+      {previewItem && (
+        <CharacterArtPreviewModal
+          item={previewItem}
+          isEditing={isEditing}
+          onClose={() => setPreviewItem(null)}
+          onViewInDrive={() => onView(previewItem)}
+          onSetFeatured={() => {
+            onSetFeatured(previewItem.id);
+            setPreviewItem({ ...previewItem, isFeatured: true });
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function GalleryThumbnail({ src, title }: { src: string; title: string }) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    setFailed(false);
+  }, [src]);
+  if (!src || failed) return <GalleryFallback />;
+  return <img src={src} alt={title || ""} onError={() => setFailed(true)} />;
+}
+
+function GalleryFallback() {
+  return (
+    <div>
+      <Icon name="Image" className="h-8 w-8" />
+      <span>No Preview Yet</span>
+    </div>
+  );
+}
+
+function CharacterArtPreviewModal({
+  item,
+  isEditing,
+  onClose,
+  onViewInDrive,
+  onSetFeatured
+}: {
+  item: CharacterArtGalleryItem;
+  isEditing: boolean;
+  onClose: () => void;
+  onViewInDrive: () => void;
+  onSetFeatured: () => void;
+}) {
+  return (
+    <div className="character-art-preview-modal-backdrop">
+      <section className="character-art-preview-modal">
+        <header>
+          <div>
+            <span className={`character-art-gallery-status ${galleryStatusClass(item)}`}>{galleryStatusLabel(item)}</span>
+            <h2 className="font-display">{item.title || "Untitled Art Reference"}</h2>
+            <p>{item.category || "Reference"}</p>
+          </div>
+          <button className="character-codex-icon-button" onClick={onClose} title="Close art preview">
+            <Icon name="X" className="h-5 w-5" />
+          </button>
+        </header>
+        <div className="character-art-preview-body">
+          <div className="character-art-preview-image">
+            <GalleryThumbnail src={item.thumbnailUrl} title={item.title} />
+          </div>
+          <aside className="character-art-preview-info">
+            <InfoRow label="Category" value={item.category || "Reference"} />
+            <InfoRow label="Drive File ID" value={item.driveFileId || "No Drive file ID"} />
+            <div className="character-art-preview-notes">
+              <span>Notes</span>
+              <p>{item.notes || "No notes yet."}</p>
+            </div>
+          </aside>
+        </div>
+        <footer>
+          <button className="character-codex-action-button" onClick={onViewInDrive} disabled={!item.webViewLink}>
+            <Icon name="FolderOpen" className="h-4 w-4" />
+            View in Drive
+          </button>
+          <button className="button-frame character-codex-action-button" onClick={onSetFeatured} disabled={!isEditing || item.isFeatured}>
+            <Icon name="Star" className="h-4 w-4" />
+            Set Featured
+          </button>
+          <button className="character-codex-action-button" onClick={onClose}>Close</button>
+        </footer>
+      </section>
+    </div>
+  );
+}
+
+function CharacterArtGalleryModal({
+  draft,
+  onChange,
+  onSave,
+  onClose
+}: {
+  draft: CharacterArtGalleryItem;
+  onChange: (patch: Partial<CharacterArtGalleryItem>) => void;
+  onSave: () => void;
+  onClose: () => void;
+}) {
+  const applyDriveFileLink = (value: string) => {
+    const driveFileId = extractGoogleDriveFileId(value);
+    if (!driveFileId) {
+      onChange({ thumbnailUrl: value });
+      return;
+    }
+    onChange({
+      driveFileId,
+      webViewLink: googleDriveWebViewLink(driveFileId),
+      thumbnailUrl: googleDriveThumbnailUrl(driveFileId)
+    });
+  };
+
+  const applyDriveViewLink = (value: string) => {
+    const driveFileId = extractGoogleDriveFileId(value);
+    if (!driveFileId) {
+      onChange({ webViewLink: value });
+      return;
+    }
+    onChange({
+      driveFileId,
+      webViewLink: googleDriveWebViewLink(driveFileId),
+      thumbnailUrl: draft.thumbnailUrl || googleDriveThumbnailUrl(driveFileId)
+    });
+  };
+
+  return (
+    <div className="character-art-gallery-modal-backdrop">
+      <section className="character-art-gallery-modal">
+        <header>
+          <div>
+            <p>Character Art Metadata</p>
+            <h2 className="font-display">Add Image Link</h2>
+          </div>
+          <button className="character-codex-icon-button" onClick={onClose} title="Close art gallery form">
+            <Icon name="X" className="h-5 w-5" />
+          </button>
+        </header>
+        <p className="character-art-gallery-helper-note">
+          Paste a Google Drive image link or a normal image URL. Google Drive links will automatically generate a preview when possible.
+        </p>
+
+        <div className="character-art-gallery-form">
+          <label>
+            <span>Image Title</span>
+            <EditInput value={draft.title} placeholder="Gwen Expression Sheet" onChange={(value) => onChange({ title: value })} />
+          </label>
+          <label>
+            <span>Image Category</span>
+            <EditInput value={draft.category} placeholder="Expressions, Turnaround, Screenshot, Concept Art" onChange={(value) => onChange({ category: value })} />
+          </label>
+          <label>
+            <span>Thumbnail / Image URL</span>
+            <EditInput value={draft.thumbnailUrl} placeholder="https://..." onChange={applyDriveFileLink} />
+          </label>
+          <label>
+            <span>Google Drive File ID</span>
+            <EditInput value={draft.driveFileId} placeholder="Drive file ID" onChange={(value) => onChange({ driveFileId: value })} />
+          </label>
+          <label>
+            <span>Google Drive View Link</span>
+            <EditInput value={draft.webViewLink} placeholder="https://drive.google.com/..." onChange={applyDriveViewLink} />
+          </label>
+          <label className="character-art-gallery-notes">
+            <span>Notes</span>
+            <textarea
+              className="character-codex-edit-field"
+              value={draft.notes}
+              placeholder="What is this reference for? Pose notes, expression notes, version notes, etc."
+              onChange={(event) => onChange({ notes: event.target.value })}
+            />
+          </label>
+        </div>
+
+        <footer>
+          <p>This stores metadata only. It will not upload or delete files from Google Drive.</p>
+          <div>
+            <button className="character-codex-action-button" onClick={onClose}>Cancel</button>
+            <button className="button-frame character-codex-action-button" onClick={onSave}>
+              <Icon name="Save" className="h-4 w-4" />
+              Save Art Metadata
+            </button>
+          </div>
+        </footer>
+      </section>
+    </div>
   );
 }
 
@@ -1323,6 +2164,109 @@ function UploadButton({ label, slot, onUpload }: { label: string; slot: ImageSlo
       <input className="hidden" type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={(event) => onUpload(slot, event.target.files?.[0])} />
     </label>
   );
+}
+
+function createBlankArtGalleryItem(): CharacterArtGalleryItem {
+  return {
+    id: `art-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    title: "",
+    category: "",
+    driveFileId: "",
+    thumbnailUrl: "",
+    webViewLink: "",
+    dateAdded: new Date().toISOString(),
+    isFeatured: false,
+    notes: ""
+  };
+}
+
+function isStoredImageData(value: string) {
+  return value.trim().toLowerCase().startsWith("data:");
+}
+
+function isTemporaryObjectUrl(value: string) {
+  return value.trim().toLowerCase().startsWith("blob:");
+}
+
+function extractGoogleDriveFileId(url: string) {
+  const value = url.trim();
+  if (!value || !/drive\.google\.com/i.test(value)) return "";
+
+  const filePathMatch = value.match(/\/file\/d\/([^/?#]+)/i);
+  if (filePathMatch?.[1]) return decodeURIComponent(filePathMatch[1]);
+
+  try {
+    const parsed = new URL(value);
+    const id = parsed.searchParams.get("id");
+    return id ? id.trim() : "";
+  } catch {
+    const queryIdMatch = value.match(/[?&]id=([^&#]+)/i);
+    return queryIdMatch?.[1] ? decodeURIComponent(queryIdMatch[1]) : "";
+  }
+}
+
+function googleDriveWebViewLink(fileId: string) {
+  return `https://drive.google.com/file/d/${encodeURIComponent(fileId)}/view`;
+}
+
+function googleDriveThumbnailUrl(fileId: string) {
+  return `https://drive.google.com/thumbnail?id=${encodeURIComponent(fileId)}&sz=w1000`;
+}
+
+function artGalleryFilterMatches(item: CharacterArtGalleryItem, filter: string) {
+  if (filter === "All") return true;
+  if (filter === "Featured") return item.isFeatured;
+  return categoryMatchesFilter(item.category, filter);
+}
+
+function categoryMatchesFilter(category: string, filter: string) {
+  const normalizedCategory = normalizeGalleryCategory(category);
+  const normalizedFilter = normalizeGalleryCategory(filter);
+  if (normalizedCategory === normalizedFilter) return true;
+  if (normalizedFilter === "turnarounds") return normalizedCategory.includes("turnaround");
+  if (normalizedFilter === "screenshots") return normalizedCategory.includes("screenshot");
+  if (normalizedFilter === "portraits") return normalizedCategory.includes("portrait");
+  if (normalizedFilter === "expressions") return normalizedCategory.includes("expression");
+  return normalizedCategory.includes(normalizedFilter);
+}
+
+function normalizeGalleryCategory(value: string) {
+  return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function sortArtGalleryItems(items: CharacterArtGalleryItem[], sortMode: string) {
+  return [...items].sort((left, right) => {
+    if (sortMode === "Oldest first") return galleryTime(left) - galleryTime(right);
+    if (sortMode === "Title A-Z") return (left.title || "").localeCompare(right.title || "");
+    if (sortMode === "Category") {
+      const categorySort = (left.category || "").localeCompare(right.category || "");
+      return categorySort || (left.title || "").localeCompare(right.title || "");
+    }
+    return galleryTime(right) - galleryTime(left);
+  });
+}
+
+function galleryTime(item: CharacterArtGalleryItem) {
+  const time = new Date(item.dateAdded).getTime();
+  return Number.isNaN(time) ? 0 : time;
+}
+
+function galleryStatusLabel(item: CharacterArtGalleryItem) {
+  if (item.uploadStatus === "mock-local-preview") return "Local Preview";
+  if (item.uploadStatus === "imported-from-drive") return "Imported";
+  if (!item.thumbnailUrl) return "No Preview";
+  return "Drive";
+}
+
+function galleryStatusClass(item: CharacterArtGalleryItem) {
+  return galleryStatusLabel(item).toLowerCase().replace(/\s+/g, "-");
+}
+
+function formatGalleryDate(value: string) {
+  if (!value) return "No date added";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return `Added ${date.toLocaleDateString()}`;
 }
 
 function buildRelationships(entry: LoreEntry, isGwen: boolean): RelationshipItem[] {

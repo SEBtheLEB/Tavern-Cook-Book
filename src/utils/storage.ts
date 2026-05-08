@@ -55,7 +55,7 @@ export const loadDatabase = (): LoreDatabase => {
 
 export const saveDatabase = (database: LoreDatabase) => {
   try {
-    localStorage.setItem(DATABASE_KEY, JSON.stringify(database));
+    localStorage.setItem(DATABASE_KEY, JSON.stringify(sanitizeDatabaseForPersistence(database)));
     return { ok: true };
   } catch (error) {
     const isQuotaError =
@@ -101,7 +101,32 @@ export const createBackup = (database: LoreDatabase, label: string): LoreDatabas
 };
 
 export const estimateStorageBytes = (database: LoreDatabase) =>
-  new Blob([JSON.stringify(database)]).size;
+  new Blob([JSON.stringify(sanitizeDatabaseForPersistence(database))]).size;
+
+export const sanitizeDatabaseForPersistence = (database: LoreDatabase): LoreDatabase => ({
+  ...database,
+  entries: (database.entries || []).map(sanitizeEntryForPersistence),
+  backups: (database.backups || []).map((backup) => ({
+    ...backup,
+    entries: (backup.entries || []).map(sanitizeEntryForPersistence)
+  }))
+});
+
+const sanitizeEntryForPersistence = (entry: LoreEntry): LoreEntry => ({
+  ...entry,
+  artGallery: (entry.artGallery || []).map((item) => ({
+    ...item,
+    driveFileId: typeof item.driveFileId === "string" ? item.driveFileId : "",
+    thumbnailUrl: isUnsafePersistentUrl(item.thumbnailUrl) ? "" : String(item.thumbnailUrl || ""),
+    webViewLink: isUnsafePersistentUrl(item.webViewLink) ? "" : String(item.webViewLink || ""),
+    notes: typeof item.notes === "string" ? item.notes : ""
+  }))
+});
+
+const isUnsafePersistentUrl = (value: unknown) => {
+  const normalized = String(value || "").trim().toLowerCase();
+  return normalized.startsWith("blob:") || normalized.startsWith("data:");
+};
 
 export const formatBytes = (bytes: number) => {
   if (bytes < 1024) return `${bytes} B`;
