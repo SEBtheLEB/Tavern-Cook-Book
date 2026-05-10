@@ -8,6 +8,8 @@ interface SearchResultsProps {
   results: LoreEntry[];
   onClear: () => void;
   onOpenEntry: (entry: LoreEntry) => void;
+  isFavorite?: (entry: LoreEntry) => boolean;
+  onToggleFavorite?: (entry: LoreEntry) => void;
 }
 
 export function SearchResults({
@@ -15,7 +17,9 @@ export function SearchResults({
   referenceQuery,
   results,
   onClear,
-  onOpenEntry
+  onOpenEntry,
+  isFavorite,
+  onToggleFavorite
 }: SearchResultsProps) {
   const isReferencePage = Boolean(referenceQuery);
 
@@ -41,6 +45,8 @@ export function SearchResults({
         emptyTitle="No results found"
         emptyBody="Try a character, location, recipe, secret, status, tag, or note."
         onOpenEntry={onOpenEntry}
+        isFavorite={isFavorite}
+        onToggleFavorite={onToggleFavorite}
       />
     </div>
   );

@@ -1,5 +1,7 @@
-import type { LoreDatabase, LoreEntry } from "../types";
+import type { BestiaryCreature, LoreDatabase, LoreEntry } from "../types";
 import { normalizeEntry, slugify } from "../utils/entries";
+import { normalizeBestiaryCreature } from "../utils/bestiary";
+import { createStarterWorldBuilding } from "../utils/worldBuilding";
 
 const stamp = "2026-05-07T00:00:00.000Z";
 
@@ -2378,9 +2380,277 @@ export const starterEntries: LoreEntry[] = [
   })
 ];
 
+export const starterBestiary: BestiaryCreature[] = [
+  {
+    name: "Mushgrub",
+    type: "Insect",
+    status: "WIP",
+    threatLevel: "Runs Away When Hit",
+    rarity: "Common",
+    size: "Small",
+    diet: "Mushrooms, damp roots, and fallen fruit.",
+    habitat: "Mushroom Grottos",
+    behavior: "Timid until disturbed. Burrows under soft moss and pops out near mushroom clusters.",
+    description: "A soft-bodied grub with mushroom caps growing from its back. It is more nuisance than monster, but groups can overwhelm careless travelers.",
+    overview: "A starter creature for mushroom-heavy areas and early gathering routes.",
+    fieldNotes: "Good candidate for teaching creature drops without making the forest feel cruel.",
+    drops: { droppedIngredients: "Mushroom bits, grub jelly", cookingUses: "Earthy soups and bait recipes" },
+    lore: { rumors: "Some villagers claim Mushgrubs hum when rain is coming." }
+  },
+  {
+    name: "Thornback Boar",
+    type: "Beast",
+    status: "WIP",
+    threatLevel: "Territorial",
+    rarity: "Uncommon",
+    size: "Medium",
+    diet: "Roots, tubers, bark, and fallen fruit.",
+    habitat: "Whisker Woods",
+    behavior: "Territorial charger. Scrapes trees and dirt to mark feeding grounds.",
+    description: "A forest boar with bramble-like thorn ridges along its back. It can be hunted for hearty ingredients, but it punishes direct approaches.",
+    stats: { health: "Medium", damage: "Medium", speed: "Fast charge", defense: "Armored back", weakness: "Soft flank" },
+    drops: { droppedIngredients: "Boar meat", craftingMaterials: "Thorn bristles", cookingUses: "Hearty meals and combat food" }
+  },
+  {
+    name: "Hollow Whisper",
+    type: "Spirit",
+    status: "Idea",
+    threatLevel: "Unknown",
+    rarity: "Rare",
+    size: "Small / drifting",
+    diet: "Echoes, secrets, and old grief.",
+    habitat: "Caves",
+    behavior: "Avoids light. Repeats fragments of old conversations to lure the curious.",
+    description: "A pale drifting spirit that seems stitched together from forgotten tavern songs and cave echoes.",
+    lore: { origin: "Possibly born where old stories are buried instead of told.", hiddenNotes: "Could connect to hidden recipe-page memory scenes." }
+  },
+  {
+    name: "Honeybloat",
+    type: "Wildlife",
+    status: "Idea",
+    threatLevel: "Defensive",
+    rarity: "Uncommon",
+    size: "Small",
+    diet: "Honey, pollen, and sweet sap.",
+    habitat: "Whisker Woods",
+    behavior: "Slow, sticky, defensive. Bursts into slowing honey if hit too hard.",
+    description: "A round honey-fed forest critter with a translucent amber belly and tiny stubborn feet.",
+    drops: { droppedIngredients: "Honey globs", cookingUses: "Sweet meals, ales, and sticky trap recipes" }
+  },
+  {
+    name: "Rootstalker",
+    type: "Plant",
+    status: "WIP",
+    threatLevel: "Aggro When Hit",
+    rarity: "Uncommon",
+    size: "Medium",
+    diet: "Soil nutrients and ambient magic.",
+    habitat: "Whisker Woods",
+    behavior: "Pretends to be a dead stump until prey walks close.",
+    description: "A root-bound plant creature that drags itself through the forest floor and lashes with vine limbs.",
+    stats: { health: "Medium", damage: "Medium", speed: "Slow", weakness: "Fire and chopping tools", abilities: "Root snare" }
+  },
+  {
+    name: "Cinderwing Moth",
+    type: "Magical Creature",
+    status: "Idea",
+    threatLevel: "Passive",
+    rarity: "Rare",
+    size: "Small",
+    diet: "Candlelight, warm ash, and spiced nectar.",
+    habitat: "Villages",
+    behavior: "Drawn to tavern windows and cooking fires at night.",
+    description: "A moth with ember-dusted wings that leaves warm spark trails as it flutters.",
+    productionNotes: "Could be a cozy night ambience creature or a rare alchemy ingredient source."
+  },
+  {
+    name: "Dusk Slime",
+    category: "Slimes",
+    type: "Magical Creature",
+    status: "Soft Canon",
+    threatLevel: "Runs Away When Hit",
+    rarity: "Uncommon",
+    size: "Small",
+    diet: "Twilight berries and excess forest nutrients.",
+    habitat: "Whisker Woods",
+    behavior: "Bounces away from direct conflict unless corrupted.",
+    description: "A purple-blue slime that forms around twilight berry patches and glows faintly after sunset.",
+    drops: { droppedIngredients: "Dusk slime gel", cookingUses: "Berry meals, ales, and night-vision recipes" },
+    lore: { relatedCreatures: "Related to the broader Slime Flavor / Element System." }
+  },
+  {
+    name: "Bitter Slime",
+    category: "Slimes",
+    type: "Magical Creature",
+    status: "WIP",
+    threatLevel: "Runs Away When Hit",
+    rarity: "Common",
+    size: "Small",
+    diet: "Bitter herbs, bark oils, and excess forest nutrients.",
+    habitat: "Whisker Woods",
+    behavior: "Recoils from direct hits and leaves a sharp herbal residue behind.",
+    description: "A flavor-aspected slime slot for bitter ingredient drops, food magic, and recipe testing.",
+    drops: { droppedIngredients: "Bitter slime gel", cookingUses: "Bitter tonics, cleansing meals, and sharp herbal recipes" },
+    lore: { relatedCreatures: "Part of the Slime Flavor / Element System." }
+  },
+  {
+    name: "Sweet Slime",
+    category: "Slimes",
+    type: "Magical Creature",
+    status: "WIP",
+    threatLevel: "Runs Away When Hit",
+    rarity: "Common",
+    size: "Small",
+    diet: "Fruit sugars, honey, nectar, and healthy excess nutrients.",
+    habitat: "Whisker Woods",
+    behavior: "Bouncy and skittish. Drawn to berries and sugary smells.",
+    description: "A flavor-aspected slime slot for sweet ingredient drops, food magic, and recipe testing.",
+    drops: { droppedIngredients: "Sweet slime gel", cookingUses: "Desserts, restorative meals, ales, and sweet buffs" },
+    lore: { relatedCreatures: "Part of the Slime Flavor / Element System." }
+  },
+  {
+    name: "Savory Slime",
+    category: "Slimes",
+    type: "Magical Creature",
+    status: "WIP",
+    threatLevel: "Passive",
+    rarity: "Common",
+    size: "Small",
+    diet: "Mushrooms, cooked scraps, broth steam, and nutrient-rich soil.",
+    habitat: "Whisker Woods",
+    behavior: "Slow and curious. Lingers near campfires, tavern vents, and mushroom patches.",
+    description: "A flavor-aspected slime slot for savory ingredient drops, food magic, and recipe testing.",
+    drops: { droppedIngredients: "Savory slime gel", cookingUses: "Broths, stews, hearty meals, and umami recipes" },
+    lore: { relatedCreatures: "Part of the Slime Flavor / Element System." }
+  },
+  {
+    name: "Sour Slime",
+    category: "Slimes",
+    type: "Magical Creature",
+    status: "WIP",
+    threatLevel: "Aggro When Hit",
+    rarity: "Common",
+    size: "Small",
+    diet: "Fermented fruit, tart berries, and acidic plant juices.",
+    habitat: "Whisker Woods",
+    behavior: "Splatters tart gel when startled and may bounce erratically after being struck.",
+    description: "A flavor-aspected slime slot for sour ingredient drops, food magic, and recipe testing.",
+    drops: { droppedIngredients: "Sour slime gel", cookingUses: "Pickles, sour sauces, sharp buffs, and fermentation recipes" },
+    lore: { relatedCreatures: "Part of the Slime Flavor / Element System." }
+  },
+  {
+    name: "Salty Slime",
+    category: "Slimes",
+    type: "Magical Creature",
+    status: "WIP",
+    threatLevel: "Defensive",
+    rarity: "Common",
+    size: "Small",
+    diet: "Mineral water, salt licks, and dried sea-seasoned plants.",
+    habitat: "Caves",
+    behavior: "Defensive near mineral deposits. Leaves crystalline salt flecks in its trail.",
+    description: "A flavor-aspected slime slot for salty ingredient drops, food magic, and recipe testing.",
+    drops: { droppedIngredients: "Salty slime gel", cookingUses: "Seasoning bases, preserved foods, stamina meals, and mineral recipes" },
+    lore: { relatedCreatures: "Part of the Slime Flavor / Element System." }
+  },
+  {
+    name: "Spicy Slime",
+    category: "Slimes",
+    type: "Magical Creature",
+    status: "WIP",
+    threatLevel: "Aggressive",
+    rarity: "Uncommon",
+    size: "Small",
+    diet: "Pepper plants, warm ash, chili oils, and heated food magic.",
+    habitat: "Villages",
+    behavior: "Jumpy and hot-tempered. May burst forward when approached too quickly.",
+    description: "A flavor-aspected slime slot for spicy ingredient drops, food magic, and recipe testing.",
+    drops: { droppedIngredients: "Spicy slime gel", cookingUses: "Fire meals, warming buffs, pepper sauces, and heat-based recipes" },
+    lore: { relatedCreatures: "Part of the Slime Flavor / Element System." }
+  },
+  {
+    name: "Stoneback Tortoise",
+    type: "Wildlife",
+    status: "Idea",
+    threatLevel: "Passive",
+    rarity: "Rare",
+    size: "Large",
+    diet: "Moss and mineral-rich weeds.",
+    habitat: "Mountains",
+    behavior: "Peaceful unless its nesting stones are disturbed.",
+    description: "A gentle tortoise with a stone-like shell that supports moss, tiny flowers, and sometimes sleeping fireflies."
+  },
+  {
+    name: "Prawnhusk",
+    type: "Boss",
+    status: "Soft Canon",
+    threatLevel: "Boss",
+    rarity: "Rare",
+    size: "Large",
+    diet: "Fish, pond insects, and corrupted scraps.",
+    habitat: "Whisker Woods",
+    behavior: "Bursts from corrupted pond water and protects its territory with heavy claw swipes.",
+    description: "An aquatic crustacean mini-boss tied to Kap's Pond Rescue.",
+    overview: "Early mini-boss that teaches pond corruption, enemy waves, and recovery after danger.",
+    stats: { health: "High for early game", damage: "Medium", defense: "Armored shell", attackPatterns: "Claw swipe, mud splash, water lunge" },
+    drops: { droppedIngredients: "Prawnhusk meat", cookingUses: "Aquatic savory meals" },
+    lore: { questConnections: "Kap's Pond Rescue" }
+  },
+  {
+    name: "Crayhusk",
+    type: "Beast",
+    status: "Soft Canon",
+    threatLevel: "Aggro When Hit",
+    rarity: "Uncommon",
+    size: "Medium",
+    diet: "Aquatic plants and small pond creatures.",
+    habitat: "Swamps",
+    behavior: "Skittish alone, aggressive near nests.",
+    description: "A crawfish-like enemy whose meat can be used for savory broth.",
+    drops: { droppedIngredients: "Crayhusk meat", cookingUses: "Cray Broth" }
+  },
+  {
+    name: "Ice Queen",
+    type: "Boss",
+    status: "Soft Canon",
+    threatLevel: "Boss",
+    rarity: "Unique",
+    size: "Large",
+    diet: "Unknown",
+    habitat: "Whisker Woods",
+    behavior: "Commands cursed bugs and marks the peak of Act 1 corruption.",
+    description: "The queen of cursed bugs in Whisker Woods and a planned Act 1 boss.",
+    stats: { health: "Boss", damage: "High", abilities: "Summons insects, cold area pressure", bossPhaseNotes: "Could escalate from bug swarm control to direct ice attacks." },
+    lore: { questConnections: "Act 1 boss buildup", hiddenNotes: "May be tied to corrupted bug hierarchy." }
+  },
+  {
+    name: "Corrupted Beetle",
+    type: "Insect",
+    status: "Playtest Scope",
+    threatLevel: "Aggressive",
+    rarity: "Common",
+    size: "Small",
+    diet: "Rotting leaves and corrupted growth.",
+    habitat: "Whisker Woods",
+    behavior: "Simple melee bug enemy for early playtest combat.",
+    description: "A basic beetle twisted by local corruption. Useful for teaching simple enemy reads."
+  }
+].map((creature, index) =>
+  normalizeBestiaryCreature({
+    id: slugify(creature.name),
+    createdAt: stamp,
+    updatedAt: stamp,
+    ...creature,
+    status: creature.status || "WIP"
+  } as Partial<BestiaryCreature>)
+);
+
 export const createStarterDatabase = (): LoreDatabase => ({
   schemaVersion: 1,
   entries: starterEntries.map((item) => JSON.parse(JSON.stringify(item)) as LoreEntry),
+  bestiary: starterBestiary.map((item) => JSON.parse(JSON.stringify(item)) as BestiaryCreature),
+  bestiaryCategoryVaults: [],
+  worldBuilding: createStarterWorldBuilding(starterEntries, starterBestiary),
   backups: [],
   branding: {
     studioName: "STL Productionz"

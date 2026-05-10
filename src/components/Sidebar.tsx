@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import type { DragEvent } from "react";
-import type { ActiveView, LoreDatabase, ViewConfig } from "../types";
+import type { DragEvent, MouseEvent } from "react";
+import type { ActiveView, GoogleAccountUser, LoreDatabase, ViewConfig } from "../types";
 import { mainNavigation } from "../data/navigation";
 import { Icon } from "./Icon";
 
@@ -13,6 +13,13 @@ interface SidebarProps {
   onToggleCollapsed: () => void;
   onCloseMobile: () => void;
   readOnly?: boolean;
+  storageWarning?: string;
+  currentUser?: GoogleAccountUser | null;
+  onSignOut?: () => void;
+  onOpenProfile?: () => void;
+  onOpenQuestDashboard?: () => void;
+  questCount?: number;
+  canAccessSettings?: boolean;
 }
 
 type SidebarLayoutNode =
@@ -33,15 +40,25 @@ export function Sidebar({
   onNavigate,
   onToggleCollapsed,
   onCloseMobile,
-  readOnly = false
+  readOnly = false,
+  storageWarning = "",
+  currentUser = null,
+  onSignOut,
+  onOpenProfile,
+  onOpenQuestDashboard,
+  questCount = 0,
+  canAccessSettings = false
 }: SidebarProps) {
-  const navigation = readOnly
+  const navigation = !canAccessSettings
     ? mainNavigation.filter((item) => item.id !== "settings")
     : mainNavigation;
   const allNavIds = useMemo(() => mainNavigation.map((item) => item.id), []);
   const [layout, setLayout] = useState<SidebarLayoutNode[]>(() => loadSidebarLayout(allNavIds));
   const [editingSidebar, setEditingSidebar] = useState(false);
+  const [storageWarningOpen, setStorageWarningOpen] = useState(false);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [dragging, setDragging] = useState<DragPayload | null>(null);
+  const [sidebarTooltip, setSidebarTooltip] = useState<{ label: string; x: number; y: number } | null>(null);
   const navigationById = useMemo(
     () => new Map(navigation.map((item) => [item.id, item] as const)),
     [navigation]
@@ -58,6 +75,26 @@ export function Sidebar({
   useEffect(() => {
     if (!readOnly) saveSidebarLayout(normalizedLayout);
   }, [normalizedLayout, readOnly]);
+
+  useEffect(() => {
+    if (!storageWarning) setStorageWarningOpen(false);
+  }, [storageWarning]);
+
+  useEffect(() => {
+    if (!collapsed) setSidebarTooltip(null);
+  }, [collapsed]);
+
+  const showCollapsedTooltip = (label: string, event: MouseEvent<HTMLElement>) => {
+    if (!collapsed) return;
+    setSidebarTooltip({ label, x: event.clientX, y: event.clientY });
+  };
+
+  const moveCollapsedTooltip = (event: MouseEvent<HTMLElement>) => {
+    if (!collapsed) return;
+    setSidebarTooltip((current) => current ? { ...current, x: event.clientX, y: event.clientY } : current);
+  };
+
+  const hideCollapsedTooltip = () => setSidebarTooltip(null);
 
   const commitLayout = (updater: (current: SidebarLayoutNode[]) => SidebarLayoutNode[]) => {
     setLayout((current) => normalizeSidebarLayout(updater(normalizeSidebarLayout(current, allNavIds)), allNavIds));
@@ -176,7 +213,7 @@ export function Sidebar({
 
   const content = (
     <aside
-      className={`sidebar-frame sticky top-0 flex h-screen max-h-screen flex-col text-[#fff5da] transition-all duration-300 ${
+      className={`sidebar-frame sticky top-0 flex h-screen max-h-screen shrink-0 flex-col text-[#fff5da] transition-colors duration-200 ${
         collapsed ? "w-[84px]" : "w-[280px]"
       }`}
     >
@@ -240,7 +277,10 @@ export function Sidebar({
                   <button
                     className="grid h-6 w-6 shrink-0 place-items-center rounded hover:bg-white/10"
                     onClick={() => toggleFolder(node.id)}
-                    title={node.open ? "Close folder" : "Open folder"}
+                    title={collapsed ? undefined : node.open ? "Close folder" : "Open folder"}
+                    onMouseEnter={(event) => showCollapsedTooltip(node.name || "Folder", event)}
+                    onMouseMove={moveCollapsedTooltip}
+                    onMouseLeave={hideCollapsedTooltip}
                   >
                     <Icon name={node.open ? "FolderOpen" : "Folder"} className="h-4 w-4" />
                   </button>
@@ -285,6 +325,9 @@ export function Sidebar({
                           collapsed={collapsed}
                           editing={editingSidebar}
                           count={countForItem(item, database)}
+                          onTooltipShow={showCollapsedTooltip}
+                          onTooltipMove={moveCollapsedTooltip}
+                          onTooltipHide={hideCollapsedTooltip}
                           onNavigate={(view) => {
                             onNavigate(view);
                             onCloseMobile();
@@ -321,6 +364,9 @@ export function Sidebar({
               collapsed={collapsed}
               editing={editingSidebar}
               count={countForItem(item, database)}
+              onTooltipShow={showCollapsedTooltip}
+              onTooltipMove={moveCollapsedTooltip}
+              onTooltipHide={hideCollapsedTooltip}
               onNavigate={(view) => {
                 onNavigate(view);
                 onCloseMobile();
@@ -335,6 +381,105 @@ export function Sidebar({
       </nav>
 
       <div className="mt-auto border-t border-white/20 p-3">
+        {currentUser && (
+          <div className={`sidebar-account-card ${collapsed ? "collapsed" : ""}`}>
+            <button
+              className="sidebar-account-main"
+              onClick={() => setAccountMenuOpen((value) => !value)}
+              title={collapsed ? undefined : `Account: ${currentUser.name}`}
+              aria-label="Open profile menu"
+              aria-expanded={accountMenuOpen}
+              onMouseEnter={(event) => showCollapsedTooltip(`Account: ${currentUser.name}`, event)}
+              onMouseMove={moveCollapsedTooltip}
+              onMouseLeave={hideCollapsedTooltip}
+            >
+              <div className="sidebar-account-avatar">
+                {currentUser.picture ? (
+                  <img src={currentUser.picture} alt="" />
+                ) : (
+                  <Icon name="UserRound" className="h-5 w-5" />
+                )}
+              </div>
+              {questCount > 0 && <span className="sidebar-account-quest-dot">{questCount}</span>}
+            </button>
+            {accountMenuOpen && (
+              <div className="sidebar-account-menu">
+                <div className="sidebar-account-menu-header">
+                  <div className="sidebar-account-avatar small">
+                    {currentUser.picture ? (
+                      <img src={currentUser.picture} alt="" />
+                    ) : (
+                      <Icon name="UserRound" className="h-4 w-4" />
+                    )}
+                  </div>
+                  <div>
+                    <strong>{currentUser.name}</strong>
+                    <span>{currentUser.email}</span>
+                    <em>{currentUser.role}{questCount ? ` / ${questCount} quests` : ""}</em>
+                  </div>
+                </div>
+                {onOpenProfile && (
+                  <button
+                    onClick={() => {
+                      setAccountMenuOpen(false);
+                      onOpenProfile();
+                    }}
+                  >
+                    Profile
+                  </button>
+                )}
+                {onOpenQuestDashboard && (
+                  <button
+                    onClick={() => {
+                      setAccountMenuOpen(false);
+                      onOpenQuestDashboard();
+                    }}
+                  >
+                    Personal Quest Dashboard
+                  </button>
+                )}
+                {onSignOut && (
+                  <button
+                    onClick={() => {
+                      setAccountMenuOpen(false);
+                      onSignOut();
+                    }}
+                  >
+                    Sign Out
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+        {storageWarning && (
+          <div className={`sidebar-storage-warning ${collapsed ? "collapsed" : ""}`}>
+            <button
+              onClick={() => {
+                if (collapsed) {
+                  onToggleCollapsed();
+                  setStorageWarningOpen(true);
+                  return;
+                }
+                setStorageWarningOpen((value) => !value);
+              }}
+              className="sidebar-storage-warning-trigger"
+              title={collapsed ? undefined : "Browser storage warning"}
+              aria-label="Browser storage warning"
+              aria-expanded={storageWarningOpen}
+              onMouseEnter={(event) => showCollapsedTooltip("Browser storage warning", event)}
+              onMouseMove={moveCollapsedTooltip}
+              onMouseLeave={hideCollapsedTooltip}
+            >
+              <span>!</span>
+            </button>
+            {storageWarningOpen && !collapsed && (
+              <div className="sidebar-storage-warning-panel">
+                {storageWarning}
+              </div>
+            )}
+          </div>
+        )}
         {editingSidebar && !collapsed && (
           <button
             onClick={addFolder}
@@ -351,7 +496,10 @@ export function Sidebar({
               className={`flex items-center justify-center rounded border border-white/20 py-2 text-amber-50 transition hover:bg-white/20 ${
                 editingSidebar ? "bg-white/20" : "bg-white/10"
               } ${collapsed ? "px-1" : "px-3"}`}
-              title={editingSidebar ? "Done organizing sidebar" : "Organize sidebar"}
+              title={collapsed ? undefined : editingSidebar ? "Done organizing sidebar" : "Organize sidebar"}
+              onMouseEnter={(event) => showCollapsedTooltip(editingSidebar ? "Done organizing sidebar" : "Organize sidebar", event)}
+              onMouseMove={moveCollapsedTooltip}
+              onMouseLeave={hideCollapsedTooltip}
             >
               <Icon name="Edit3" className="h-5 w-5" />
               {!collapsed && <span className="ml-2 text-sm">{editingSidebar ? "Done" : "Edit"}</span>}
@@ -363,11 +511,25 @@ export function Sidebar({
               collapsed ? "px-1" : "px-3"
             }`}
             title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            onMouseEnter={(event) => showCollapsedTooltip(collapsed ? "Expand sidebar" : "Collapse sidebar", event)}
+            onMouseMove={moveCollapsedTooltip}
+            onMouseLeave={hideCollapsedTooltip}
           >
             <Icon name={collapsed ? "ChevronsRight" : "ChevronsLeft"} className="h-5 w-5" />
             {!collapsed && <span className="ml-2 text-sm">Collapse</span>}
           </button>
         </div>
+        {collapsed && sidebarTooltip && (
+          <div
+            className="sidebar-hover-tooltip"
+            style={{
+              left: sidebarTooltip.x + 16,
+              top: sidebarTooltip.y + 12
+            }}
+          >
+            {sidebarTooltip.label}
+          </div>
+        )}
       </div>
     </aside>
   );
@@ -395,6 +557,9 @@ function SidebarNavItem({
   collapsed,
   editing,
   count,
+  onTooltipShow,
+  onTooltipMove,
+  onTooltipHide,
   onNavigate,
   onDragStart,
   onDragEnd,
@@ -406,6 +571,9 @@ function SidebarNavItem({
   collapsed: boolean;
   editing: boolean;
   count?: number;
+  onTooltipShow: (label: string, event: MouseEvent<HTMLElement>) => void;
+  onTooltipMove: (event: MouseEvent<HTMLElement>) => void;
+  onTooltipHide: () => void;
   onNavigate: (view: ActiveView) => void;
   onDragStart: (event: DragEvent<HTMLElement>) => void;
   onDragEnd: () => void;
@@ -422,13 +590,16 @@ function SidebarNavItem({
   if (editing) {
     return (
       <div
-        title={item.label}
+        title={collapsed ? undefined : item.label}
         draggable
         onDragStart={onDragStart}
         onDragEnd={onDragEnd}
         onDragOver={onDragOver}
         onDrop={onDrop}
         className={className}
+        onMouseEnter={(event) => onTooltipShow(item.label, event)}
+        onMouseMove={onTooltipMove}
+        onMouseLeave={onTooltipHide}
       >
         <Icon name="GripVertical" className="h-4 w-4 shrink-0 text-amber-100/55" />
         <Icon name={item.icon} className="h-5 w-5 shrink-0" />
@@ -448,9 +619,12 @@ function SidebarNavItem({
 
   return (
     <button
-      title={item.label}
+      title={collapsed ? undefined : item.label}
       onClick={() => onNavigate(item.id)}
       className={className}
+      onMouseEnter={(event) => onTooltipShow(item.label, event)}
+      onMouseMove={onTooltipMove}
+      onMouseLeave={onTooltipHide}
     >
       <Icon name={item.icon} className="h-5 w-5 shrink-0" />
       {!collapsed && (
@@ -468,6 +642,7 @@ function SidebarNavItem({
 }
 
 function countForItem(item: ViewConfig, database: LoreDatabase) {
+  if (item.id === "bestiary") return database.bestiary?.length || 0;
   return item.category
     ? database.entries.filter((entry) => entry.category === item.category).length
     : undefined;

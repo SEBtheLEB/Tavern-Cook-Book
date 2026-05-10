@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { LoreDatabase, ThemeMode } from "../types";
+import type { AccessRole, AccessUserPermission, GoogleAccountUser, LoreDatabase, ThemeMode } from "../types";
 import { createStarterDatabase } from "../data/starterData";
 import type { DriveSettings } from "../utils/driveSettings";
 import {
@@ -11,8 +11,12 @@ import {
   saveDriveSettings
 } from "../utils/driveSettings";
 import { estimateStorageBytes, formatBytes, migrateDatabase, sanitizeDatabaseForPersistence } from "../utils/storage";
+import { loadAccessUsers, saveAccessUsers } from "../utils/accessControl";
+import { openGoogleDriveFolderPicker } from "../utils/googlePicker";
 import { isSupportedImage, readImageFileForStorage } from "../utils/media";
 import { createShareableHtml } from "../utils/shareExport";
+import { AssistantPanel } from "./AssistantPanel";
+import { CustomSelect } from "./CustomSelect";
 import { Icon } from "./Icon";
 
 interface SettingsPageProps {
@@ -20,6 +24,8 @@ interface SettingsPageProps {
   theme: ThemeMode;
   onDatabaseChange: (database: LoreDatabase) => void;
   onThemeChange: (theme: ThemeMode) => void;
+  currentUser: GoogleAccountUser;
+  onAccessUsersChange: () => void;
 }
 
 interface HealthState {
@@ -29,10 +35,20 @@ interface HealthState {
   error?: string;
 }
 
-export function SettingsPage({ database, theme, onDatabaseChange, onThemeChange }: SettingsPageProps) {
+export function SettingsPage({
+  database,
+  theme,
+  onDatabaseChange,
+  onThemeChange,
+  currentUser,
+  onAccessUsersChange
+}: SettingsPageProps) {
   const [message, setMessage] = useState("");
   const [health, setHealth] = useState<HealthState | null>(null);
   const [driveSettings, setDriveSettingsState] = useState<DriveSettings>(() => getDriveSettings());
+  const [accessUsers, setAccessUsers] = useState<AccessUserPermission[]>(() => loadAccessUsers());
+  const [newAccessEmail, setNewAccessEmail] = useState("");
+  const [newAccessRole, setNewAccessRole] = useState<AccessRole>("viewer");
   const storageBytes = estimateStorageBytes(database);
   const driveConfigured = isDriveConfigured(driveSettings);
 
@@ -132,6 +148,23 @@ export function SettingsPage({ database, theme, onDatabaseChange, onThemeChange 
     setDriveSettingsState((current) => ({ ...current, [key]: value }));
   };
 
+  const chooseDriveSettingsFolder = async (key: keyof Pick<DriveSettings, "defaultTalesFolderId" | "defaultCharactersFolderId" | "defaultWorldArtFolderId" | "defaultMarketingArtFolderId">) => {
+    if (!isDriveConfigured(driveSettings)) {
+      setMessage("Save your Google API Key and OAuth Client ID first, then choose folders from Google Drive.");
+      return;
+    }
+
+    try {
+      saveDriveSettings(driveSettings);
+      const folder = await openGoogleDriveFolderPicker("Choose Default Drive Folder");
+      if (!folder) return;
+      updateDriveSetting(key, folder.id);
+      setMessage(`Selected "${folder.name}" for ${folderSettingLabel(key)}. Save Drive Settings to keep it.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not choose a Google Drive folder.");
+    }
+  };
+
   const saveCurrentDriveSettings = () => {
     const findings = findUnsafeDriveSettings(driveSettings);
     if (findings.length) {
@@ -177,6 +210,52 @@ export function SettingsPage({ database, theme, onDatabaseChange, onThemeChange 
       setMessage("Google Drive settings cleared.");
     } catch {
       setMessage("Could not clear Google Drive settings in this browser.");
+    }
+  };
+
+  const updateAccessUser = (email: string, patch: Partial<AccessUserPermission>) => {
+    setAccessUsers((current) =>
+      current.map((user) => {
+        if (user.email !== email) return user;
+        if (user.email === "stlprodz1101@gmail.com") {
+          return { ...user, ...patch, email: "stlprodz1101@gmail.com", role: "admin" };
+        }
+        return { ...user, ...patch };
+      })
+    );
+  };
+
+  const addAccessUser = () => {
+    const email = newAccessEmail.trim().toLowerCase();
+    if (!email || !email.includes("@")) {
+      setMessage("Enter a valid Gmail address before adding access.");
+      return;
+    }
+    if (accessUsers.some((user) => user.email === email)) {
+      setMessage("That email is already in the access list.");
+      return;
+    }
+    setAccessUsers((current) => [...current, { email, role: newAccessRole }]);
+    setNewAccessEmail("");
+    setNewAccessRole("viewer");
+  };
+
+  const removeAccessUser = (email: string) => {
+    if (email === "stlprodz1101@gmail.com") {
+      setMessage("The main admin account cannot be removed.");
+      return;
+    }
+    setAccessUsers((current) => current.filter((user) => user.email !== email));
+  };
+
+  const saveCurrentAccessUsers = () => {
+    try {
+      saveAccessUsers(accessUsers);
+      setAccessUsers(loadAccessUsers());
+      onAccessUsersChange();
+      setMessage("Team access saved. New sign-ins will use these permissions.");
+    } catch {
+      setMessage("Could not save team access in this browser.");
     }
   };
 
@@ -246,6 +325,81 @@ export function SettingsPage({ database, theme, onDatabaseChange, onThemeChange 
       </section>
 
       <section className="grid gap-4 xl:grid-cols-2">
+        <div className="soft-panel rounded p-4 xl:col-span-2">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 className="font-display text-2xl">Team Access</h3>
+              <p className="mt-1 text-sm" style={{ color: "var(--muted-ink)" }}>
+                Admin can access Settings and manage Gmail permissions. Editors can create, edit, upload, and download. Viewers can only read and click links.
+              </p>
+            </div>
+            <span className="rounded border px-3 py-1 text-sm" style={{ borderColor: "var(--card-border)", background: "var(--field-bg)" }}>
+              Signed in as {currentUser.email}
+            </span>
+          </div>
+
+          <div className="mt-4 grid gap-3">
+            {accessUsers.map((user) => {
+              const lockedAdmin = user.email === "stlprodz1101@gmail.com";
+              return (
+                <div key={user.email} className="settings-access-row">
+                  <input
+                    value={user.email}
+                    disabled={lockedAdmin}
+                    onChange={(event) => updateAccessUser(user.email, { email: event.target.value.trim().toLowerCase() })}
+                    aria-label="Team member email"
+                  />
+                  <CustomSelect
+                    value={user.role}
+                    disabled={lockedAdmin}
+                    onChange={(value) => updateAccessUser(user.email, { role: value as AccessRole })}
+                    ariaLabel="Team member permission"
+                    options={[
+                      { value: "viewer", label: "Viewer" },
+                      { value: "editor", label: "Editor" },
+                      { value: "admin", label: "Admin" }
+                    ]}
+                  />
+                  <input
+                    value={user.label || ""}
+                    placeholder="Optional name or note"
+                    onChange={(event) => updateAccessUser(user.email, { label: event.target.value })}
+                    aria-label="Team member note"
+                  />
+                  <button className="tab-frame rounded px-3 py-2" onClick={() => removeAccessUser(user.email)} disabled={lockedAdmin}>
+                    Remove
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="settings-access-add-row mt-4">
+            <input
+              value={newAccessEmail}
+              placeholder="newteammate@gmail.com"
+              onChange={(event) => setNewAccessEmail(event.target.value)}
+              aria-label="New Gmail account"
+            />
+            <CustomSelect
+              value={newAccessRole}
+              onChange={(value) => setNewAccessRole(value as AccessRole)}
+              ariaLabel="New permission"
+              options={[
+                { value: "viewer", label: "Viewer" },
+                { value: "editor", label: "Editor" },
+                { value: "admin", label: "Admin" }
+              ]}
+            />
+            <button className="tab-frame rounded px-4 py-2" onClick={addAccessUser}>
+              Add Gmail
+            </button>
+            <button className="button-frame rounded px-4 py-2" onClick={saveCurrentAccessUsers}>
+              Save Team Access
+            </button>
+          </div>
+        </div>
+
         <div className="soft-panel rounded p-4">
           <h3 className="font-display text-2xl">Theme</h3>
           <div className="mt-4 flex flex-wrap gap-3">
@@ -254,7 +408,7 @@ export function SettingsPage({ database, theme, onDatabaseChange, onThemeChange 
               onClick={() => onThemeChange("light")}
             >
               <Icon name="Sun" className="h-4 w-4" />
-              Light Tavern Mode
+              Cozy Tavern Mode
             </button>
             <button
               className={`tab-frame inline-flex items-center gap-2 rounded px-4 py-2 ${theme === "dream" ? "shadow-glow" : ""}`}
@@ -335,24 +489,28 @@ export function SettingsPage({ database, theme, onDatabaseChange, onThemeChange 
             value={driveSettings.defaultTalesFolderId}
             placeholder="Main lore bible Drive folder ID"
             onChange={(value) => updateDriveSetting("defaultTalesFolderId", value)}
+            onPickFolder={() => chooseDriveSettingsFolder("defaultTalesFolderId")}
           />
           <DriveSettingsInput
             label="Default Characters Folder ID"
             value={driveSettings.defaultCharactersFolderId}
             placeholder="Characters art/reference folder ID"
             onChange={(value) => updateDriveSetting("defaultCharactersFolderId", value)}
+            onPickFolder={() => chooseDriveSettingsFolder("defaultCharactersFolderId")}
           />
           <DriveSettingsInput
             label="Default World Art Folder ID"
             value={driveSettings.defaultWorldArtFolderId}
             placeholder="World art/reference folder ID"
             onChange={(value) => updateDriveSetting("defaultWorldArtFolderId", value)}
+            onPickFolder={() => chooseDriveSettingsFolder("defaultWorldArtFolderId")}
           />
           <DriveSettingsInput
             label="Default Marketing Art Folder ID"
             value={driveSettings.defaultMarketingArtFolderId}
             placeholder="Marketing art folder ID"
             onChange={(value) => updateDriveSetting("defaultMarketingArtFolderId", value)}
+            onPickFolder={() => chooseDriveSettingsFolder("defaultMarketingArtFolderId")}
           />
         </div>
 
@@ -383,7 +541,9 @@ export function SettingsPage({ database, theme, onDatabaseChange, onThemeChange 
           </div>
         </div>
 
-        <div className="soft-panel rounded p-4">
+        <AssistantPanel database={database} onDatabaseChange={onDatabaseChange} embedded />
+
+        <div className="soft-panel rounded p-4 xl:col-span-2">
           <h3 className="font-display text-2xl">App Data Tools</h3>
           <div className="mt-4 flex flex-wrap gap-3">
             <button
@@ -420,26 +580,43 @@ function DriveSettingsInput({
   value,
   placeholder,
   type = "text",
-  onChange
+  onChange,
+  onPickFolder
 }: {
   label: string;
   value: string;
   placeholder: string;
   type?: "text" | "password";
   onChange: (value: string) => void;
+  onPickFolder?: () => void;
 }) {
   return (
-    <label className="block text-sm">
-      <span className="font-semibold">{label}</span>
-      <input
-        className="mt-1 w-full rounded border px-3 py-2"
-        style={{ borderColor: "var(--card-border)", background: "var(--field-bg)", color: "var(--ink)" }}
-        type={type}
-        value={value}
-        placeholder={placeholder}
-        autoComplete="off"
-        onChange={(event) => onChange(event.target.value)}
-      />
-    </label>
+    <div className="block text-sm">
+      <label>
+        <span className="font-semibold">{label}</span>
+        <input
+          className="mt-1 w-full rounded border px-3 py-2"
+          style={{ borderColor: "var(--card-border)", background: "var(--field-bg)", color: "var(--ink)" }}
+          type={type}
+          value={value}
+          placeholder={placeholder}
+          autoComplete="off"
+          onChange={(event) => onChange(event.target.value)}
+        />
+      </label>
+      {onPickFolder && (
+        <button className="mt-2 inline-flex items-center gap-2 rounded border px-3 py-2" style={{ borderColor: "var(--card-border)" }} onClick={onPickFolder}>
+          <Icon name="FolderOpen" className="h-4 w-4" />
+          Choose From Google Drive
+        </button>
+      )}
+    </div>
   );
+}
+
+function folderSettingLabel(key: keyof Pick<DriveSettings, "defaultTalesFolderId" | "defaultCharactersFolderId" | "defaultWorldArtFolderId" | "defaultMarketingArtFolderId">) {
+  if (key === "defaultCharactersFolderId") return "Default Characters Folder";
+  if (key === "defaultWorldArtFolderId") return "Default World Art Folder";
+  if (key === "defaultMarketingArtFolderId") return "Default Marketing Art Folder";
+  return "Default Tales Folder";
 }

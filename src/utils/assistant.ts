@@ -6,6 +6,7 @@ import type {
   LoreEntry
 } from "../types";
 import { cloneDatabase, normalizeEntry, nowIso, slugify } from "./entries";
+import { createEmptyWorldBuilding } from "./worldBuilding";
 
 const assistantJsonInstructions = `Return only structured JSON in this exact shape:
 {
@@ -121,6 +122,9 @@ const applyAction = (entries: LoreEntry[], action: AssistantAction): LoreEntry[]
       const next = cloneDatabase({
         schemaVersion: 1,
         entries: [entry],
+        bestiary: [],
+        bestiaryCategoryVaults: [],
+        worldBuilding: createEmptyWorldBuilding(),
         backups: [],
         branding: { studioName: "STL Productionz" }
       }).entries[0] as LoreEntry;
@@ -211,6 +215,9 @@ export const undoLastAiChange = (database: LoreDatabase): LoreDatabase | null =>
     entries: cloneDatabase({
       schemaVersion: 1,
       entries: backup.entries,
+      bestiary: database.bestiary || [],
+      bestiaryCategoryVaults: database.bestiaryCategoryVaults || [],
+      worldBuilding: database.worldBuilding || createEmptyWorldBuilding(),
       backups: [],
       branding: database.branding
     }).entries,

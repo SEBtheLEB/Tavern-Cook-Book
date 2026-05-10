@@ -1,10 +1,13 @@
-import type { LoreEntry } from "../types";
+import type { ImageFitSettings, LoreEntry } from "../types";
+import { AdjustableImage } from "./AdjustableImage";
 import { Icon } from "./Icon";
 
 const boolLabel = (value?: boolean) => (value ? "Yes" : "No");
 
 interface WikiLayoutProps {
   entry: LoreEntry;
+  canAdjustImages?: boolean;
+  onSaveImage?: (slot: "iconImage" | "mainImage", next: { imageUrl: string; imageFit: ImageFitSettings }) => void;
 }
 
 export function isWikiEntry(entry: LoreEntry) {
@@ -21,9 +24,10 @@ export function isWikiEntry(entry: LoreEntry) {
   );
 }
 
-export function WikiLayout({ entry }: WikiLayoutProps) {
+export function WikiLayout({ entry, canAdjustImages = false, onSaveImage }: WikiLayoutProps) {
   const wiki = entry.wiki || {};
-  const iconImage = entry.media.iconImage || entry.media.mainImage;
+  const iconSlot = entry.media.iconImage ? "iconImage" : "mainImage";
+  const iconImage = entry.media[iconSlot];
 
   const rows = [
     ["Item type", wiki.itemType || entry.type],
@@ -50,18 +54,31 @@ export function WikiLayout({ entry }: WikiLayoutProps) {
         <div className="space-y-3">
           <div className="grid aspect-square place-items-center overflow-hidden rounded border" style={{ borderColor: "var(--wiki-frame)", background: "var(--field-bg)" }}>
             {iconImage ? (
-              <img src={iconImage} alt="" className="h-full w-full object-cover" />
+              <AdjustableImage
+                src={iconImage}
+                label={`${entry.title} wiki icon`}
+                imageFit={entry.media.imageFits?.[iconSlot]}
+                aspectRatio="1 / 1"
+                imageClassName="h-full w-full"
+                canAdjust={canAdjustImages}
+                onSave={onSaveImage ? (next) => onSaveImage(iconSlot, next) : undefined}
+              />
             ) : (
               <Icon name="Package" className="h-14 w-14" />
             )}
           </div>
           {entry.media.mainImage && entry.media.mainImage !== iconImage && (
-            <img
-              src={entry.media.mainImage}
-              alt=""
-              className="aspect-video w-full rounded border object-cover"
-              style={{ borderColor: "var(--wiki-frame)" }}
-            />
+            <div className="aspect-video w-full overflow-hidden rounded border" style={{ borderColor: "var(--wiki-frame)" }}>
+              <AdjustableImage
+                src={entry.media.mainImage}
+                label={`${entry.title} wiki main image`}
+                imageFit={entry.media.imageFits?.mainImage}
+                aspectRatio="16 / 9"
+                imageClassName="h-full w-full"
+                canAdjust={canAdjustImages}
+                onSave={onSaveImage ? (next) => onSaveImage("mainImage", next) : undefined}
+              />
+            </div>
           )}
           <div className="rounded border p-3 text-sm" style={{ borderColor: "var(--wiki-frame)", background: "var(--field-bg)" }}>
             <p className="font-display text-xl">{entry.title}</p>

@@ -1,5 +1,5 @@
 import { dashboardBoxes, hubSections, mainNavigation } from "../data/navigation";
-import type { LoreDatabase, LoreEntry } from "../types";
+import type { BestiaryCreature, LoreDatabase, LoreEntry } from "../types";
 
 const safeJson = (value: unknown) =>
   JSON.stringify(value)
@@ -40,6 +40,30 @@ const publicEntry = (entry: LoreEntry) => ({
   updatedAt: entry.updatedAt
 });
 
+const publicCreature = (creature: BestiaryCreature) => ({
+  id: creature.id,
+  name: creature.name,
+  type: creature.type,
+  image: creature.image,
+  hoverImage: creature.hoverImage,
+  status: creature.status,
+  threatLevel: creature.threatLevel,
+  rarity: creature.rarity,
+  size: creature.size,
+  diet: creature.diet,
+  habitat: creature.habitat,
+  behavior: creature.behavior,
+  description: creature.description,
+  overview: creature.overview,
+  fieldNotes: creature.fieldNotes,
+  stats: creature.stats,
+  drops: creature.drops,
+  habitatInfo: creature.habitatInfo,
+  lore: creature.lore,
+  productionNotes: creature.productionNotes,
+  updatedAt: creature.updatedAt
+});
+
 const sharedViews = [
   ...mainNavigation.filter((item) => item.id !== "settings" && item.id !== "search"),
   ...dashboardBoxes.filter(
@@ -63,6 +87,7 @@ export const createShareableHtml = (database: LoreDatabase) => {
     exportedAt: new Date().toISOString(),
     logoImage: database.branding.logoImage,
     entries: database.entries.map(publicEntry),
+    bestiary: (database.bestiary || []).map(publicCreature),
     views: sharedViews,
     dashboardBoxes: dashboardBoxes
       .filter((box) => box.id !== "settings")
@@ -84,23 +109,23 @@ export const createShareableHtml = (database: LoreDatabase) => {
   <title>The Tavern Cook Book - Read-Only Share</title>
   <style>
     :root {
-      --app-bg: #f7ead0;
-      --app-ink: #2c2119;
-      --muted-ink: #6d5b46;
-      --panel-bg: rgba(255, 247, 225, 0.94);
-      --panel-border: #c79b56;
-      --panel-shadow: 0 16px 36px rgba(72, 43, 18, 0.16);
-      --card-bg: rgba(255, 251, 238, 0.94);
-      --card-border: rgba(151, 101, 37, 0.34);
-      --card-frame: linear-gradient(135deg, rgba(255, 246, 219, 0.96), rgba(247, 224, 177, 0.92));
-      --button-bg: #7b3f2a;
-      --button-border: #b9823f;
-      --modal-bg: rgba(255, 250, 235, 0.98);
-      --modal-frame: #8d5b2e;
-      --sidebar-frame: linear-gradient(180deg, #6b3f29 0%, #3d2a22 100%);
-      --field-bg: rgba(255, 255, 255, 0.64);
-      --gold: #d99b32;
-      --teal: #216f67;
+      --app-bg: #e7d0a4;
+      --app-ink: #2b1c12;
+      --muted-ink: #6d5438;
+      --panel-bg: rgba(245, 224, 184, 0.94);
+      --panel-border: #a97734;
+      --panel-shadow: 0 18px 38px rgba(63, 35, 14, 0.2), inset 0 1px rgba(255, 244, 210, 0.46);
+      --card-bg: rgba(251, 235, 200, 0.94);
+      --card-border: rgba(124, 79, 29, 0.36);
+      --card-frame: linear-gradient(135deg, rgba(250, 232, 194, 0.96), rgba(226, 190, 124, 0.9));
+      --button-bg: #6f3824;
+      --button-border: #a76f32;
+      --modal-bg: rgba(250, 233, 199, 0.98);
+      --modal-frame: #7d4b25;
+      --sidebar-frame: linear-gradient(180deg, #5f321f 0%, #332018 100%);
+      --field-bg: rgba(255, 239, 205, 0.7);
+      --gold: #c98b2f;
+      --teal: #2b695f;
       font-family: Inter, ui-sans-serif, system-ui, sans-serif;
     }
     .dream {
@@ -125,8 +150,9 @@ export const createShareableHtml = (database: LoreDatabase) => {
     body {
       margin: 0;
       background:
-        radial-gradient(circle at 20% 10%, rgba(216, 150, 62, 0.2), transparent 32%),
-        radial-gradient(circle at 90% 15%, rgba(34, 108, 97, 0.12), transparent 30%),
+        radial-gradient(circle at 16% 6%, rgba(255, 199, 108, 0.34), transparent 30%),
+        radial-gradient(circle at 86% 12%, rgba(129, 67, 32, 0.18), transparent 34%),
+        linear-gradient(135deg, rgba(74, 38, 18, 0.08), transparent 44%),
         var(--app-bg);
       color: var(--app-ink);
       letter-spacing: 0;
@@ -142,8 +168,10 @@ export const createShareableHtml = (database: LoreDatabase) => {
       display: grid;
       grid-template-columns: 280px minmax(0, 1fr);
       background:
-        linear-gradient(120deg, rgba(255, 247, 220, 0.24), transparent),
-        repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.035) 1px, transparent 1px, transparent 14px);
+        radial-gradient(circle at 18% 0%, rgba(255, 211, 134, 0.22), transparent 30%),
+        radial-gradient(circle at 96% 8%, rgba(117, 60, 27, 0.18), transparent 34%),
+        linear-gradient(120deg, rgba(255, 226, 166, 0.16), transparent 46%),
+        repeating-linear-gradient(90deg, rgba(91, 50, 22, 0.035), rgba(91, 50, 22, 0.035) 1px, transparent 1px, transparent 14px);
     }
     .sidebar {
       background: var(--sidebar-frame);
@@ -421,7 +449,7 @@ export const createShareableHtml = (database: LoreDatabase) => {
         </div>
         <input class="field search" id="search" type="search" placeholder="Search the Cook Book" />
         <select class="field" id="themeSelect" title="Theme">
-          <option value="light">Light Tavern Mode</option>
+          <option value="light">Cozy Tavern Mode</option>
           <option value="dream">Dream Tavern Mode</option>
         </select>
       </header>
@@ -493,6 +521,7 @@ export const createShareableHtml = (database: LoreDatabase) => {
       else if (state.view === "search") renderEntryPage('Search Results for "' + state.query + '"', searchEntries(), "Search across all public snapshot fields.");
       else if (state.view === "timeline") renderTimeline();
       else if (state.view === "secrets") renderSecrets();
+      else if (state.view === "bestiary") renderBestiary();
       else renderHubPage();
       wireEntryButtons();
       wireViewButtons();
@@ -570,6 +599,16 @@ export const createShareableHtml = (database: LoreDatabase) => {
         '<section class="secret-grid">' + secrets.map(entry => '<button class="hub-card entry-link" data-id="' + escapeAttr(entry.id) + '"><h3>' + escapeHtml(entry.title.replace("Secret: ", "")) + '</h3><p style="margin-top:10px;">' + escapeHtml(plainText(entry.secret?.trueFact || entry.summary)) + '</p><div class="badges" style="margin-top:12px;"><span class="badge">' + escapeHtml(entry.spoilerLevel) + '</span><span class="badge">Known by: ' + escapeHtml((entry.secret?.knownBy || []).join(", ")) + '</span></div></button>').join("") + '</section>';
     }
 
+    function renderBestiary() {
+      const creatures = data.bestiary || [];
+      content.innerHTML =
+        '<section class="hero"><p class="small-kicker muted">' + creatures.length + ' creatures</p><h2 class="title">Bestiary</h2><p class="muted" style="margin-top:10px;">Creatures, monsters, and beasts that roam the world.</p></section>' +
+        '<section class="entry-grid">' + creatures.map(creature => '<button class="entry-card creature-link" data-id="' + escapeAttr(creature.id) + '"><div class="entry-top"><div class="entry-icon">' + (creature.image ? '<img alt="" src="' + escapeAttr(creature.image) + '" />' : 'BT') + '</div><div class="entry-main"><div class="badges"><span class="badge">' + escapeHtml(creature.threatLevel || "Unknown") + '</span><span class="badge">' + escapeHtml(creature.status || "WIP") + '</span></div><h3 class="entry-title">' + escapeHtml(creature.name) + '</h3><p class="muted">' + escapeHtml((creature.type || "Creature") + " / " + (creature.habitat || "Unknown")) + '</p></div></div><p class="entry-summary">' + escapeHtml(plainText(creature.description || creature.overview || "No description yet.")) + '</p></button>').join("") + '</section>';
+      content.querySelectorAll(".creature-link").forEach(button => {
+        button.addEventListener("click", () => openCreature(button.dataset.id));
+      });
+    }
+
     function entryGrid(entries) {
       if (!entries.length) return '<section class="panel empty"><h3>No entries found</h3><p class="muted">Try another section or search term.</p></section>';
       return '<section class="entry-grid">' + entries.map(entryCard).join("") + '</section>';
@@ -591,6 +630,7 @@ export const createShareableHtml = (database: LoreDatabase) => {
     }
 
     function entriesForView(view) {
+      if (view === "bestiary") return data.bestiary || [];
       if (view === "recipes") return data.entries.filter(entry => /recipe|meal|food magic|consumable/i.test(entry.type));
       if (view === "ingredients") return data.entries.filter(entry => /ingredient|drop|substitute/i.test(entry.type));
       if (view === "items") return data.entries.filter(entry => /item|artifact|tool|collectible/i.test(entry.type));
@@ -640,6 +680,29 @@ export const createShareableHtml = (database: LoreDatabase) => {
         ...(entry.media?.galleryImages || [])
       ].filter(Boolean);
       modalBody.innerHTML = '<div class="field-grid">' + blocks.map(([label, value]) => '<div class="field-block"><span class="field-label">' + escapeHtml(label) + '</span>' + escapeHtml(plainText(value)) + '</div>').join("") + '</div>' + (gallery.length ? '<div class="gallery">' + gallery.map(src => '<img alt="" src="' + src + '" />').join("") + '</div>' : "");
+      modal.showModal();
+    }
+
+    function openCreature(id) {
+      const creature = (data.bestiary || []).find(item => item.id === id);
+      if (!creature) return;
+      modalIcon.innerHTML = creature.image ? '<img alt="" src="' + escapeAttr(creature.image) + '" />' : "BT";
+      modalTitle.textContent = creature.name;
+      modalMeta.textContent = (creature.type || "Creature") + " / " + (creature.threatLevel || "Unknown") + " / " + (creature.habitat || "Unknown");
+      const blocks = [
+        ["Description", creature.description],
+        ["Overview", creature.overview],
+        ["Size", creature.size],
+        ["Diet", creature.diet],
+        ["Behavior", creature.behavior],
+        ["Field Notes", creature.fieldNotes],
+        ["Stats", pretty(creature.stats)],
+        ["Drops", pretty(creature.drops)],
+        ["Habitat", pretty(creature.habitatInfo)],
+        ["Lore", pretty(creature.lore)],
+        ["Production Notes", creature.productionNotes]
+      ].filter(([, value]) => value && value !== "{}");
+      modalBody.innerHTML = '<div class="field-grid">' + blocks.map(([label, value]) => '<div class="field-block"><span class="field-label">' + escapeHtml(label) + '</span>' + escapeHtml(plainText(value)) + '</div>').join("") + '</div>';
       modal.showModal();
     }
 

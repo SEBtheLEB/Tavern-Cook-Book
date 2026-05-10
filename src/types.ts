@@ -1,4 +1,4 @@
-export type ThemeMode = "light" | "dream";
+﻿export type ThemeMode = "light" | "dream";
 
 export type EntryStatus =
   | "Canon"
@@ -17,12 +17,16 @@ export type SpoilerLevel =
 
 export type ActiveView =
   | "dashboard"
+  | "storyJourney"
+  
+  | "spriteAnimator"
   | "story"
   | "quests"
   | "gameplay"
   | "food"
   | "characters"
   | "world"
+  | "bestiary"
   | "marketing"
   | "archive"
   | "settings"
@@ -114,10 +118,28 @@ export interface EntryMedia {
   characterHoverImage?: string;
   ingameSpriteImage?: string;
   dialogueSpriteImage?: string;
+  imageFits?: Record<string, ImageFitSettings>;
   galleryImages: string[];
   videoLinks: string[];
   uploadedVideos: MediaAsset[];
   mediaNotes?: string;
+}
+
+export type ImageFitMode = "contain" | "cover" | "fill" | "custom";
+
+export interface ImageFitSettings {
+  mode: ImageFitMode;
+  scale: number;
+  x: number;
+  y: number;
+}
+
+export interface SpriteAnimationSlotReference {
+  mode: "spriteAnimation";
+  spriteSheetAssetId: string;
+  animationPresetId: string;
+  playback: "autoplay" | "hover";
+  loop: boolean;
 }
 
 export interface CharacterArtGalleryItem {
@@ -131,6 +153,244 @@ export interface CharacterArtGalleryItem {
   isFeatured: boolean;
   notes: string;
   uploadStatus?: "mock-local-preview" | string;
+  imageFit?: ImageFitSettings;
+  driveFolderId?: string;
+  driveFolderLink?: string;
+  driveFolderName?: string;
+}
+
+export type ArtVaultSlotStatus = "empty" | "uploaded" | "needs-revision" | "approved";
+
+export interface ArtVaultImageMetadata {
+  id: string;
+  title: string;
+  category: string;
+  slotId: string;
+  driveFileId: string;
+  thumbnailUrl: string;
+  webViewLink: string;
+  dateAdded: string;
+  uploadStatus: string;
+  assetState?: "wip" | "final" | string;
+  notes: string;
+  fileName?: string;
+  downloadUrl?: string;
+  uploadedByName?: string;
+  uploadedByEmail?: string;
+  uploadedAt?: string;
+  lastUpdatedByName?: string;
+  lastUpdatedByEmail?: string;
+  lastUpdatedAt?: string;
+  imageFit?: ImageFitSettings;
+  driveFolderId?: string;
+  driveFolderLink?: string;
+  driveFolderName?: string;
+  spriteAnimation?: SpriteAnimationSlotReference;
+}
+
+export interface ArtVaultSlot {
+  id: string;
+  label: string;
+  requirementType: string;
+  status: ArtVaultSlotStatus | string;
+  image: ArtVaultImageMetadata | null;
+  notes: string;
+  order: number;
+}
+
+export interface ArtVaultSection {
+  id: string;
+  title: string;
+  description: string;
+  slots: ArtVaultSlot[];
+  order: number;
+  driveFolderId?: string;
+  driveFolderLink?: string;
+  driveFolderName?: string;
+}
+
+export interface CharacterArtVault {
+  sections: ArtVaultSection[];
+}
+
+export interface BestiaryCategoryArtVault {
+  id: string;
+  categoryName: string;
+  title: string;
+  description: string;
+  artVault: CharacterArtVault;
+  driveFolderId: string;
+  driveFolderLink: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CharacterArtBoardCategory {
+  id: string;
+  label: string;
+  image?: string;
+  order: number;
+  isDefault?: boolean;
+}
+
+export interface CharacterArtBoard {
+  categories: CharacterArtBoardCategory[];
+}
+
+export interface CharacterRelationship {
+  id: string;
+  characterId: string;
+  description: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export type WorldBuildingCategoryId =
+  | "locations"
+  | "cultures"
+  | "factions"
+  | "timeline"
+  | "magicSystems"
+  | "foodAndRecipes"
+  | "creatureLinks"
+  | "characterLinks"
+  | "myths"
+  | "items"
+  | "quests"
+  | "rules"
+  | "mysteries"
+  | "glossary";
+
+export type WorldBuildingRelatedType =
+  | "world"
+  | "character"
+  | "creature"
+  | "location"
+  | "culture"
+  | "faction"
+  | "item"
+  | "recipe"
+  | "magic"
+  | "timeline"
+  | "quest"
+  | "myth"
+  | "glossary";
+
+export interface WorldBuildingRelatedEntry {
+  id: string;
+  type: WorldBuildingRelatedType | string;
+  targetId: string;
+  targetCategory?: WorldBuildingCategoryId | string;
+  note: string;
+}
+
+export interface WorldBuildingEntry {
+  id: string;
+  title: string;
+  category: WorldBuildingCategoryId;
+  type: string;
+  summary: string;
+  tags: string[];
+  image: string;
+  imageFit?: ImageFitSettings;
+  fields: Record<string, string>;
+  relatedEntries: WorldBuildingRelatedEntry[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type WorldBuildingData = Record<WorldBuildingCategoryId, WorldBuildingEntry[]>;
+
+export interface BestiaryCreatureStats {
+  health: string;
+  damage: string;
+  speed: string;
+  defense: string;
+  aggression: string;
+  weakness: string;
+  resistances: string;
+  abilities: string;
+  attackPatterns: string;
+  bossPhaseNotes: string;
+}
+
+export interface BestiaryCreatureDrops {
+  droppedIngredients: string;
+  craftingMaterials: string;
+  rareDrops: string;
+  cookingUses: string;
+  sellValue: string;
+  recipeConnections: string;
+  icons: BestiaryDropIcon[];
+}
+
+export interface BestiaryDropIcon {
+  id: string;
+  label: string;
+  category: string;
+  image: string;
+  notes: string;
+}
+
+export interface BestiaryCreatureHabitatInfo {
+  knownLocations: string;
+  spawnConditions: string;
+  timeOfDay: string;
+  season: string;
+  weatherConditions: string;
+  nearbyPointsOfInterest: string;
+  mapNotes: string;
+}
+
+export interface BestiaryCreatureLore {
+  origin: string;
+  culturalMeaning: string;
+  rumors: string;
+  questConnections: string;
+  relatedCreatures: string;
+  hiddenNotes: string;
+}
+
+export interface BestiaryCreature {
+  id: string;
+  name: string;
+  category: string;
+  type: string;
+  slotImage: string;
+  image: string;
+  expandedImage: string;
+  hoverImage: string;
+  imagePositionX: number;
+  imagePositionY: number;
+  imageZoom: number;
+  slotImageFit: ImageFitSettings;
+  imageFit: ImageFitSettings;
+  hoverImageFit: ImageFitSettings;
+  expandedImageFit: ImageFitSettings;
+  status: string;
+  threatLevel: string;
+  rarity: string;
+  size: string;
+  diet: string;
+  habitat: string;
+  behavior: string;
+  description: string;
+  overview: string;
+  fieldNotes: string;
+  stats: BestiaryCreatureStats;
+  drops: BestiaryCreatureDrops;
+  habitatInfo: BestiaryCreatureHabitatInfo;
+  lore: BestiaryCreatureLore;
+  visualDesignNotes: string;
+  animationNotes: string;
+  soundNotes: string;
+  gameplayPurpose: string;
+  productionNotes: string;
+  artVault: CharacterArtVault;
+  driveFolderId: string;
+  driveFolderLink: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface LoreEntry {
@@ -152,6 +412,9 @@ export interface LoreEntry {
   wiki?: WikiFields;
   media: EntryMedia;
   artGallery: CharacterArtGalleryItem[];
+  artVault: CharacterArtVault;
+  characterArtBoard: CharacterArtBoard;
+  characterRelationships: CharacterRelationship[];
   driveFolderId: string;
   driveFolderLink: string;
   createdAt: string;
@@ -168,12 +431,51 @@ export interface LoreBackup {
 export interface LoreDatabase {
   schemaVersion: number;
   entries: LoreEntry[];
+  bestiary: BestiaryCreature[];
+  bestiaryCategoryVaults: BestiaryCategoryArtVault[];
+  worldBuilding: WorldBuildingData;
   backups: LoreBackup[];
   lastAiBackupId?: string;
   branding: {
     studioName: string;
     logoImage?: string;
   };
+}
+
+export type AccessRole = "admin" | "editor" | "viewer";
+
+export interface AccessUserPermission {
+  email: string;
+  role: AccessRole;
+  label?: string;
+}
+
+export interface GoogleAccountUser {
+  name: string;
+  email: string;
+  picture?: string;
+  role: AccessRole;
+}
+
+export interface ArtVaultActivityLogEntry {
+  id: string;
+  actionType: string;
+  slotName: string;
+  subjectName: string;
+  subjectType: "character" | "creature" | "environment" | string;
+  userName: string;
+  userEmail: string;
+  timestamp: string;
+  fileName?: string;
+  driveFileId?: string;
+}
+
+export type FavoriteKind = "entry" | "creature";
+
+export interface FavoriteItem {
+  kind: FavoriteKind;
+  id: string;
+  createdAt: string;
 }
 
 export type AssistantMode =
@@ -234,3 +536,7 @@ export interface ViewConfig {
   typeIncludes?: string[];
   icon: string;
 }
+
+
+
+

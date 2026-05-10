@@ -1,4 +1,4 @@
-import type { ActiveView, ViewConfig } from "../types";
+﻿import type { ActiveView, ViewConfig } from "../types";
 
 export const mainNavigation: ViewConfig[] = [
   {
@@ -6,6 +6,15 @@ export const mainNavigation: ViewConfig[] = [
     label: "Dashboard",
     description: "Overview of canon, questions, recent work, and focus areas.",
     icon: "LayoutDashboard"
+  },
+  {
+    id: "storyJourney",
+    label: "Story Journey",
+    description: "Interactive storybook timeline for the main Tales of the Tavern journey.",
+    tooltip:
+      "Choose story chapters from a magical timeline, read them page by page, and follow the journey from ancient history into the game.",
+    category: "Story",
+    icon: "BookOpen"
   },
   {
     id: "story",
@@ -54,12 +63,20 @@ export const mainNavigation: ViewConfig[] = [
   },
   {
     id: "world",
-    label: "World",
-    description: "Locations, regions, POIs, corrupted states, purified states, and world details.",
+    label: "World Building",
+    description: "Living encyclopedia for locations, cultures, history, magic, food, myths, rules, and mysteries.",
     tooltip:
-      "Manage locations, regions, POIs, corrupted states, purified states, and environmental storytelling.",
+      "Manage the lands, cultures, histories, creatures, factions, and mysteries that shape Tales of the Tavern.",
     category: "World",
     icon: "Map"
+  },
+  {
+    id: "bestiary",
+    label: "Bestiary",
+    description: "Creatures, monsters, beasts, insects, spirits, bosses, and wildlife.",
+    tooltip:
+      "Track creatures, monsters, bosses, wildlife, drops, habitats, and creature art requirements.",
+    icon: "Swords"
   },
   {
     id: "marketing",
@@ -115,7 +132,7 @@ export const hubSections: Record<string, { title: string; view: ActiveView; desc
     { title: "Dialogue / Quest Framework", view: "gameplay", description: "Story Framework 5 notes and quest logic." }
   ],
   food: [
-    { title: "Ingredients", view: "ingredients", description: "Gathered, dropped, and prepared ingredients." },
+    { title: "Pantry", view: "ingredients", description: "All ingredients, creature drops, prep variants, spawn sources, and recipe uses." },
     { title: "Meals / Recipes", view: "recipes", description: "Cooked dishes, magical meals, and food powers." },
     { title: "Items", view: "items", description: "Inventory objects and practical items." },
     { title: "Tools", view: "items", description: "Crafted tools and utility items." },
@@ -131,13 +148,14 @@ export const hubSections: Record<string, { title: string; view: ActiveView; desc
     { title: "Villages", view: "world", description: "Settlements, hubs, and community spaces." },
     { title: "Points of Interest", view: "world", description: "POIs, gathering spots, and landmarks." },
     { title: "Corrupted / Purified Areas", view: "world", description: "State changes and restoration notes." },
-    { title: "Environmental Storytelling", view: "world", description: "Scene-level lore and world clues." }
+    { title: "Environmental Storytelling", view: "world", description: "Scene-level lore and world clues." },
+    { title: "Bestiary", view: "bestiary", description: "Creatures, wildlife, bosses, drops, and habitats." }
   ]
 };
 
 export const dashboardBoxes: ViewConfig[] = [
   ...mainNavigation.filter((item) =>
-    ["story", "characters", "world", "quests", "food", "gameplay", "marketing", "archive", "settings"].includes(
+    ["storyJourney", "story", "characters", "world", "bestiary", "quests", "food", "gameplay", "marketing", "archive", "settings"].includes(
       item.id
     )
   ),
@@ -149,8 +167,8 @@ export const dashboardBoxes: ViewConfig[] = [
   },
   {
     id: "ingredients",
-    label: "Ingredients",
-    description: "Raw ingredients, prepared ingredients, slime gels, and enemy drops.",
+    label: "Pantry",
+    description: "Raw ingredients, prepared ingredients, slime gels, enemy drops, and recipe uses.",
     icon: "Wheat"
   },
   {
@@ -184,3 +202,4 @@ export const dashboardBoxes: ViewConfig[] = [
     icon: "EyeOff"
   }
 ];
+

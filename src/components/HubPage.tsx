@@ -7,15 +7,23 @@ import { Icon } from "./Icon";
 interface HubPageProps {
   view: ViewConfig;
   entries: LoreEntry[];
+  readOnly?: boolean;
   onNavigate: (view: ActiveView) => void;
   onOpenEntry: (entry: LoreEntry) => void;
+  onSaveEntry?: (entry: LoreEntry) => void;
+  isFavorite?: (entry: LoreEntry) => boolean;
+  onToggleFavorite?: (entry: LoreEntry) => void;
 }
 
 export function HubPage({
   view,
   entries,
+  readOnly = false,
   onNavigate,
-  onOpenEntry
+  onOpenEntry,
+  onSaveEntry,
+  isFavorite,
+  onToggleFavorite
 }: HubPageProps) {
   const sections = hubSections[view.id] || [];
 
@@ -56,9 +64,23 @@ export function HubPage({
       )}
 
       {view.id === "characters" ? (
-        <CharacterRoster entries={entries} onOpenEntry={onOpenEntry} />
+        <CharacterRoster
+          entries={entries}
+          readOnly={readOnly}
+          onOpenEntry={onOpenEntry}
+          onSaveEntry={onSaveEntry}
+          isFavorite={isFavorite}
+          onToggleFavorite={onToggleFavorite}
+        />
       ) : (
-        <EntryGrid entries={entries} onOpenEntry={onOpenEntry} />
+        <EntryGrid
+          entries={entries}
+          readOnly={readOnly}
+          onOpenEntry={onOpenEntry}
+          onSaveEntry={onSaveEntry}
+          isFavorite={isFavorite}
+          onToggleFavorite={onToggleFavorite}
+        />
       )}
     </div>
   );

@@ -1,11 +1,21 @@
-import type { LoreEntry } from "../types";
+import type { ImageFitSettings, LoreEntry } from "../types";
+import { nowIso } from "../utils/entries";
+import { normalizeImageFit } from "../utils/imageFit";
 import { richTextToPlainText } from "../utils/richText";
+import { AdjustableImage } from "./AdjustableImage";
+import { FavoriteButton } from "./FavoriteButton";
 import { Icon } from "./Icon";
 
 interface EntryCardProps {
   entry: LoreEntry;
+  readOnly?: boolean;
   onOpen: (entry: LoreEntry) => void;
+  onSaveEntry?: (entry: LoreEntry) => void;
+  isFavorite?: boolean;
+  onToggleFavorite?: (entry: LoreEntry) => void;
 }
+
+type EntryImageSlot = "iconImage" | "mainImage" | "characterPortrait" | "characterHoverImage" | "ingameSpriteImage" | "dialogueSpriteImage";
 
 const statusTone: Record<string, string> = {
   Canon: "border-emerald-500/50 bg-emerald-500/10",
@@ -17,9 +27,25 @@ const statusTone: Record<string, string> = {
   "Playtest Scope": "border-sky-500/50 bg-sky-500/10"
 };
 
-export function EntryCard({ entry, onOpen }: EntryCardProps) {
-  const iconImage = entry.media.iconImage || entry.media.mainImage;
+export function EntryCard({ entry, readOnly = false, onOpen, onSaveEntry, isFavorite = false, onToggleFavorite }: EntryCardProps) {
+  const iconSlot = entry.media.iconImage ? "iconImage" : "mainImage";
+  const iconImage = entry.media[iconSlot];
   const summary = richTextToPlainText(entry.summary || entry.internalLore || "No summary yet.");
+  const saveImageFit = (slot: EntryImageSlot, next: { imageUrl: string; imageFit: ImageFitSettings }) => {
+    if (!onSaveEntry) return;
+    onSaveEntry({
+      ...entry,
+      media: {
+        ...entry.media,
+        [slot]: next.imageUrl,
+        imageFits: {
+          ...(entry.media.imageFits || {}),
+          [slot]: normalizeImageFit(next.imageFit)
+        }
+      },
+      updatedAt: nowIso()
+    });
+  };
 
   return (
     <article
@@ -34,7 +60,15 @@ export function EntryCard({ entry, onOpen }: EntryCardProps) {
       <div className="flex items-start gap-3">
         <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded border" style={{ borderColor: "var(--card-border)", background: "var(--field-bg)" }}>
           {iconImage ? (
-            <img src={iconImage} alt="" className="h-full w-full object-cover" />
+            <AdjustableImage
+              src={iconImage}
+              label={`${entry.title} card image`}
+              imageFit={entry.media.imageFits?.[iconSlot]}
+              aspectRatio="1 / 1"
+              imageClassName="h-full w-full"
+              canAdjust={!readOnly && Boolean(onSaveEntry)}
+              onSave={(next) => saveImageFit(iconSlot, next)}
+            />
           ) : (
             <Icon name="BookOpen" className="h-7 w-7" />
           )}
@@ -53,6 +87,14 @@ export function EntryCard({ entry, onOpen }: EntryCardProps) {
             {entry.category} / {entry.type}
           </p>
         </div>
+        {onToggleFavorite && (
+          <FavoriteButton
+            active={isFavorite}
+            label={entry.title}
+            onToggle={() => onToggleFavorite(entry)}
+            className="shrink-0"
+          />
+        )}
       </div>
 
       <p className="mt-4 line-clamp-4 text-sm leading-6">{summary}</p>

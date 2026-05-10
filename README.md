@@ -89,6 +89,14 @@ Data is stored locally in the browser. Use **Settings** to export JSON, import J
 
 Large uploaded videos may exceed browser storage limits. Use video links for long clips.
 
+## Imported Chat History
+
+The prior Codex thread **Build Tavern Cook Book app** has been imported into this project under `docs/imported-chat-history/`.
+
+- `build-tavern-cook-book-app.memory.md` is the quick working-memory summary.
+- `build-tavern-cook-book-app.transcript.md` is the readable user/assistant transcript archive.
+- `scripts/import-codex-session.mjs` can regenerate the transcript from the local Codex session JSONL if needed.
+
 ## Import / Export
 
 Use **Settings > Export JSON** to create a portable backup.

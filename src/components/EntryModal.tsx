@@ -3,6 +3,8 @@ import type {
   EntryConnections,
   EntryMedia,
   EntryNotes,
+  GoogleAccountUser,
+  ImageFitSettings,
   LoreEntry,
   SecretInfo,
   TimelineInfo,
@@ -10,8 +12,13 @@ import type {
 } from "../types";
 import { isSupportedImage, readFileAsDataUrl, readImageFileForStorage } from "../utils/media";
 import { normalizeEntry } from "../utils/entries";
+import { normalizeImageFit } from "../utils/imageFit";
+import { AdjustableImage } from "./AdjustableImage";
+import { CustomSelect } from "./CustomSelect";
+import { DriveImageSourceControls } from "./DriveImageSourceControls";
 import { Icon } from "./Icon";
 import { CharacterProfileView } from "./CharacterProfileView";
+import { FavoriteButton } from "./FavoriteButton";
 import { isWikiEntry, WikiLayout } from "./WikiLayout";
 import { LoreKeywordText } from "./LoreKeywordText";
 import { RichLoreText, RichTextEditor } from "./RichText";
@@ -25,6 +32,9 @@ interface EntryModalProps {
   onSave: (entry: LoreEntry) => void;
   onDuplicate: (entry: LoreEntry) => void;
   onDelete: (entry: LoreEntry) => void;
+  currentUser: GoogleAccountUser;
+  isFavorite?: boolean;
+  onToggleFavorite?: () => void;
 }
 
 const statusOptions = [
@@ -230,10 +240,16 @@ const TextArea = ({
 const ImagePreview = ({
   label,
   src,
+  imageFit,
+  canAdjust,
+  onAdjust,
   onRemove
 }: {
   label: string;
   src?: string;
+  imageFit?: ImageFitSettings;
+  canAdjust?: boolean;
+  onAdjust?: (next: { imageUrl: string; imageFit: ImageFitSettings }) => void;
   onRemove: () => void;
 }) => {
   if (!src) return null;
@@ -247,7 +263,17 @@ const ImagePreview = ({
           Remove
         </button>
       </div>
-      <img src={src} alt="" className="mt-2 aspect-video w-full rounded object-contain" />
+      <div className="mt-2 aspect-video w-full overflow-hidden rounded">
+        <AdjustableImage
+          src={src}
+          label={label}
+          imageFit={imageFit}
+          aspectRatio="16 / 9"
+          canAdjust={canAdjust}
+          onSave={onAdjust}
+          imageClassName="h-full w-full"
+        />
+      </div>
     </div>
   );
 };
@@ -260,7 +286,10 @@ export function EntryModal({
   onViewReferences,
   onSave,
   onDuplicate,
-  onDelete
+  onDelete,
+  currentUser,
+  isFavorite = false,
+  onToggleFavorite
 }: EntryModalProps) {
   const [draft, setDraft] = useState(entry);
   const [isEditing, setIsEditing] = useState(false);
@@ -375,14 +404,7 @@ export function EntryModal({
         maxDimension: slot === "galleryImages" || slot === "mainImage" ? 1300 : 900,
         maxDataUrlLength: slot === "galleryImages" || slot === "mainImage" ? 760_000 : 520_000
       });
-      setDraft((current) => {
-        const media: EntryMedia =
-          slot === "galleryImages"
-            ? { ...current.media, galleryImages: [...current.media.galleryImages, dataUrl] }
-            : { ...current.media, [slot]: dataUrl };
-        return { ...current, media, updatedAt: new Date().toISOString() };
-      });
-      setError("");
+      setDriveImage(slot, dataUrl);
     } catch (uploadError) {
       setError(uploadError instanceof Error ? uploadError.message : "Could not prepare this image for storage.");
     }
@@ -407,6 +429,32 @@ export function EntryModal({
         updatedAt: new Date().toISOString()
       };
     });
+  };
+
+  const setDriveImage = (slot: ImageSlot, imageUrl: string) => {
+    setDraft((current) => {
+      const media: EntryMedia =
+        slot === "galleryImages"
+          ? { ...current.media, galleryImages: [...current.media.galleryImages, imageUrl] }
+          : { ...current.media, [slot]: imageUrl };
+      return { ...current, media, updatedAt: new Date().toISOString() };
+    });
+    setError("");
+  };
+
+  const saveImageFit = (slot: Exclude<ImageSlot, "galleryImages">, next: { imageUrl: string; imageFit: ImageFitSettings }) => {
+    setDraft((current) => ({
+      ...current,
+      media: {
+        ...current.media,
+        [slot]: next.imageUrl,
+        imageFits: {
+          ...(current.media.imageFits || {}),
+          [slot]: normalizeImageFit(next.imageFit)
+        }
+      },
+      updatedAt: new Date().toISOString()
+    }));
   };
 
   const uploadVideo = async (file: File | undefined) => {
@@ -480,6 +528,9 @@ export function EntryModal({
             onSetField={setCustomField}
             onUploadImage={uploadImage}
             onRemoveImage={removeImage}
+            currentUser={currentUser}
+            isFavorite={isFavorite}
+            onToggleFavorite={onToggleFavorite}
           />
         </section>
       </div>
@@ -519,6 +570,14 @@ export function EntryModal({
               </span>
             </div>
           </div>
+          {onToggleFavorite && (
+            <FavoriteButton
+              active={isFavorite}
+              label={draft.title}
+              onToggle={onToggleFavorite}
+              className="shrink-0"
+            />
+          )}
           {referenceKeyword && onViewReferences && (
             <button
               className="button-frame inline-flex items-center gap-2 rounded px-3 py-2 text-sm"
@@ -557,19 +616,11 @@ export function EntryModal({
                     <TextInput label="Type" value={draft.type} placeholder="Character, Location, Recipe, Artifact" onChange={(value) => updateDraft({ type: value })} />
                     <label className="space-y-1">
                       <span className="text-sm font-semibold">Status</span>
-                      <select className="field w-full rounded px-3 py-2" value={draft.status} onChange={(event) => updateDraft({ status: event.target.value })}>
-                        {statusOptions.map((status) => (
-                          <option key={status}>{status}</option>
-                        ))}
-                      </select>
+                      <CustomSelect value={draft.status} onChange={(value) => updateDraft({ status: value })} options={statusOptions} />
                     </label>
                     <label className="space-y-1">
                       <span className="text-sm font-semibold">Spoiler Level</span>
-                      <select className="field w-full rounded px-3 py-2" value={draft.spoilerLevel} onChange={(event) => updateDraft({ spoilerLevel: event.target.value })}>
-                        {spoilerOptions.map((status) => (
-                          <option key={status}>{status}</option>
-                        ))}
-                      </select>
+                      <CustomSelect value={draft.spoilerLevel} onChange={(value) => updateDraft({ spoilerLevel: value })} options={spoilerOptions} />
                     </label>
                     <TextInput label="Tags" value={joinValues(draft.tags)} placeholder="protagonist, cooking, Whisker Woods" onChange={(value) => updateDraft({ tags: splitValues(value) })} />
                   </div>
@@ -676,11 +727,15 @@ export function EntryModal({
                   <h3 className="font-display text-xl">Media</h3>
                   <div className="mt-3 space-y-2">
                     {baseImageSlots.map(([label, slot]) => (
-                      <label key={slot} className="button-frame flex cursor-pointer items-center justify-center gap-2 rounded px-3 py-2 text-sm">
-                        <Icon name="Upload" className="h-4 w-4" />
-                        {label}
-                        <input className="hidden" type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={(event) => uploadImage(slot, event.target.files?.[0])} />
-                      </label>
+                      <div key={slot} className="entry-media-action-row">
+                        <DriveImageSourceControls
+                          compact
+                          value={slot === "galleryImages" ? "" : String(draft.media[slot] || "")}
+                          label={label}
+                          title={`Choose ${label}`}
+                          onChange={(imageUrl) => setDriveImage(slot, imageUrl)}
+                        />
+                      </div>
                     ))}
                     {isCharacterEntry && (
                       <div className="mt-4 space-y-2 rounded border p-3" style={{ borderColor: "var(--card-border)" }}>
@@ -689,11 +744,16 @@ export function EntryModal({
                           These control the Characters page hover button and sprite previews.
                         </p>
                         {characterImageSlots.map(([label, slot, title]) => (
-                          <label key={slot} className="button-frame flex cursor-pointer items-center justify-center gap-2 rounded px-3 py-2 text-sm" title={title}>
-                            <Icon name="Image" className="h-4 w-4" />
-                            {label}
-                            <input className="hidden" type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={(event) => uploadImage(slot, event.target.files?.[0])} />
-                          </label>
+                          <div key={slot} className="entry-media-action-row">
+                            <DriveImageSourceControls
+                              compact
+                              value={String(draft.media[slot] || "")}
+                              label={label}
+                              title={`Choose ${label}`}
+                              onChange={(imageUrl) => setDriveImage(slot, imageUrl)}
+                            />
+                            <small style={{ color: "var(--muted-ink)" }}>{title}</small>
+                          </div>
                         ))}
                       </div>
                     )}
@@ -706,14 +766,14 @@ export function EntryModal({
                       Large video files may exceed browser storage limits. For long videos, use a link instead.
                     </p>
                     <div className="mt-4 space-y-2">
-                      <ImagePreview label="Icon Image" src={draft.media.iconImage} onRemove={() => removeImage("iconImage")} />
-                      <ImagePreview label="Main Image" src={draft.media.mainImage} onRemove={() => removeImage("mainImage")} />
+                      <ImagePreview label="Icon Image" src={draft.media.iconImage} imageFit={draft.media.imageFits?.iconImage} canAdjust={isEditing} onAdjust={(next) => saveImageFit("iconImage", next)} onRemove={() => removeImage("iconImage")} />
+                      <ImagePreview label="Main Image" src={draft.media.mainImage} imageFit={draft.media.imageFits?.mainImage} canAdjust={isEditing} onAdjust={(next) => saveImageFit("mainImage", next)} onRemove={() => removeImage("mainImage")} />
                       {isCharacterEntry && (
                         <>
-                          <ImagePreview label="Character Button PNG" src={draft.media.characterPortrait} onRemove={() => removeImage("characterPortrait")} />
-                          <ImagePreview label="Hover Character PNG" src={draft.media.characterHoverImage} onRemove={() => removeImage("characterHoverImage")} />
-                          <ImagePreview label="In-Game Sprite PNG" src={draft.media.ingameSpriteImage} onRemove={() => removeImage("ingameSpriteImage")} />
-                          <ImagePreview label="Dialogue Sprite PNG" src={draft.media.dialogueSpriteImage} onRemove={() => removeImage("dialogueSpriteImage")} />
+                          <ImagePreview label="Character Button PNG" src={draft.media.characterPortrait} imageFit={draft.media.imageFits?.characterPortrait} canAdjust={isEditing} onAdjust={(next) => saveImageFit("characterPortrait", next)} onRemove={() => removeImage("characterPortrait")} />
+                          <ImagePreview label="Hover Character PNG" src={draft.media.characterHoverImage} imageFit={draft.media.imageFits?.characterHoverImage} canAdjust={isEditing} onAdjust={(next) => saveImageFit("characterHoverImage", next)} onRemove={() => removeImage("characterHoverImage")} />
+                          <ImagePreview label="In-Game Sprite PNG" src={draft.media.ingameSpriteImage} imageFit={draft.media.imageFits?.ingameSpriteImage} canAdjust={isEditing} onAdjust={(next) => saveImageFit("ingameSpriteImage", next)} onRemove={() => removeImage("ingameSpriteImage")} />
+                          <ImagePreview label="Dialogue Sprite PNG" src={draft.media.dialogueSpriteImage} imageFit={draft.media.imageFits?.dialogueSpriteImage} canAdjust={isEditing} onAdjust={(next) => saveImageFit("dialogueSpriteImage", next)} onRemove={() => removeImage("dialogueSpriteImage")} />
                         </>
                       )}
                       {draft.media.galleryImages.map((src, index) => (
@@ -756,7 +816,13 @@ export function EntryModal({
             </div>
           ) : (
             <div className="space-y-5">
-              {isWikiEntry(draft) && <WikiLayout entry={draft} />}
+              {isWikiEntry(draft) && (
+                <WikiLayout
+                  entry={draft}
+                  canAdjustImages={isEditing}
+                  onSaveImage={(slot, next) => saveImageFit(slot, next)}
+                />
+              )}
 
               <div className="grid gap-4 md:grid-cols-2">
                 <FieldBlock label="Summary" value={draft.summary} />

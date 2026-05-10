@@ -7,16 +7,18 @@ import {
   parseAssistantPatch,
   undoLastAiChange
 } from "../utils/assistant";
+import { CustomSelect } from "./CustomSelect";
 import { Icon } from "./Icon";
 
 interface AssistantPanelProps {
   database: LoreDatabase;
   onDatabaseChange: (database: LoreDatabase) => void;
+  embedded?: boolean;
 }
 
 const modes: AssistantMode[] = ["suggest", "patch", "analyze", "marketing", "contradictions"];
 
-export function AssistantPanel({ database, onDatabaseChange }: AssistantPanelProps) {
+export function AssistantPanel({ database, onDatabaseChange, embedded = false }: AssistantPanelProps) {
   const [open, setOpen] = useState(false);
   const [command, setCommand] = useState("");
   const [mode, setMode] = useState<AssistantMode>("patch");
@@ -85,36 +87,70 @@ export function AssistantPanel({ database, onDatabaseChange }: AssistantPanelPro
 
   return (
     <>
-      <div className="group fixed bottom-4 right-0 z-30 translate-x-[132px] transition hover:translate-x-0">
-        <div className="assistant-frame flex items-center gap-3 rounded-l-full px-3 py-2">
-          <button
-            className="button-frame grid h-12 w-12 place-items-center rounded-full"
-            onClick={() => setOpen(true)}
-            title="Open assistant"
-          >
-            <Icon name="WandSparkles" className="h-5 w-5" />
-          </button>
-          <div className="w-52 pr-2">
-            <p className="text-sm font-semibold">Need help sorting the Cook Book?</p>
-            <div className="mt-1 flex gap-1">
-              <input
-                className="field min-w-0 flex-1 rounded px-2 py-1 text-xs"
-                value={command}
-                onChange={(event) => setCommand(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    setOpen(true);
-                    run();
-                  }
-                }}
-              />
-              <button className="rounded border px-2 text-xs" style={{ borderColor: "var(--panel-border)" }} onClick={() => setOpen(true)}>
-                Go
-              </button>
+      {embedded ? (
+        <section className="assistant-frame settings-assistant-panel rounded p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 className="font-display text-2xl">Cook Book Assistant</h3>
+              <p className="mt-1 text-sm leading-6" style={{ color: "var(--muted-ink)" }}>
+                Sort, update, rename, rewrite, cross-reference, and clean up lore with previewed changes.
+              </p>
+            </div>
+            <button className="button-frame inline-flex items-center gap-2 rounded px-4 py-2" onClick={() => setOpen(true)}>
+              <Icon name="WandSparkles" className="h-4 w-4" />
+              Open Assistant
+            </button>
+          </div>
+          <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_auto]">
+            <input
+              className="field min-w-0 rounded px-3 py-2 text-sm"
+              value={command}
+              placeholder="Example: Rename Wiscan to Whisken everywhere."
+              onChange={(event) => setCommand(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  setOpen(true);
+                  run();
+                }
+              }}
+            />
+            <button className="button-frame rounded px-4 py-2" onClick={() => setOpen(true)}>
+              Open
+            </button>
+          </div>
+        </section>
+      ) : (
+        <div className="group fixed bottom-4 right-0 z-30 translate-x-[132px] transition hover:translate-x-0">
+          <div className="assistant-frame flex items-center gap-3 rounded-l-full px-3 py-2">
+            <button
+              className="button-frame grid h-12 w-12 place-items-center rounded-full"
+              onClick={() => setOpen(true)}
+              title="Open assistant"
+            >
+              <Icon name="WandSparkles" className="h-5 w-5" />
+            </button>
+            <div className="w-52 pr-2">
+              <p className="text-sm font-semibold">Need help sorting the Cook Book?</p>
+              <div className="mt-1 flex gap-1">
+                <input
+                  className="field min-w-0 flex-1 rounded px-2 py-1 text-xs"
+                  value={command}
+                  onChange={(event) => setCommand(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      setOpen(true);
+                      run();
+                    }
+                  }}
+                />
+                <button className="rounded border px-2 text-xs" style={{ borderColor: "var(--panel-border)" }} onClick={() => setOpen(true)}>
+                  Go
+                </button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {open && (
         <div className="fixed inset-0 z-50">
@@ -152,13 +188,11 @@ export function AssistantPanel({ database, onDatabaseChange }: AssistantPanelPro
                   />
                 </label>
                 <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
-                  <select className="field rounded px-3 py-2" value={mode} onChange={(event) => setMode(event.target.value as AssistantMode)}>
-                    {modes.map((item) => (
-                      <option key={item} value={item}>
-                        {item}
-                      </option>
-                    ))}
-                  </select>
+                  <CustomSelect
+                    value={mode}
+                    onChange={(value) => setMode(value as AssistantMode)}
+                    options={modes}
+                  />
                   <button className="button-frame inline-flex items-center justify-center gap-2 rounded px-4 py-2" onClick={run} disabled={loading}>
                     <Icon name="Sparkles" className="h-4 w-4" />
                     {loading ? "Running..." : "Run Assistant"}

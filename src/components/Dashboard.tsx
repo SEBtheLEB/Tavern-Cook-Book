@@ -34,6 +34,7 @@ export function Dashboard({ database, onNavigate, onOpenEntry }: DashboardProps)
   ];
 
   const countForBox = (view: ActiveView) => {
+    if (view === "bestiary") return database.bestiary?.length || 0;
     if (view === "recipes") {
       return entries.filter((entry) => /recipe|meal|food magic|consumable/i.test(entry.type)).length;
     }
@@ -78,45 +79,64 @@ export function Dashboard({ database, onNavigate, onOpenEntry }: DashboardProps)
         </div>
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-[1fr_340px]">
-        <div className="soft-panel rounded p-4">
-          <h3 className="font-display text-2xl">Current Focus</h3>
-          <div className="mt-4 grid gap-3 md:grid-cols-2">
+      <section className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="soft-panel rounded p-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="mr-2 font-display text-lg">Current Focus</h3>
             {focusPanels.map((panel) => (
-              <div key={panel} className="rounded border p-3" style={{ borderColor: "var(--card-border)", background: "var(--field-bg)" }}>
-                <p className="font-semibold">{panel}</p>
-              </div>
+              <span
+                key={panel}
+                className="rounded border px-2.5 py-1 text-xs font-semibold"
+                style={{ borderColor: "var(--card-border)", background: "var(--field-bg)" }}
+              >
+                {panel}
+              </span>
             ))}
           </div>
         </div>
-        <div className="soft-panel rounded p-4">
-          <h3 className="font-display text-2xl">Needs Attention</h3>
+        <details className="soft-panel rounded p-3">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+            <span className="font-display text-lg">Needs Attention</span>
+            <span className="rounded border px-2.5 py-1 text-xs font-semibold" style={{ borderColor: "var(--card-border)", background: "var(--field-bg)" }}>
+              {unresolved.length} flagged
+            </span>
+          </summary>
           <div className="mt-3 space-y-2">
-            {unresolved.slice(0, 5).map((entry) => (
+            {unresolved.slice(0, 8).map((entry) => (
               <button
                 key={entry.id}
                 onClick={() => onOpenEntry(entry)}
-                className="block w-full rounded border p-3 text-left text-sm transition hover:bg-black/5"
+                className="block w-full rounded border p-2.5 text-left text-sm transition hover:bg-black/5"
                 style={{ borderColor: "var(--card-border)" }}
               >
                 <span className="font-semibold">{entry.title}</span>
-                <span className="block" style={{ color: "var(--muted-ink)" }}>
+                <span className="block text-xs" style={{ color: "var(--muted-ink)" }}>
                   {entry.status}
                 </span>
               </button>
             ))}
             {!unresolved.length && <p className="text-sm" style={{ color: "var(--muted-ink)" }}>Nothing flagged right now.</p>}
           </div>
-        </div>
+        </details>
       </section>
 
       <section>
-        <h3 className="mb-3 font-display text-2xl">Cook Book Hubs</h3>
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="text-xs uppercase tracking-[0.16em]" style={{ color: "var(--muted-ink)" }}>
+              Main workspace
+            </p>
+            <h3 className="font-display text-3xl md:text-4xl">Cook Book Hubs</h3>
+          </div>
+          <p className="max-w-xl text-sm" style={{ color: "var(--muted-ink)" }}>
+            Jump into the major lore, art, story, quest, and production areas.
+          </p>
+        </div>
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {dashboardBoxes.map((box) => (
             <button
               key={`${box.id}-${box.label}`}
-              className="dashboard-category-box-frame min-h-[168px] rounded p-4 text-left transition hover:-translate-y-0.5 hover:shadow-glow"
+              className="dashboard-category-box-frame min-h-[190px] rounded p-5 text-left transition hover:-translate-y-0.5 hover:shadow-glow"
               title={box.tooltip || box.description}
               onClick={() => onNavigate(box.id)}
             >
@@ -137,14 +157,14 @@ export function Dashboard({ database, onNavigate, onOpenEntry }: DashboardProps)
         </div>
       </section>
 
-      <section className="soft-panel rounded p-4">
-        <h3 className="font-display text-2xl">Recently Edited</h3>
-        <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+      <section className="soft-panel rounded p-3">
+        <h3 className="font-display text-xl">Recently Edited</h3>
+        <div className="mt-2 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
           {recent.map((entry) => (
             <button
               key={entry.id}
               onClick={() => onOpenEntry(entry)}
-              className="rounded border p-3 text-left text-sm transition hover:bg-black/5"
+              className="rounded border p-2.5 text-left text-xs transition hover:bg-black/5"
               style={{ borderColor: "var(--card-border)" }}
             >
               <span className="font-semibold">{entry.title}</span>

@@ -1,30 +1,52 @@
 import { useEffect, useRef, useState } from "react";
 import type { ThemeMode } from "../types";
+import { useOptionalAssignments } from "./AssignmentSystem";
 import { Icon } from "./Icon";
 
 interface TopBarProps {
   theme: ThemeMode;
   searchQuery: string;
+  artVaultProgress?: {
+    percent: number;
+    filled: number;
+    total: number;
+    missing: number;
+  };
   onThemeChange: (theme: ThemeMode) => void;
   onSearchQueryChange: (query: string) => void;
   onSubmitSearch: () => void;
   onCreateEntry: () => void;
+  onOpenArtVaultDashboard?: () => void;
+  onOpenFavorites?: () => void;
   onOpenMobileNav: () => void;
   readOnly?: boolean;
+  favoritesCount?: number;
+  favoritesOpen?: boolean;
+  assignMode?: boolean;
+  onToggleAssignMode?: () => void;
 }
 
 export function TopBar({
   theme,
   searchQuery,
+  artVaultProgress,
   onThemeChange,
   onSearchQueryChange,
   onSubmitSearch,
   onCreateEntry,
+  onOpenArtVaultDashboard,
+  onOpenFavorites,
   onOpenMobileNav,
-  readOnly = false
+  readOnly = false,
+  favoritesCount = 0,
+  favoritesOpen = false,
+  assignMode = false,
+  onToggleAssignMode
 }: TopBarProps) {
   const [searchOpen, setSearchOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const assignmentContext = useOptionalAssignments();
+  const selectedAssignmentCount = assignmentContext?.selectedModuleCount || 0;
 
   useEffect(() => {
     if (searchOpen) {
@@ -59,21 +81,68 @@ export function TopBar({
         <button
           className="tab-frame inline-flex items-center gap-2 rounded px-3 py-2 text-sm"
           onClick={() => onThemeChange(theme === "light" ? "dream" : "light")}
-          title={theme === "light" ? "Dream Tavern Mode" : "Light Tavern Mode"}
+          title={theme === "light" ? "Dream Tavern Mode" : "Cozy Tavern Mode"}
         >
           <Icon name={theme === "light" ? "Sun" : "Moon"} className="h-4 w-4" />
-          {theme === "light" ? "Light Tavern Mode" : "Dream Tavern Mode"}
+          {theme === "light" ? "Cozy Tavern Mode" : "Dream Tavern Mode"}
         </button>
       </div>
 
       {!readOnly && (
+        <>
+          {artVaultProgress && onOpenArtVaultDashboard && (
+            <button
+              className="top-art-vault-button"
+              onClick={onOpenArtVaultDashboard}
+              title={`${artVaultProgress.percent}% asset quest complete, ${artVaultProgress.missing} assets still missing`}
+            >
+              <span>
+                <Icon name="Image" className="h-4 w-4" />
+                <strong>Art Vault</strong>
+                <em>{artVaultProgress.percent}%</em>
+              </span>
+              <i>
+                <b style={{ width: `${artVaultProgress.percent}%` }} />
+              </i>
+            </button>
+          )}
+          <button
+            className="button-frame inline-flex items-center gap-2 rounded px-3 py-2 text-sm"
+            onClick={onCreateEntry}
+            title="New entry"
+          >
+            <Icon name="Plus" className="h-4 w-4" />
+            <span className="hidden sm:inline">New Entry</span>
+          </button>
+          {onToggleAssignMode && (
+            <button
+              className={`button-frame top-assign-mode-button ${assignMode ? "active" : ""}`}
+              onClick={() => {
+                if (assignMode && selectedAssignmentCount > 0) {
+                  assignmentContext?.openSelectedAssignPopup();
+                } else {
+                  onToggleAssignMode();
+                }
+              }}
+              title={assignMode && selectedAssignmentCount > 0 ? `Assign ${selectedAssignmentCount} selected modules` : assignMode ? "Turn Assign Mode off" : "Turn Assign Mode on"}
+            >
+              <Icon name="Clipboard" className="h-4 w-4" />
+              <span className="hidden sm:inline">{assignMode && selectedAssignmentCount > 0 ? "Assign" : "Assign Mode"}</span>
+              {assignMode && selectedAssignmentCount > 0 && <em>{selectedAssignmentCount}</em>}
+            </button>
+          )}
+        </>
+      )}
+
+      {onOpenFavorites && (
         <button
-          className="button-frame inline-flex items-center gap-2 rounded px-3 py-2 text-sm"
-          onClick={onCreateEntry}
-          title="New entry"
+          className={`top-favorites-button ${favoritesOpen ? "active" : ""}`}
+          onClick={onOpenFavorites}
+          title={`${favoritesCount} favorited ${favoritesCount === 1 ? "thing" : "things"}`}
         >
-          <Icon name="Plus" className="h-4 w-4" />
-          <span className="hidden sm:inline">New Entry</span>
+          <Icon name="Star" className="h-4 w-4" />
+          <span className="hidden sm:inline">Favorites</span>
+          <em>{favoritesCount}</em>
         </button>
       )}
 
