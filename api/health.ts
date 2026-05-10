@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { getAssistantHealth } from "../server/assistantBackend";
+import { getAssistantHealth } from "../server/assistantBackend.js";
 
 export default function handler(_request: IncomingMessage, response: ServerResponse) {
   response.statusCode = 200;

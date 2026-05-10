@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { getAssistantHealth, handleAssistantRequest } from "../server/assistantBackend";
+import { getAssistantHealth, handleAssistantRequest } from "../server/assistantBackend.js";
 
 export default async function handler(request: IncomingMessage, response: ServerResponse) {
   if (request.method === "GET") {
