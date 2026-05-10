@@ -1,5 +1,5 @@
 import type { AccessRole, AccessUserPermission, GoogleAccountUser } from "../types";
-import { getDriveSettings } from "./driveSettings";
+import { getDriveSettings, saveDriveSettings } from "./driveSettings";
 import { loadGoogleApiScripts } from "./googlePicker";
 
 const MAIN_ADMIN_EMAIL = "stlprodz1101@gmail.com";
@@ -12,7 +12,11 @@ export const DEFAULT_ACCESS_USERS: AccessUserPermission[] = [
 export const APPROVED_USERS = DEFAULT_ACCESS_USERS.map((user) => user.email);
 
 // Client-side approved email checks are useful for a private internal tool, but they are not strong security. For stronger security, add a backend/serverless token verification later.
-export const ACCESS_GOOGLE_OAUTH_CLIENT_ID = "";
+export const ACCESS_GOOGLE_OAUTH_CLIENT_ID = (
+  import.meta.env.VITE_ACCESS_GOOGLE_OAUTH_CLIENT_ID ||
+  import.meta.env.VITE_GOOGLE_OAUTH_CLIENT_ID ||
+  ""
+).trim();
 
 export const GOOGLE_ACCOUNT_KEY = "tavernCookbookGoogleAccount";
 export const ACCESS_USERS_KEY = "tavernCookbookAccessUsers";
@@ -24,6 +28,18 @@ interface GoogleCredentialResponse {
 
 export function getAccessGoogleClientId() {
   return ACCESS_GOOGLE_OAUTH_CLIENT_ID.trim() || getDriveSettings().googleOAuthClientId.trim();
+}
+
+export function saveAccessGoogleClientId(clientId: string) {
+  const trimmedClientId = clientId.trim();
+  if (!trimmedClientId) {
+    throw new Error("Enter a Google OAuth Client ID first.");
+  }
+
+  saveDriveSettings({
+    ...getDriveSettings(),
+    googleOAuthClientId: trimmedClientId
+  });
 }
 
 export function isApprovedGoogleUser(email: string) {
@@ -117,7 +133,7 @@ export async function renderGoogleSignInButton(
 ) {
   const clientId = getAccessGoogleClientId();
   if (!clientId) {
-    throw new Error("Google OAuth Client ID is missing. Add it in Settings > Google Drive Integration, or set ACCESS_GOOGLE_OAUTH_CLIENT_ID in src/utils/accessControl.ts.");
+    throw new Error("Google OAuth Client ID is missing. Add it below, add it in Settings > Google Drive Integration, or set VITE_ACCESS_GOOGLE_OAUTH_CLIENT_ID in Vercel.");
   }
 
   await loadGoogleApiScripts();

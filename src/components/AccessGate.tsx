@@ -3,8 +3,10 @@ import type { GoogleAccountUser } from "../types";
 import {
   clearGoogleAccount,
   decodeGoogleCredential,
+  getAccessGoogleClientId,
   isApprovedGoogleUser,
   renderGoogleSignInButton,
+  saveAccessGoogleClientId,
   saveGoogleAccount
 } from "../utils/accessControl";
 import { Icon } from "./Icon";
@@ -17,9 +19,11 @@ export function AccessGate({ onSignIn }: AccessGateProps) {
   const buttonRef = useRef<HTMLDivElement | null>(null);
   const [message, setMessage] = useState("Loading Google Sign-In...");
   const [deniedUser, setDeniedUser] = useState<GoogleAccountUser | null>(null);
+  const [clientIdDraft, setClientIdDraft] = useState("");
+  const [needsClientIdSetup, setNeedsClientIdSetup] = useState(() => !getAccessGoogleClientId());
 
   useEffect(() => {
-    if (deniedUser) return;
+    if (deniedUser || needsClientIdSetup) return;
     let cancelled = false;
     const button = buttonRef.current;
     if (!button) return;
@@ -42,13 +46,18 @@ export function AccessGate({ onSignIn }: AccessGateProps) {
     }).then(() => {
       if (!cancelled) setMessage("");
     }).catch((error) => {
-      if (!cancelled) setMessage(error instanceof Error ? error.message : "Google Sign-In could not load.");
+      if (cancelled) return;
+      const errorMessage = error instanceof Error ? error.message : "Google Sign-In could not load.";
+      if (errorMessage.includes("Google OAuth Client ID is missing")) {
+        setNeedsClientIdSetup(true);
+      }
+      setMessage(errorMessage);
     });
 
     return () => {
       cancelled = true;
     };
-  }, [deniedUser, onSignIn]);
+  }, [deniedUser, needsClientIdSetup, onSignIn]);
 
   if (deniedUser) {
     return (
@@ -91,7 +100,40 @@ export function AccessGate({ onSignIn }: AccessGateProps) {
         <p className="access-eyebrow">STL Productionz</p>
         <h1 className="font-display">The Tavern Cook Book</h1>
         <p>Sign in with an approved Google account to open the Tales of the Tavern lore bible.</p>
-        <div ref={buttonRef} className="access-google-button" />
+        {needsClientIdSetup ? (
+          <form
+            className="access-client-setup"
+            onSubmit={(event) => {
+              event.preventDefault();
+              try {
+                saveAccessGoogleClientId(clientIdDraft);
+                setNeedsClientIdSetup(false);
+                setMessage("Loading Google Sign-In...");
+              } catch (error) {
+                setMessage(error instanceof Error ? error.message : "Could not save the OAuth Client ID.");
+              }
+            }}
+          >
+            <label>
+              <span>Google OAuth Client ID</span>
+              <input
+                value={clientIdDraft}
+                onChange={(event) => setClientIdDraft(event.target.value)}
+                placeholder="1234567890-abc.apps.googleusercontent.com"
+                autoComplete="off"
+              />
+            </label>
+            <button className="button-frame access-button" type="submit">
+              Save Sign-In ID
+            </button>
+            <small>
+              Use the OAuth Client ID from Google Cloud, not the client secret. Add this Vercel domain to the OAuth
+              Authorized JavaScript origins.
+            </small>
+          </form>
+        ) : (
+          <div ref={buttonRef} className="access-google-button" />
+        )}
         {message && <span className="access-message">{message}</span>}
       </section>
     </main>
