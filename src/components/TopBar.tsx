@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { ThemeMode } from "../types";
+import { APP_VERSION_LABEL } from "../utils/appVersion";
 import { useOptionalAssignments } from "./AssignmentSystem";
 import { Icon } from "./Icon";
 
@@ -68,6 +69,7 @@ export function TopBar({
         <p className="text-xs uppercase tracking-[0.18em]" style={{ color: "var(--muted-ink)" }}>
           STL Productionz
         </p>
+        <p className="app-version-label">{APP_VERSION_LABEL}</p>
         <h2 className="truncate font-display text-2xl leading-7">The Tavern Cook Book</h2>
       </div>
 
