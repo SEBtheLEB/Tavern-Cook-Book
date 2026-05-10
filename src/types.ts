@@ -555,6 +555,22 @@ export interface AssistantPatch {
   warnings: string[];
 }
 
+export type AssistantChangedTargetKind =
+  | "entry"
+  | "creature"
+  | "worldEntry"
+  | "bestiaryCategory"
+  | "all";
+
+export interface AssistantChangedTarget {
+  kind: AssistantChangedTargetKind;
+  entryId?: string;
+  creatureId?: string;
+  worldCategory?: WorldBuildingCategoryId | string;
+  worldEntryId?: string;
+  categoryName?: string;
+}
+
 export interface AssistantRequest {
   database: LoreDatabase;
   command: string;
@@ -565,6 +581,12 @@ export interface AssistantResponse {
   patch?: AssistantPatch;
   raw?: string;
   error?: string;
+}
+
+export interface WorldBuildingFocusTarget {
+  category: WorldBuildingCategoryId;
+  entryId: string;
+  nonce: number;
 }
 
 export interface ViewConfig {

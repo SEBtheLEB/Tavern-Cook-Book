@@ -1,6 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
-import type { AssistantAction, AssistantMode, AssistantPatch, LoreDatabase } from "../types";
+import type {
+  AssistantAction,
+  AssistantChangedTarget,
+  AssistantMode,
+  AssistantPatch,
+  LoreDatabase,
+  WorldBuildingCategoryId,
+  WorldBuildingEntry
+} from "../types";
 import {
   applyAssistantPatch,
   buildManualPrompt,
@@ -8,6 +16,7 @@ import {
   parseAssistantPatch,
   undoLastAiChange
 } from "../utils/assistant";
+import { categoryConfig, worldBuildingCategoryIds } from "../utils/worldBuilding";
 import { CustomSelect } from "./CustomSelect";
 import { Icon } from "./Icon";
 
@@ -18,9 +27,19 @@ interface AssistantPanelProps {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   showLauncher?: boolean;
+  onOpenChangedTarget?: (target: AssistantChangedTarget) => void;
 }
 
 const modes: AssistantMode[] = ["suggest", "patch", "analyze", "marketing", "contradictions"];
+
+interface ScribeChangeReportItem {
+  key: string;
+  title: string;
+  subtitle: string;
+  summary: string;
+  changeCount: number;
+  target?: AssistantChangedTarget;
+}
 
 const getDefaultScribePosition = () => {
   if (typeof window === "undefined") {
@@ -54,7 +73,8 @@ export function AssistantPanel({
   embedded = false,
   open,
   onOpenChange,
-  showLauncher = true
+  showLauncher = true,
+  onOpenChangedTarget
 }: AssistantPanelProps) {
   const [internalOpen, setInternalOpen] = useState(false);
   const [command, setCommand] = useState("");
@@ -68,6 +88,7 @@ export function AssistantPanel({
   const [createBackup, setCreateBackup] = useState(true);
   const [message, setMessage] = useState("");
   const [lastSummary, setLastSummary] = useState("");
+  const [changeReport, setChangeReport] = useState<ScribeChangeReportItem[]>([]);
   const [scribePosition, setScribePosition] = useState(getDefaultScribePosition);
   const [dragging, setDragging] = useState(false);
   const scribeWindowRef = useRef<HTMLElement | null>(null);
@@ -146,6 +167,20 @@ export function AssistantPanel({
     return prompt;
   };
 
+  const applyPatchWithReport = (
+    parsedPatch: AssistantPatch,
+    indexes: number[],
+    shouldBackup: boolean,
+    appliedMessage: string
+  ) => {
+    const before = database;
+    const next = applyAssistantPatch(before, parsedPatch, indexes, shouldBackup);
+    onDatabaseChange(next);
+    setChangeReport(buildChangeReport(before, next, parsedPatch, indexes));
+    setLastSummary(parsedPatch.summary);
+    setMessage(appliedMessage);
+  };
+
   const run = async () => {
     if (!command.trim()) {
       setMessage("Enter a command first.");
@@ -160,12 +195,16 @@ export function AssistantPanel({
       const indexes = result.changes.map((_, index) => index);
       setSelected(indexes);
       if (!result.changes.length) {
+        setChangeReport([]);
         setMessage(result.summary || "Tavern Scribe did not find any changes to apply.");
         return;
       }
-      onDatabaseChange(applyAssistantPatch(database, result, indexes, true));
-      setLastSummary(result.summary);
-      setMessage(`Scribed ${result.changes.length} ${result.changes.length === 1 ? "change" : "changes"} into the Cook Book. A backup was created.`);
+      applyPatchWithReport(
+        result,
+        indexes,
+        true,
+        `Scribed ${result.changes.length} ${result.changes.length === 1 ? "change" : "changes"} into the Cook Book. A backup was created.`
+      );
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Assistant call failed.";
       setMessage(`${errorMessage} You can use Manual ChatGPT Mode below to copy/paste without API billing.`);
@@ -216,12 +255,16 @@ export function AssistantPanel({
       setPatch(parsed);
       setSelected(indexes);
       if (!parsed.changes.length) {
+        setChangeReport([]);
         setMessage(parsed.summary || "The pasted response did not include changes to apply.");
         return;
       }
-      onDatabaseChange(applyAssistantPatch(database, parsed, indexes, true));
-      setLastSummary(parsed.summary);
-      setMessage(`Applied ${parsed.changes.length} pasted ${parsed.changes.length === 1 ? "change" : "changes"}. A backup was created.`);
+      applyPatchWithReport(
+        parsed,
+        indexes,
+        true,
+        `Applied ${parsed.changes.length} pasted ${parsed.changes.length === 1 ? "change" : "changes"}. A backup was created.`
+      );
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not apply the pasted ChatGPT response.");
     }
@@ -231,6 +274,7 @@ export function AssistantPanel({
     if (!patch) return;
     const next = applyAssistantPatch(database, patch, selected, createBackup);
     onDatabaseChange(next);
+    setChangeReport(buildChangeReport(database, next, patch, selected));
     setMessage(`Applied ${selected.length} selected changes.`);
   };
 
@@ -241,6 +285,7 @@ export function AssistantPanel({
       return;
     }
     onDatabaseChange(next);
+    setChangeReport([]);
     setMessage("Last AI change was undone.");
   };
 
@@ -426,6 +471,36 @@ export function AssistantPanel({
               </div>
             )}
 
+            {changeReport.length ? (
+              <section className="tavern-scribe-change-report" aria-label="Scribe changed modules">
+                <div className="tavern-scribe-change-report-head">
+                  <div>
+                    <span>Changed Modules</span>
+                    <h3>Review what Scribe touched</h3>
+                  </div>
+                  <strong>{changeReport.length}</strong>
+                </div>
+                <div className="tavern-scribe-change-list">
+                  {changeReport.map((item) => (
+                    <article className="tavern-scribe-change-card" key={item.key}>
+                      <div>
+                        <span>{item.subtitle}</span>
+                        <h4>{item.title}</h4>
+                        <p>{item.summary}</p>
+                        <small>{item.changeCount} {item.changeCount === 1 ? "change" : "changes"}</small>
+                      </div>
+                      {item.target && onOpenChangedTarget ? (
+                        <button className="button-frame tavern-scribe-open-change" onClick={() => onOpenChangedTarget(item.target!)}>
+                          <Icon name="ExternalLink" className="h-4 w-4" />
+                          Open
+                        </button>
+                      ) : null}
+                    </article>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
             {lastSummary && (
               <div className="tavern-scribe-summary">
                 <span>Last Scribed Change</span>
@@ -445,9 +520,243 @@ export function AssistantPanel({
   );
 }
 
+function buildChangeReport(
+  before: LoreDatabase,
+  after: LoreDatabase,
+  patch: AssistantPatch,
+  selectedIndexes: number[]
+): ScribeChangeReportItem[] {
+  const selected = new Set(selectedIndexes);
+  const grouped = new Map<string, ScribeChangeReportItem>();
+
+  patch.changes.forEach((change, index) => {
+    if (!selected.has(index)) return;
+    const item = resolveChangedItem(before, after, change);
+    const existing = grouped.get(item.key);
+    if (existing) {
+      existing.changeCount += 1;
+      if (!existing.summary.includes(describeChange(change))) {
+        existing.summary = `${existing.summary}; ${describeChange(change)}`;
+      }
+      return;
+    }
+    grouped.set(item.key, item);
+  });
+
+  return [...grouped.values()].slice(0, 18);
+}
+
+function resolveChangedItem(
+  before: LoreDatabase,
+  after: LoreDatabase,
+  change: AssistantAction
+): ScribeChangeReportItem {
+  if (change.action === "renameReference") {
+    return {
+      key: `all:${change.oldName}:${change.newName}`,
+      title: "Whole Cook Book",
+      subtitle: "Global Text Update",
+      summary: `Renamed ${change.oldName} to ${change.newName}`,
+      changeCount: 1
+    };
+  }
+
+  if (change.action === "update") {
+    const entry = findEntry(after, change.id);
+    if (entry) return entryReport(entry, describeChange(change));
+  }
+
+  if (change.action === "setData") {
+    const id = String(change.id || "");
+    const entry = findEntry(after, id);
+    if (entry) return entryReport(entry, describeChange(change));
+
+    const creature = findCreature(after, id);
+    if (creature) {
+      return {
+        key: `creature:${creature.id}`,
+        title: creature.name,
+        subtitle: "Bestiary Module",
+        summary: describeChange(change),
+        changeCount: 1,
+        target: { kind: "creature", creatureId: creature.id }
+      };
+    }
+
+    const worldEntry = findWorldEntry(after, id, change.category);
+    if (worldEntry) return worldEntryReport(worldEntry, describeChange(change));
+
+    const categoryName = String(change.categoryName || "");
+    if (categoryName) {
+      return {
+        key: `bestiaryCategory:${categoryName}`,
+        title: categoryName,
+        subtitle: "Bestiary Category Module",
+        summary: describeChange(change),
+        changeCount: 1,
+        target: { kind: "bestiaryCategory", categoryName }
+      };
+    }
+  }
+
+  if (change.action === "add") {
+    const entry = findAddedEntry(before, after, change.entry.id, change.entry.title);
+    if (entry) return entryReport(entry, describeChange(change));
+  }
+
+  if (change.action === "addCreature") {
+    const creature = findAddedCreature(before, after, change.creature.id, change.creature.name);
+    if (creature) {
+      return {
+        key: `creature:${creature.id}`,
+        title: creature.name,
+        subtitle: "Bestiary Module",
+        summary: describeChange(change),
+        changeCount: 1,
+        target: { kind: "creature", creatureId: creature.id }
+      };
+    }
+  }
+
+  if (change.action === "addWorldEntry") {
+    const worldEntry = findAddedWorldEntry(before, after, change.category, change.entry.id, change.entry.title);
+    if (worldEntry) return worldEntryReport(worldEntry, describeChange(change));
+  }
+
+  if (change.action === "addArtSlot" || change.action === "removeArtSlot") {
+    if (change.target === "entry" && change.id) {
+      const entry = findEntry(after, change.id);
+      if (entry) return entryReport(entry, describeChange(change));
+    }
+    if (change.target === "creature" && change.id) {
+      const creature = findCreature(after, change.id);
+      if (creature) {
+        return {
+          key: `creature:${creature.id}`,
+          title: creature.name,
+          subtitle: "Bestiary Art Module",
+          summary: describeChange(change),
+          changeCount: 1,
+          target: { kind: "creature", creatureId: creature.id }
+        };
+      }
+    }
+    if (change.target === "bestiaryCategory" && change.categoryName) {
+      return {
+        key: `bestiaryCategory:${change.categoryName}`,
+        title: change.categoryName,
+        subtitle: "Bestiary Category Art Module",
+        summary: describeChange(change),
+        changeCount: 1,
+        target: { kind: "bestiaryCategory", categoryName: change.categoryName }
+      };
+    }
+  }
+
+  if (change.action === "archive") {
+    const entry = findAddedEntry(before, after, undefined, change.title);
+    if (entry) return entryReport(entry, describeChange(change));
+  }
+
+  return {
+    key: `change:${JSON.stringify(change).slice(0, 80)}`,
+    title: "Cook Book Data",
+    subtitle: "Scribe Change",
+    summary: describeChange(change),
+    changeCount: 1
+  };
+}
+
+function entryReport(entry: LoreDatabase["entries"][number], summary: string): ScribeChangeReportItem {
+  return {
+    key: `entry:${entry.id}`,
+    title: entry.title,
+    subtitle: `${entry.category} Module`,
+    summary,
+    changeCount: 1,
+    target: { kind: "entry", entryId: entry.id }
+  };
+}
+
+function worldEntryReport(
+  item: { category: WorldBuildingCategoryId; entry: WorldBuildingEntry },
+  summary: string
+): ScribeChangeReportItem {
+  const config = categoryConfig(item.category);
+  return {
+    key: `worldEntry:${item.category}:${item.entry.id}`,
+    title: item.entry.title,
+    subtitle: `World Building / ${config.title}`,
+    summary,
+    changeCount: 1,
+    target: { kind: "worldEntry", worldCategory: item.category, worldEntryId: item.entry.id }
+  };
+}
+
+function findEntry(database: LoreDatabase, id: string) {
+  return database.entries.find((entry) => entry.id === id) || null;
+}
+
+function findCreature(database: LoreDatabase, id: string) {
+  return (database.bestiary || []).find((creature) => creature.id === id) || null;
+}
+
+function findWorldEntry(database: LoreDatabase, id: string, category?: string) {
+  const categories = validWorldReportCategory(category) ? [category as WorldBuildingCategoryId] : worldBuildingCategoryIds;
+  for (const categoryId of categories) {
+    const entry = (database.worldBuilding?.[categoryId] || []).find((candidate) => candidate.id === id);
+    if (entry) return { category: categoryId, entry };
+  }
+  return null;
+}
+
+function findAddedEntry(before: LoreDatabase, after: LoreDatabase, id?: string, title?: string) {
+  const beforeIds = new Set(before.entries.map((entry) => entry.id));
+  if (id) {
+    const entry = after.entries.find((candidate) => candidate.id === id);
+    if (entry) return entry;
+  }
+  const normalizedTitle = String(title || "").trim().toLowerCase();
+  return after.entries.find((entry) => !beforeIds.has(entry.id) && (!normalizedTitle || entry.title.toLowerCase() === normalizedTitle)) || null;
+}
+
+function findAddedCreature(before: LoreDatabase, after: LoreDatabase, id?: string, name?: string) {
+  const beforeIds = new Set((before.bestiary || []).map((creature) => creature.id));
+  if (id) {
+    const creature = (after.bestiary || []).find((candidate) => candidate.id === id);
+    if (creature) return creature;
+  }
+  const normalizedName = String(name || "").trim().toLowerCase();
+  return (after.bestiary || []).find((creature) => !beforeIds.has(creature.id) && (!normalizedName || creature.name.toLowerCase() === normalizedName)) || null;
+}
+
+function findAddedWorldEntry(
+  before: LoreDatabase,
+  after: LoreDatabase,
+  category: string,
+  id?: string,
+  title?: string
+) {
+  const categoryId = validWorldReportCategory(category) ? category as WorldBuildingCategoryId : "glossary";
+  const beforeIds = new Set((before.worldBuilding?.[categoryId] || []).map((entry) => entry.id));
+  if (id) {
+    const entry = (after.worldBuilding?.[categoryId] || []).find((candidate) => candidate.id === id);
+    if (entry) return { category: categoryId, entry };
+  }
+  const normalizedTitle = String(title || "").trim().toLowerCase();
+  const entry = (after.worldBuilding?.[categoryId] || []).find((candidate) =>
+    !beforeIds.has(candidate.id) && (!normalizedTitle || candidate.title.toLowerCase() === normalizedTitle)
+  );
+  return entry ? { category: categoryId, entry } : null;
+}
+
+function validWorldReportCategory(value: unknown): value is WorldBuildingCategoryId {
+  return worldBuildingCategoryIds.includes(value as WorldBuildingCategoryId);
+}
+
 function describeChange(change: AssistantAction) {
-  if (change.action === "update") return `Update ${change.field} on ${change.id}`;
-  if (change.action === "setData") return `Update ${change.path} on ${change.target}`;
+  if (change.action === "update") return `Updated ${humanLabel(change.field)}`;
+  if (change.action === "setData") return `Updated ${humanLabel(change.path.split(".").slice(-1)[0] || change.path)}`;
   if (change.action === "renameReference") return `Rename ${change.oldName} to ${change.newName}`;
   if (change.action === "add") return `Add ${change.entry.title || "new entry"}`;
   if (change.action === "addCreature") return `Add creature ${change.creature.name || "new creature"}`;

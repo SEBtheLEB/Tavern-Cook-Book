@@ -83,7 +83,7 @@ const assistantJsonInstructions = `Return only structured JSON in this exact sha
   "warnings": []
 }
 Rules: only change app database content such as text, fields, tags, bestiary stats/drops/lore, world-building fields, and art slot labels. Never propose code, layout, CSS, API keys, images, Drive file deletion, or development changes. Prefer precise updates across every related place that should reflect the user's instruction. Include warnings when canon or naming decisions are uncertain.
-Rules continued: every requested clause must produce a matching change or a warning. If the user asks to change an existing character, faction, culture, location, quest, story, item, recipe, or marketing page, use action "setData" with target "entry" and the id from entryIndex/relevantEntries. Do not use targets like "character", "faction", or "culture"; those are stored as entries. If the user changes a character's age, update existing age text and add or update fields.Age. If the user declares a relationship between an existing character and an existing people/culture/faction, update both related existing entries when possible.`;
+Rules continued: every requested clause must produce a matching change or a warning. If the user asks to change an existing character, faction, culture, location, quest, story, item, recipe, or marketing page, use action "setData" with target "entry" and the id from entryIndex/relevantEntries. Do not use targets like "character", "faction", or "culture"; those are stored as entries. World Building modules are separate from lore entries: if a matching concept exists in worldIndex/relevantWorldEntries, also update it with setData target "worldEntry". If both an entry and worldEntry exist for the same concept, update both. If the user changes a character's age, update existing age text and add or update fields.Age. If the user declares a relationship between an existing character and an existing people/culture/faction, update both related existing entries when possible, update the matching worldEntry fields, and add the character to relatedEntries when the current worldEntry has relationship data.`;
 
 export const buildManualPrompt = (
   database: LoreDatabase,
@@ -309,6 +309,12 @@ const resolveSetDataTarget = (
   database: LoreDatabase,
   action: Extract<AssistantAction, { action: "setData" }>
 ) => {
+  const rawTarget = String(action.target || "").toLowerCase().replace(/[^a-z]/g, "");
+  if (worldTargetAliases.has(rawTarget)) return "worldEntry";
+  if (bestiaryCategoryVaultTargetAliases.has(rawTarget)) return "bestiaryCategoryVault";
+  if (creatureTargetAliases.has(rawTarget)) return "creature";
+  if (entryTargetAliases.has(rawTarget)) return "entry";
+
   const id = String(action.id || "").trim();
   if (id) {
     if (database.entries.some((entry) => entry.id === id)) return "entry";
@@ -323,12 +329,6 @@ const resolveSetDataTarget = (
   if (categoryName && (database.bestiaryCategoryVaults || []).some((vault) => vault.categoryName.toLowerCase() === categoryName)) {
     return "bestiaryCategoryVault";
   }
-
-  const rawTarget = String(action.target || "").toLowerCase().replace(/[^a-z]/g, "");
-  if (entryTargetAliases.has(rawTarget)) return "entry";
-  if (creatureTargetAliases.has(rawTarget)) return "creature";
-  if (worldTargetAliases.has(rawTarget)) return "worldEntry";
-  if (bestiaryCategoryVaultTargetAliases.has(rawTarget)) return "bestiaryCategoryVault";
 
   return action.target;
 };
@@ -686,7 +686,7 @@ const buildCompactLoreContext = (database: LoreDatabase, command: string) => {
     totalBestiaryCreatures: (database.bestiary || []).length,
     totalWorldEntries: worldBuildingCategoryIds.reduce((count, category) => count + (database.worldBuilding?.[category] || []).length, 0),
     contextPolicy:
-      "This compact context removes media payloads. Tavern Scribe can only return app-data changes: text, fields, tags, bestiary stats/drops/lore, world-building fields, lore entries, creatures, world entries, and art slot add/remove actions. It cannot change code, UI layout, images, Drive files, API keys, secrets, or development settings. For exact whole-database replacements, return renameReference instead of many update actions. Characters, factions, cultures, locations, quests, items, recipes, story pages, and marketing pages from entryIndex are entries; update them with setData target entry. Every requested clause must be represented by at least one change or warning.",
+      "This compact context removes media payloads. Tavern Scribe can only return app-data changes: text, fields, tags, bestiary stats/drops/lore, world-building fields, lore entries, creatures, world entries, and art slot add/remove actions. It cannot change code, UI layout, images, Drive files, API keys, secrets, or development settings. For exact whole-database replacements, return renameReference instead of many update actions. Characters, factions, cultures, locations, quests, items, recipes, story pages, and marketing pages from entryIndex are entries; update them with setData target entry. World Building modules from worldIndex are separate records; when the same concept appears in entryIndex and worldIndex, update both records. Every requested clause must be represented by at least one change or warning.",
     entryIndex: database.entries.map((entry) => compactEntry(entry, "index")),
     relevantEntries: relevantEntries.length
       ? relevantEntries

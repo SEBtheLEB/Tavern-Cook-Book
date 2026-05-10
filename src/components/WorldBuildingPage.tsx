@@ -6,6 +6,7 @@ import type {
   WorldBuildingCategoryId,
   WorldBuildingData,
   WorldBuildingEntry,
+  WorldBuildingFocusTarget,
   WorldBuildingRelatedEntry
 } from "../types";
 import {
@@ -36,6 +37,7 @@ interface WorldBuildingPageProps {
   onOpenEntry: (entry: LoreEntry) => void;
   onOpenCreature: (creature: BestiaryCreature) => void;
   focusedAssignment?: AssignmentRecord | null;
+  focusTarget?: WorldBuildingFocusTarget | null;
 }
 
 type WorldMode = "dashboard" | "category" | "detail";
@@ -109,7 +111,8 @@ export function WorldBuildingPage({
   onWorldBuildingChange,
   onOpenEntry,
   onOpenCreature,
-  focusedAssignment = null
+  focusedAssignment = null,
+  focusTarget = null
 }: WorldBuildingPageProps) {
   const normalizedWorldBuilding = useMemo(() => normalizeWorldBuilding(worldBuilding), [worldBuilding]);
   const [mode, setMode] = useState<WorldMode>("dashboard");
@@ -150,6 +153,18 @@ export function WorldBuildingPage({
     setMode("detail");
     if (!readOnly && focusedAssignment.editModeOnOpen) setIsEditing(true);
   }, [allWorldEntries, focusedAssignment, readOnly]);
+
+  useEffect(() => {
+    if (!focusTarget) return;
+    const exists = (normalizedWorldBuilding[focusTarget.category] || []).some((entry) => entry.id === focusTarget.entryId);
+    if (!exists) return;
+    setSelectedCategoryId(focusTarget.category);
+    setSelectedEntryId(focusTarget.entryId);
+    setCategorySearch("");
+    setMode("detail");
+    setIsEditing(false);
+    window.setTimeout(() => window.scrollTo({ top: 0, behavior: "smooth" }), 0);
+  }, [focusTarget, normalizedWorldBuilding]);
 
   useEffect(() => {
     if (!selectedEntry) {

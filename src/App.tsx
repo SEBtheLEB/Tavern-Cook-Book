@@ -1,5 +1,17 @@
 ﻿import { useEffect, useMemo, useState } from "react";
-import type { ActiveView, BestiaryCategoryArtVault, BestiaryCreature, FavoriteKind, GoogleAccountUser, LoreDatabase, LoreEntry, ThemeMode, ViewConfig } from "./types";
+import type {
+  ActiveView,
+  AssistantChangedTarget,
+  BestiaryCategoryArtVault,
+  BestiaryCreature,
+  FavoriteKind,
+  GoogleAccountUser,
+  LoreDatabase,
+  LoreEntry,
+  ThemeMode,
+  ViewConfig,
+  WorldBuildingFocusTarget
+} from "./types";
 import { createStarterDatabase } from "./data/starterData";
 import { mainNavigation } from "./data/navigation";
 import { createBlankEntry, normalizeEntry, slugify } from "./utils/entries";
@@ -147,6 +159,7 @@ export default function App() {
   const [questDashboardOpen, setQuestDashboardOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [tavernScribeOpen, setTavernScribeOpen] = useState(false);
+  const [worldBuildingFocus, setWorldBuildingFocus] = useState<WorldBuildingFocusTarget | null>(null);
   const [assignMode, setAssignMode] = useState(false);
   const [focusedAssignment, setFocusedAssignment] = useState<AssignmentRecord | null>(null);
   const [assignments, setAssignments] = useState(() => getAssignments());
@@ -449,6 +462,7 @@ export default function App() {
     setQuestDashboardOpen(false);
     setProfileOpen(false);
     if (view !== "bestiary") setSelectedBestiaryCreatureId("");
+    if (view !== "world") setWorldBuildingFocus(null);
     if (!canAccessSettings && view === "settings") {
       setActiveView("dashboard");
       return;
@@ -598,6 +612,61 @@ export default function App() {
     setSelectedBestiaryCreatureId(creature.id);
     setActiveView("bestiary");
     window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const openScribeChangedTarget = (target: AssistantChangedTarget) => {
+    setDetailReturnTarget(null);
+    setSelectedReferenceKeyword("");
+    setKeywordPopup("");
+    setFavoritesOpen(false);
+    setQuestDashboardOpen(false);
+    setProfileOpen(false);
+    setArtVaultDashboardOpen(false);
+    setArtBinderFilter(null);
+    setFocusedAssignment(null);
+
+    if (target.kind === "entry" && target.entryId) {
+      const entry = database.entries.find((candidate) => candidate.id === target.entryId);
+      if (entry) {
+        setSelectedEntry(entry);
+        setActiveView(categoryToView(entry.category));
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+      return;
+    }
+
+    if (target.kind === "creature" && target.creatureId) {
+      setSelectedEntry(null);
+      setSelectedBestiaryCreatureId(target.creatureId);
+      setActiveView("bestiary");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
+    if (target.kind === "worldEntry" && target.worldCategory && target.worldEntryId) {
+      setSelectedEntry(null);
+      setSelectedBestiaryCreatureId("");
+      setActiveView("world");
+      setWorldBuildingFocus({
+        category: target.worldCategory as WorldBuildingFocusTarget["category"],
+        entryId: target.worldEntryId,
+        nonce: Date.now()
+      });
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
+    if (target.kind === "bestiaryCategory") {
+      setSelectedEntry(null);
+      setSelectedBestiaryCreatureId("");
+      setActiveView("bestiary");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
+    setSelectedEntry(null);
+    setSelectedBestiaryCreatureId("");
+    setActiveView("search");
   };
 
   const openArtBinder = (filter: ArtBinderInitialFilter | null = null) => {
@@ -882,6 +951,7 @@ export default function App() {
                   onOpenEntry={openEntry}
                   onOpenCreature={openBestiaryCreature}
                   focusedAssignment={focusedAssignment}
+                  focusTarget={worldBuildingFocus}
                 />
               )}
 
@@ -911,6 +981,7 @@ export default function App() {
             open={tavernScribeOpen}
             onOpenChange={setTavernScribeOpen}
             showLauncher={false}
+            onOpenChangedTarget={openScribeChangedTarget}
           />
         )}
 
@@ -1098,6 +1169,14 @@ function categoryForView(view: ActiveView) {
   if (view === "recipes" || view === "ingredients" || view === "items") return "Food & Inventory";
   if (view === "timeline" || view === "secrets" || view === "factions") return "Story";
   return "Story";
+}
+
+function categoryToView(category: string): ActiveView {
+  if (category === "Characters") return "characters";
+  if (category === "Enemies & Creatures") return "bestiary";
+  if (category === "Food & Inventory") return "ingredients";
+  if (category === "Marketing") return "marketing";
+  return allViews.find((item) => item.category === category)?.id || "search";
 }
 
 function normalizeArtBinderKind(value: string): ArtBinderKind {
