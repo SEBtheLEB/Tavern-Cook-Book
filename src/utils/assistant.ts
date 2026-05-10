@@ -114,7 +114,7 @@ export const callAssistant = async (
   const response = await fetch("/api/assistant", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ database, command, mode })
+    body: JSON.stringify({ database: prepareAssistantRequestDatabase(database), command, mode })
   });
 
   const payload = (await response.json()) as { patch?: AssistantPatch; error?: string };
@@ -122,6 +122,14 @@ export const callAssistant = async (
     throw new Error(payload.error || "Assistant call failed.");
   }
   return payload.patch;
+};
+
+export const prepareAssistantRequestDatabase = (database: LoreDatabase): LoreDatabase => {
+  const { lastAiBackupId: _lastAiBackupId, ...databaseWithoutBackupMarker } = database;
+  return stripMedia({
+    ...databaseWithoutBackupMarker,
+    backups: []
+  }) as LoreDatabase;
 };
 
 export const parseAssistantPatch = (raw: string): AssistantPatch => {
@@ -938,6 +946,29 @@ const scoreUnknown = (value: unknown, command: string, title = "") => {
 const compactUnknown = (value: unknown, maxLength: number) =>
   truncate(JSON.stringify(stripMedia(value)), maxLength);
 
+const mediaPayloadKeys = new Set([
+  "artgallery",
+  "drivefileid",
+  "drivefolderid",
+  "drivefolderlink",
+  "galleryimages",
+  "iconimage",
+  "image",
+  "imagefit",
+  "imagefits",
+  "images",
+  "imageurl",
+  "imageurls",
+  "logoimage",
+  "mainimage",
+  "media",
+  "picture",
+  "spriteanimation",
+  "thumbnailurl",
+  "uploadedvideos",
+  "webviewlink"
+]);
+
 const stripMedia = (value: unknown): unknown => {
   if (value == null) return value;
   if (typeof value === "string") return value.startsWith("data:") ? "[media removed]" : value;
@@ -945,10 +976,7 @@ const stripMedia = (value: unknown): unknown => {
   if (typeof value === "object") {
     return Object.fromEntries(
       Object.entries(value as Record<string, unknown>)
-        .filter(
-          ([key]) =>
-            !["media", "iconImage", "mainImage", "galleryImages", "uploadedVideos"].includes(key)
-        )
+        .filter(([key]) => !mediaPayloadKeys.has(key.toLowerCase()))
         .map(([key, item]) => [key, stripMedia(item)])
     );
   }
