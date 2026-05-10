@@ -57,6 +57,13 @@ const assistantJsonInstructions = `Return only structured JSON in this exact sha
       "creature": { "name": "New Creature" }
     },
     {
+      "action": "removeCreature",
+      "id": "creature-id",
+      "name": "Old Creature",
+      "archiveTitle": "Removed Creature: Old Creature",
+      "archiveContent": "Why it was removed and any useful notes."
+    },
+    {
       "action": "addWorldEntry",
       "category": "cultures",
       "entry": { "title": "New Culture", "summary": "..." }
@@ -83,7 +90,7 @@ const assistantJsonInstructions = `Return only structured JSON in this exact sha
   "warnings": []
 }
 Rules: only change app database content such as text, fields, tags, bestiary stats/drops/lore, world-building fields, and art slot labels. Never propose code, layout, CSS, API keys, images, Drive file deletion, or development changes. Prefer precise updates across every related place that should reflect the user's instruction. Include warnings when canon or naming decisions are uncertain.
-Rules continued: every requested clause must produce a matching change or a warning. If the user asks to change an existing character, faction, culture, location, quest, story, item, recipe, or marketing page, use action "setData" with target "entry" and the id from entryIndex/relevantEntries. Do not use targets like "character", "faction", or "culture"; those are stored as entries. World Building modules are separate from lore entries: if a matching concept exists in worldIndex/relevantWorldEntries, also update it with setData target "worldEntry". If both an entry and worldEntry exist for the same concept, update both. If the user changes a character's age, update existing age text and add or update fields.Age. If the user declares a relationship between an existing character and an existing people/culture/faction, update both related existing entries when possible, update the matching worldEntry fields, and add the character to relatedEntries when the current worldEntry has relationship data.`;
+Rules continued: every requested clause must produce a matching change or a warning. If the user asks to change an existing character, faction, culture, location, quest, story, item, recipe, or marketing page, use action "setData" with target "entry" and the id from entryIndex/relevantEntries. Do not use targets like "character", "faction", or "culture"; those are stored as entries. World Building modules are separate from lore entries: if a matching concept exists in worldIndex/relevantWorldEntries, also update it with setData target "worldEntry". If both an entry and worldEntry exist for the same concept, update both. If the user asks to remove/delete/archive a Bestiary creature, return removeCreature using the id from bestiaryIndex/relevantCreatures; do not return only archive for that request. Include archiveContent on removeCreature only when the user wants a note kept. If the user changes a character's age, update existing age text and add or update fields.Age. If the user declares a relationship between an existing character and an existing people/culture/faction, update both related existing entries when possible, update the matching worldEntry fields, and add the character to relatedEntries when the current worldEntry has relationship data.`;
 
 export const buildManualPrompt = (
   database: LoreDatabase,
@@ -577,6 +584,25 @@ const applyAction = (database: LoreDatabase, action: AssistantAction): LoreDatab
     };
   }
 
+  if (action.action === "removeCreature") {
+    const creature = findCreatureToRemove(database, action.id, action.name);
+    if (!creature) return database;
+
+    const archiveContent = String(action.archiveContent || "").trim();
+    const archiveEntry = archiveContent
+      ? createArchiveEntry(
+          action.archiveTitle || `Removed Creature: ${creature.name}`,
+          archiveContent
+        )
+      : null;
+
+    return {
+      ...database,
+      entries: archiveEntry ? [archiveEntry, ...database.entries] : database.entries,
+      bestiary: (database.bestiary || []).filter((candidate) => candidate.id !== creature.id)
+    };
+  }
+
   if (action.action === "addWorldEntry") {
     const category = validWorldCategory(action.category) || "glossary";
     const entry = createWorldBuildingEntry(category, action.entry);
@@ -598,19 +624,7 @@ const applyAction = (database: LoreDatabase, action: AssistantAction): LoreDatab
   }
 
   if (action.action === "archive") {
-    const archiveEntry = normalizeEntry({
-      id: `archive-${slugify(action.title)}-${Date.now()}`,
-      title: action.title,
-      category: "Archive",
-      type: "AI Archive Note",
-      status: "Old Version",
-      spoilerLevel: "No Spoiler",
-      tags: ["assistant", "archive"],
-      summary: action.content,
-      internalLore: action.content,
-      createdAt: nowIso(),
-      updatedAt: nowIso()
-    });
+    const archiveEntry = createArchiveEntry(action.title, action.content);
     return {
       ...database,
       entries: [archiveEntry, ...database.entries]
@@ -619,6 +633,35 @@ const applyAction = (database: LoreDatabase, action: AssistantAction): LoreDatab
 
   return database;
 };
+
+const findCreatureToRemove = (database: LoreDatabase, id?: string, name?: string) => {
+  const normalizedId = String(id || "").trim();
+  if (normalizedId) {
+    const byId = (database.bestiary || []).find((creature) => creature.id === normalizedId);
+    if (byId) return byId;
+  }
+
+  const normalizedName = normalizeLooseName(name || "");
+  if (!normalizedName) return null;
+  return (database.bestiary || []).find((creature) => normalizeLooseName(creature.name) === normalizedName) || null;
+};
+
+const normalizeLooseName = (value: string) =>
+  value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+
+const createArchiveEntry = (title: string, content: string) => normalizeEntry({
+  id: `archive-${slugify(title)}-${Date.now()}`,
+  title,
+  category: "Archive",
+  type: "AI Archive Note",
+  status: "Old Version",
+  spoilerLevel: "No Spoiler",
+  tags: ["assistant", "archive"],
+  summary: content,
+  internalLore: content,
+  createdAt: nowIso(),
+  updatedAt: nowIso()
+});
 
 export const applyAssistantPatch = (
   database: LoreDatabase,
@@ -640,7 +683,10 @@ export const applyAssistantPatch = (
     id: backupId,
     label: `AI change: ${patch.summary || "Assistant patch"}`,
     createdAt: nowIso(),
-    entries: cloneDatabase(database).entries
+    entries: cloneDatabase(database).entries,
+    bestiary: cloneDatabase(database).bestiary || [],
+    bestiaryCategoryVaults: cloneDatabase(database).bestiaryCategoryVaults || [],
+    worldBuilding: cloneDatabase(database).worldBuilding || createEmptyWorldBuilding()
   };
 
   return {
@@ -665,6 +711,19 @@ export const undoLastAiChange = (database: LoreDatabase): LoreDatabase | null =>
       backups: [],
       branding: database.branding
     }).entries,
+    bestiary: backup.bestiary
+      ? cloneDatabase({
+          schemaVersion: 1,
+          entries: [],
+          bestiary: backup.bestiary,
+          bestiaryCategoryVaults: backup.bestiaryCategoryVaults || database.bestiaryCategoryVaults || [],
+          worldBuilding: backup.worldBuilding || database.worldBuilding || createEmptyWorldBuilding(),
+          backups: [],
+          branding: database.branding
+        }).bestiary
+      : database.bestiary,
+    bestiaryCategoryVaults: backup.bestiaryCategoryVaults || database.bestiaryCategoryVaults,
+    worldBuilding: backup.worldBuilding || database.worldBuilding,
     lastAiBackupId: undefined
   };
 };
@@ -686,7 +745,7 @@ const buildCompactLoreContext = (database: LoreDatabase, command: string) => {
     totalBestiaryCreatures: (database.bestiary || []).length,
     totalWorldEntries: worldBuildingCategoryIds.reduce((count, category) => count + (database.worldBuilding?.[category] || []).length, 0),
     contextPolicy:
-      "This compact context removes media payloads. Tavern Scribe can only return app-data changes: text, fields, tags, bestiary stats/drops/lore, world-building fields, lore entries, creatures, world entries, and art slot add/remove actions. It cannot change code, UI layout, images, Drive files, API keys, secrets, or development settings. For exact whole-database replacements, return renameReference instead of many update actions. Characters, factions, cultures, locations, quests, items, recipes, story pages, and marketing pages from entryIndex are entries; update them with setData target entry. World Building modules from worldIndex are separate records; when the same concept appears in entryIndex and worldIndex, update both records. Every requested clause must be represented by at least one change or warning.",
+      "This compact context removes media payloads. Tavern Scribe can only return app-data changes: text, fields, tags, bestiary stats/drops/lore, world-building fields, lore entries, creatures, world entries, bestiary creature remove actions, and art slot add/remove actions. It cannot change code, UI layout, images, Drive files, API keys, secrets, or development settings. For exact whole-database replacements, return renameReference instead of many update actions. Characters, factions, cultures, locations, quests, items, recipes, story pages, and marketing pages from entryIndex are entries; update them with setData target entry. World Building modules from worldIndex are separate records; when the same concept appears in entryIndex and worldIndex, update both records. For removing Bestiary creatures, return removeCreature with the creature id from bestiaryIndex. Every requested clause must be represented by at least one change or warning.",
     entryIndex: database.entries.map((entry) => compactEntry(entry, "index")),
     relevantEntries: relevantEntries.length
       ? relevantEntries

@@ -51,7 +51,18 @@ export const migrateDatabase = (value: unknown): LoreDatabase => {
             id: String((backup as LoreBackup).id || `backup-${Date.now()}`),
             label: String((backup as LoreBackup).label || "Imported backup"),
             createdAt: String((backup as LoreBackup).createdAt || nowIso()),
-            entries: (backup as LoreBackup).entries.map((item) => normalizeEntry(item))
+            entries: (backup as LoreBackup).entries.map((item) => normalizeEntry(item)),
+            bestiary: Array.isArray((backup as LoreBackup).bestiary)
+              ? ((backup as LoreBackup).bestiary || []).map((item) => normalizeBestiaryCreature(item))
+              : undefined,
+            bestiaryCategoryVaults: Array.isArray((backup as LoreBackup).bestiaryCategoryVaults)
+              ? ((backup as LoreBackup).bestiaryCategoryVaults || []).map((item) =>
+                  normalizeBestiaryCategoryArtVault(item, item.categoryName, bestiary)
+                )
+              : undefined,
+            worldBuilding: (backup as LoreBackup).worldBuilding
+              ? normalizeWorldBuilding((backup as LoreBackup).worldBuilding)
+              : undefined
           }))
           .slice(0, 12)
       : [],
@@ -115,7 +126,10 @@ export const createBackup = (database: LoreDatabase, label: string): LoreDatabas
     id: `backup-${Date.now()}`,
     label,
     createdAt: nowIso(),
-    entries: cloneDatabase(database).entries
+    entries: cloneDatabase(database).entries,
+    bestiary: cloneDatabase(database).bestiary || [],
+    bestiaryCategoryVaults: cloneDatabase(database).bestiaryCategoryVaults || [],
+    worldBuilding: cloneDatabase(database).worldBuilding || createStarterWorldBuilding(database.entries, database.bestiary)
   };
 
   next.backups = [backup, ...(next.backups || [])].slice(0, 12);
@@ -135,10 +149,32 @@ export const sanitizeDatabaseForPersistence = (database: LoreDatabase): LoreData
     sanitizeBestiaryCategoryArtVaultForPersistence(normalizeBestiaryCategoryArtVault(vault, vault.categoryName, database.bestiary || []))
   ),
   worldBuilding: sanitizeWorldBuildingForPersistence(database.worldBuilding),
-  backups: (database.backups || []).map((backup) => ({
-    ...backup,
-    entries: (backup.entries || []).map(sanitizeEntryForPersistence)
-  }))
+  backups: (database.backups || []).map((backup) => {
+    const sanitizedBackup: LoreBackup = {
+      ...backup,
+      entries: (backup.entries || []).map(sanitizeEntryForPersistence)
+    };
+
+    if (Array.isArray(backup.bestiary)) {
+      sanitizedBackup.bestiary = backup.bestiary.map((creature) =>
+        sanitizeBestiaryCreatureForPersistence(normalizeBestiaryCreature(creature))
+      );
+    }
+
+    if (Array.isArray(backup.bestiaryCategoryVaults)) {
+      sanitizedBackup.bestiaryCategoryVaults = backup.bestiaryCategoryVaults.map((vault) =>
+        sanitizeBestiaryCategoryArtVaultForPersistence(
+          normalizeBestiaryCategoryArtVault(vault, vault.categoryName, backup.bestiary || database.bestiary || [])
+        )
+      );
+    }
+
+    if (backup.worldBuilding) {
+      sanitizedBackup.worldBuilding = sanitizeWorldBuildingForPersistence(backup.worldBuilding);
+    }
+
+    return sanitizedBackup;
+  })
 });
 
 const sanitizeEntryForPersistence = (entry: LoreEntry): LoreEntry => ({

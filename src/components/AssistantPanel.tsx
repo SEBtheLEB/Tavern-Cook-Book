@@ -618,6 +618,20 @@ function resolveChangedItem(
     }
   }
 
+  if (change.action === "removeCreature") {
+    const creature = findRemovedCreature(before, after, change.id, change.name);
+    if (creature) {
+      return {
+        key: `removedCreature:${creature.id}`,
+        title: creature.name,
+        subtitle: "Removed From Bestiary",
+        summary: describeChange(change),
+        changeCount: 1,
+        target: { kind: "bestiaryCategory", categoryName: creature.category }
+      };
+    }
+  }
+
   if (change.action === "addWorldEntry") {
     const worldEntry = findAddedWorldEntry(before, after, change.category, change.entry.id, change.entry.title);
     if (worldEntry) return worldEntryReport(worldEntry, describeChange(change));
@@ -730,6 +744,18 @@ function findAddedCreature(before: LoreDatabase, after: LoreDatabase, id?: strin
   return (after.bestiary || []).find((creature) => !beforeIds.has(creature.id) && (!normalizedName || creature.name.toLowerCase() === normalizedName)) || null;
 }
 
+function findRemovedCreature(before: LoreDatabase, after: LoreDatabase, id?: string, name?: string) {
+  const afterIds = new Set((after.bestiary || []).map((creature) => creature.id));
+  if (id) {
+    const creature = (before.bestiary || []).find((candidate) => candidate.id === id);
+    if (creature && !afterIds.has(creature.id)) return creature;
+  }
+  const normalizedName = String(name || "").trim().toLowerCase();
+  return (before.bestiary || []).find((creature) =>
+    !afterIds.has(creature.id) && (!normalizedName || creature.name.toLowerCase() === normalizedName)
+  ) || null;
+}
+
 function findAddedWorldEntry(
   before: LoreDatabase,
   after: LoreDatabase,
@@ -760,6 +786,7 @@ function describeChange(change: AssistantAction) {
   if (change.action === "renameReference") return `Rename ${change.oldName} to ${change.newName}`;
   if (change.action === "add") return `Add ${change.entry.title || "new entry"}`;
   if (change.action === "addCreature") return `Add creature ${change.creature.name || "new creature"}`;
+  if (change.action === "removeCreature") return `Remove creature ${change.name || change.id || "from Bestiary"}`;
   if (change.action === "addWorldEntry") return `Add world entry ${change.entry.title || "new world entry"}`;
   if (change.action === "addArtSlot") return `Add slot ${change.label}`;
   if (change.action === "removeArtSlot") return `Remove slot ${change.label || change.slotId || "selected slot"}`;
@@ -783,6 +810,9 @@ function ChangeDetails({ change }: { change: AssistantAction }) {
   }
   if (change.action === "addCreature") {
     return <ValuePreview label="New creature details" value={change.creature} />;
+  }
+  if (change.action === "removeCreature") {
+    return <ValuePreview label="Removed creature" value={{ id: change.id, name: change.name, archiveTitle: change.archiveTitle }} />;
   }
   if (change.action === "addWorldEntry") {
     return <ValuePreview label="New world entry details" value={change.entry} />;

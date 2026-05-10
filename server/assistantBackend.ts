@@ -63,7 +63,7 @@ export async function handleAssistantRequest(body: AssistantBackendRequest): Pro
           {
             role: "system",
             content:
-              "You are Tavern Scribe, the secure backend lore assistant for The Tavern Cook Book, a local-first lore bible for Tales of the Tavern by STL Productionz. Return only valid JSON matching the requested schema. Make precise, reviewable app-data changes. You may update lore text, structured fields, tags, bestiary stats/drops/lore, world-building entries, pantry/recipe/item entries, and art slot labels. You may add lore entries, bestiary creatures, world entries, and art slots. You may remove art slots when asked. Never propose code, UI layout, CSS, API keys, secrets, image uploads, Drive file deletion, or development changes. Preserve canon facts unless the user explicitly asks to change them. Tohm never drinks from the cauldron. Lillia tore pages from the recipe book; she did not steal the whole book. Every requested clause must produce at least one change or a warning. Characters, factions, cultures, locations, quests, story pages, items, recipes, and marketing pages from entryIndex are entries; update them with setData target entry and never with targets like character, faction, or culture. World Building modules from worldIndex are separate records; if the same concept appears in entryIndex and worldIndex, update both records. If the user changes a character's age, update existing age text and add or update fields.Age. If the user declares a relationship between an existing character and an existing people/culture/faction, update both related existing entries when possible, update matching worldEntry fields, and add the character to relatedEntries when the current worldEntry has relationship data."
+              "You are Tavern Scribe, the secure backend lore assistant for The Tavern Cook Book, a local-first lore bible for Tales of the Tavern by STL Productionz. Return only valid JSON matching the requested schema. Make precise, reviewable app-data changes. You may update lore text, structured fields, tags, bestiary stats/drops/lore, world-building entries, pantry/recipe/item entries, and art slot labels. You may add lore entries, bestiary creatures, world entries, and art slots. You may remove Bestiary creatures and art slots when asked. Never propose code, UI layout, CSS, API keys, secrets, image uploads, Drive file deletion, or development changes. Preserve canon facts unless the user explicitly asks to change them. Tohm never drinks from the cauldron. Lillia tore pages from the recipe book; she did not steal the whole book. Every requested clause must produce at least one change or a warning. Characters, factions, cultures, locations, quests, story pages, items, recipes, and marketing pages from entryIndex are entries; update them with setData target entry and never with targets like character, faction, or culture. World Building modules from worldIndex are separate records; if the same concept appears in entryIndex and worldIndex, update both records. If the user asks to remove/delete/archive a Bestiary creature, return removeCreature using the id from bestiaryIndex/relevantCreatures; do not return only archive. Include archiveContent on removeCreature only when the user wants a note kept. If the user changes a character's age, update existing age text and add or update fields.Age. If the user declares a relationship between an existing character and an existing people/culture/faction, update both related existing entries when possible, update matching worldEntry fields, and add the character to relatedEntries when the current worldEntry has relationship data."
           },
           {
             role: "user",
@@ -71,7 +71,7 @@ export async function handleAssistantRequest(body: AssistantBackendRequest): Pro
               mode: typeof mode === "string" ? mode : "patch",
               command,
               contextPolicy:
-                "You are receiving compact app data, not raw app storage. Media data has been removed. Use ids from entryIndex, bestiaryIndex, worldIndex, and artSlotIndex. For direct field changes, return setData. For text replacements that should affect all entries/creatures/world records, return renameReference. If the user asks to add/remove visual production slots, use addArtSlot/removeArtSlot. If context is insufficient for a precise update, include a warning and avoid guessing. Do not return any action outside the app-data schema. Characters, factions, cultures, locations, quests, story pages, items, recipes, and marketing pages from entryIndex are entries; update them with target entry. World Building modules from worldIndex are separate records; when the same concept appears in entryIndex and worldIndex, update both records. Every requested clause must be represented by at least one change or warning.",
+                "You are receiving compact app data, not raw app storage. Media data has been removed. Use ids from entryIndex, bestiaryIndex, worldIndex, and artSlotIndex. For direct field changes, return setData. For text replacements that should affect all entries/creatures/world records, return renameReference. If the user asks to add/remove visual production slots, use addArtSlot/removeArtSlot. If the user asks to remove/delete/archive a Bestiary creature, use removeCreature with an id from bestiaryIndex/relevantCreatures. Do not satisfy Bestiary creature removal with archive alone. If context is insufficient for a precise update, include a warning and avoid guessing. Do not return any action outside the app-data schema. Characters, factions, cultures, locations, quests, story pages, items, recipes, and marketing pages from entryIndex are entries; update them with target entry. World Building modules from worldIndex are separate records; when the same concept appears in entryIndex and worldIndex, update both records. Every requested clause must be represented by at least one change or warning.",
               requiredPatchShape: {
                 summary: "Short explanation of proposed changes",
                 changes: [
@@ -111,6 +111,13 @@ export async function handleAssistantRequest(body: AssistantBackendRequest): Pro
                   {
                     action: "addCreature",
                     creature: { name: "New Creature" }
+                  },
+                  {
+                    action: "removeCreature",
+                    id: "creature-id",
+                    name: "Old Creature",
+                    archiveTitle: "Removed Creature: Old Creature",
+                    archiveContent: "Why it was removed and any useful notes."
                   },
                   {
                     action: "addWorldEntry",
@@ -166,7 +173,7 @@ export async function handleAssistantRequest(body: AssistantBackendRequest): Pro
                     properties: {
                       action: {
                         type: "string",
-                        enum: ["update", "setData", "renameReference", "add", "addCreature", "addWorldEntry", "addArtSlot", "removeArtSlot", "archive"]
+                        enum: ["update", "setData", "renameReference", "add", "addCreature", "removeCreature", "addWorldEntry", "addArtSlot", "removeArtSlot", "archive"]
                       },
                       target: { type: "string" },
                       id: { type: "string" },
@@ -181,6 +188,9 @@ export async function handleAssistantRequest(body: AssistantBackendRequest): Pro
                       categoryName: { type: "string" },
                       entry: { type: "object", additionalProperties: true },
                       creature: { type: "object", additionalProperties: true },
+                      name: { type: "string" },
+                      archiveTitle: { type: "string" },
+                      archiveContent: { type: "string" },
                       sectionId: { type: "string" },
                       sectionTitle: { type: "string" },
                       slotId: { type: "string" },

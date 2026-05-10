@@ -426,6 +426,9 @@ export interface LoreBackup {
   label: string;
   createdAt: string;
   entries: LoreEntry[];
+  bestiary?: BestiaryCreature[];
+  bestiaryCategoryVaults?: BestiaryCategoryArtVault[];
+  worldBuilding?: WorldBuildingData;
 }
 
 export interface LoreDatabase {
@@ -516,6 +519,13 @@ export type AssistantAction =
   | {
       action: "addCreature";
       creature: Partial<BestiaryCreature>;
+    }
+  | {
+      action: "removeCreature";
+      id?: string;
+      name?: string;
+      archiveTitle?: string;
+      archiveContent?: string;
     }
   | {
       action: "addWorldEntry";
