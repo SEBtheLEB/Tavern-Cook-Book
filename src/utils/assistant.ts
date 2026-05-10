@@ -82,7 +82,8 @@ const assistantJsonInstructions = `Return only structured JSON in this exact sha
   ],
   "warnings": []
 }
-Rules: only change app database content such as text, fields, tags, bestiary stats/drops/lore, world-building fields, and art slot labels. Never propose code, layout, CSS, API keys, images, Drive file deletion, or development changes. Prefer precise updates across every related place that should reflect the user's instruction. Include warnings when canon or naming decisions are uncertain.`;
+Rules: only change app database content such as text, fields, tags, bestiary stats/drops/lore, world-building fields, and art slot labels. Never propose code, layout, CSS, API keys, images, Drive file deletion, or development changes. Prefer precise updates across every related place that should reflect the user's instruction. Include warnings when canon or naming decisions are uncertain.
+Rules continued: every requested clause must produce a matching change or a warning. If the user asks to change an existing character, faction, culture, location, quest, story, item, recipe, or marketing page, use action "setData" with target "entry" and the id from entryIndex/relevantEntries. Do not use targets like "character", "faction", or "culture"; those are stored as entries. If the user changes a character's age, update existing age text and add or update fields.Age. If the user declares a relationship between an existing character and an existing people/culture/faction, update both related existing entries when possible.`;
 
 export const buildManualPrompt = (
   database: LoreDatabase,
@@ -220,8 +221,9 @@ const setDatabaseValue = (
   action: Extract<AssistantAction, { action: "setData" }>
 ): LoreDatabase => {
   const stamp = nowIso();
+  const target = resolveSetDataTarget(database, action);
 
-  if (action.target === "entry" && action.id) {
+  if (target === "entry" && action.id) {
     return {
       ...database,
       entries: database.entries.map((entry) => {
@@ -242,7 +244,7 @@ const setDatabaseValue = (
     };
   }
 
-  if (action.target === "creature" && action.id) {
+  if (target === "creature" && action.id) {
     return {
       ...database,
       bestiary: (database.bestiary || []).map((creature) => {
@@ -263,7 +265,7 @@ const setDatabaseValue = (
     };
   }
 
-  if (action.target === "worldEntry" && action.id) {
+  if (target === "worldEntry" && action.id) {
     const categoryHint = validWorldCategory(action.category || "");
     const categories = categoryHint ? [categoryHint] : worldBuildingCategoryIds;
     const worldBuilding = cloneDatabase(database).worldBuilding || createEmptyWorldBuilding();
@@ -278,7 +280,7 @@ const setDatabaseValue = (
     return { ...database, worldBuilding };
   }
 
-  if (action.target === "bestiaryCategoryVault" && (action.id || action.categoryName)) {
+  if (target === "bestiaryCategoryVault" && (action.id || action.categoryName)) {
     return {
       ...database,
       bestiaryCategoryVaults: (database.bestiaryCategoryVaults || []).map((vault) => {
@@ -302,6 +304,67 @@ const setDatabaseValue = (
 
   return database;
 };
+
+const resolveSetDataTarget = (
+  database: LoreDatabase,
+  action: Extract<AssistantAction, { action: "setData" }>
+) => {
+  const id = String(action.id || "").trim();
+  if (id) {
+    if (database.entries.some((entry) => entry.id === id)) return "entry";
+    if ((database.bestiary || []).some((creature) => creature.id === id)) return "creature";
+    if (worldBuildingCategoryIds.some((category) => (database.worldBuilding?.[category] || []).some((entry) => entry.id === id))) {
+      return "worldEntry";
+    }
+    if ((database.bestiaryCategoryVaults || []).some((vault) => vault.id === id)) return "bestiaryCategoryVault";
+  }
+
+  const categoryName = String(action.categoryName || "").trim().toLowerCase();
+  if (categoryName && (database.bestiaryCategoryVaults || []).some((vault) => vault.categoryName.toLowerCase() === categoryName)) {
+    return "bestiaryCategoryVault";
+  }
+
+  const rawTarget = String(action.target || "").toLowerCase().replace(/[^a-z]/g, "");
+  if (entryTargetAliases.has(rawTarget)) return "entry";
+  if (creatureTargetAliases.has(rawTarget)) return "creature";
+  if (worldTargetAliases.has(rawTarget)) return "worldEntry";
+  if (bestiaryCategoryVaultTargetAliases.has(rawTarget)) return "bestiaryCategoryVault";
+
+  return action.target;
+};
+
+const entryTargetAliases = new Set([
+  "entry",
+  "loreentry",
+  "lore",
+  "character",
+  "characters",
+  "faction",
+  "factions",
+  "culture",
+  "cultures",
+  "people",
+  "location",
+  "locations",
+  "quest",
+  "quests",
+  "story",
+  "item",
+  "items",
+  "recipe",
+  "recipes",
+  "marketing",
+  "page"
+]);
+
+const creatureTargetAliases = new Set(["creature", "creatures", "bestiary", "monster", "enemy", "enemies"]);
+const worldTargetAliases = new Set(["worldentry", "world", "worldbuilding", "rule", "rules", "myth", "myths", "glossary"]);
+const bestiaryCategoryVaultTargetAliases = new Set([
+  "bestiarycategoryvault",
+  "categoryvault",
+  "bestiarycategoryartvault",
+  "bestiarycategory"
+]);
 
 const updateArtSlots = (
   database: LoreDatabase,
@@ -623,7 +686,7 @@ const buildCompactLoreContext = (database: LoreDatabase, command: string) => {
     totalBestiaryCreatures: (database.bestiary || []).length,
     totalWorldEntries: worldBuildingCategoryIds.reduce((count, category) => count + (database.worldBuilding?.[category] || []).length, 0),
     contextPolicy:
-      "This compact context removes media payloads. Tavern Scribe can only return app-data changes: text, fields, tags, bestiary stats/drops/lore, world-building fields, lore entries, creatures, world entries, and art slot add/remove actions. It cannot change code, UI layout, images, Drive files, API keys, secrets, or development settings. For exact whole-database replacements, return renameReference instead of many update actions.",
+      "This compact context removes media payloads. Tavern Scribe can only return app-data changes: text, fields, tags, bestiary stats/drops/lore, world-building fields, lore entries, creatures, world entries, and art slot add/remove actions. It cannot change code, UI layout, images, Drive files, API keys, secrets, or development settings. For exact whole-database replacements, return renameReference instead of many update actions. Characters, factions, cultures, locations, quests, items, recipes, story pages, and marketing pages from entryIndex are entries; update them with setData target entry. Every requested clause must be represented by at least one change or warning.",
     entryIndex: database.entries.map((entry) => compactEntry(entry, "index")),
     relevantEntries: relevantEntries.length
       ? relevantEntries
