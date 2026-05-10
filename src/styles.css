@@ -660,6 +660,69 @@ textarea {
   font-weight: 900;
 }
 
+.tavern-scribe-manual {
+  margin-top: 1rem;
+  overflow: hidden;
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--field-bg) 82%, var(--panel-bg));
+}
+
+.tavern-scribe-manual summary {
+  display: flex;
+  min-height: 44px;
+  cursor: pointer;
+  list-style: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 0.9rem;
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+
+.tavern-scribe-manual summary::-webkit-details-marker {
+  display: none;
+}
+
+.tavern-scribe-manual summary svg {
+  flex: 0 0 auto;
+  transition: transform 160ms ease;
+}
+
+.tavern-scribe-manual[open] summary svg {
+  transform: rotate(180deg);
+}
+
+.tavern-scribe-manual-scroll {
+  display: grid;
+  max-height: min(430px, 48vh);
+  gap: 0.85rem;
+  overflow-y: auto;
+  border-top: 1px solid var(--card-border);
+  padding: 0.9rem;
+}
+
+.tavern-scribe-manual-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.tavern-scribe-manual-textarea,
+.tavern-scribe-manual-paste {
+  min-height: 180px;
+  resize: vertical;
+  padding: 0.8rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.tavern-scribe-manual-paste {
+  min-height: 150px;
+}
+
 .tavern-scribe-message,
 .tavern-scribe-summary {
   margin-top: 1rem;

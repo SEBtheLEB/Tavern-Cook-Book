@@ -64,6 +64,7 @@ export function AssistantPanel({
   const [selected, setSelected] = useState<number[]>([]);
   const [manualPrompt, setManualPrompt] = useState("");
   const [manualPatch, setManualPatch] = useState("");
+  const [manualOpen, setManualOpen] = useState(false);
   const [createBackup, setCreateBackup] = useState(true);
   const [message, setMessage] = useState("");
   const [lastSummary, setLastSummary] = useState("");
@@ -166,7 +167,9 @@ export function AssistantPanel({
       setLastSummary(result.summary);
       setMessage(`Scribed ${result.changes.length} ${result.changes.length === 1 ? "change" : "changes"} into the Cook Book. A backup was created.`);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Assistant call failed.");
+      const errorMessage = error instanceof Error ? error.message : "Assistant call failed.";
+      setMessage(`${errorMessage} You can use Manual ChatGPT Mode below to copy/paste without API billing.`);
+      setManualOpen(true);
     } finally {
       setLoading(false);
     }
@@ -177,9 +180,50 @@ export function AssistantPanel({
       const parsed = parseAssistantPatch(manualPatch);
       setPatch(parsed);
       setSelected(parsed.changes.map((_, index) => index));
-      setMessage("Manual assistant changes loaded.");
+      setLastSummary(parsed.summary);
+      setMessage(
+        parsed.changes.length
+          ? `Loaded ${parsed.changes.length} pasted ${parsed.changes.length === 1 ? "change" : "changes"}. Use Apply Pasted Response when ready.`
+          : parsed.summary || "The pasted response did not include changes to apply."
+      );
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not read the assistant changes.");
+    }
+  };
+
+  const generateManualPrompt = () => {
+    if (!command.trim()) {
+      setMessage("Type what should change first, then generate the manual prompt.");
+      return;
+    }
+    const prompt = buildPrompt();
+    setManualOpen(true);
+    setMessage("Full ChatGPT prompt generated.");
+    return prompt;
+  };
+
+  const copyManualPrompt = async () => {
+    const prompt = manualPrompt || generateManualPrompt();
+    if (!prompt) return;
+    await navigator.clipboard.writeText(prompt);
+    setMessage("Full ChatGPT prompt copied.");
+  };
+
+  const applyManualPatch = () => {
+    try {
+      const parsed = parseAssistantPatch(manualPatch);
+      const indexes = parsed.changes.map((_, index) => index);
+      setPatch(parsed);
+      setSelected(indexes);
+      if (!parsed.changes.length) {
+        setMessage(parsed.summary || "The pasted response did not include changes to apply.");
+        return;
+      }
+      onDatabaseChange(applyAssistantPatch(database, parsed, indexes, true));
+      setLastSummary(parsed.summary);
+      setMessage(`Applied ${parsed.changes.length} pasted ${parsed.changes.length === 1 ? "change" : "changes"}. A backup was created.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not apply the pasted ChatGPT response.");
     }
   };
 
@@ -305,18 +349,69 @@ export function AssistantPanel({
             <section className="tavern-scribe-simple-panel">
               <label className="tavern-scribe-command-box">
                 <span>What should change?</span>
-              <textarea
+                <textarea
                   className="field tavern-scribe-command-input"
                   value={command}
                   onChange={(event) => setCommand(event.target.value)}
                   placeholder="Example: Gwen is now 25. Update every profile, timeline note, Whisken culture note, pantry item, bestiary section, or production slot that should reflect this."
-              />
+                />
               </label>
               <button className="button-frame tavern-scribe-it-button" onClick={run} disabled={loading}>
                 <Icon name="Sparkles" className="h-4 w-4" />
                 {loading ? "Scribing..." : "Scribe It"}
               </button>
             </section>
+
+            <details
+              className="tavern-scribe-manual"
+              open={manualOpen}
+              onToggle={(event) => setManualOpen(event.currentTarget.open)}
+            >
+              <summary>
+                <span>Manual ChatGPT Mode</span>
+                <Icon name="ChevronDown" className="h-4 w-4" />
+              </summary>
+              <div className="tavern-scribe-manual-scroll">
+                <div className="tavern-scribe-manual-actions">
+                  <button className="rounded border px-3 py-2 text-sm" style={{ borderColor: "var(--panel-border)" }} onClick={generateManualPrompt}>
+                    Generate Full Prompt
+                  </button>
+                  <button className="rounded border px-3 py-2 text-sm" style={{ borderColor: "var(--panel-border)" }} onClick={copyManualPrompt}>
+                    Copy Full Prompt
+                  </button>
+                </div>
+
+                <label className="tavern-scribe-command-box">
+                  <span>Prompt to paste into ChatGPT</span>
+                  <textarea
+                    className="field tavern-scribe-manual-textarea"
+                    value={manualPrompt}
+                    onChange={(event) => setManualPrompt(event.target.value)}
+                    placeholder="Generate the full prompt, then paste it into ChatGPT."
+                  />
+                </label>
+
+                <label className="tavern-scribe-command-box">
+                  <span>Paste ChatGPT's JSON response here</span>
+                  <textarea
+                    className="field tavern-scribe-manual-paste"
+                    value={manualPatch}
+                    onChange={(event) => setManualPatch(event.target.value)}
+                    placeholder="Paste the JSON response from ChatGPT here. Markdown code fences are okay."
+                  />
+                </label>
+
+                <div className="tavern-scribe-manual-actions">
+                  <button className="rounded border px-3 py-2 text-sm" style={{ borderColor: "var(--panel-border)" }} onClick={loadManualPatch}>
+                    Check Pasted Response
+                  </button>
+                  <button className="button-frame inline-flex items-center gap-2 rounded px-3 py-2 text-sm" onClick={applyManualPatch}>
+                    <Icon name="Save" className="h-4 w-4" />
+                    Apply Pasted Response
+                  </button>
+                </div>
+              </div>
+            </details>
 
             {message && (
               <div className="tavern-scribe-message">
@@ -341,7 +436,7 @@ export function AssistantPanel({
             <div className="tavern-scribe-footer-actions">
               <button className="rounded border px-3 py-2 text-sm" style={{ borderColor: "var(--panel-border)" }} onClick={undo}>
                 Undo Last Scribe Change
-                </button>
+              </button>
             </div>
           </div>
         </aside>

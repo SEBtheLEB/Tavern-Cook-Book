@@ -117,7 +117,7 @@ export const callAssistant = async (
 };
 
 export const parseAssistantPatch = (raw: string): AssistantPatch => {
-  const parsed = JSON.parse(raw) as AssistantPatch;
+  const parsed = JSON.parse(extractJsonPayload(raw)) as AssistantPatch;
   if (!parsed || !Array.isArray(parsed.changes)) {
     throw new Error("The pasted JSON does not contain a changes array.");
   }
@@ -127,6 +127,20 @@ export const parseAssistantPatch = (raw: string): AssistantPatch => {
     changes: parsed.changes,
     warnings: Array.isArray(parsed.warnings) ? parsed.warnings : []
   };
+};
+
+const extractJsonPayload = (raw: string) => {
+  const trimmed = raw.trim();
+  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fenced?.[1]) return fenced[1].trim();
+
+  const firstBrace = trimmed.indexOf("{");
+  const lastBrace = trimmed.lastIndexOf("}");
+  if (firstBrace >= 0 && lastBrace > firstBrace) {
+    return trimmed.slice(firstBrace, lastBrace + 1);
+  }
+
+  return trimmed;
 };
 
 const setDeepValue = (target: Record<string, unknown>, path: string, value: unknown) => {
