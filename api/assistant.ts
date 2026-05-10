@@ -12,8 +12,15 @@ export default async function handler(request: IncomingMessage, response: Server
     return;
   }
 
-  const body = await readJsonBody(request);
-  const result = await handleAssistantRequest(body);
+  let body: unknown;
+  try {
+    body = await readJsonBody(request);
+  } catch {
+    sendJson(response, 400, { error: "Invalid JSON request body." });
+    return;
+  }
+
+  const result = await handleAssistantRequest(body as Parameters<typeof handleAssistantRequest>[0]);
   sendJson(response, result.status, result.body);
 }
 
@@ -24,6 +31,11 @@ function sendJson(response: ServerResponse, status: number, body: unknown) {
 }
 
 async function readJsonBody(request: IncomingMessage) {
+  const requestWithBody = request as IncomingMessage & { body?: unknown };
+  if (requestWithBody.body && typeof requestWithBody.body === "object") {
+    return requestWithBody.body;
+  }
+
   const chunks: Buffer[] = [];
   for await (const chunk of request) {
     chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
