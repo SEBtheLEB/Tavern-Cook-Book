@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { PointerEvent as ReactPointerEvent } from "react";
 import type { AssistantAction, AssistantMode, AssistantPatch, LoreDatabase } from "../types";
 import {
   applyAssistantPatch,
@@ -14,12 +15,48 @@ interface AssistantPanelProps {
   database: LoreDatabase;
   onDatabaseChange: (database: LoreDatabase) => void;
   embedded?: boolean;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  showLauncher?: boolean;
 }
 
 const modes: AssistantMode[] = ["suggest", "patch", "analyze", "marketing", "contradictions"];
 
-export function AssistantPanel({ database, onDatabaseChange, embedded = false }: AssistantPanelProps) {
-  const [open, setOpen] = useState(false);
+const getDefaultScribePosition = () => {
+  if (typeof window === "undefined") {
+    return { x: 24, y: 96 };
+  }
+
+  const width = Math.min(560, window.innerWidth - 24);
+  return {
+    x: Math.max(12, window.innerWidth - width - 24),
+    y: 96
+  };
+};
+
+const clampScribePosition = (position: { x: number; y: number }, element?: HTMLElement | null) => {
+  if (typeof window === "undefined") return position;
+
+  const width = element?.offsetWidth || Math.min(560, window.innerWidth - 24);
+  const height = element?.offsetHeight || Math.min(760, window.innerHeight - 24);
+  const maxX = Math.max(12, window.innerWidth - width - 12);
+  const maxY = Math.max(12, window.innerHeight - Math.min(height, window.innerHeight - 24) - 12);
+
+  return {
+    x: Math.min(Math.max(12, position.x), maxX),
+    y: Math.min(Math.max(12, position.y), maxY)
+  };
+};
+
+export function AssistantPanel({
+  database,
+  onDatabaseChange,
+  embedded = false,
+  open,
+  onOpenChange,
+  showLauncher = true
+}: AssistantPanelProps) {
+  const [internalOpen, setInternalOpen] = useState(false);
   const [command, setCommand] = useState("");
   const [mode, setMode] = useState<AssistantMode>("patch");
   const [loading, setLoading] = useState(false);
@@ -29,8 +66,78 @@ export function AssistantPanel({ database, onDatabaseChange, embedded = false }:
   const [manualPatch, setManualPatch] = useState("");
   const [createBackup, setCreateBackup] = useState(true);
   const [message, setMessage] = useState("");
+  const [lastSummary, setLastSummary] = useState("");
+  const [scribePosition, setScribePosition] = useState(getDefaultScribePosition);
+  const [dragging, setDragging] = useState(false);
+  const scribeWindowRef = useRef<HTMLElement | null>(null);
+  const dragRef = useRef<{ offsetX: number; offsetY: number } | null>(null);
 
+  const isOpen = open ?? internalOpen;
   const selectedSet = useMemo(() => new Set(selected), [selected]);
+
+  const setAssistantOpen = (nextOpen: boolean) => {
+    if (open === undefined) {
+      setInternalOpen(nextOpen);
+    }
+    onOpenChange?.(nextOpen);
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleResize = () => {
+      setScribePosition((current) => clampScribePosition(current, scribeWindowRef.current));
+    };
+
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!dragging) return;
+
+    const handlePointerMove = (event: PointerEvent) => {
+      const drag = dragRef.current;
+      if (!drag) return;
+      setScribePosition(
+        clampScribePosition(
+          {
+            x: event.clientX - drag.offsetX,
+            y: event.clientY - drag.offsetY
+          },
+          scribeWindowRef.current
+        )
+      );
+    };
+
+    const handlePointerUp = () => {
+      dragRef.current = null;
+      setDragging(false);
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+    };
+  }, [dragging]);
+
+  const beginDrag = (event: ReactPointerEvent<HTMLElement>) => {
+    if (event.button !== 0) return;
+    if ((event.target as HTMLElement).closest("button, input, textarea, select, [data-no-drag='true']")) return;
+
+    const rect = scribeWindowRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    dragRef.current = {
+      offsetX: event.clientX - rect.left,
+      offsetY: event.clientY - rect.top
+    };
+    setDragging(true);
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
 
   const buildPrompt = () => {
     const prompt = buildManualPrompt(database, command, mode);
@@ -45,13 +152,21 @@ export function AssistantPanel({ database, onDatabaseChange, embedded = false }:
     }
     setLoading(true);
     setMessage("");
+    setLastSummary("");
     try {
       const result = await callAssistant(database, command, mode);
       setPatch(result);
-      setSelected(result.changes.map((_, index) => index));
+      const indexes = result.changes.map((_, index) => index);
+      setSelected(indexes);
+      if (!result.changes.length) {
+        setMessage(result.summary || "Tavern Scribe did not find any changes to apply.");
+        return;
+      }
+      onDatabaseChange(applyAssistantPatch(database, result, indexes, true));
+      setLastSummary(result.summary);
+      setMessage(`Scribed ${result.changes.length} ${result.changes.length === 1 ? "change" : "changes"} into the Cook Book. A backup was created.`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Assistant call failed.");
-      buildPrompt();
     } finally {
       setLoading(false);
     }
@@ -91,14 +206,14 @@ export function AssistantPanel({ database, onDatabaseChange, embedded = false }:
         <section className="assistant-frame settings-assistant-panel rounded p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h3 className="font-display text-2xl">Cook Book Assistant</h3>
+              <h3 className="font-display text-2xl">Tavern Scribe</h3>
               <p className="mt-1 text-sm leading-6" style={{ color: "var(--muted-ink)" }}>
-                Sort, update, rename, rewrite, cross-reference, and clean up lore with previewed changes.
+                Type what should change in the Cook Book. Scribe can update lore text, fields, bestiary details, pantry entries, world notes, and production slots.
               </p>
             </div>
-            <button className="button-frame inline-flex items-center gap-2 rounded px-4 py-2" onClick={() => setOpen(true)}>
+            <button className="button-frame inline-flex items-center gap-2 rounded px-4 py-2" onClick={() => setAssistantOpen(true)}>
               <Icon name="WandSparkles" className="h-4 w-4" />
-              Open Assistant
+              Open Scribe
             </button>
           </div>
           <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_auto]">
@@ -109,28 +224,28 @@ export function AssistantPanel({ database, onDatabaseChange, embedded = false }:
               onChange={(event) => setCommand(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === "Enter") {
-                  setOpen(true);
+                  setAssistantOpen(true);
                   run();
                 }
               }}
             />
-            <button className="button-frame rounded px-4 py-2" onClick={() => setOpen(true)}>
+            <button className="button-frame rounded px-4 py-2" onClick={() => setAssistantOpen(true)}>
               Open
             </button>
           </div>
         </section>
-      ) : (
+      ) : showLauncher ? (
         <div className="group fixed bottom-4 right-0 z-30 translate-x-[132px] transition hover:translate-x-0">
           <div className="assistant-frame flex items-center gap-3 rounded-l-full px-3 py-2">
             <button
               className="button-frame grid h-12 w-12 place-items-center rounded-full"
-              onClick={() => setOpen(true)}
-              title="Open assistant"
+              onClick={() => setAssistantOpen(true)}
+              title="Open Tavern Scribe"
             >
               <Icon name="WandSparkles" className="h-5 w-5" />
             </button>
             <div className="w-52 pr-2">
-              <p className="text-sm font-semibold">Need help sorting the Cook Book?</p>
+              <p className="text-sm font-semibold">Tavern Scribe</p>
               <div className="mt-1 flex gap-1">
                 <input
                   className="field min-w-0 flex-1 rounded px-2 py-1 text-xs"
@@ -138,155 +253,98 @@ export function AssistantPanel({ database, onDatabaseChange, embedded = false }:
                   onChange={(event) => setCommand(event.target.value)}
                   onKeyDown={(event) => {
                     if (event.key === "Enter") {
-                      setOpen(true);
+                      setAssistantOpen(true);
                       run();
                     }
                   }}
                 />
-                <button className="rounded border px-2 text-xs" style={{ borderColor: "var(--panel-border)" }} onClick={() => setOpen(true)}>
+                <button className="rounded border px-2 text-xs" style={{ borderColor: "var(--panel-border)" }} onClick={() => setAssistantOpen(true)}>
                   Go
                 </button>
               </div>
             </div>
           </div>
         </div>
-      )}
+      ) : null}
 
-      {open && (
-        <div className="fixed inset-0 z-50">
-          <button className="absolute inset-0 bg-black/55 backdrop-blur-sm" onClick={() => setOpen(false)} aria-label="Close assistant" />
-          <aside className="assistant-frame entry-scroll absolute bottom-0 right-0 top-0 flex w-full max-w-xl flex-col overflow-hidden border-l" style={{ borderColor: "var(--panel-border)" }}>
-            <header className="flex items-start gap-3 border-b p-4" style={{ borderColor: "var(--card-border)" }}>
-              <div className="button-frame grid h-12 w-12 place-items-center rounded-full">
-                <Icon name="WandSparkles" className="h-5 w-5" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm uppercase tracking-[0.18em]" style={{ color: "var(--muted-ink)" }}>
-                  The Tavern Cook Book
-                </p>
-                <h2 className="font-display text-3xl">Assistant</h2>
-                <p className="mt-1 text-sm leading-6" style={{ color: "var(--muted-ink)" }}>
-                  Sort, update, rename, rewrite, cross-reference, and clean up lore with previewed changes.
-                </p>
-              </div>
-              <button className="rounded p-2 hover:bg-black/10" onClick={() => setOpen(false)}>
-                <Icon name="X" className="h-5 w-5" />
-              </button>
-            </header>
-
-            <div className="entry-scroll flex-1 space-y-5 overflow-y-auto p-4">
-              {message && <div className="rounded border p-3 text-sm" style={{ borderColor: "var(--panel-border)" }}>{message}</div>}
-
-              <section className="space-y-3">
-                <label className="block space-y-1">
-                  <span className="text-sm font-semibold">Command</span>
-                  <textarea
-                    className="field min-h-28 w-full rounded px-3 py-2"
-                    value={command}
-                    onChange={(event) => setCommand(event.target.value)}
-                    placeholder="Rename Wiscan to Whisken everywhere."
-                  />
-                </label>
-                <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
-                  <CustomSelect
-                    value={mode}
-                    onChange={(value) => setMode(value as AssistantMode)}
-                    options={modes}
-                  />
-                  <button className="button-frame inline-flex items-center justify-center gap-2 rounded px-4 py-2" onClick={run} disabled={loading}>
-                    <Icon name="Sparkles" className="h-4 w-4" />
-                    {loading ? "Running..." : "Run Assistant"}
-                  </button>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <button className="rounded border px-3 py-2 text-sm" style={{ borderColor: "var(--panel-border)" }} onClick={buildPrompt}>
-                    Build Manual Prompt
-                  </button>
-                  <button
-                    className="rounded border px-3 py-2 text-sm"
-                    style={{ borderColor: "var(--panel-border)" }}
-                    onClick={async () => {
-                      const prompt = manualPrompt || buildPrompt();
-                      await navigator.clipboard.writeText(prompt);
-                      setMessage("Prompt copied.");
-                    }}
-                  >
-                    Copy Prompt
-                  </button>
-                  <button className="rounded border px-3 py-2 text-sm" style={{ borderColor: "var(--panel-border)" }} onClick={undo}>
-                    Undo Last AI Change
-                  </button>
-                </div>
-              </section>
-
-              {manualPrompt && (
-                <section className="space-y-2">
-                  <h3 className="font-display text-xl">Manual Prompt</h3>
-                  <textarea className="field min-h-40 w-full rounded px-3 py-2 text-sm" value={manualPrompt} onChange={(event) => setManualPrompt(event.target.value)} />
-                </section>
-              )}
-
-              <section className="space-y-2">
-                <h3 className="font-display text-xl">Paste Returned Assistant Changes</h3>
-                <textarea
-                  className="field min-h-32 w-full rounded px-3 py-2 text-sm"
-                  value={manualPatch}
-                  placeholder="Paste the structured changes ChatGPT gave you, then preview them before applying."
-                  onChange={(event) => setManualPatch(event.target.value)}
-                />
-                <button className="rounded border px-3 py-2 text-sm" style={{ borderColor: "var(--panel-border)" }} onClick={loadManualPatch}>
-                  Preview Pasted Patch
-                </button>
-              </section>
-
-              {patch && (
-                <section className="space-y-3">
-                  <div className="rounded border p-3" style={{ borderColor: "var(--panel-border)", background: "var(--field-bg)" }}>
-                    <h3 className="font-display text-xl">Preview Changes</h3>
-                    <p className="mt-1 text-sm leading-6">{patch.summary}</p>
-                    {patch.warnings.length > 0 && (
-                      <ul className="mt-2 space-y-1 text-sm">
-                        {patch.warnings.map((warning) => (
-                          <li key={warning}>Warning: {warning}</li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    {patch.changes.map((change, index) => (
-                      <label key={`${index}-${describeChange(change)}`} className="block rounded border p-3" style={{ borderColor: "var(--card-border)", background: "var(--field-bg)" }}>
-                        <div className="flex items-start gap-3">
-                          <input
-                            type="checkbox"
-                            className="mt-1"
-                            checked={selectedSet.has(index)}
-                            onChange={(event) => {
-                              if (event.target.checked) setSelected((items) => [...items, index]);
-                              else setSelected((items) => items.filter((item) => item !== index));
-                            }}
-                          />
-                          <div className="min-w-0 flex-1">
-                            <p className="font-semibold">{describeChange(change)}</p>
-                            <ChangeDetails change={change} />
-                          </div>
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-
-                  <label className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" checked={createBackup} onChange={(event) => setCreateBackup(event.target.checked)} />
-                    Create Backup Before Applying
-                  </label>
-                  <button className="button-frame w-full rounded px-4 py-3" onClick={applySelected}>
-                    Apply Selected Changes
-                  </button>
-                </section>
-              )}
+      {isOpen && (
+        <aside
+          ref={scribeWindowRef}
+          className={`assistant-frame tavern-scribe-window ${dragging ? "is-dragging" : ""}`}
+          style={{
+            left: scribePosition.x,
+            top: scribePosition.y
+          }}
+        >
+          <header className="tavern-scribe-header" onPointerDown={beginDrag}>
+            <div className="button-frame grid h-12 w-12 place-items-center rounded-full">
+              <Icon name="WandSparkles" className="h-5 w-5" />
             </div>
-          </aside>
-        </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm uppercase tracking-[0.18em]" style={{ color: "var(--muted-ink)" }}>
+                The Tavern Cook Book
+              </p>
+              <h2 className="font-display text-3xl">Tavern Scribe</h2>
+              <p className="mt-1 text-sm leading-6" style={{ color: "var(--muted-ink)" }}>
+                Drag this window by the header and keep the lore page visible while you write.
+              </p>
+            </div>
+            <button
+              className="rounded p-2 hover:bg-black/10"
+              onClick={() => setScribePosition(getDefaultScribePosition())}
+              title="Reset position"
+            >
+              <Icon name="RefreshCw" className="h-5 w-5" />
+            </button>
+            <button className="rounded p-2 hover:bg-black/10" onClick={() => setAssistantOpen(false)} title="Close Tavern Scribe">
+              <Icon name="X" className="h-5 w-5" />
+            </button>
+          </header>
+
+          <div className="entry-scroll tavern-scribe-body p-4">
+            <section className="tavern-scribe-simple-panel">
+              <label className="tavern-scribe-command-box">
+                <span>What should change?</span>
+              <textarea
+                  className="field tavern-scribe-command-input"
+                  value={command}
+                  onChange={(event) => setCommand(event.target.value)}
+                  placeholder="Example: Gwen is now 25. Update every profile, timeline note, Whisken culture note, pantry item, bestiary section, or production slot that should reflect this."
+              />
+              </label>
+              <button className="button-frame tavern-scribe-it-button" onClick={run} disabled={loading}>
+                <Icon name="Sparkles" className="h-4 w-4" />
+                {loading ? "Scribing..." : "Scribe It"}
+              </button>
+            </section>
+
+            {message && (
+              <div className="tavern-scribe-message">
+                <p>{message}</p>
+                {patch?.warnings?.length ? (
+                  <ul>
+                    {patch.warnings.map((warning) => (
+                      <li key={warning}>{warning}</li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
+            )}
+
+            {lastSummary && (
+              <div className="tavern-scribe-summary">
+                <span>Last Scribed Change</span>
+                <p>{lastSummary}</p>
+              </div>
+            )}
+
+            <div className="tavern-scribe-footer-actions">
+              <button className="rounded border px-3 py-2 text-sm" style={{ borderColor: "var(--panel-border)" }} onClick={undo}>
+                Undo Last Scribe Change
+                </button>
+            </div>
+          </div>
+        </aside>
       )}
     </>
   );
@@ -294,13 +352,18 @@ export function AssistantPanel({ database, onDatabaseChange, embedded = false }:
 
 function describeChange(change: AssistantAction) {
   if (change.action === "update") return `Update ${change.field} on ${change.id}`;
+  if (change.action === "setData") return `Update ${change.path} on ${change.target}`;
   if (change.action === "renameReference") return `Rename ${change.oldName} to ${change.newName}`;
   if (change.action === "add") return `Add ${change.entry.title || "new entry"}`;
+  if (change.action === "addCreature") return `Add creature ${change.creature.name || "new creature"}`;
+  if (change.action === "addWorldEntry") return `Add world entry ${change.entry.title || "new world entry"}`;
+  if (change.action === "addArtSlot") return `Add slot ${change.label}`;
+  if (change.action === "removeArtSlot") return `Remove slot ${change.label || change.slotId || "selected slot"}`;
   return `Archive ${change.title}`;
 }
 
 function ChangeDetails({ change }: { change: AssistantAction }) {
-  if (change.action === "update") {
+  if (change.action === "update" || change.action === "setData") {
     return (
       <div className="mt-2 grid gap-2 text-sm">
         <ValuePreview label="Before" value={change.oldValue} />
@@ -313,6 +376,15 @@ function ChangeDetails({ change }: { change: AssistantAction }) {
   }
   if (change.action === "add") {
     return <ValuePreview label="New entry details" value={change.entry} />;
+  }
+  if (change.action === "addCreature") {
+    return <ValuePreview label="New creature details" value={change.creature} />;
+  }
+  if (change.action === "addWorldEntry") {
+    return <ValuePreview label="New world entry details" value={change.entry} />;
+  }
+  if (change.action === "addArtSlot" || change.action === "removeArtSlot") {
+    return <p className="mt-1 text-sm">Target: {change.target}</p>;
   }
   return <p className="mt-1 text-sm">{change.content}</p>;
 }

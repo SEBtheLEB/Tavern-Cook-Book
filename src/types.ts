@@ -494,6 +494,16 @@ export type AssistantAction =
       newValue: unknown;
     }
   | {
+      action: "setData";
+      target: "entry" | "creature" | "worldEntry" | "bestiaryCategoryVault";
+      id?: string;
+      category?: WorldBuildingCategoryId | string;
+      categoryName?: string;
+      path: string;
+      oldValue?: unknown;
+      newValue: unknown;
+    }
+  | {
       action: "renameReference";
       oldName: string;
       newName: string;
@@ -502,6 +512,36 @@ export type AssistantAction =
   | {
       action: "add";
       entry: Partial<LoreEntry>;
+    }
+  | {
+      action: "addCreature";
+      creature: Partial<BestiaryCreature>;
+    }
+  | {
+      action: "addWorldEntry";
+      category: WorldBuildingCategoryId | string;
+      entry: Partial<WorldBuildingEntry>;
+    }
+  | {
+      action: "addArtSlot";
+      target: "entry" | "creature" | "bestiaryCategory";
+      id?: string;
+      categoryName?: string;
+      sectionId?: string;
+      sectionTitle?: string;
+      label: string;
+      requirementType?: string;
+      notes?: string;
+    }
+  | {
+      action: "removeArtSlot";
+      target: "entry" | "creature" | "bestiaryCategory";
+      id?: string;
+      categoryName?: string;
+      sectionId?: string;
+      sectionTitle?: string;
+      slotId?: string;
+      label?: string;
     }
   | {
       action: "archive";

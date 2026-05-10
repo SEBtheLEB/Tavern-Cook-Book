@@ -17,6 +17,7 @@ interface SidebarProps {
   currentUser?: GoogleAccountUser | null;
   onSignOut?: () => void;
   onOpenProfile?: () => void;
+  onOpenTavernScribe?: () => void;
   onOpenQuestDashboard?: () => void;
   questCount?: number;
   canAccessSettings?: boolean;
@@ -45,6 +46,7 @@ export function Sidebar({
   currentUser = null,
   onSignOut,
   onOpenProfile,
+  onOpenTavernScribe,
   onOpenQuestDashboard,
   questCount = 0,
   canAccessSettings = false
@@ -420,32 +422,50 @@ export function Sidebar({
                 </div>
                 {onOpenProfile && (
                   <button
+                    className="sidebar-account-menu-action"
                     onClick={() => {
                       setAccountMenuOpen(false);
                       onOpenProfile();
                     }}
                   >
-                    Profile
+                    <Icon name="UserRound" className="h-4 w-4" />
+                    <span>Profile</span>
+                  </button>
+                )}
+                {onOpenTavernScribe && !readOnly && (
+                  <button
+                    className="sidebar-account-menu-action"
+                    onClick={() => {
+                      setAccountMenuOpen(false);
+                      onOpenTavernScribe();
+                    }}
+                  >
+                    <Icon name="ScrollText" className="h-4 w-4" />
+                    <span>Tavern Scribe</span>
                   </button>
                 )}
                 {onOpenQuestDashboard && (
                   <button
+                    className="sidebar-account-menu-action"
                     onClick={() => {
                       setAccountMenuOpen(false);
                       onOpenQuestDashboard();
                     }}
                   >
-                    Personal Quest Dashboard
+                    <Icon name="Clipboard" className="h-4 w-4" />
+                    <span>Personal Quest Dashboard</span>
                   </button>
                 )}
                 {onSignOut && (
                   <button
+                    className="sidebar-account-menu-action"
                     onClick={() => {
                       setAccountMenuOpen(false);
                       onSignOut();
                     }}
                   >
-                    Sign Out
+                    <Icon name="X" className="h-4 w-4" />
+                    <span>Sign Out</span>
                   </button>
                 )}
               </div>

@@ -19,6 +19,7 @@ import { AssignmentProvider } from "./components/AssignmentSystem";
 import { ArtVaultDashboard } from "./components/ArtVaultDashboard";
 import type { ArtBinderInitialFilter, ArtBinderKind } from "./components/ArtBinderPage";
 import { AccessGate } from "./components/AccessGate";
+import { AssistantPanel } from "./components/AssistantPanel";
 import { BestiaryPage } from "./components/BestiaryPage";
 import { CharacterDetailPage } from "./components/CharacterDetailPage";
 import { Dashboard } from "./components/Dashboard";
@@ -145,6 +146,7 @@ export default function App() {
   const [favoritesOpen, setFavoritesOpen] = useState(false);
   const [questDashboardOpen, setQuestDashboardOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [tavernScribeOpen, setTavernScribeOpen] = useState(false);
   const [assignMode, setAssignMode] = useState(false);
   const [focusedAssignment, setFocusedAssignment] = useState<AssignmentRecord | null>(null);
   const [assignments, setAssignments] = useState(() => getAssignments());
@@ -681,6 +683,7 @@ export default function App() {
           currentUser={currentUser}
           onSignOut={signOut}
           onOpenProfile={openProfile}
+          onOpenTavernScribe={() => setTavernScribeOpen(true)}
           onOpenQuestDashboard={openQuestDashboard}
           questCount={currentQuestCount}
           canAccessSettings={canAccessSettings}
@@ -900,6 +903,16 @@ export default function App() {
           </div>
           </AssignmentProvider>
         </main>
+
+        {!readOnly && (
+          <AssistantPanel
+            database={database}
+            onDatabaseChange={updateDatabase}
+            open={tavernScribeOpen}
+            onOpenChange={setTavernScribeOpen}
+            showLauncher={false}
+          />
+        )}
 
         {selectedEntry && !selectedCharacterEntry && (
           <EntryModal

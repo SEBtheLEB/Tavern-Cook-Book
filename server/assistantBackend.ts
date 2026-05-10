@@ -1,7 +1,12 @@
 const DEFAULT_MODEL = "gpt-5.4-mini";
 
 export interface AssistantBackendRequest {
-  database?: { entries?: unknown[] };
+  database?: {
+    entries?: unknown[];
+    bestiary?: unknown[];
+    bestiaryCategoryVaults?: unknown[];
+    worldBuilding?: Record<string, unknown>;
+  };
   command?: unknown;
   mode?: unknown;
 }
@@ -45,7 +50,7 @@ export async function handleAssistantRequest(body: AssistantBackendRequest): Pro
   }
 
   try {
-    const loreContext = buildAssistantLoreContext({ entries: database.entries }, command);
+    const loreContext = buildAssistantLoreContext(database, command);
     const apiResponse = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
@@ -58,7 +63,7 @@ export async function handleAssistantRequest(body: AssistantBackendRequest): Pro
           {
             role: "system",
             content:
-              "You are the secure backend lore assistant for The Tavern Cook Book, a local-first lore bible for Tales of the Tavern by STL Productionz. Return only valid JSON matching the requested schema. Make precise, reviewable changes. Never invent destructive changes. Preserve canon facts unless the user explicitly asks to change them. Tohm never drinks from the cauldron. Lillia tore pages from the recipe book; she did not steal the whole book."
+              "You are Tavern Scribe, the secure backend lore assistant for The Tavern Cook Book, a local-first lore bible for Tales of the Tavern by STL Productionz. Return only valid JSON matching the requested schema. Make precise, reviewable app-data changes. You may update lore text, structured fields, tags, bestiary stats/drops/lore, world-building entries, pantry/recipe/item entries, and art slot labels. You may add lore entries, bestiary creatures, world entries, and art slots. You may remove art slots when asked. Never propose code, UI layout, CSS, API keys, secrets, image uploads, Drive file deletion, or development changes. Preserve canon facts unless the user explicitly asks to change them. Tohm never drinks from the cauldron. Lillia tore pages from the recipe book; she did not steal the whole book."
           },
           {
             role: "user",
@@ -66,15 +71,31 @@ export async function handleAssistantRequest(body: AssistantBackendRequest): Pro
               mode: typeof mode === "string" ? mode : "patch",
               command,
               contextPolicy:
-                "You are receiving a compact lore context, not raw app storage. Media data has been removed. Use entry ids from relevantEntries or entryIndex. For exact whole-database text replacements, return renameReference instead of individual update actions. If context is insufficient for a precise update, include a warning and avoid guessing.",
+                "You are receiving compact app data, not raw app storage. Media data has been removed. Use ids from entryIndex, bestiaryIndex, worldIndex, and artSlotIndex. For direct field changes, return setData. For text replacements that should affect all entries/creatures/world records, return renameReference. If the user asks to add/remove visual production slots, use addArtSlot/removeArtSlot. If context is insufficient for a precise update, include a warning and avoid guessing. Do not return any action outside the app-data schema.",
               requiredPatchShape: {
                 summary: "Short explanation of proposed changes",
                 changes: [
                   {
-                    action: "update",
+                    action: "setData",
+                    target: "entry",
                     id: "entry-id",
-                    field: "internalLore",
+                    path: "internalLore",
                     oldValue: "...",
+                    newValue: "..."
+                  },
+                  {
+                    action: "setData",
+                    target: "creature",
+                    id: "creature-id",
+                    path: "stats.health",
+                    newValue: "Medium"
+                  },
+                  {
+                    action: "setData",
+                    target: "worldEntry",
+                    category: "cultures",
+                    id: "world-entry-id",
+                    path: "fields.beliefsCustoms",
                     newValue: "..."
                   },
                   {
@@ -86,6 +107,28 @@ export async function handleAssistantRequest(body: AssistantBackendRequest): Pro
                   {
                     action: "add",
                     entry: {}
+                  },
+                  {
+                    action: "addCreature",
+                    creature: { name: "New Creature" }
+                  },
+                  {
+                    action: "addWorldEntry",
+                    category: "cultures",
+                    entry: { title: "New Culture", summary: "..." }
+                  },
+                  {
+                    action: "addArtSlot",
+                    target: "creature",
+                    id: "creature-id",
+                    sectionTitle: "Production Art",
+                    label: "New Slot"
+                  },
+                  {
+                    action: "removeArtSlot",
+                    target: "bestiaryCategory",
+                    categoryName: "Insects",
+                    label: "Old Slot"
                   },
                   {
                     action: "archive",
@@ -123,16 +166,27 @@ export async function handleAssistantRequest(body: AssistantBackendRequest): Pro
                     properties: {
                       action: {
                         type: "string",
-                        enum: ["update", "renameReference", "add", "archive"]
+                        enum: ["update", "setData", "renameReference", "add", "addCreature", "addWorldEntry", "addArtSlot", "removeArtSlot", "archive"]
                       },
+                      target: { type: "string" },
                       id: { type: "string" },
                       field: { type: "string" },
+                      path: { type: "string" },
                       oldValue: {},
                       newValue: {},
                       oldName: { type: "string" },
                       newName: { type: "string" },
                       scope: { type: "string" },
+                      category: { type: "string" },
+                      categoryName: { type: "string" },
                       entry: { type: "object", additionalProperties: true },
+                      creature: { type: "object", additionalProperties: true },
+                      sectionId: { type: "string" },
+                      sectionTitle: { type: "string" },
+                      slotId: { type: "string" },
+                      label: { type: "string" },
+                      requirementType: { type: "string" },
+                      notes: { type: "string" },
                       title: { type: "string" },
                       content: { type: "string" }
                     }
@@ -186,10 +240,24 @@ function extractOutputText(payload: unknown): string {
   );
 }
 
-function buildAssistantLoreContext(database: { entries: unknown[] }, command: string) {
-  const entries = database.entries
+function buildAssistantLoreContext(database: AssistantBackendRequest["database"], command: string) {
+  const entries = (database?.entries || [])
     .filter((entry) => entry && typeof entry === "object")
     .map((entry) => entry as Record<string, unknown>);
+  const creatures = (Array.isArray(database?.bestiary) ? database?.bestiary || [] : [])
+    .filter((creature) => creature && typeof creature === "object")
+    .map((creature) => creature as Record<string, unknown>);
+  const categoryVaults = (Array.isArray(database?.bestiaryCategoryVaults) ? database?.bestiaryCategoryVaults || [] : [])
+    .filter((vault) => vault && typeof vault === "object")
+    .map((vault) => vault as Record<string, unknown>);
+  const worldEntries = worldCategoryIds.flatMap((category) => {
+    const entriesForCategory = Array.isArray(database?.worldBuilding?.[category])
+      ? database?.worldBuilding?.[category] as unknown[]
+      : [];
+    return entriesForCategory
+      .filter((entry) => entry && typeof entry === "object")
+      .map((entry) => ({ category, entry: entry as Record<string, unknown> }));
+  });
   const scored = entries
     .map((entry) => ({ entry, score: scoreEntry(entry, command) }))
     .sort((a, b) => b.score - a.score);
@@ -204,13 +272,20 @@ function buildAssistantLoreContext(database: { entries: unknown[] }, command: st
     studio: "STL Productionz",
     game: "Tales of the Tavern",
     totalEntries: entries.length,
+    totalBestiaryCreatures: creatures.length,
+    totalWorldEntries: worldEntries.length,
     canonRules: [
       "Tohm never drinks from the cauldron.",
       "Lillia tore pages from Tohm's recipe book; she did not steal the whole book.",
-      "No AI change should be applied blindly; the app previews every change."
+      "Tavern Scribe may only change app data, not code, layout, images, secrets, or Drive files."
     ],
     entryIndex: entries.map((entry) => compactEntry(entry, "index")),
-    relevantEntries: relevantEntries.length ? relevantEntries : fallbackRelevant
+    relevantEntries: relevantEntries.length ? relevantEntries : fallbackRelevant,
+    bestiaryIndex: creatures.map((creature) => compactCreature(creature, "index")),
+    relevantCreatures: relevantCreatures(creatures, command),
+    worldIndex: compactWorldEntries(worldEntries, command, "index"),
+    relevantWorldEntries: compactWorldEntries(worldEntries, command, "full").slice(0, 18),
+    artSlotIndex: compactArtSlotIndex(entries, creatures, categoryVaults).slice(0, 80)
   };
 }
 
@@ -241,6 +316,96 @@ function compactEntry(entry: Record<string, unknown>, depth: "index" | "full") {
     wiki: compactUnknown(entry.wiki, 1000),
     updatedAt: stringValue(entry.updatedAt)
   };
+}
+
+function compactCreature(creature: Record<string, unknown>, depth: "index" | "full") {
+  const base = {
+    id: stringValue(creature.id),
+    name: stringValue(creature.name),
+    category: stringValue(creature.category),
+    type: stringValue(creature.type),
+    status: stringValue(creature.status),
+    threatLevel: stringValue(creature.threatLevel),
+    rarity: stringValue(creature.rarity),
+    habitat: stringValue(creature.habitat),
+    summary: truncate(stringValue(creature.overview) || stringValue(creature.description), depth === "index" ? 420 : 900),
+    artSlots: artSlotLabels(creature).slice(0, depth === "index" ? 12 : 36)
+  };
+
+  if (depth === "index") return base;
+
+  return {
+    ...base,
+    behavior: truncate(stringValue(creature.behavior), 800),
+    fieldNotes: truncate(stringValue(creature.fieldNotes), 800),
+    stats: compactUnknown(creature.stats, 1200),
+    drops: compactUnknown(creature.drops, 1200),
+    habitatInfo: compactUnknown(creature.habitatInfo, 1000),
+    lore: compactUnknown(creature.lore, 1400),
+    gameplayPurpose: truncate(stringValue(creature.gameplayPurpose), 800),
+    productionNotes: truncate(stringValue(creature.productionNotes), 800)
+  };
+}
+
+function relevantCreatures(creatures: Record<string, unknown>[], command: string) {
+  const scored = creatures
+    .map((creature) => ({ creature, score: scoreUnknown(creature, command, stringValue(creature.name)) }))
+    .sort((a, b) => b.score - a.score);
+  const relevant = scored.filter((item) => item.score > 0).slice(0, 18);
+  return (relevant.length ? relevant : scored.slice(0, 8)).map((item) => compactCreature(item.creature, "full"));
+}
+
+function compactWorldEntries(
+  entries: Array<{ category: string; entry: Record<string, unknown> }>,
+  command: string,
+  depth: "index" | "full"
+) {
+  return entries
+    .map((item) => ({ ...item, score: depth === "index" ? 1 : scoreUnknown(item.entry, command, stringValue(item.entry.title)) }))
+    .filter((item) => depth === "index" || item.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, depth === "index" ? 120 : 32)
+    .map(({ entry, category }) => ({
+      id: stringValue(entry.id),
+      category,
+      title: stringValue(entry.title),
+      type: stringValue(entry.type),
+      summary: truncate(stringValue(entry.summary), depth === "index" ? 320 : 900),
+      tags: arrayValue(entry.tags).slice(0, 10),
+      fields: depth === "full" ? compactUnknown(entry.fields, 1800) : undefined,
+      relatedEntries: depth === "full" ? compactUnknown(entry.relatedEntries, 800) : undefined
+    }));
+}
+
+function compactArtSlotIndex(
+  entries: Record<string, unknown>[],
+  creatures: Record<string, unknown>[],
+  categoryVaults: Record<string, unknown>[]
+) {
+  const entrySlots = entries.flatMap((entry) =>
+    artSlots(entry).map((slot) => ({
+      target: "entry",
+      id: stringValue(entry.id),
+      title: stringValue(entry.title),
+      ...slot
+    }))
+  );
+  const creatureSlots = creatures.flatMap((creature) =>
+    artSlots(creature).map((slot) => ({
+      target: "creature",
+      id: stringValue(creature.id),
+      title: stringValue(creature.name),
+      ...slot
+    }))
+  );
+  const categorySlots = categoryVaults.flatMap((vault) =>
+    artSlots(vault).map((slot) => ({
+      target: "bestiaryCategory",
+      categoryName: stringValue(vault.categoryName),
+      ...slot
+    }))
+  );
+  return [...entrySlots, ...creatureSlots, ...categorySlots];
 }
 
 function scoreEntry(entry: Record<string, unknown>, command: string) {
@@ -276,6 +441,43 @@ function scoreEntry(entry: Record<string, unknown>, command: string) {
   return score;
 }
 
+function scoreUnknown(value: unknown, command: string, title = "") {
+  const terms = command
+    .toLowerCase()
+    .split(/[^a-z0-9']+/)
+    .filter((term) => term.length > 2 && !stopWords.has(term));
+  const haystack = compactUnknown(value, 12000).toLowerCase();
+  let score = 0;
+  for (const term of terms) {
+    if (haystack.includes(term)) score += title.toLowerCase().includes(term) ? 5 : 1;
+  }
+  return score;
+}
+
+function artSlotLabels(subject: Record<string, unknown>) {
+  return artSlots(subject).map((slot) => `${slot.sectionTitle}: ${slot.label}`);
+}
+
+function artSlots(subject: Record<string, unknown>) {
+  const artVault = subject.artVault && typeof subject.artVault === "object"
+    ? subject.artVault as { sections?: unknown[] }
+    : { sections: [] };
+  return (Array.isArray(artVault.sections) ? artVault.sections : []).flatMap((sectionValue) => {
+    const section = sectionValue && typeof sectionValue === "object"
+      ? sectionValue as Record<string, unknown>
+      : {};
+    const slots = Array.isArray(section.slots) ? section.slots : [];
+    return slots
+      .filter((slot): slot is Record<string, unknown> => Boolean(slot) && typeof slot === "object")
+      .map((slot) => ({
+        sectionId: stringValue(section.id),
+        sectionTitle: stringValue(section.title),
+        slotId: stringValue(slot.id),
+        label: stringValue(slot.label)
+      }));
+  });
+}
+
 function compactUnknown(value: unknown, maxLength: number): string {
   return truncate(JSON.stringify(stripMedia(value)), maxLength);
 }
@@ -290,7 +492,21 @@ function stripMedia(value: unknown): unknown {
   if (typeof value === "object") {
     return Object.fromEntries(
       Object.entries(value as Record<string, unknown>)
-        .filter(([key]) => key !== "media" && key !== "iconImage" && key !== "mainImage" && key !== "galleryImages" && key !== "uploadedVideos")
+        .filter(([key]) => ![
+          "media",
+          "image",
+          "images",
+          "iconImage",
+          "mainImage",
+          "galleryImages",
+          "uploadedVideos",
+          "thumbnailUrl",
+          "webViewLink",
+          "driveFileId",
+          "driveFolderId",
+          "driveFolderLink",
+          "logoImage"
+        ].includes(key))
         .map(([key, item]) => [key, stripMedia(item)])
     );
   }
@@ -329,3 +545,20 @@ const stopWords = new Set([
   "entry",
   "entries"
 ]);
+
+const worldCategoryIds = [
+  "locations",
+  "cultures",
+  "factions",
+  "timeline",
+  "magicSystems",
+  "foodAndRecipes",
+  "creatureLinks",
+  "characterLinks",
+  "myths",
+  "items",
+  "quests",
+  "rules",
+  "mysteries",
+  "glossary"
+];
