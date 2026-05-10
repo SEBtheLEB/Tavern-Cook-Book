@@ -13,6 +13,7 @@ import type {
 } from "../types";
 import { cloneDatabase, normalizeEntry, nowIso, slugify } from "./entries";
 import { createBestiaryCategoryArtVaultRecord, normalizeBestiaryCategoryArtVault, normalizeBestiaryCreature } from "./bestiary";
+import { compactScribeCommands, scribeCommandGuidance } from "./scribeCommands";
 import { createEmptyWorldBuilding, createWorldBuildingEntry, worldBuildingCategoryIds } from "./worldBuilding";
 
 const assistantJsonInstructions = `Return only structured JSON in this exact shape:
@@ -90,7 +91,9 @@ const assistantJsonInstructions = `Return only structured JSON in this exact sha
   "warnings": []
 }
 Rules: only change app database content such as text, fields, tags, bestiary stats/drops/lore, world-building fields, and art slot labels. Never propose code, layout, CSS, API keys, images, Drive file deletion, or development changes. Prefer precise updates across every related place that should reflect the user's instruction. Include warnings when canon or naming decisions are uncertain.
-Rules continued: every requested clause must produce a matching change or a warning. If the user asks to change an existing character, faction, culture, location, quest, story, item, recipe, or marketing page, use action "setData" with target "entry" and the id from entryIndex/relevantEntries. Do not use targets like "character", "faction", or "culture"; those are stored as entries. World Building modules are separate from lore entries: if a matching concept exists in worldIndex/relevantWorldEntries, also update it with setData target "worldEntry". If both an entry and worldEntry exist for the same concept, update both. If the user asks to remove/delete/archive a Bestiary creature, return removeCreature using the id from bestiaryIndex/relevantCreatures; do not return only archive for that request. Include archiveContent on removeCreature only when the user wants a note kept. If the user changes a character's age, update existing age text and add or update fields.Age. If the user declares a relationship between an existing character and an existing people/culture/faction, update both related existing entries when possible, update the matching worldEntry fields, and add the character to relatedEntries when the current worldEntry has relationship data.`;
+Rules continued: every requested clause must produce a matching change or a warning. If the user asks to change an existing character, faction, culture, location, quest, story, item, recipe, or marketing page, use action "setData" with target "entry" and the id from entryIndex/relevantEntries. Do not use targets like "character", "faction", or "culture"; those are stored as entries. World Building modules are separate from lore entries: if a matching concept exists in worldIndex/relevantWorldEntries, also update it with setData target "worldEntry". If both an entry and worldEntry exist for the same concept, update both. If the user asks to remove/delete/archive a Bestiary creature, return removeCreature using the id from bestiaryIndex/relevantCreatures; do not return only archive for that request. Include archiveContent on removeCreature only when the user wants a note kept. If the user changes a character's age, update existing age text and add or update fields.Age. If the user declares a relationship between an existing character and an existing people/culture/faction, update both related existing entries when possible, update the matching worldEntry fields, and add the character to relatedEntries when the current worldEntry has relationship data.
+Known Scribe command shortcuts:
+${scribeCommandGuidance}`;
 
 export const buildManualPrompt = (
   database: LoreDatabase,
@@ -749,11 +752,12 @@ const buildCompactLoreContext = (database: LoreDatabase, command: string) => {
     app: "The Tavern Cook Book",
     studio: database.branding.studioName,
     game: "Tales of the Tavern",
+    scribeCommands: compactScribeCommands(),
     totalEntries: database.entries.length,
     totalBestiaryCreatures: (database.bestiary || []).length,
     totalWorldEntries: worldBuildingCategoryIds.reduce((count, category) => count + (database.worldBuilding?.[category] || []).length, 0),
     contextPolicy:
-      "This compact context removes media payloads. Tavern Scribe can only return app-data changes: text, fields, tags, bestiary stats/drops/lore, world-building fields, lore entries, creatures, world entries, bestiary creature remove actions, and art slot add/remove actions. It cannot change code, UI layout, images, Drive files, API keys, secrets, or development settings. For exact whole-database replacements, return renameReference instead of many update actions. Characters, factions, cultures, locations, quests, items, recipes, story pages, and marketing pages from entryIndex are entries; update them with setData target entry. World Building modules from worldIndex are separate records; when the same concept appears in entryIndex and worldIndex, update both records. For removing Bestiary creatures, return removeCreature with the creature id from bestiaryIndex. Every requested clause must be represented by at least one change or warning.",
+      "This compact context removes media payloads. Tavern Scribe can only return app-data changes: text, fields, tags, bestiary stats/drops/lore, world-building fields, lore entries, creatures, world entries, bestiary creature remove actions, and art slot add/remove actions. It cannot change code, UI layout, images, Drive files, API keys, secrets, or development settings. Use scribeCommands as command shortcuts for where new records belong. For exact whole-database replacements, return renameReference instead of many update actions. Characters, factions, cultures, locations, quests, items, recipes, story pages, and marketing pages from entryIndex are entries; update them with setData target entry. World Building modules from worldIndex are separate records; when the same concept appears in entryIndex and worldIndex, update both records. For removing Bestiary creatures, return removeCreature with the creature id from bestiaryIndex. Every requested clause must be represented by at least one change or warning.",
     entryIndex: database.entries.map((entry) => compactEntry(entry, "index")),
     relevantEntries: relevantEntries.length
       ? relevantEntries

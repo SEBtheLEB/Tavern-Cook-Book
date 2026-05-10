@@ -16,6 +16,7 @@ import {
   parseAssistantPatch,
   undoLastAiChange
 } from "../utils/assistant";
+import { SCRIBE_COMMANDS } from "../utils/scribeCommands";
 import { categoryConfig, worldBuildingCategoryIds } from "../utils/worldBuilding";
 import { CustomSelect } from "./CustomSelect";
 import { Icon } from "./Icon";
@@ -85,6 +86,7 @@ export function AssistantPanel({
   const [manualPrompt, setManualPrompt] = useState("");
   const [manualPatch, setManualPatch] = useState("");
   const [manualOpen, setManualOpen] = useState(false);
+  const [commandListOpen, setCommandListOpen] = useState(false);
   const [createBackup, setCreateBackup] = useState(true);
   const [message, setMessage] = useState("");
   const [lastSummary, setLastSummary] = useState("");
@@ -289,6 +291,10 @@ export function AssistantPanel({
     setMessage("Last AI change was undone.");
   };
 
+  const openCommandTarget = (target: AssistantChangedTarget) => {
+    onOpenChangedTarget?.(target);
+  };
+
   return (
     <>
       {embedded ? (
@@ -405,7 +411,57 @@ export function AssistantPanel({
                 <Icon name="Sparkles" className="h-4 w-4" />
                 {loading ? "Scribing..." : "Scribe It"}
               </button>
+              <button
+                className="tavern-scribe-command-list-toggle"
+                type="button"
+                onClick={() => setCommandListOpen((current) => !current)}
+                aria-expanded={commandListOpen}
+              >
+                <Icon name="ListChecks" className="h-4 w-4" />
+                Command List
+                <Icon name="ChevronDown" className={`h-4 w-4 ${commandListOpen ? "rotate-180" : ""}`} />
+              </button>
             </section>
+
+            {commandListOpen && (
+              <section className="tavern-scribe-command-list" aria-label="Tavern Scribe command list">
+                <div className="tavern-scribe-command-list-head">
+                  <div>
+                    <span>Scribe Commands</span>
+                    <h3>Short phrases Scribe understands</h3>
+                  </div>
+                  <strong>{SCRIBE_COMMANDS.length}</strong>
+                </div>
+                <div className="tavern-scribe-command-list-scroll">
+                  {SCRIBE_COMMANDS.map((item) => (
+                    <article className="tavern-scribe-command-card" key={item.id}>
+                      <div className="min-w-0">
+                        <div className="tavern-scribe-command-card-title">
+                          <h4>{item.command}</h4>
+                          <small>{item.destination}</small>
+                        </div>
+                        <p>{item.description}</p>
+                        <div className="tavern-scribe-command-aliases">
+                          {item.aliases.slice(0, 4).map((alias) => (
+                            <span key={alias}>{alias}</span>
+                          ))}
+                        </div>
+                      </div>
+                      {item.target && onOpenChangedTarget ? (
+                        <button
+                          className="button-frame tavern-scribe-open-command"
+                          type="button"
+                          onClick={() => item.target && openCommandTarget(item.target)}
+                        >
+                          <Icon name="ExternalLink" className="h-4 w-4" />
+                          Open
+                        </button>
+                      ) : null}
+                    </article>
+                  ))}
+                </div>
+              </section>
+            )}
 
             <details
               className="tavern-scribe-manual"

@@ -570,6 +570,7 @@ export type AssistantChangedTargetKind =
   | "creature"
   | "worldEntry"
   | "bestiaryCategory"
+  | "view"
   | "all";
 
 export interface AssistantChangedTarget {
@@ -579,6 +580,7 @@ export interface AssistantChangedTarget {
   worldCategory?: WorldBuildingCategoryId | string;
   worldEntryId?: string;
   categoryName?: string;
+  view?: ActiveView;
 }
 
 export interface AssistantRequest {
