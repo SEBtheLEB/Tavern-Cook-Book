@@ -517,6 +517,13 @@ export type AssistantAction =
       entry: Partial<LoreEntry>;
     }
   | {
+      action: "removeEntry";
+      id?: string;
+      title?: string;
+      archiveTitle?: string;
+      archiveContent?: string;
+    }
+  | {
       action: "addCreature";
       creature: Partial<BestiaryCreature>;
     }
@@ -570,7 +577,6 @@ export type AssistantChangedTargetKind =
   | "creature"
   | "worldEntry"
   | "bestiaryCategory"
-  | "view"
   | "all";
 
 export interface AssistantChangedTarget {
@@ -580,7 +586,6 @@ export interface AssistantChangedTarget {
   worldCategory?: WorldBuildingCategoryId | string;
   worldEntryId?: string;
   categoryName?: string;
-  view?: ActiveView;
 }
 
 export interface AssistantRequest {

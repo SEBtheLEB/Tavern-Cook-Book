@@ -674,8 +674,13 @@ textarea {
   font-weight: 900;
 }
 
-.tavern-scribe-command-list-toggle {
+.tavern-scribe-target-helper {
+  position: relative;
+}
+
+.tavern-scribe-target-toggle {
   display: inline-flex;
+  width: 100%;
   min-height: 40px;
   align-items: center;
   justify-content: center;
@@ -690,34 +695,34 @@ textarea {
   transition: background 160ms ease, border-color 160ms ease, transform 160ms ease;
 }
 
-.tavern-scribe-command-list-toggle:hover {
+.tavern-scribe-target-toggle:hover {
   border-color: rgba(226, 174, 94, 0.68);
   background: rgba(255, 242, 220, 0.13);
   transform: translateY(-1px);
 }
 
-.tavern-scribe-command-list-toggle svg:last-child {
+.tavern-scribe-target-toggle svg:last-child {
   transition: transform 160ms ease;
 }
 
-.tavern-scribe-command-list {
-  margin-top: 1rem;
-  overflow: hidden;
+.tavern-scribe-target-menu {
+  display: grid;
+  max-height: 340px;
+  gap: 0.85rem;
+  overflow-y: auto;
+  margin-top: 0.55rem;
   border: 1px solid rgba(226, 174, 94, 0.44);
   border-radius: 12px;
   background: rgba(12, 37, 38, 0.9);
+  padding: 0.8rem;
 }
 
-.tavern-scribe-command-list-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  border-bottom: 1px solid var(--card-border);
-  padding: 0.9rem;
+.tavern-scribe-helper-group {
+  display: grid;
+  gap: 0.5rem;
 }
 
-.tavern-scribe-command-list-head span {
+.tavern-scribe-helper-group > span {
   display: block;
   color: #ffd88d;
   font-size: 0.68rem;
@@ -726,94 +731,54 @@ textarea {
   text-transform: uppercase;
 }
 
-.tavern-scribe-command-list-head h3 {
-  margin-top: 0.2rem;
-  font-size: 1rem;
-  font-weight: 900;
+.tavern-scribe-helper-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
 }
 
-.tavern-scribe-command-list-head strong {
+.tavern-scribe-helper-button {
   display: grid;
-  width: 34px;
-  height: 34px;
-  flex: 0 0 auto;
-  place-items: center;
-  border: 1px solid rgba(226, 174, 94, 0.5);
-  border-radius: 999px;
-  background: rgba(226, 174, 94, 0.14);
-  color: #fff6da;
-  font-size: 0.9rem;
-}
-
-.tavern-scribe-command-list-scroll {
-  display: grid;
-  max-height: 360px;
-  gap: 0.65rem;
-  overflow-y: auto;
-  padding: 0.8rem;
-}
-
-.tavern-scribe-command-card {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.75rem;
-  align-items: center;
+  min-height: 74px;
+  gap: 0.25rem;
+  align-content: start;
   border: 1px solid rgba(226, 174, 94, 0.24);
   border-radius: 10px;
   background: rgba(255, 242, 220, 0.07);
-  padding: 0.75rem;
+  padding: 0.65rem;
+  color: var(--app-ink);
+  text-align: left;
+  transition: background 160ms ease, border-color 160ms ease, transform 160ms ease;
 }
 
-.tavern-scribe-command-card-title {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.35rem 0.6rem;
+.tavern-scribe-helper-button:hover,
+.tavern-scribe-helper-button.active {
+  border-color: rgba(226, 174, 94, 0.7);
+  background: rgba(226, 174, 94, 0.16);
+  transform: translateY(-1px);
 }
 
-.tavern-scribe-command-card h4 {
-  font-size: 0.98rem;
+.tavern-scribe-helper-button.mode {
+  min-height: 62px;
+  border-color: rgba(112, 210, 109, 0.34);
+}
+
+.tavern-scribe-helper-button.mode:hover,
+.tavern-scribe-helper-button.mode.active {
+  border-color: rgba(112, 210, 109, 0.62);
+  background: rgba(112, 210, 109, 0.14);
+}
+
+.tavern-scribe-helper-button strong {
+  font-size: 0.88rem;
   font-weight: 900;
 }
 
-.tavern-scribe-command-card small {
+.tavern-scribe-helper-button small {
   color: var(--muted-ink);
-  font-size: 0.72rem;
-  font-weight: 800;
-}
-
-.tavern-scribe-command-card p {
-  margin-top: 0.25rem;
-  color: #f5dfbf;
-  font-size: 0.82rem;
-  line-height: 1.4;
-}
-
-.tavern-scribe-command-aliases {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  margin-top: 0.55rem;
-}
-
-.tavern-scribe-command-aliases span {
-  border: 1px solid rgba(226, 174, 94, 0.22);
-  border-radius: 999px;
-  background: rgba(5, 18, 20, 0.56);
-  padding: 0.22rem 0.5rem;
-  color: var(--muted-ink);
-  font-size: 0.68rem;
-  font-weight: 800;
-}
-
-.tavern-scribe-open-command {
-  display: inline-flex;
-  min-height: 36px;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.45rem 0.65rem;
-  font-size: 0.78rem;
-  font-weight: 900;
+  font-size: 0.69rem;
+  font-weight: 700;
+  line-height: 1.35;
 }
 
 .tavern-scribe-manual {
@@ -985,12 +950,14 @@ textarea {
 }
 
 @media (max-width: 560px) {
-  .tavern-scribe-command-card,
+  .tavern-scribe-helper-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .tavern-scribe-change-card {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .tavern-scribe-open-command,
   .tavern-scribe-open-change {
     justify-self: start;
   }

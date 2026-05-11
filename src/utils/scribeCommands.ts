@@ -1,147 +1,124 @@
-import type { ActiveView, AssistantChangedTarget } from "../types";
+export type ScribeHelperGroup = "target" | "mode";
 
-export interface ScribeCommandDefinition {
+export interface ScribeTargetHelper {
   id: string;
-  command: string;
-  aliases: string[];
-  destination: string;
+  label: string;
+  group: ScribeHelperGroup;
+  insertText: string;
   description: string;
   scribeGuidance: string;
-  target?: AssistantChangedTarget;
 }
 
-const viewTarget = (view: ActiveView): AssistantChangedTarget => ({ kind: "view", view });
-
-export const SCRIBE_COMMANDS: ScribeCommandDefinition[] = [
+export const SCRIBE_TARGET_HELPERS: ScribeTargetHelper[] = [
   {
-    id: "add-character",
-    command: "Add Character",
-    aliases: ["add new character", "add nee character", "new character", "create character"],
-    destination: "Characters",
-    description: "Creates a new character module on the Characters page.",
+    id: "target-characters",
+    label: "Characters",
+    group: "target",
+    insertText: "[Scribe Target: Characters only]",
+    description: "Only character modules and character-page data.",
     scribeGuidance:
-      "When the user says Add Character, Add New Character, Add Nee Character, New Character, or Create Character, return an add action with entry.category \"Characters\", entry.type \"Character\", entry.status \"Idea\", and a title from the command or \"New Character\" if no name is given.",
-    target: viewTarget("characters")
+      "If the command contains [Scribe Target: Characters only], only change entries with category \"Characters\". For new entries, use entry.category \"Characters\" and entry.type \"Character\". Do not update quests, world entries, recipes, Bestiary creatures, or other pages unless the user removes this target."
   },
   {
-    id: "add-recipe",
-    command: "Add Recipe",
-    aliases: ["add meal", "new recipe", "create meal", "add food"],
-    destination: "Food & Inventory / Meals / Recipes",
-    description: "Creates a new recipe or meal module in the Meals / Recipes area.",
+    id: "target-recipes",
+    label: "Meals / Recipes",
+    group: "target",
+    insertText: "[Scribe Target: Meals / Recipes only]",
+    description: "Only recipe and meal entries in Food & Inventory.",
     scribeGuidance:
-      "When the user says Add Recipe, Add Meal, New Recipe, Create Meal, or Add Food, return an add action with entry.category \"Food & Inventory\", entry.type \"Recipe / Meal\", entry.status \"Idea\", and a title from the command or \"New Recipe\" if no name is given. This should appear in the recipes view.",
-    target: viewTarget("recipes")
+      "If the command contains [Scribe Target: Meals / Recipes only], only change Food & Inventory entries whose type is recipe, meal, food magic, consumable, ale, tonic, broth, or similar. For new entries, use entry.category \"Food & Inventory\" and entry.type \"Recipe / Meal\"."
   },
   {
-    id: "add-ingredient",
-    command: "Add Ingredient",
-    aliases: ["add pantry item", "new ingredient", "add drop"],
-    destination: "Food & Inventory / Pantry",
-    description: "Creates a new pantry ingredient, drop, or prepared ingredient module.",
+    id: "target-pantry",
+    label: "Pantry",
+    group: "target",
+    insertText: "[Scribe Target: Pantry / Ingredients only]",
+    description: "Only ingredients, drops, prep variants, and pantry entries.",
     scribeGuidance:
-      "When the user says Add Ingredient, Add Pantry Item, New Ingredient, or Add Drop, return an add action with entry.category \"Food & Inventory\", entry.type \"Ingredient\", entry.status \"Idea\", and a title from the command or \"New Ingredient\" if no name is given. This should appear in the pantry/ingredients view.",
-    target: viewTarget("ingredients")
+      "If the command contains [Scribe Target: Pantry / Ingredients only], only change Food & Inventory entries whose type is ingredient, drop, prepared ingredient, substitute, or pantry item. For new entries, use entry.category \"Food & Inventory\" and entry.type \"Ingredient\" unless the user names a more specific pantry type."
   },
   {
-    id: "add-item",
-    command: "Add Item",
-    aliases: ["add tool", "add artifact", "new inventory item"],
-    destination: "Food & Inventory / Items",
-    description: "Creates a new item, tool, artifact, or inventory module.",
+    id: "target-items",
+    label: "Items / Tools",
+    group: "target",
+    insertText: "[Scribe Target: Items / Tools only]",
+    description: "Only item, tool, artifact, and inventory object entries.",
     scribeGuidance:
-      "When the user says Add Item, Add Tool, Add Artifact, or New Inventory Item, return an add action with entry.category \"Food & Inventory\", entry.type \"Item\", entry.status \"Idea\", and a title from the command or \"New Item\" if no name is given. Use type \"Tool\" or \"Artifact\" when the command says tool or artifact.",
-    target: viewTarget("items")
+      "If the command contains [Scribe Target: Items / Tools only], only change Food & Inventory entries whose type is item, tool, artifact, collectible, or inventory object. For new entries, use entry.category \"Food & Inventory\" and choose entry.type \"Item\", \"Tool\", or \"Artifact\" from the user's wording."
   },
   {
-    id: "add-creature",
-    command: "Add Creature",
-    aliases: ["add bestiary entry", "add monster", "add enemy", "new creature"],
-    destination: "Bestiary",
-    description: "Creates a new creature record in the Bestiary.",
+    id: "target-bestiary",
+    label: "Bestiary",
+    group: "target",
+    insertText: "[Scribe Target: Bestiary only]",
+    description: "Only creature records, Bestiary categories, and creature slots.",
     scribeGuidance:
-      "When the user says Add Creature, Add Bestiary Entry, Add Monster, Add Enemy, or New Creature, return addCreature. Use the creature name from the command or \"New Creature\" if no name is given. If the user says insects, bosses, slimes, friendly, wildlife, or another Bestiary group, set creature.category to that group.",
-    target: viewTarget("bestiary")
+      "If the command contains [Scribe Target: Bestiary only], only change Bestiary creatures, Bestiary category art slots, or Bestiary creature art slots. Use addCreature for new creatures and removeCreature for deleted creatures. Do not update lore entries or world entries."
   },
   {
-    id: "add-faction",
-    command: "Add Faction",
-    aliases: ["add culture", "add people", "add cult", "new faction"],
-    destination: "Factions & Cultures",
-    description: "Creates a faction/culture lore module and, when useful, a matching world-building entry.",
+    id: "target-world",
+    label: "World Building",
+    group: "target",
+    insertText: "[Scribe Target: World Building only]",
+    description: "Only World Building modules like locations, cultures, myths, and rules.",
     scribeGuidance:
-      "When the user says Add Faction, Add Culture, Add People, Add Cult, or New Faction, return an add action with entry.category \"Story\", entry.type \"Faction / Culture\", entry.status \"Idea\", and a title from the command or \"New Faction\" if no name is given. If the request is clearly a world-building culture, people, kingdom, or cult, also return addWorldEntry with category \"cultures\".",
-    target: viewTarget("factions")
+      "If the command contains [Scribe Target: World Building only], only change worldEntry records or create addWorldEntry records. Choose the best world category from locations, cultures, history, magic, foodCulture, creatures, factions, quests, mysteries, glossary, or rules. Do not update normal lore entries unless the user removes this target."
   },
   {
-    id: "add-world-entry",
-    command: "Add World Entry",
-    aliases: ["add location", "add place", "add myth", "add worldbuilding"],
-    destination: "World Building",
-    description: "Creates a new World Building module such as a location, culture, myth, rule, or mystery.",
+    id: "target-quests",
+    label: "Quests",
+    group: "target",
+    insertText: "[Scribe Target: Quests only]",
+    description: "Only quest modules and quest-page data.",
     scribeGuidance:
-      "When the user says Add World Entry, Add Location, Add Place, Add Myth, or Add Worldbuilding, return addWorldEntry. Choose the best world category from locations, cultures, history, magic, foodCulture, creatures, factions, quests, mysteries, glossary, or rules. Use the title from the command or \"New World Entry\" if no name is given.",
-    target: viewTarget("world")
+      "If the command contains [Scribe Target: Quests only], only change entries with category \"Quests\". For new entries, use entry.category \"Quests\" and entry.type \"Quest\"."
   },
   {
-    id: "add-quest",
-    command: "Add Quest",
-    aliases: ["add side quest", "add main quest", "new quest"],
-    destination: "Quests",
-    description: "Creates a quest module in the Quests area.",
+    id: "target-story",
+    label: "Story",
+    group: "target",
+    insertText: "[Scribe Target: Story only]",
+    description: "Only story, lore, timeline, secret, faction, and culture entries.",
     scribeGuidance:
-      "When the user says Add Quest, Add Side Quest, Add Main Quest, or New Quest, return an add action with entry.category \"Quests\", entry.type \"Quest\", entry.status \"Idea\", and a title from the command or \"New Quest\" if no name is given.",
-    target: viewTarget("quests")
+      "If the command contains [Scribe Target: Story only], only change entries with category \"Story\" or story-adjacent extra views such as factions, timeline, and secrets. For new entries, use entry.category \"Story\" and choose a story-focused type from the user's wording."
   },
   {
-    id: "add-story",
-    command: "Add Story Entry",
-    aliases: ["add story", "add lore page", "new story page"],
-    destination: "Story",
-    description: "Creates a new story or lore module for arcs, reveals, and canon notes.",
+    id: "target-marketing",
+    label: "Marketing",
+    group: "target",
+    insertText: "[Scribe Target: Marketing only]",
+    description: "Only spoiler-safe public copy and marketing notes.",
     scribeGuidance:
-      "When the user says Add Story Entry, Add Story, Add Lore Page, or New Story Page, return an add action with entry.category \"Story\", entry.type \"Story Page\", entry.status \"Idea\", and a title from the command or \"New Story Entry\" if no name is given.",
-    target: viewTarget("story")
+      "If the command contains [Scribe Target: Marketing only], only change entries with category \"Marketing\". For new entries, use entry.category \"Marketing\" and entry.type \"Marketing Note\"."
   },
   {
-    id: "add-marketing",
-    command: "Add Marketing Note",
-    aliases: ["add marketing", "add post idea", "new public copy"],
-    destination: "Marketing",
-    description: "Creates a spoiler-safe marketing or public-copy module.",
+    id: "target-archive",
+    label: "Archive",
+    group: "target",
+    insertText: "[Scribe Target: Archive only]",
+    description: "Only archive notes, old versions, and removed canon records.",
     scribeGuidance:
-      "When the user says Add Marketing Note, Add Marketing, Add Post Idea, or New Public Copy, return an add action with entry.category \"Marketing\", entry.type \"Marketing Note\", entry.status \"Idea\", and a spoiler-safe title from the command or \"New Marketing Note\" if no name is given.",
-    target: viewTarget("marketing")
+      "If the command contains [Scribe Target: Archive only], only create or update Archive entries. Use archive for notes about old canon. Do not use archive alone to remove Bestiary creatures; removeCreature is still required for Bestiary deletion."
   },
   {
-    id: "archive-note",
-    command: "Archive Note",
-    aliases: ["archive this", "save old version", "old version note"],
-    destination: "Archive",
-    description: "Creates an Archive note for old canon, replaced names, or removed ideas.",
+    id: "mode-add-remove",
+    label: "Add / Remove Only",
+    group: "mode",
+    insertText: "[Scribe Mode: Add/remove entries only]",
+    description: "Create or remove records and slots, without rewriting existing text.",
     scribeGuidance:
-      "When the user says Archive Note, Archive This, Save Old Version, or Old Version Note, return archive with a clear title and content. Do not use archive alone to remove a Bestiary creature; use removeCreature for Bestiary creature removal.",
-    target: viewTarget("archive")
-  },
-  {
-    id: "add-art-slot",
-    command: "Add Art Slot",
-    aliases: ["add production slot", "add image slot", "add visual slot"],
-    destination: "Relevant module art slots",
-    description: "Adds a production/image slot to a specific character, creature, or Bestiary category.",
-    scribeGuidance:
-      "When the user says Add Art Slot, Add Production Slot, Add Image Slot, or Add Visual Slot, return addArtSlot for the target module. Use target \"entry\" with an entry id for characters/items/quests/etc., target \"creature\" with a creature id for Bestiary creatures, or target \"bestiaryCategory\" with categoryName for Bestiary category slots. Include sectionTitle and label."
+      "If the command contains [Scribe Mode: Add/remove entries only], do not rewrite or update existing text fields. Only create or remove records: add, removeEntry, addCreature, removeCreature, addWorldEntry, addArtSlot, removeArtSlot, or archive. If creating a new entry, creature, world entry, art slot, or archive note, include the user's supplied text inside that new record. If the user asks to remove an existing normal lore entry, use removeEntry with the entry id from entryIndex/relevantEntries."
   }
 ];
 
-export const compactScribeCommands = () =>
-  SCRIBE_COMMANDS.map(({ command, aliases, destination, description }) => ({
-    command,
-    aliases,
-    destination,
+export const compactScribeTargetHelpers = () =>
+  SCRIBE_TARGET_HELPERS.map(({ label, group, insertText, description }) => ({
+    label,
+    group,
+    insertText,
     description
   }));
 
-export const scribeCommandGuidance = SCRIBE_COMMANDS.map((item) =>
-  `- ${item.command}: ${item.scribeGuidance}`
+export const scribeTargetHelperGuidance = SCRIBE_TARGET_HELPERS.map((item) =>
+  `- ${item.insertText}: ${item.scribeGuidance}`
 ).join("\n");

@@ -625,15 +625,6 @@ export default function App() {
     setArtBinderFilter(null);
     setFocusedAssignment(null);
 
-    if (target.kind === "view" && target.view) {
-      setSelectedEntry(null);
-      setSelectedBestiaryCreatureId("");
-      setWorldBuildingFocus(null);
-      setActiveView(target.view);
-      window.scrollTo({ top: 0, behavior: "smooth" });
-      return;
-    }
-
     if (target.kind === "entry" && target.entryId) {
       const entry = database.entries.find((candidate) => candidate.id === target.entryId);
       if (entry) {

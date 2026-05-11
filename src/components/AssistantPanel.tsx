@@ -16,7 +16,7 @@ import {
   parseAssistantPatch,
   undoLastAiChange
 } from "../utils/assistant";
-import { SCRIBE_COMMANDS } from "../utils/scribeCommands";
+import { SCRIBE_TARGET_HELPERS, type ScribeTargetHelper } from "../utils/scribeCommands";
 import { categoryConfig, worldBuildingCategoryIds } from "../utils/worldBuilding";
 import { CustomSelect } from "./CustomSelect";
 import { Icon } from "./Icon";
@@ -86,7 +86,7 @@ export function AssistantPanel({
   const [manualPrompt, setManualPrompt] = useState("");
   const [manualPatch, setManualPatch] = useState("");
   const [manualOpen, setManualOpen] = useState(false);
-  const [commandListOpen, setCommandListOpen] = useState(false);
+  const [targetMenuOpen, setTargetMenuOpen] = useState(false);
   const [createBackup, setCreateBackup] = useState(true);
   const [message, setMessage] = useState("");
   const [lastSummary, setLastSummary] = useState("");
@@ -94,6 +94,7 @@ export function AssistantPanel({
   const [scribePosition, setScribePosition] = useState(getDefaultScribePosition);
   const [dragging, setDragging] = useState(false);
   const scribeWindowRef = useRef<HTMLElement | null>(null);
+  const commandInputRef = useRef<HTMLTextAreaElement | null>(null);
   const dragRef = useRef<{ offsetX: number; offsetY: number } | null>(null);
 
   const isOpen = open ?? internalOpen;
@@ -291,8 +292,15 @@ export function AssistantPanel({
     setMessage("Last AI change was undone.");
   };
 
-  const openCommandTarget = (target: AssistantChangedTarget) => {
-    onOpenChangedTarget?.(target);
+  const applyScribeHelper = (helper: ScribeTargetHelper) => {
+    const helperPrefix = helper.group === "target" ? "[Scribe Target:" : "[Scribe Mode:";
+    const remainingLines = command
+      .split(/\r?\n/)
+      .filter((line) => !line.trim().startsWith(helperPrefix));
+    const body = remainingLines.join("\n").trimStart();
+    setCommand(body ? `${helper.insertText}\n${body}` : `${helper.insertText}\n`);
+    setMessage(`${helper.label} helper added.`);
+    window.setTimeout(() => commandInputRef.current?.focus(), 0);
   };
 
   return (
@@ -401,67 +409,66 @@ export function AssistantPanel({
               <label className="tavern-scribe-command-box">
                 <span>What should change?</span>
                 <textarea
+                  ref={commandInputRef}
                   className="field tavern-scribe-command-input"
                   value={command}
                   onChange={(event) => setCommand(event.target.value)}
                   placeholder="Example: Gwen is now 25. Update every profile, timeline note, Whisken culture note, pantry item, bestiary section, or production slot that should reflect this."
                 />
               </label>
+              <div className="tavern-scribe-target-helper">
+                <button
+                  className="tavern-scribe-target-toggle"
+                  type="button"
+                  onClick={() => setTargetMenuOpen((current) => !current)}
+                  aria-expanded={targetMenuOpen}
+                >
+                  <Icon name="ListChecks" className="h-4 w-4" />
+                  Target Dropdown
+                  <Icon name="ChevronDown" className={`h-4 w-4 ${targetMenuOpen ? "rotate-180" : ""}`} />
+                </button>
+                {targetMenuOpen && (
+                  <div className="tavern-scribe-target-menu">
+                    <div className="tavern-scribe-helper-group">
+                      <span>Target</span>
+                      <div className="tavern-scribe-helper-grid">
+                        {SCRIBE_TARGET_HELPERS.filter((helper) => helper.group === "target").map((helper) => (
+                          <button
+                            key={helper.id}
+                            className={`tavern-scribe-helper-button ${command.includes(helper.insertText) ? "active" : ""}`}
+                            type="button"
+                            onClick={() => applyScribeHelper(helper)}
+                          >
+                            <strong>{helper.label}</strong>
+                            <small>{helper.description}</small>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="tavern-scribe-helper-group">
+                      <span>Mode</span>
+                      <div className="tavern-scribe-helper-grid">
+                        {SCRIBE_TARGET_HELPERS.filter((helper) => helper.group === "mode").map((helper) => (
+                          <button
+                            key={helper.id}
+                            className={`tavern-scribe-helper-button mode ${command.includes(helper.insertText) ? "active" : ""}`}
+                            type="button"
+                            onClick={() => applyScribeHelper(helper)}
+                          >
+                            <strong>{helper.label}</strong>
+                            <small>{helper.description}</small>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
               <button className="button-frame tavern-scribe-it-button" onClick={run} disabled={loading}>
                 <Icon name="Sparkles" className="h-4 w-4" />
                 {loading ? "Scribing..." : "Scribe It"}
               </button>
-              <button
-                className="tavern-scribe-command-list-toggle"
-                type="button"
-                onClick={() => setCommandListOpen((current) => !current)}
-                aria-expanded={commandListOpen}
-              >
-                <Icon name="ListChecks" className="h-4 w-4" />
-                Command List
-                <Icon name="ChevronDown" className={`h-4 w-4 ${commandListOpen ? "rotate-180" : ""}`} />
-              </button>
             </section>
-
-            {commandListOpen && (
-              <section className="tavern-scribe-command-list" aria-label="Tavern Scribe command list">
-                <div className="tavern-scribe-command-list-head">
-                  <div>
-                    <span>Scribe Commands</span>
-                    <h3>Short phrases Scribe understands</h3>
-                  </div>
-                  <strong>{SCRIBE_COMMANDS.length}</strong>
-                </div>
-                <div className="tavern-scribe-command-list-scroll">
-                  {SCRIBE_COMMANDS.map((item) => (
-                    <article className="tavern-scribe-command-card" key={item.id}>
-                      <div className="min-w-0">
-                        <div className="tavern-scribe-command-card-title">
-                          <h4>{item.command}</h4>
-                          <small>{item.destination}</small>
-                        </div>
-                        <p>{item.description}</p>
-                        <div className="tavern-scribe-command-aliases">
-                          {item.aliases.slice(0, 4).map((alias) => (
-                            <span key={alias}>{alias}</span>
-                          ))}
-                        </div>
-                      </div>
-                      {item.target && onOpenChangedTarget ? (
-                        <button
-                          className="button-frame tavern-scribe-open-command"
-                          type="button"
-                          onClick={() => item.target && openCommandTarget(item.target)}
-                        >
-                          <Icon name="ExternalLink" className="h-4 w-4" />
-                          Open
-                        </button>
-                      ) : null}
-                    </article>
-                  ))}
-                </div>
-              </section>
-            )}
 
             <details
               className="tavern-scribe-manual"
@@ -660,6 +667,19 @@ function resolveChangedItem(
     if (entry) return entryReport(entry, describeChange(change));
   }
 
+  if (change.action === "removeEntry") {
+    const entry = findRemovedEntry(before, after, change.id, change.title);
+    if (entry) {
+      return {
+        key: `removedEntry:${entry.id}`,
+        title: entry.title,
+        subtitle: "Removed Entry",
+        summary: describeChange(change),
+        changeCount: 1
+      };
+    }
+  }
+
   if (change.action === "addCreature") {
     const creature = findAddedCreature(before, after, change.creature.id, change.creature.name);
     if (creature) {
@@ -790,6 +810,18 @@ function findAddedEntry(before: LoreDatabase, after: LoreDatabase, id?: string, 
   return after.entries.find((entry) => !beforeIds.has(entry.id) && (!normalizedTitle || entry.title.toLowerCase() === normalizedTitle)) || null;
 }
 
+function findRemovedEntry(before: LoreDatabase, after: LoreDatabase, id?: string, title?: string) {
+  const afterIds = new Set(after.entries.map((entry) => entry.id));
+  if (id) {
+    const entry = before.entries.find((candidate) => candidate.id === id);
+    if (entry && !afterIds.has(entry.id)) return entry;
+  }
+  const normalizedTitle = String(title || "").trim().toLowerCase();
+  return before.entries.find((entry) =>
+    !afterIds.has(entry.id) && (!normalizedTitle || entry.title.toLowerCase() === normalizedTitle)
+  ) || null;
+}
+
 function findAddedCreature(before: LoreDatabase, after: LoreDatabase, id?: string, name?: string) {
   const beforeIds = new Set((before.bestiary || []).map((creature) => creature.id));
   if (id) {
@@ -841,6 +873,7 @@ function describeChange(change: AssistantAction) {
   if (change.action === "setData") return `Updated ${humanLabel(change.path.split(".").slice(-1)[0] || change.path)}`;
   if (change.action === "renameReference") return `Rename ${change.oldName} to ${change.newName}`;
   if (change.action === "add") return `Add ${change.entry.title || "new entry"}`;
+  if (change.action === "removeEntry") return `Remove entry ${change.title || change.id || "from Cook Book"}`;
   if (change.action === "addCreature") return `Add creature ${change.creature.name || "new creature"}`;
   if (change.action === "removeCreature") return `Remove creature ${change.name || change.id || "from Bestiary"}`;
   if (change.action === "addWorldEntry") return `Add world entry ${change.entry.title || "new world entry"}`;
@@ -863,6 +896,9 @@ function ChangeDetails({ change }: { change: AssistantAction }) {
   }
   if (change.action === "add") {
     return <ValuePreview label="New entry details" value={change.entry} />;
+  }
+  if (change.action === "removeEntry") {
+    return <ValuePreview label="Removed entry" value={{ id: change.id, title: change.title, archiveTitle: change.archiveTitle }} />;
   }
   if (change.action === "addCreature") {
     return <ValuePreview label="New creature details" value={change.creature} />;
