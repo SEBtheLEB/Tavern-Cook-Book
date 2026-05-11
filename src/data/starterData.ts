@@ -1,6 +1,6 @@
-import type { BestiaryCreature, LoreDatabase, LoreEntry } from "../types";
+import type { BestiaryCategoryArtVault, BestiaryCreature, LoreDatabase, LoreEntry } from "../types";
 import { normalizeEntry, slugify } from "../utils/entries";
-import { normalizeBestiaryCreature } from "../utils/bestiary";
+import { createBestiaryCategoryArtVaultRecord, normalizeBestiaryCreature } from "../utils/bestiary";
 import { createStarterWorldBuilding } from "../utils/worldBuilding";
 
 const stamp = "2026-05-07T00:00:00.000Z";
@@ -203,21 +203,23 @@ export const starterEntries: LoreEntry[] = [
     type: "Character",
     status: "Soft Canon",
     spoilerLevel: "Minor Spoiler",
-    tags: ["alchemist", "elder", "suspicious", "Tohm"],
-    summary: "Oswin is an alchemist elder who is suspicious of Tohm Kyatt.",
+    tags: ["alchemist", "elder", "suspicious", "Tohm", "Healthy Ale", "Whisken"],
+    summary: "Oswin is an alchemist elder, village remedy-maker, and inventor of Healthy Ale who is suspicious of Tohm Kyatt.",
     internalLore:
-      "Oswin functions as a skeptical elder/alchemist figure who may understand more about magic, food, corruption, or Tohm's past than most villagers. He is suspicious of Tohm and can serve as a counterweight to Tohm's secrecy.",
+      "Oswin functions as a skeptical elder/alchemist figure who may understand more about magic, food, corruption, or Tohm's past than most villagers. He is suspicious of Tohm and can serve as a counterweight to Tohm's secrecy. Notion lore also gives him the village-famous Healthy Ale, a remedy-like drink that Whisken villagers rely on even though the name is funnier than it is medically accurate.",
     fields: {
       "Gameplay Role":
-        "Potential NPC, lore explainer, alchemy/crafting system connection, quest giver."
+        "Potential NPC, lore explainer, alchemy/crafting system connection, quest giver.",
+      "Known Creation": "Healthy Ale",
+      "Village Role": "Remedy-maker and brewing elder."
     },
     connections: {
       characters: ["Tohm Kyatt", "Gwen"],
-      locations: ["Whisker Woods"],
-      recipes: [],
+      locations: ["Whisker Woods", "Whisken Village"],
+      recipes: ["Healthy Ale"],
       quests: [],
-      items: [],
-      factions: [],
+      items: ["Whisken Root Ferment", "Moonlit Dew", "Specialty Herbs"],
+      factions: ["Whisken People"],
       secrets: ["Secret: Tohm Awakened the Cat Cauldron"],
       gameplaySystems: ["Cooking System", "Crafting System"],
       enemies: [],
@@ -232,20 +234,22 @@ export const starterEntries: LoreEntry[] = [
     spoilerLevel: "No Spoiler",
     tags: ["fisherman", "Whisken Village", "pond", "NPC", "quest"],
     summary:
-      "Kap is a fisherman in Whisken Village connected to the corrupted pond / opening quest event.",
+      "Kap is a generous Whisken fisherman tied to the corrupted pond opening quest and dreams of setting sail someday.",
     internalLore:
-      "Kap is a villager/fisherman who gets attacked or endangered near the corrupted pond. Gwen hears him screaming for help, fights bugs, and eventually faces a prawnhusk mini-boss.",
+      "Kap is a villager and fisherman who gets attacked or endangered near the corrupted pond. Gwen hears him screaming for help, fights bugs, and eventually faces a prawnhusk mini-boss. Notion lore frames Kap as someone who loves the ocean, dreams of setting sail, and shares his catches generously with the village.",
     fields: {
       "Gameplay Role":
-        "Opening quest NPC, fishing system connection, emotional reason to care about the village."
+        "Opening quest NPC, fishing system connection, emotional reason to care about the village.",
+      "Personal Dream": "Sail beyond Whisker Woods and see the wider waters.",
+      "Village Role": "Fisherman and provider."
     },
     connections: {
       characters: ["Gwen"],
       locations: ["Whisker Woods", "Kap's Pond"],
-      recipes: [],
+      recipes: ["Cat Cauldron Broth Base", "Whisken Hearth Stew"],
       quests: ["Kap's Pond Rescue"],
-      items: [],
-      factions: [],
+      items: ["Prawnhusk Meat"],
+      factions: ["Whisken People"],
       secrets: [],
       gameplaySystems: ["Fishing System"],
       enemies: ["Prawnhusk"],
@@ -1661,10 +1665,16 @@ export const starterEntries: LoreEntry[] = [
     summary: "A cult that perverts the Triadic faith into FEAST and hunts the Cat Cauldron and Tohm's magical recipes.",
     internalLore:
       "The core world faith is the Triadic faith of Passion, Taste, and Love. The Mas'eel Cult corrupts this into FEAST. Their symbol is a single distorted dot or eye, opposing the three dots of the triad. When Tohm activated the Cat Cauldron on Tabby Island, the pulse let the Mas'eel sense its power and know it was on the island. Cultists sailed there pretending to be traders, introduced new foods, and spent years secretly searing the island, gaining power inside the Whisken village, and persecuting Whisken people for believing in the Triadic faith taught by the Tablemaker. After the second exodus, the Mas'eel left Tabby Island and began searching for the Cat Cauldron and Tohm's magical recipes while working with Princess Lillia.",
+    fields: {
+      "Doctrine": "FEAST, a distorted compression of Passion, Taste, and Love into consumption and control.",
+      "Symbol": "One distorted dot or eye, opposing the three-dot Triadic symbol.",
+      "Tactics": "False trade, new foods, gentle language, slow influence, searing corruption, and faith persecution.",
+      "Possible Influence": "Leirbag is Notion-sourced and needs review before becoming hard canon."
+    },
     connections: {
-      characters: ["Princess Lillia", "Tohm Kyatt"],
-      locations: ["Tabby Island", "Whisker Woods"],
-      recipes: ["Dark Culinary Arts", "Magical Meals"],
+      characters: ["Princess Lillia", "Tohm Kyatt", "Mur'amar"],
+      locations: ["Tabby Island", "Whisker Woods", "Lillia's Camp"],
+      recipes: ["Dark Culinary Arts", "Magical Meals", "False Trader Spice"],
       quests: [],
       items: ["Cat Cauldron", "Tohm's Recipe Book", "Recipe Pages"],
       factions: ["Whisken People"],
@@ -1684,15 +1694,17 @@ export const starterEntries: LoreEntry[] = [
     summary:
       "Mur'amar is a Mas'eel-linked figure whose name spelling is canonical as Mur'amar.",
     internalLore:
-      "Mur'amar is tied to the Mas'eel Cult and should use this spelling going forward. He can present himself as peaceful or benevolent while still serving the cult's search for the Cat Cauldron and Tohm's magical recipes.",
+      "Mur'amar is tied to the Mas'eel Cult and should use this spelling going forward. He can present himself as peaceful or benevolent while still serving the cult's search for the Cat Cauldron and Tohm's magical recipes. Notion lore has him moving among Whisken villagers as if he belongs and speaking to Gwen about the Mas'eel faith as something gentle. He may wear or carry Mas'eel signs openly because the current Whisken do not understand what the symbol means.",
     fields: {
       "Canon Name": "Mur'amar",
-      "Faction Link": "Mas'eel Cult"
+      "Faction Link": "Mas'eel Cult",
+      "Public Mask": "Gentle stranger / Swan of Peace figure.",
+      "Questions He Asks": "Cat Cauldron, Tohm's recipes, and what Gwen knows about magical cooking."
     },
     connections: {
-      characters: ["Princess Lillia", "Tohm Kyatt"],
-      locations: ["Tabby Island", "Whisker Woods"],
-      recipes: ["Dark Culinary Arts"],
+      characters: ["Princess Lillia", "Tohm Kyatt", "Gwen"],
+      locations: ["Tabby Island", "Whisker Woods", "Whisken Village", "Lillia's Camp"],
+      recipes: ["Dark Culinary Arts", "False Trader Spice"],
       quests: [],
       items: ["Cat Cauldron", "Tohm's Recipe Book", "Recipe Pages"],
       factions: ["Mas'eel Cult"],
@@ -2103,6 +2115,603 @@ export const starterEntries: LoreEntry[] = [
       timelineEvents: []
     }
   }),
+  ...([
+    {
+      title: "The Tablemaker",
+      category: "Characters",
+      type: "Divine Figure",
+      status: "Canon",
+      spoilerLevel: "Minor Spoiler",
+      tags: ["Tablemaker", "Master Chef", "Triadic faith", "Food Essence", "Everfeast"],
+      summary:
+        "The Tablemaker is the canonical divine figure of the setting, also called the Master Chef, whose meal ended the 300 Year War.",
+      internalLore:
+        "The Tablemaker arrived during the final years of the 300 Year War between Ovenhold and the Faery Realm. He came not as a soldier, king, or mage, but as one who could prepare a table for enemies. His final meal perfectly contained Passion, Taste, and Love. It ended the war, cost him his mortal life, and released Food Essence into the world before his spirit returned to The Everfeast. The Master Chef is another name for him, not a separate being.",
+      fields: {
+        seedBatch: "lore-expansion-2026-05-11",
+        Aliases: "The Master Chef",
+        "Sacred Principles": "Passion, Taste, Love",
+        "Sacred Realm": "The Everfeast",
+        "World Impact": "Ended the 300 Year War and made magical cooking sacred."
+      },
+      connections: {
+        characters: ["Tohm Kyatt"],
+        locations: ["Ovenhold", "Faery Realm", "The Everfeast"],
+        recipes: ["Festival of Full Plates"],
+        factions: ["Whisken People", "Mas'eel Cult"],
+        items: ["Food Essence"],
+        timelineEvents: ["The Tablemaker's Arrival", "The Meal That Ended the War"]
+      }
+    },
+    {
+      title: "The Cat Cauldron",
+      category: "Characters",
+      type: "Sentient Artifact Character",
+      status: "Canon",
+      spoilerLevel: "Major Spoiler",
+      tags: ["sentient cauldron", "Cat Cauldron", "cooking station", "Whisken", "Tohm"],
+      summary:
+        "The Cat Cauldron is a sentient cooking station and character tied to broth, meal finalization, Whisken history, and Tohm's hidden disaster.",
+      internalLore:
+        "The Cat Cauldron should be tracked as both an artifact and a character. In gameplay terms, it is the sentient cauldron used for broth bases, simmered meals, and certain final meal steps. In lore, ancient Whisken created it while seeking better food and the knowledge of what is untasted. Its awakening caused pulses of decay on Tabby Island and drew the Mas'eel Cult's attention after Tohm cooked in it.",
+      fields: {
+        seedBatch: "lore-expansion-2026-05-11",
+        "Gameplay Role": "Cooking station for broths, meal finalization, and magical recipe moments.",
+        "Character Role": "Sentient artifact companion / dangerous lore witness.",
+        "Canon Link": "Same entity as the Cat Cauldron artifact entry."
+      },
+      connections: {
+        characters: ["Tohm Kyatt", "Gwen"],
+        locations: ["Tabby Island", "The Living Tavern"],
+        recipes: ["Cat Cauldron Broth Base", "Magical Meals"],
+        factions: ["Whisken People", "Mas'eel Cult"],
+        items: ["Cat Cauldron"],
+        secrets: ["Secret: Cat Cauldron Beneath Tabby Island", "Secret: Tohm Awakened the Cat Cauldron"],
+        timelineEvents: ["Ancient Whisken Create the Cat Cauldron", "Tohm Awakens the Cat Cauldron"]
+      }
+    },
+    {
+      title: "Mona the Orchardist",
+      category: "Characters",
+      type: "Whisken Villager",
+      status: "Soft Canon",
+      spoilerLevel: "No Spoiler",
+      tags: ["Whisken", "villager", "orchardist", "Whisken Village", "Momon"],
+      summary:
+        "Mona is a reserved young Whisken orchardist who loves her family but dreams of seeing the world beyond Whisken Village.",
+      internalLore:
+        "Mona is connected to Whisken Village's orchards and food-gathering culture. She is quiet and thoughtful, often keeping her thoughts to herself. She loves her family and village, but dreams of exploring the world beyond Whisker Woods. Her orchard work makes her a natural link between pantry ingredients, village routines, and Gwen's early gathering quests.",
+      fields: {
+        seedBatch: "lore-expansion-2026-05-11",
+        "Village Role": "Orchardist / produce source",
+        "Family": "Daughter of Momon",
+        "Story Use": "Can introduce fruit, harvest timing, and the emotional cost of staying versus leaving."
+      },
+      connections: {
+        characters: ["Momon", "Gwen", "Kap"],
+        locations: ["Whisken Village", "Whisker Woods"],
+        recipes: ["Festival of Full Plates", "Whisken Hearth Stew"],
+        factions: ["Whisken People"],
+        items: ["Moonlit Dew", "Whisken Root Ferment"]
+      }
+    },
+    {
+      title: "Momon",
+      category: "Characters",
+      type: "Whisken Villager",
+      status: "Soft Canon",
+      spoilerLevel: "No Spoiler",
+      tags: ["Whisken", "villager", "farmer", "Whisken Village", "Mona"],
+      summary:
+        "Momon is a hardworking Whisken farmer who passes down agricultural knowledge and anchors village food production.",
+      internalLore:
+        "Momon works the Whisken Village farm and treats food production as both survival and tradition. He understands Mona's longing for the wider world, but his own life is rooted in the land, the harvest, and keeping the village fed after the exodus.",
+      fields: {
+        seedBatch: "lore-expansion-2026-05-11",
+        "Village Role": "Farmer / agricultural teacher",
+        "Family": "Father of Mona",
+        "Story Use": "Can explain fields, harvest ingredients, and practical Whisken food customs."
+      },
+      connections: {
+        characters: ["Mona the Orchardist", "Gwen"],
+        locations: ["Whisken Village", "Whisker Woods"],
+        recipes: ["Whisken Hearth Stew", "Festival of Full Plates"],
+        factions: ["Whisken People"],
+        items: ["Potato", "Turnip", "Boga"]
+      }
+    },
+    {
+      title: "Lady Kiko",
+      category: "Characters",
+      type: "Whisken Villager",
+      status: "Soft Canon",
+      spoilerLevel: "Minor Spoiler",
+      tags: ["Whisken", "village leader", "protector", "community", "Triadic faith"],
+      summary:
+        "Lady Kiko is a guiding Whisken presence associated with unity, protection, and the heart of Whisken Village.",
+      internalLore:
+        "Lady Kiko is remembered as a mysterious but trusted presence in Whisken Village. She can function as a protector, mediator, or cultural guide who helps express Whisken unity, the Festival of Full Plates, and the quiet practice of the Triadic faith through food and community.",
+      fields: {
+        seedBatch: "lore-expansion-2026-05-11",
+        "Village Role": "Protector / community guide",
+        "Faith Link": "Triadic faith practiced through food, hospitality, and protection.",
+        "Story Use": "Can help Gwen understand Whisken customs and village stakes."
+      },
+      connections: {
+        characters: ["Gwen", "Kap", "Mona the Orchardist", "Momon"],
+        locations: ["Whisken Village"],
+        recipes: ["Festival of Full Plates"],
+        factions: ["Whisken People"]
+      }
+    },
+    {
+      title: "Ovenhold",
+      category: "World",
+      type: "Kingdom / Ancient Culture",
+      status: "Canon",
+      spoilerLevel: "No Spoiler",
+      tags: ["Ovenhold", "ancient history", "hearths", "300 Year War", "Tablemaker"],
+      summary:
+        "Ovenhold is an ancient mortal kingdom of hearths, ovens, labor, survival, craft, and cooked food.",
+      internalLore:
+        "Ovenhold stood opposite the Faery Realm during the 300 Year War. It represents mortal craft, hearth work, cooked food, endurance, and the stubborn labor of survival. Its conflict with the Faery Realm ended only when the Tablemaker prepared the meal that neither side could refuse.",
+      fields: {
+        seedBatch: "lore-expansion-2026-05-11",
+        "Story Era": "Ancient History",
+        "Core Imagery": "Hearths, ovens, stone kitchens, craft, smoke, bread, labor.",
+        "Conflict": "Fought the Faery Realm for 300 years."
+      },
+      connections: {
+        characters: ["The Tablemaker"],
+        locations: ["Faery Realm"],
+        recipes: ["Festival of Full Plates"],
+        factions: ["Faery Kingdom"],
+        timelineEvents: ["The 300 Year War", "The Meal That Ended the War"]
+      }
+    },
+    {
+      title: "The Everfeast",
+      category: "World",
+      type: "Sacred Realm",
+      status: "Canon",
+      spoilerLevel: "Minor Spoiler",
+      tags: ["Everfeast", "Tablemaker", "Food Essence", "sacred realm"],
+      summary:
+        "The Everfeast is the heavenly culinary realm where the Tablemaker returned after his sacrifice.",
+      internalLore:
+        "The Everfeast preserves meals in their perfect form. After the Tablemaker's final meal ended the 300 Year War and cost him his mortal life, his spirit returned to The Everfeast. Before returning, he released Food Essence into the world, making meals and magical cooking sacred.",
+      fields: {
+        seedBatch: "lore-expansion-2026-05-11",
+        "Realm Type": "Heavenly culinary realm",
+        "Connected Figure": "The Tablemaker",
+        "Story Use": "Ancient faith, myth, and magical cooking origin."
+      },
+      connections: {
+        characters: ["The Tablemaker", "Tohm Kyatt"],
+        locations: ["Ovenhold", "Faery Realm"],
+        items: ["Food Essence"],
+        timelineEvents: ["The Meal That Ended the War"]
+      }
+    },
+    {
+      title: "Food Essence",
+      category: "Food & Inventory",
+      type: "Culinary Magic System",
+      status: "Canon",
+      spoilerLevel: "Minor Spoiler",
+      tags: ["Food Essence", "Tablemaker", "magical cooking", "Passion", "Taste", "Love"],
+      summary:
+        "Food Essence is the sacred culinary force released into the world by the Tablemaker after the meal that ended the 300 Year War.",
+      internalLore:
+        "Food Essence is not a normal ingredient. It is the spiritual and magical foundation that makes meals sacred and allows culinary magic to matter. It entered the world after the Tablemaker's final meal and is tied to Passion, Taste, and Love. Dark Culinary Arts and Mas'eel FEAST doctrine are corruptions or distortions of what Food Essence is meant to be.",
+      fields: {
+        seedBatch: "lore-expansion-2026-05-11",
+        "Not A Pantry Ingredient": "Track as a magic system, not a cookable item.",
+        "Core Principles": "Passion, Taste, Love",
+        "Corrupted By": "Dark Culinary Arts, Mas'eel FEAST doctrine"
+      },
+      connections: {
+        characters: ["The Tablemaker", "Tohm Kyatt", "Princess Lillia"],
+        locations: ["The Everfeast"],
+        recipes: ["Magical Meals", "Festival of Full Plates"],
+        factions: ["Mas'eel Cult"],
+        gameplaySystems: ["Cooking System", "Slime Flavor / Element System"]
+      }
+    },
+    {
+      title: "Whisken Saints",
+      category: "Story",
+      type: "Religious / Cultural Lore",
+      status: "Needs Rewrite",
+      spoilerLevel: "Minor Spoiler",
+      tags: ["Whisken", "saints", "Tablemaker", "Triadic faith", "culture"],
+      summary:
+        "A Whisken cultural thread about holy figures and old teachers who helped shape the people into a hearth-centered culture.",
+      internalLore:
+        "The Whisken Saints material should be organized as cultural lore rather than treated as a separate religion. It frames older Whisken history as a movement from tooth, instinct, hunger, and isolation toward hearth, table, mercy, and shared food. It should harmonize with the wider Tablemaker faith and the Three Pillars of Love, Passion, and Taste.",
+      fields: {
+        seedBatch: "lore-expansion-2026-05-11",
+        "Needs Rewrite": "Keep the useful cultural shape, but reconcile it with current Cat Cauldron and Tablemaker canon.",
+        "Culture Use": "Stories told around tavern fires, harvests, and feast days.",
+        "Faith Link": "Triadic faith under the Tablemaker."
+      },
+      connections: {
+        characters: ["The Tablemaker", "Lady Kiko"],
+        locations: ["Tabby Island", "Whisken Village"],
+        recipes: ["Festival of Full Plates", "Healthy Ale"],
+        factions: ["Whisken People"],
+        timelineEvents: ["Tablemaker Stories Inspire Tohm"]
+      }
+    },
+    {
+      title: "Mas'eel False Traders",
+      category: "Story",
+      type: "Villain Operation",
+      status: "Canon",
+      spoilerLevel: "Major Spoiler",
+      tags: ["Mas'eel", "false traders", "Tabby Island", "Whisken", "FEAST"],
+      summary:
+        "Mas'eel cultists came to Tabby Island pretending to be traders, using food and trust to gain power over the Whisken.",
+      internalLore:
+        "After Tohm awakened the Cat Cauldron, the Mas'eel sensed its power and sailed to Tabby Island disguised as traders. They introduced new foods, built trust over years, secretly seared the island, gained influence in Whisken village ranks, and persecuted Whisken people for following the Triadic faith taught by the Tablemaker.",
+      fields: {
+        seedBatch: "lore-expansion-2026-05-11",
+        "Cover Story": "Traders bringing new foods.",
+        "True Goal": "Find the Cat Cauldron and Tohm's magical recipes.",
+        "Current Link": "Now connected to Princess Lillia."
+      },
+      connections: {
+        characters: ["Mur'amar", "Princess Lillia", "Tohm Kyatt"],
+        locations: ["Tabby Island", "Whisken Village"],
+        recipes: ["False Trader Spice", "Dark Culinary Arts"],
+        factions: ["Mas'eel Cult", "Whisken People"],
+        items: ["Cat Cauldron", "Tohm's Recipe Book", "Recipe Pages"],
+        secrets: ["Secret: Mas'eel Infiltrated Tabby Island"],
+        timelineEvents: ["Mas'eel Sense the Cat Cauldron", "Mas'eel Infiltrate Tabby Island"]
+      }
+    },
+    {
+      title: "Lel Kai's Rescue Fleet",
+      category: "Story",
+      type: "Story Event",
+      status: "Canon",
+      spoilerLevel: "Major Spoiler",
+      tags: ["Lel Kai", "Whisken", "Tabby Island", "rescue", "second exodus"],
+      summary:
+        "Tohm asks Lel Kai to send boats to rescue the Whisken from Tabby Island during the second exodus.",
+      internalLore:
+        "When Tohm hears what is happening on Tabby Island, he gets his friend Lel Kai, who is becoming general of the faery army, to gather boats and save as many Whisken as possible. The island's corruption is already severe, scattering many boats. The known survivors become the Whisken who now live in Whisker Woods and Whisken Village.",
+      fields: {
+        seedBatch: "lore-expansion-2026-05-11",
+        "Known Survivors": "Current Whisken in Whisker Woods / Whisken Village.",
+        "Complication": "Corruption scatters many rescue boats.",
+        "Story Function": "Explains why the current village is incomplete, displaced, and haunted by missing kin."
+      },
+      connections: {
+        characters: ["Tohm Kyatt", "Lel Kai", "Lady Kiko", "Kap"],
+        locations: ["Tabby Island", "Whisker Woods", "Whisken Village"],
+        factions: ["Whisken People", "Faery Kingdom", "Mas'eel Cult"],
+        timelineEvents: ["Second Whisken Exodus", "Survivors Reach Whisker Woods"]
+      }
+    },
+    {
+      title: "Lillia's Camp",
+      category: "World",
+      type: "Enemy Camp / Location",
+      status: "Soft Canon",
+      spoilerLevel: "Major Spoiler",
+      tags: ["Lillia", "Faery Realm", "Dark Culinary Arts", "Mas'eel"],
+      summary:
+        "Lillia's camp in the Faery Realm lets her use ambient magic to mass-produce Dark Culinary Arts.",
+      internalLore:
+        "Lillia camps in the Faery Realm because the ambient magic allows her to produce corrupted meals at scale instead of infusing each dish one at a time. The Mas'eel connection gives this camp a broader villain network: Lillia wants power and magical transformation, while the Mas'eel hunt for the Cat Cauldron and Tohm's recipes.",
+      fields: {
+        seedBatch: "lore-expansion-2026-05-11",
+        "Gameplay Role": "Late-story enemy production site and corrupted food source.",
+        "Villain Link": "Princess Lillia and the Mas'eel Cult."
+      },
+      connections: {
+        characters: ["Princess Lillia", "Mur'amar"],
+        locations: ["Faery Realm"],
+        recipes: ["Dark Culinary Arts"],
+        factions: ["Mas'eel Cult"]
+      }
+    },
+    {
+      title: "Leirbag",
+      category: "Story",
+      type: "Dark Angel / Mas'eel Influence",
+      status: "Needs Rewrite",
+      spoilerLevel: "Major Spoiler",
+      tags: ["Mas'eel", "dark angel", "FEAST", "Needs Review"],
+      summary:
+        "Leirbag is a Notion-sourced Mas'eel influence that should be reviewed before becoming hard canon.",
+      internalLore:
+        "Notion lore says the Mas'eel Cult's skewed view of the Tablemaker was inspired by a Dark Angel called Leirbag. Keep this as a review slot rather than fully resolved canon until its role, origin, and relationship to the Tablemaker faith are clarified.",
+      fields: {
+        seedBatch: "lore-expansion-2026-05-11",
+        "Canon Status": "Needs review",
+        "Possible Role": "Origin or corrupter of Mas'eel FEAST doctrine.",
+        "Do Not Confuse With": "Discarded older mythic names are not canon."
+      },
+      connections: {
+        factions: ["Mas'eel Cult"],
+        recipes: ["Dark Culinary Arts"],
+        timelineEvents: ["Mas'eel Infiltrate Tabby Island"]
+      }
+    },
+    {
+      title: "Festival of Full Plates",
+      category: "Food & Inventory",
+      type: "Tavern Feast / Meal",
+      status: "Soft Canon",
+      spoilerLevel: "No Spoiler",
+      tags: ["Whisken", "festival", "feast", "Triadic faith", "community"],
+      summary:
+        "A yearly Whisken feast celebrating balance, gratitude, remembrance, and the promise that no plate should go empty.",
+      internalLore:
+        "The Festival of Full Plates is a Whisken celebration of balance, gratitude, remembrance, and shared food. It ties the village's tavern culture to the Tablemaker's Triadic faith. This should stay distinct from the Mas'eel corruption of FEAST: the festival fills plates to share, while FEAST hoards and consumes.",
+      fields: {
+        seedBatch: "lore-expansion-2026-05-11",
+        pantryMealGroup: "tavern-meals",
+        ingredientsRequired: "Whisken Hearth Stew, Healthy Ale, Potato, Turnip, Specialty Herbs",
+        "Faith Meaning": "Shared abundance under Passion, Taste, and Love."
+      },
+      connections: {
+        characters: ["Lady Kiko", "Mona the Orchardist", "Momon", "Kap"],
+        locations: ["Whisken Village"],
+        factions: ["Whisken People"],
+        recipes: ["Whisken Hearth Stew", "Healthy Ale"],
+        items: ["Potato", "Turnip", "Specialty Herbs"]
+      }
+    },
+    {
+      title: "Healthy Ale",
+      category: "Food & Inventory",
+      type: "Ale Recipe",
+      status: "Soft Canon",
+      spoilerLevel: "No Spoiler",
+      tags: ["ale", "Whisken", "Oswin", "drink", "buff"],
+      summary:
+        "A famous Whisken ale invented by Oswin; despite the name, it is still not especially healthy.",
+      internalLore:
+        "Healthy Ale is a village-famous drink tied to Oswin's odd remedies and Whisken brewing culture. It can be funny, useful, and slightly suspect: villagers rely on Oswin, but the drink's name should not be taken too literally.",
+      fields: {
+        seedBatch: "lore-expansion-2026-05-11",
+        pantryMealGroup: "ales",
+        ingredientsRequired: "Whisken Root Ferment, Moonlit Dew, Specialty Herbs",
+        gameplayEffect: "Possible stamina, warmth, or light recovery buff with comedic side effects.",
+        "Invented By": "Oswin"
+      },
+      connections: {
+        characters: ["Oswin", "Gwen"],
+        locations: ["Whisken Village"],
+        factions: ["Whisken People"],
+        items: ["Whisken Root Ferment", "Moonlit Dew", "Specialty Herbs"]
+      }
+    },
+    {
+      title: "Whisken Hearth Stew",
+      category: "Food & Inventory",
+      type: "Tavern Meal Recipe",
+      status: "Soft Canon",
+      spoilerLevel: "No Spoiler",
+      tags: ["recipe", "Whisken", "stew", "tavern meal", "community"],
+      summary:
+        "A hearty Whisken village stew built from roots, herbs, broth, and whatever the village can safely gather.",
+      internalLore:
+        "Whisken Hearth Stew is a practical village meal and a good starter recipe slot for the Pantry. It can represent the Whisken instinct to feed everyone first, especially after displacement and scattered rescue boats made food security a sacred concern.",
+      fields: {
+        seedBatch: "lore-expansion-2026-05-11",
+        pantryMealGroup: "tavern-meals",
+        ingredientsRequired: "Potato, Turnip, Boga, Specialty Herbs, Cat Cauldron Broth Base",
+        gameplayEffect: "Comfort meal, basic recovery, village reputation boost."
+      },
+      connections: {
+        characters: ["Momon", "Mona the Orchardist", "Gwen"],
+        locations: ["Whisken Village"],
+        factions: ["Whisken People"],
+        items: ["Potato", "Turnip", "Boga", "Specialty Herbs", "Cat Cauldron Broth Base"]
+      }
+    },
+    {
+      title: "Cat Cauldron Broth Base",
+      category: "Food & Inventory",
+      type: "Broth Recipe",
+      status: "Canon",
+      spoilerLevel: "Minor Spoiler",
+      tags: ["broth", "Cat Cauldron", "meal component", "recipe base"],
+      summary:
+        "A flexible broth base made in the Cat Cauldron and used to finalize stews, magical meals, and comfort dishes.",
+      internalLore:
+        "This is a practical Pantry slot for the Cat Cauldron's everyday cooking function. It should separate normal broth use from the catastrophic lore of awakening the ancient cauldron. Gwen can use it as a meal component while the deeper truth remains hidden.",
+      fields: {
+        seedBatch: "lore-expansion-2026-05-11",
+        pantryMealGroup: "components",
+        ingredientsRequired: "Any Meat / Creature Drop, Any Produce, Specialty Herbs",
+        craftingStation: "Cat Cauldron",
+        gameplayEffect: "Component for stews, magical meals, and restorative recipes."
+      },
+      connections: {
+        characters: ["The Cat Cauldron", "Gwen", "Tohm Kyatt"],
+        recipes: ["Whisken Hearth Stew", "Magical Meals"],
+        items: ["Cat Cauldron", "Specialty Herbs"]
+      }
+    },
+    {
+      title: "False Trader Spice",
+      category: "Food & Inventory",
+      type: "Corrupted Spice / Ingredient",
+      status: "Canon",
+      spoilerLevel: "Major Spoiler",
+      tags: ["Mas'eel", "spice", "corrupted ingredient", "false traders", "Tabby Island"],
+      summary:
+        "A suspicious spice blend introduced by Mas'eel false traders during their slow infiltration of Tabby Island.",
+      internalLore:
+        "False Trader Spice is a practical ingredient slot for the Mas'eel infiltration. It appears harmless or exciting as a new imported flavor, but is tied to the cult's slow searing of Tabby Island and their corruption of Whisken faith and food culture.",
+      fields: {
+        seedBatch: "lore-expansion-2026-05-11",
+        pantryCategory: "Corrupted Spice",
+        whereFound: "Tabby Island, Mas'eel trader stores",
+        gameplayUse: "Quest clue, corrupted recipe component, possible debuff ingredient."
+      },
+      connections: {
+        characters: ["Mur'amar"],
+        locations: ["Tabby Island"],
+        factions: ["Mas'eel Cult"],
+        recipes: ["Dark Culinary Arts"],
+        secrets: ["Secret: Mas'eel Infiltrated Tabby Island"]
+      }
+    },
+    {
+      title: "Moonlit Dew",
+      category: "Food & Inventory",
+      type: "Ingredient",
+      status: "Soft Canon",
+      spoilerLevel: "No Spoiler",
+      tags: ["ingredient", "Whisken", "dew", "brewing", "night"],
+      summary: "A night-gathered dew used in Whisken ales, tonics, and gentle infusions.",
+      internalLore:
+        "Moonlit Dew fits Whisken brewing traditions and gives Oswin, Mona, and the village a gentle night-gathering ingredient for ales and tonics.",
+      fields: {
+        seedBatch: "lore-expansion-2026-05-11",
+        pantryCategory: "Brewing Ingredient",
+        whereFound: "Whisker Woods, Whisken Village orchards at night",
+        usedInRecipes: "Healthy Ale"
+      },
+      connections: {
+        characters: ["Mona the Orchardist", "Oswin"],
+        locations: ["Whisker Woods", "Whisken Village"],
+        recipes: ["Healthy Ale"],
+        factions: ["Whisken People"]
+      }
+    },
+    {
+      title: "Whisken Root Ferment",
+      category: "Food & Inventory",
+      type: "Brewing Ingredient",
+      status: "Soft Canon",
+      spoilerLevel: "No Spoiler",
+      tags: ["ingredient", "Whisken", "ferment", "ale", "roots"],
+      summary: "A fermented root base used in Whisken ales, tonics, and tavern drinks.",
+      internalLore:
+        "Whisken Root Ferment is a practical Pantry ingredient for village brewing. It supports Healthy Ale, festival drinks, and Oswin's odd remedies without needing to invent a new system.",
+      fields: {
+        seedBatch: "lore-expansion-2026-05-11",
+        pantryCategory: "Brewing Ingredient",
+        whereFound: "Whisken Village cellars, Whisker Woods roots",
+        usedInRecipes: "Healthy Ale, Festival of Full Plates"
+      },
+      connections: {
+        characters: ["Oswin", "Momon"],
+        locations: ["Whisken Village", "Whisker Woods"],
+        recipes: ["Healthy Ale"],
+        factions: ["Whisken People"]
+      }
+    },
+    {
+      title: "Boar Meat",
+      category: "Food & Inventory",
+      type: "Enemy Drop / Ingredient",
+      status: "Canon",
+      spoilerLevel: "No Spoiler",
+      tags: ["ingredient", "meat", "boar", "Whisker Woods"],
+      summary: "A hearty meat drop from Thornback Boars, useful for stews and combat meals.",
+      fields: {
+        seedBatch: "lore-expansion-2026-05-11",
+        pantryCategory: "Meat / Creature Drop",
+        whereFound: "Whisker Woods",
+        usedInRecipes: "Whisken Hearth Stew, Cat Cauldron Broth Base"
+      },
+      connections: {
+        locations: ["Whisker Woods"],
+        recipes: ["Whisken Hearth Stew", "Cat Cauldron Broth Base"],
+        enemies: ["Thornback Boar"]
+      }
+    },
+    {
+      title: "Mushroom Bits",
+      category: "Food & Inventory",
+      type: "Creature Drop / Ingredient",
+      status: "Soft Canon",
+      spoilerLevel: "No Spoiler",
+      tags: ["ingredient", "mushroom", "Mushgrub", "earthy"],
+      summary: "Earthy mushroom pieces gathered from Mushgrubs or mushroom-heavy paths.",
+      fields: {
+        seedBatch: "lore-expansion-2026-05-11",
+        pantryCategory: "Produce / Creature Drop",
+        whereFound: "Mushroom Grottos",
+        usedInRecipes: "Cat Cauldron Broth Base, Whisken Hearth Stew"
+      },
+      connections: {
+        locations: ["Mushroom Grottos"],
+        recipes: ["Cat Cauldron Broth Base"],
+        enemies: ["Mushgrub"]
+      }
+    },
+    {
+      title: "Mushgrub Jelly",
+      category: "Food & Inventory",
+      type: "Creature Drop / Ingredient",
+      status: "Soft Canon",
+      spoilerLevel: "No Spoiler",
+      tags: ["ingredient", "jelly", "Mushgrub", "binding agent"],
+      summary: "A soft jelly drop from Mushgrubs that can bind sauces, broths, and bait recipes.",
+      fields: {
+        seedBatch: "lore-expansion-2026-05-11",
+        pantryCategory: "Creature Drop",
+        whereFound: "Mushroom Grottos",
+        usedInRecipes: "Bait recipes, broths, sauces"
+      },
+      connections: {
+        locations: ["Mushroom Grottos"],
+        enemies: ["Mushgrub"]
+      }
+    },
+    {
+      title: "Honey Globs",
+      category: "Food & Inventory",
+      type: "Creature Drop / Ingredient",
+      status: "Soft Canon",
+      spoilerLevel: "No Spoiler",
+      tags: ["ingredient", "honey", "Honeybloat", "sweet"],
+      summary: "Sticky honey globs from Honeybloats, useful for sweets, ales, and trap-like recipes.",
+      fields: {
+        seedBatch: "lore-expansion-2026-05-11",
+        pantryCategory: "Sweetener / Creature Drop",
+        whereFound: "Whisker Woods",
+        usedInRecipes: "Healthy Ale, sweet meals, sticky trap recipes"
+      },
+      connections: {
+        locations: ["Whisker Woods"],
+        recipes: ["Healthy Ale"],
+        enemies: ["Honeybloat"]
+      }
+    },
+    ...["Dusk", "Bitter", "Sweet", "Savory", "Sour", "Salty", "Spicy"].map((flavor) => ({
+      title: `${flavor} Slime Gel`,
+      category: "Food & Inventory",
+      type: "Slime Ingredient / Gel",
+      status: "Soft Canon",
+      spoilerLevel: "No Spoiler",
+      tags: ["ingredient", "slime gel", flavor, "Slime Flavor System"],
+      summary: `${flavor} Slime Gel is a flavor-aspected slime drop used in magical meals, substitutions, ales, and tonics.`,
+      internalLore:
+        `${flavor} Slime Gel gives the Pantry a concrete ingredient slot for the ${flavor.toLowerCase()} flavor branch of the Slime Flavor / Element System.`,
+      fields: {
+        seedBatch: "lore-expansion-2026-05-11",
+        pantryCategory: "Slime Drop",
+        whereFound: flavor === "Salty" ? "Caves" : flavor === "Spicy" ? "Villages" : "Whisker Woods",
+        usedInRecipes: "Slime Substitutions, Magical Meals, Ales / Tonics"
+      },
+      connections: {
+        locations: [flavor === "Salty" ? "Caves" : flavor === "Spicy" ? "Whisken Village" : "Whisker Woods"],
+        recipes: ["Slime Substitutions", "Magical Meals", "Ales / Tonics"],
+        gameplaySystems: ["Slime Flavor / Element System"],
+        enemies: [`${flavor} Slime`]
+      }
+    }))
+  ] as unknown as StarterInput[]).map((item) => entry(item)),
   ...[
     ["Ancient Whisken Create the Cat Cauldron", "Ancient Whisken Era", "Ancient Whisken seekers create the Cat Cauldron while trying to improve food and reach the knowledge of what is untasted."],
     ["First Whisken Exodus", "Ancient Whisken Era", "The Cat Cauldron causes Tabby Island to begin decaying, forcing the ancient Whisken to flee for the first time."],
@@ -2614,6 +3223,83 @@ export const starterBestiary: BestiaryCreature[] = [
     lore: { relatedCreatures: "Part of the Slime Flavor / Element System." }
   },
   {
+    name: "Cauldron Echo Slime",
+    category: "Slimes",
+    type: "Magical Creature",
+    status: "Idea",
+    threatLevel: "Unknown",
+    rarity: "Rare",
+    size: "Small",
+    diet: "Residual Food Essence, old broth steam, and magical nutrients left by Cat Cauldron pulses.",
+    habitat: "Tabby Island",
+    behavior: "Appears near buried kitchens, ruins, and places where the Cat Cauldron's power touched the earth.",
+    description: "A shimmering slime that flickers with old recipe memories and faint cauldron-shaped ripples.",
+    overview: "Lore-forward slime variant for Tabby Island, Cat Cauldron aftereffects, and dangerous recipe-memory gathering.",
+    fieldNotes: "Good candidate for a late-game ingredient clue that points back to Tohm's hidden disaster.",
+    drops: {
+      droppedIngredients: "Cauldron echo gel",
+      cookingUses: "Truth-reveal tonics, pulse-sensitive broths, dangerous memory meals",
+      recipeConnections: "Cat Cauldron Broth Base"
+    },
+    lore: {
+      origin: "Formed where the Cat Cauldron's old pulse left Food Essence and decay tangled in the ground.",
+      questConnections: "Tabby Island truth reveal, Cat Cauldron investigation",
+      relatedCreatures: "Related to the Slime Flavor / Element System.",
+      hiddenNotes: "Seed batch: lore-expansion-2026-05-11."
+    },
+    productionNotes: "Seed batch: lore-expansion-2026-05-11."
+  },
+  {
+    name: "Seared Scarab",
+    category: "Insects",
+    type: "Insect",
+    status: "Idea",
+    threatLevel: "Aggro When Hit",
+    rarity: "Uncommon",
+    size: "Small",
+    diet: "Seared roots, corrupted spice residue, and old food stores touched by Mas'eel magic.",
+    habitat: "Tabby Island",
+    behavior: "Clusters near false trader caches and burns little black trails through wood, grain, and pantry shelves.",
+    description: "A black-and-amber beetle marked by tiny heat scars, as if the island's corruption cooked it from inside.",
+    overview: "Mas'eel-flavored insect slot for Tabby Island corruption and false trader evidence.",
+    drops: {
+      droppedIngredients: "Seared shell chips, False Trader Spice traces",
+      cookingUses: "Corruption clues, risky heat recipes, Dark Culinary Arts analysis",
+      recipeConnections: "False Trader Spice"
+    },
+    lore: {
+      origin: "Born from the Mas'eel's slow searing of Tabby Island stores and roots.",
+      questConnections: "Mas'eel false trader investigation",
+      hiddenNotes: "Seed batch: lore-expansion-2026-05-11."
+    },
+    productionNotes: "Seed batch: lore-expansion-2026-05-11."
+  },
+  {
+    name: "False Feast Fly",
+    category: "Insects",
+    type: "Aberration",
+    status: "Idea",
+    threatLevel: "Defensive",
+    rarity: "Rare",
+    size: "Tiny swarm",
+    diet: "Rotten feasts, corrupted sweet glaze, and ceremonial leftovers from Mas'eel rites.",
+    habitat: "Tabby Island",
+    behavior: "Gathers around food that looks abundant but has been spiritually spoiled.",
+    description: "A glittering swarm that makes spoiled food seem inviting until the light hits its wings wrong.",
+    overview: "A deception-themed insect for Mas'eel food corruption, FEAST symbolism, and investigation scenes.",
+    drops: {
+      droppedIngredients: "False feast wings",
+      cookingUses: "Deception tonics, corruption diagnosis, anti-Mas'eel recipe clues",
+      recipeConnections: "Dark Culinary Arts"
+    },
+    lore: {
+      culturalMeaning: "A warning sign that the Mas'eel version of abundance is actually hunger wearing a mask.",
+      questConnections: "Mas'eel false trader investigation, Lillia's Camp",
+      hiddenNotes: "Seed batch: lore-expansion-2026-05-11."
+    },
+    productionNotes: "Seed batch: lore-expansion-2026-05-11."
+  },
+  {
     name: "Stoneback Tortoise",
     type: "Wildlife",
     status: "Idea",
@@ -2690,11 +3376,15 @@ export const starterBestiary: BestiaryCreature[] = [
   } as Partial<BestiaryCreature>)
 );
 
+const starterBestiaryCategoryVaults: BestiaryCategoryArtVault[] = Array.from(
+  new Set(starterBestiary.map((creature) => creature.category).filter(Boolean))
+).map((category) => createBestiaryCategoryArtVaultRecord(category, starterBestiary));
+
 export const createStarterDatabase = (): LoreDatabase => ({
-  schemaVersion: 1,
+  schemaVersion: 2,
   entries: starterEntries.map((item) => JSON.parse(JSON.stringify(item)) as LoreEntry),
   bestiary: starterBestiary.map((item) => JSON.parse(JSON.stringify(item)) as BestiaryCreature),
-  bestiaryCategoryVaults: [],
+  bestiaryCategoryVaults: starterBestiaryCategoryVaults.map((item) => JSON.parse(JSON.stringify(item)) as BestiaryCategoryArtVault),
   worldBuilding: createStarterWorldBuilding(starterEntries, starterBestiary),
   backups: [],
   branding: {

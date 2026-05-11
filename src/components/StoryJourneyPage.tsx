@@ -10,6 +10,7 @@ import { Icon } from "./Icon";
 
 const STORY_JOURNEY_STATE_KEY = "tavernCookBookStoryJourneyState";
 const STORY_JOURNEY_CHAPTERS_KEY = "tavernCookBookStoryJourneyChapters";
+const storyExpansionChapterIds = new Set(["truth-of-tabby-island", "the-maseel-hunt"]);
 
 interface StoryJourneyPageProps {
   entries: LoreEntry[];
@@ -422,16 +423,104 @@ const defaultStoryChapters: StoryChapter[] = [
     era: "Late Game Reveal",
     revealLevel: "Major Spoiler",
     shortDescription:
-      "The truth of Tabby Island and the Cat Cauldron eventually reframes Tohm Kyatt's story. This chapter is a major spoiler thread for later expansion.",
-    relatedLore: ["Tabby Island", "Cat Cauldron", "Tohm Kyatt", "Whisken"],
+      "The truth of Tabby Island and the Cat Cauldron reframes Tohm Kyatt, the Whisken exodus, and the Mas'eel hunt for magical recipes.",
+    relatedLore: ["Tabby Island", "Cat Cauldron", "Tohm Kyatt", "Whisken People", "Mas'eel Cult", "Lel Kai"],
     pages: [
       {
-        title: "The Secret Beneath the Island",
+        title: "The First Search for What Is Untasted",
         text:
-          "Tabby Island hides the Cat Cauldron and the consequences of Tohm Kyatt's choices. The public version of the disaster is incomplete, and the truth waits until the player is ready to understand what Tohm has carried.",
-        imagePlaceholder: "A hidden cauldron chamber beneath an island.",
-        caption: "Some secrets are not buried. They simmer.",
-        relatedLore: ["Tabby Island", "Cat Cauldron", "Tohm Kyatt"]
+          "Long before Gwen's journey, ancient Whisken seekers created the Cat Cauldron while trying to improve food and reach the knowledge of what is untasted. The goal began as culinary wonder, but the invention was too powerful for the island beneath it.",
+        imagePlaceholder: "Ancient Whisken cooks around an unfinished cauldron under island roots.",
+        caption: "The first mistake was born from hunger for knowledge.",
+        relatedLore: ["Whisken People", "Cat Cauldron", "Tabby Island"]
+      },
+      {
+        title: "The First Exodus",
+        text:
+          "The Cat Cauldron caused Tabby Island to begin decaying. The ancient Whisken fled, then locked the cauldron at the bottom of the island, removed it from their history books, and stopped speaking of it until the truth was forgotten.",
+        imagePlaceholder: "Boats leaving a dim island while elders seal a hidden chamber.",
+        caption: "A people can bury a thing so well that their children inherit only the wound.",
+        relatedLore: ["Whisken People", "Tabby Island", "Cat Cauldron"]
+      },
+      {
+        title: "Tohm Finds the Forgotten Cauldron",
+        text:
+          "Centuries later, Tohm Kyatt discovers the hidden knowledge and returns to Tabby Island. He cooks a meal in the Cat Cauldron and activates it. A pulse runs into the earth, and the island begins decaying again.",
+        imagePlaceholder: "Tohm standing before a cat-shaped cauldron as light cracks through the floor.",
+        caption: "The second disaster began with a meal no one else knew he had cooked.",
+        relatedLore: ["Tohm Kyatt", "Cat Cauldron", "Tabby Island"]
+      },
+      {
+        title: "The Pulse the Mas'eel Heard",
+        text:
+          "The awakened cauldron's pulse does more than damage the island. It lets the Mas'eel Cult sense the power and know it was on Tabby Island. Tohm takes the cauldron and flees in the Living Tavern before anyone understands what happened.",
+        imagePlaceholder: "A magical pulse spreading from island roots toward distant black sails.",
+        caption: "The island heard decay. The cult heard invitation.",
+        relatedLore: ["Mas'eel Cult", "Cat Cauldron", "Tohm Kyatt", "Living Tavern"]
+      },
+      {
+        title: "False Traders",
+        text:
+          "Mas'eel cultists arrive pretending to be traders. They introduce new foods, gain trust over years, secretly sear the island, rise in village influence, and begin persecuting Whisken people for holding to the Triadic faith taught by the Tablemaker.",
+        imagePlaceholder: "Friendly trade stalls with beautiful spices casting wrong shadows.",
+        caption: "They did not conquer the village first. They fed it lies.",
+        relatedLore: ["Mas'eel False Traders", "Whisken People", "The Tablemaker", "False Trader Spice"]
+      },
+      {
+        title: "The Second Exodus",
+        text:
+          "The Whisken flee again, though to them it feels like the first time. Tohm hears what is happening and gets Lel Kai, who is becoming general of the faery army, to send boats. Corruption scatters many of them, and the known survivors eventually reach Whisker Woods.",
+        imagePlaceholder: "Rescue boats breaking through corrupted waters toward a forest shore.",
+        caption: "The village that remains is a rescued fragment, not the whole story.",
+        relatedLore: ["Lel Kai's Rescue Fleet", "Whisken Village", "Whisker Woods", "Tohm Kyatt"]
+      }
+    ]
+  },
+  {
+    id: "the-maseel-hunt",
+    title: "The Mas'eel Hunt",
+    subtitle: "A gentle mask hides a cult searching for the cauldron and recipes.",
+    timelineStartLabel: "Act 3",
+    timelineEndLabel: "Final Act",
+    timelineStartPercent: 88,
+    timelineEndPercent: 96,
+    era: "Late Game Reveal",
+    revealLevel: "Major Spoiler",
+    shortDescription:
+      "The Mas'eel corrupt the shared Tablemaker faith into FEAST, hunt the Cat Cauldron, and tie Tabby Island's past to Princess Lillia's present danger.",
+    relatedLore: ["Mas'eel Cult", "Mur'amar", "Princess Lillia", "Cat Cauldron", "Recipe Pages", "Food Essence"],
+    pages: [
+      {
+        title: "FEAST Instead of Three Pillars",
+        text:
+          "Most cultures worship the Tablemaker and practice the Triadic faith through their own traditions. The Mas'eel compress Passion, Taste, and Love into FEAST, turning shared abundance into control, hunger, and power.",
+        imagePlaceholder: "Three warm dots reflected in a single distorted black eye.",
+        caption: "A holy meal becomes dangerous when love is removed from the recipe.",
+        relatedLore: ["The Tablemaker", "Food Essence", "Mas'eel Cult"]
+      },
+      {
+        title: "Mur'amar's Gentle Voice",
+        text:
+          "Mur'amar can move among villagers as if he belongs, speaking of the Mas'eel faith as something gentle. His danger is not that he looks monstrous. It is that he knows how to sound comforting while asking about the Cat Cauldron, Tohm, and magical recipes.",
+        imagePlaceholder: "A peaceful stranger at a village table with a hidden symbol on his sleeve.",
+        caption: "Some villains enter through the front door and compliment the soup.",
+        relatedLore: ["Mur'amar", "Whisken Village", "Cat Cauldron"]
+      },
+      {
+        title: "Lillia's Alliance",
+        text:
+          "After Tabby Island, the Mas'eel search for the Cat Cauldron and Tohm's magical recipes while working with Princess Lillia. Lillia wants power and magical transformation; the Mas'eel want the sacred machinery beneath that power.",
+        imagePlaceholder: "A faery-realm camp kitchen where royal banners meet cult marks.",
+        caption: "Different hungers can still share a kitchen.",
+        relatedLore: ["Princess Lillia", "Lillia's Camp", "Dark Culinary Arts", "Recipe Pages"]
+      },
+      {
+        title: "What Gwen Must Uncover",
+        text:
+          "Gwen's journey eventually becomes more than recovering recipe pages. She must understand which foods heal, which foods corrupt, which histories were erased, and why Tohm's secret brought the Mas'eel into the story.",
+        imagePlaceholder: "Gwen arranging recipe pages, spice samples, and island-map clues on a tavern table.",
+        caption: "A cookbook can become a case file.",
+        relatedLore: ["Gwen", "Tohm Kyatt", "Recipe Book", "Mas'eel False Traders"]
       }
     ]
   },
@@ -486,6 +575,15 @@ const fallbackLore: Record<string, { type: string; description: string }> = {
   Taste: { type: "Sacred Principle", description: "One of the three sacred principles in the Tablemaker's meal." },
   Love: { type: "Sacred Principle", description: "One of the three sacred principles in the Tablemaker's meal." },
   Whisken: { type: "Culture", description: "Cat-like people tied to Tohm Kyatt, Tabby Island, and Whisker Woods lore." },
+  "Whisken People": { type: "Culture", description: "Cat-like people tied to Tabby Island, Whisker Woods, the Tablemaker faith, and two exodus events." },
+  "Mas'eel Cult": { type: "Faction", description: "A cult that corrupts the Triadic faith into FEAST and hunts the Cat Cauldron and magical recipes." },
+  "Mas'eel False Traders": { type: "Faction Operation", description: "Mas'eel agents who entered Tabby Island as traders, brought new foods, and hid their takeover behind hospitality." },
+  "False Trader Spice": { type: "Ingredient", description: "A suspicious spice blend connected to Mas'eel infiltration and corrupted food culture." },
+  "Lel Kai's Rescue Fleet": { type: "Story Event", description: "The rescue boats Lel Kai sent at Tohm's request during the second Whisken exodus." },
+  "Lillia's Camp": { type: "Location", description: "A Faery Realm camp where Lillia can mass-produce Dark Culinary Arts with ambient magic." },
+  "Mur'amar": { type: "Character", description: "A Mas'eel-linked stranger who presents the cult gently while searching for the Cat Cauldron and recipes." },
+  "Whisken Village": { type: "Location", description: "The current Whisken settlement in Whisker Woods, built by known survivors of the second exodus." },
+  "Cat Cauldron": { type: "Artifact", description: "An ancient Whisken cauldron awakened by Tohm and hunted by the Mas'eel Cult." },
   Osul: { type: "Location", description: "Gwen's home region before her work with Tohm and the Living Tavern." },
   Kap: { type: "Character", description: "A character tied to the corrupted pond trouble in Act 1." },
   "Living Tavern": { type: "Location / Artifact", description: "Tohm's magical tavern and major hub." },
@@ -1299,10 +1397,52 @@ function loadStoryChapters(): StoryChapter[] {
     const parsed = JSON.parse(stored);
     if (!Array.isArray(parsed)) return defaultStoryChapters.map((chapter) => normalizeStoryChapter(chapter));
     const normalized = parsed.map((chapter, index) => normalizeStoryChapter(chapter, `story-chapter-${index + 1}`));
-    return normalized.length ? normalized : defaultStoryChapters.map((chapter) => normalizeStoryChapter(chapter));
+    return normalized.length
+      ? mergeStoryExpansionChapters(normalized)
+      : defaultStoryChapters.map((chapter) => normalizeStoryChapter(chapter));
   } catch {
     return defaultStoryChapters.map((chapter) => normalizeStoryChapter(chapter));
   }
+}
+
+function mergeStoryExpansionChapters(chapters: StoryChapter[]): StoryChapter[] {
+  const next = [...chapters];
+  defaultStoryChapters
+    .filter((chapter) => storyExpansionChapterIds.has(chapter.id))
+    .forEach((defaultChapter) => {
+      const index = next.findIndex((chapter) => chapter.id === defaultChapter.id);
+      if (index >= 0) {
+        next[index] = preserveStoryChapterImages(next[index], defaultChapter);
+        return;
+      }
+
+      const defaultIndex = defaultStoryChapters.findIndex((chapter) => chapter.id === defaultChapter.id);
+      const laterDefaultIds = new Set(defaultStoryChapters.slice(defaultIndex + 1).map((chapter) => chapter.id));
+      const insertIndex = next.findIndex((chapter) => laterDefaultIds.has(chapter.id));
+      if (insertIndex >= 0) {
+        next.splice(insertIndex, 0, normalizeStoryChapter(defaultChapter));
+      } else {
+        next.push(normalizeStoryChapter(defaultChapter));
+      }
+    });
+
+  return next.map((chapter) => normalizeStoryChapter(chapter));
+}
+
+function preserveStoryChapterImages(currentChapter: StoryChapter, defaultChapter: StoryChapter): StoryChapter {
+  return normalizeStoryChapter({
+    ...defaultChapter,
+    coverImageUrl: currentChapter.coverImageUrl || defaultChapter.coverImageUrl,
+    coverImageFit: currentChapter.coverImageFit || defaultChapter.coverImageFit,
+    pages: defaultChapter.pages.map((defaultPage, index) => {
+      const currentPage = currentChapter.pages.find((page) => page.title === defaultPage.title) || currentChapter.pages[index];
+      return {
+        ...defaultPage,
+        imageUrl: currentPage?.imageUrl || defaultPage.imageUrl,
+        imageFit: currentPage?.imageFit || defaultPage.imageFit
+      };
+    })
+  }, defaultChapter.id);
 }
 
 function saveStoryChapters(chapters: StoryChapter[]) {

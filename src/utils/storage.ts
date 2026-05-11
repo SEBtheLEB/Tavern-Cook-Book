@@ -1,5 +1,15 @@
 ﻿import { createStarterDatabase } from "../data/starterData";
-import type { BestiaryCategoryArtVault, BestiaryCreature, LoreBackup, LoreDatabase, LoreEntry, ThemeMode } from "../types";
+import type {
+  BestiaryCategoryArtVault,
+  BestiaryCreature,
+  LoreBackup,
+  LoreDatabase,
+  LoreEntry,
+  ThemeMode,
+  WorldBuildingCategoryId,
+  WorldBuildingData,
+  WorldBuildingEntry
+} from "../types";
 import {
   normalizeBestiaryCategoryArtVault,
   normalizeBestiaryCreature,
@@ -14,7 +24,100 @@ export const DATABASE_KEY = "tavern-cook-book:data";
 export const THEME_KEY = "tavern-cook-book:theme";
 const LEGACY_MODE_KEY = "tavern-cook-book:mode";
 
-export const currentSchemaVersion = 1;
+export const currentSchemaVersion = 2;
+const loreExpansionSchemaVersion = 2;
+
+const loreExpansionEntryTitles = new Set([
+  "Gwen",
+  "Tohm Kyatt",
+  "Princess Lillia",
+  "Lel Kai",
+  "Oswin",
+  "Kap",
+  "Whisker Woods",
+  "Whisken Village",
+  "Tabby Island",
+  "Whisken People",
+  "Mas'eel Cult",
+  "Mur'amar",
+  "Cat Cauldron",
+  "The Tablemaker and Triadic Faith",
+  "Public Tohm Description",
+  "The Tablemaker",
+  "The Cat Cauldron",
+  "Mona the Orchardist",
+  "Momon",
+  "Lady Kiko",
+  "Ovenhold",
+  "The Everfeast",
+  "Food Essence",
+  "Whisken Saints",
+  "Mas'eel False Traders",
+  "Lel Kai's Rescue Fleet",
+  "Lillia's Camp",
+  "Leirbag",
+  "Festival of Full Plates",
+  "Healthy Ale",
+  "Whisken Hearth Stew",
+  "Cat Cauldron Broth Base",
+  "False Trader Spice",
+  "Moonlit Dew",
+  "Whisken Root Ferment",
+  "Boar Meat",
+  "Mushroom Bits",
+  "Mushgrub Jelly",
+  "Honey Globs",
+  "Dusk Slime Gel",
+  "Bitter Slime Gel",
+  "Sweet Slime Gel",
+  "Savory Slime Gel",
+  "Sour Slime Gel",
+  "Salty Slime Gel",
+  "Spicy Slime Gel"
+]);
+
+const loreExpansionCreatureNames = new Set([
+  "Cauldron Echo Slime",
+  "Seared Scarab",
+  "False Feast Fly"
+]);
+
+const loreExpansionWorldTitles = new Set([
+  "Whisker Woods",
+  "Tabby Island",
+  "Ovenhold",
+  "The Everfeast",
+  "Lillia's Camp",
+  "Whisken People",
+  "Whisken Saints",
+  "Human Kingdom",
+  "Dark Culinary Arts",
+  "Food Essence",
+  "Mas'eel Cult",
+  "Mas'eel False Traders",
+  "Cat Cauldron",
+  "The Tablemaker and Triadic Faith",
+  "Festival of Full Plates",
+  "Healthy Ale",
+  "Whisken Hearth Stew",
+  "False Trader Spice",
+  "Cat Cauldron Broth Base",
+  "Cauldron Echo Slime",
+  "Seared Scarab",
+  "False Feast Fly",
+  "Mona the Orchardist",
+  "Momon",
+  "Lady Kiko",
+  "Mur'amar",
+  "The Cat Cauldron",
+  "The Tablemaker",
+  "Lel Kai's Rescue Fleet",
+  "Investigate the False Traders",
+  "Ancient Cat Cauldron Disaster",
+  "Tohm Awakens the Cat Cauldron",
+  "Mas'eel Infiltrate Tabby Island",
+  "Tohm Never Drinks From The Cauldron"
+]);
 
 export const migrateDatabase = (value: unknown): LoreDatabase => {
   const starter = createStarterDatabase();
@@ -23,20 +126,28 @@ export const migrateDatabase = (value: unknown): LoreDatabase => {
   }
 
   const incoming = value as Partial<LoreDatabase>;
-  const entries = Array.isArray(incoming.entries)
+  const needsLoreExpansion = Number(incoming.schemaVersion || 0) < loreExpansionSchemaVersion;
+  let entries = Array.isArray(incoming.entries)
     ? repairScribeFoodEntries(incoming.entries.map((item) => normalizeEntry(item as Partial<LoreEntry>)))
     : starter.entries;
-  const bestiary = Array.isArray(incoming.bestiary)
+  let bestiary = Array.isArray(incoming.bestiary)
     ? incoming.bestiary.map((item) => normalizeBestiaryCreature(item as Partial<BestiaryCreature>))
     : starter.bestiary;
-  const bestiaryCategoryVaults = Array.isArray(incoming.bestiaryCategoryVaults)
+  let bestiaryCategoryVaults = Array.isArray(incoming.bestiaryCategoryVaults)
     ? incoming.bestiaryCategoryVaults.map((item) =>
         normalizeBestiaryCategoryArtVault(item as Partial<BestiaryCategoryArtVault>, (item as Partial<BestiaryCategoryArtVault>).categoryName, bestiary)
       )
     : starter.bestiaryCategoryVaults || [];
-  const worldBuilding = incoming.worldBuilding
+  let worldBuilding = incoming.worldBuilding
     ? normalizeWorldBuilding(incoming.worldBuilding)
     : createStarterWorldBuilding(entries, bestiary);
+
+  if (needsLoreExpansion) {
+    entries = mergeLoreExpansionEntries(entries, starter.entries);
+    bestiary = mergeLoreExpansionCreatures(bestiary, starter.bestiary);
+    bestiaryCategoryVaults = mergeLoreExpansionCategoryVaults(bestiaryCategoryVaults, starter.bestiaryCategoryVaults || [], bestiary);
+    worldBuilding = mergeLoreExpansionWorldBuilding(worldBuilding, starter.worldBuilding);
+  }
 
   return {
     schemaVersion: currentSchemaVersion,
@@ -73,6 +184,155 @@ export const migrateDatabase = (value: unknown): LoreDatabase => {
     }
   };
 };
+
+const mergeLoreExpansionEntries = (currentEntries: LoreEntry[], starterEntries: LoreEntry[]) => {
+  const next = [...currentEntries];
+  starterEntries
+    .filter((entry) => loreExpansionEntryTitles.has(entry.title) || entry.fields?.seedBatch === "lore-expansion-2026-05-11")
+    .forEach((starterEntry) => {
+      const index = next.findIndex((entry) => normalizeEntryTitle(entry.title) === normalizeEntryTitle(starterEntry.title));
+      if (index < 0) {
+        next.push(cloneJson(starterEntry));
+        return;
+      }
+
+      next[index] = preserveEntryUserAssets(next[index], starterEntry);
+    });
+
+  return repairScribeFoodEntries(next.map((entry) => normalizeEntry(entry)));
+};
+
+const preserveEntryUserAssets = (currentEntry: LoreEntry, starterEntry: LoreEntry): LoreEntry =>
+  normalizeEntry({
+    ...cloneJson(starterEntry),
+    id: currentEntry.id || starterEntry.id,
+    media: currentEntry.media || starterEntry.media,
+    artGallery: currentEntry.artGallery || starterEntry.artGallery,
+    artVault: currentEntry.artVault || starterEntry.artVault,
+    characterArtBoard: currentEntry.characterArtBoard || starterEntry.characterArtBoard,
+    characterRelationships: currentEntry.characterRelationships || starterEntry.characterRelationships,
+    driveFolderId: currentEntry.driveFolderId || starterEntry.driveFolderId,
+    driveFolderLink: currentEntry.driveFolderLink || starterEntry.driveFolderLink,
+    createdAt: currentEntry.createdAt || starterEntry.createdAt,
+    updatedAt: starterEntry.updatedAt || currentEntry.updatedAt
+  });
+
+const mergeLoreExpansionCreatures = (currentCreatures: BestiaryCreature[], starterCreatures: BestiaryCreature[]) => {
+  const next = [...currentCreatures];
+  starterCreatures
+    .filter((creature) => loreExpansionCreatureNames.has(creature.name) || /lore-expansion-2026-05-11/i.test(creature.productionNotes || creature.lore?.hiddenNotes || ""))
+    .forEach((starterCreature) => {
+      const index = next.findIndex((creature) => normalizeEntryTitle(creature.name) === normalizeEntryTitle(starterCreature.name));
+      if (index < 0) {
+        next.push(cloneJson(starterCreature));
+        return;
+      }
+
+      next[index] = preserveCreatureUserAssets(next[index], starterCreature);
+    });
+
+  return next.map((creature) => normalizeBestiaryCreature(creature));
+};
+
+const preserveCreatureUserAssets = (currentCreature: BestiaryCreature, starterCreature: BestiaryCreature): BestiaryCreature =>
+  normalizeBestiaryCreature({
+    ...cloneJson(starterCreature),
+    id: currentCreature.id || starterCreature.id,
+    slotImage: currentCreature.slotImage || starterCreature.slotImage,
+    image: currentCreature.image || starterCreature.image,
+    expandedImage: currentCreature.expandedImage || starterCreature.expandedImage,
+    hoverImage: currentCreature.hoverImage || starterCreature.hoverImage,
+    slotImageFit: currentCreature.slotImageFit || starterCreature.slotImageFit,
+    imageFit: currentCreature.imageFit || starterCreature.imageFit,
+    hoverImageFit: currentCreature.hoverImageFit || starterCreature.hoverImageFit,
+    expandedImageFit: currentCreature.expandedImageFit || starterCreature.expandedImageFit,
+    artVault: currentCreature.artVault || starterCreature.artVault,
+    driveFolderId: currentCreature.driveFolderId || starterCreature.driveFolderId,
+    driveFolderLink: currentCreature.driveFolderLink || starterCreature.driveFolderLink,
+    createdAt: currentCreature.createdAt || starterCreature.createdAt,
+    updatedAt: starterCreature.updatedAt || currentCreature.updatedAt
+  });
+
+const mergeLoreExpansionCategoryVaults = (
+  currentVaults: BestiaryCategoryArtVault[],
+  starterVaults: BestiaryCategoryArtVault[],
+  creatures: BestiaryCreature[]
+) => {
+  const next = currentVaults.map((vault) => normalizeBestiaryCategoryArtVault(vault, vault.categoryName, creatures));
+
+  starterVaults.forEach((starterVault) => {
+    const index = next.findIndex((vault) => normalizeEntryTitle(vault.categoryName) === normalizeEntryTitle(starterVault.categoryName));
+    if (index < 0) {
+      next.push(normalizeBestiaryCategoryArtVault(cloneJson(starterVault), starterVault.categoryName, creatures));
+      return;
+    }
+
+    next[index] = mergeCategoryVaultSlots(next[index], starterVault, creatures);
+  });
+
+  return next;
+};
+
+const mergeCategoryVaultSlots = (
+  currentVault: BestiaryCategoryArtVault,
+  starterVault: BestiaryCategoryArtVault,
+  creatures: BestiaryCreature[]
+): BestiaryCategoryArtVault => {
+  const merged = cloneJson(currentVault);
+  starterVault.artVault.sections.forEach((starterSection) => {
+    const sectionIndex = merged.artVault.sections.findIndex((section) =>
+      normalizeEntryTitle(section.id) === normalizeEntryTitle(starterSection.id) ||
+      normalizeEntryTitle(section.title) === normalizeEntryTitle(starterSection.title)
+    );
+
+    if (sectionIndex < 0) {
+      merged.artVault.sections.push(cloneJson(starterSection));
+      return;
+    }
+
+    const currentSection = merged.artVault.sections[sectionIndex];
+    const currentSlotLabels = new Set(currentSection.slots.map((slot) => normalizeEntryTitle(slot.label)));
+    starterSection.slots.forEach((starterSlot) => {
+      if (!currentSlotLabels.has(normalizeEntryTitle(starterSlot.label))) {
+        currentSection.slots.push(cloneJson(starterSlot));
+      }
+    });
+    currentSection.slots = currentSection.slots.map((slot, order) => ({ ...slot, order }));
+  });
+
+  merged.artVault.sections = merged.artVault.sections.map((section, order) => ({ ...section, order }));
+  return normalizeBestiaryCategoryArtVault(merged, merged.categoryName, creatures);
+};
+
+const mergeLoreExpansionWorldBuilding = (currentWorld: WorldBuildingData, starterWorld: WorldBuildingData): WorldBuildingData => {
+  const next = normalizeWorldBuilding(currentWorld);
+  (Object.keys(starterWorld) as WorldBuildingCategoryId[]).forEach((categoryId) => {
+    starterWorld[categoryId]
+      .filter((entry) => loreExpansionWorldTitles.has(entry.title))
+      .forEach((starterEntry) => {
+        const index = next[categoryId].findIndex((entry) => normalizeEntryTitle(entry.title) === normalizeEntryTitle(starterEntry.title));
+        if (index < 0) {
+          next[categoryId].push(cloneJson(starterEntry));
+          return;
+        }
+
+        next[categoryId][index] = preserveWorldEntryUserAssets(next[categoryId][index], starterEntry);
+      });
+  });
+
+  return normalizeWorldBuilding(next);
+};
+
+const preserveWorldEntryUserAssets = (currentEntry: WorldBuildingEntry, starterEntry: WorldBuildingEntry): WorldBuildingEntry => ({
+  ...cloneJson(starterEntry),
+  id: currentEntry.id || starterEntry.id,
+  image: currentEntry.image || starterEntry.image,
+  imageFit: currentEntry.imageFit || starterEntry.imageFit,
+  createdAt: currentEntry.createdAt || starterEntry.createdAt,
+  updatedAt: starterEntry.updatedAt || currentEntry.updatedAt
+});
+
+const cloneJson = <T,>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 
 export const loadDatabase = (): LoreDatabase => {
   try {

@@ -278,8 +278,19 @@ export const createStarterWorldBuilding = (
   const gwen = characterByTitle("Gwen");
   const tohm = characterByTitle("Tohm Kyatt");
   const lillia = characterByTitle("Princess Lillia");
+  const tablemaker = characterByTitle("The Tablemaker");
+  const catCauldronCharacter = characterByTitle("The Cat Cauldron");
+  const muramar = characterByTitle("Mur'amar");
+  const oswin = characterByTitle("Oswin");
+  const kap = characterByTitle("Kap");
+  const mona = characterByTitle("Mona the Orchardist");
+  const momon = characterByTitle("Momon");
+  const ladyKiko = characterByTitle("Lady Kiko");
   const iceQueen = creatureByTitle("Ice Queen");
   const prawnhusk = creatureByTitle("Prawnhusk");
+  const cauldronEchoSlime = creatureByTitle("Cauldron Echo Slime");
+  const searedScarab = creatureByTitle("Seared Scarab");
+  const falseFeastFly = creatureByTitle("False Feast Fly");
 
   seedEntry("locations", "Whisker Woods", "Forest Region", "A cozy but increasingly corrupted Act 1 forest region, village hub, gathering zone, and early danger space.", ["Whisker Woods", "Act 1", "Corruption", "Whisken"], {
     overview: "Forest region with villages, ponds, groves, bug nests, farms, and magical points of interest. Current state: partially corrupted.",
@@ -302,6 +313,27 @@ export const createStarterWorldBuilding = (
     history: "Lillia camps here because the environment lets her draw ambient magic rather than infusing every meal individually.",
     gameplayUse: "Potential late-story region, corrupted meal production source, and faery political space."
   }, [related("character", lillia?.id, "Lillia uses this realm to empower corrupted food.")]);
+  seedEntry("locations", "Ovenhold", "Ancient Mortal Kingdom", "An ancient kingdom of hearths, ovens, labor, craft, survival, and cooked food that fought the Faery Realm for 300 years.", ["Ovenhold", "300 Year War", "Tablemaker", "Hearth"], {
+    overview: "Mortal kingdom defined by cooking fires, stone ovens, hard work, craft, cooked food, and survival.",
+    visualIdentity: "Stone kitchens, bread ovens, smoke, copper pots, labor-worn hands, hearth banners, and practical warm light.",
+    history: "Ovenhold fought the Faery Realm for 300 years until the Tablemaker ended the war with a meal prepared through Passion, Taste, and Love.",
+    gameplayUse: "Ancient-history slot, possible memory chapter, religious origin context, and visual contrast to the Faery Realm."
+  }, [related("character", tablemaker?.id, "The Tablemaker's meal ended Ovenhold's war with the Faery Realm.")]);
+  seedEntry("locations", "The Everfeast", "Sacred Culinary Realm", "A heavenly culinary realm where perfect meals are remembered and where the Tablemaker returned after his sacrifice.", ["Everfeast", "Tablemaker", "Food Essence", "Sacred Realm"], {
+    overview: "A sacred culinary beyond connected to the Tablemaker, holy meals, and the memory of food that heals.",
+    visualIdentity: "Endless warm kitchens, impossible banquet tables, golden steam, and meals remembered in perfect form.",
+    history: "After the Tablemaker's final meal ended the 300 Year War and cost him his mortal life, his spirit returned to The Everfeast.",
+    gameplayUse: "Mythic frame for late-game revelations, Food Essence, and the spiritual meaning of magical cooking."
+  }, [related("character", tablemaker?.id, "The Tablemaker returns to The Everfeast.")]);
+  seedEntry("locations", "Lillia's Camp", "Enemy Camp", "A Faery Realm camp where Lillia uses ambient magic to mass-produce Dark Culinary Arts with Mas'eel support.", ["Lillia", "Faery Realm", "Dark Culinary Arts", "Mas'eel"], {
+    overview: "Villain-side production site for corrupted meals and late-story enemy logistics.",
+    visualIdentity: "Beautiful faery light bent into black kitchen smoke, elegant tents, corrupted banquet stations, and recipe-page worktables.",
+    inhabitants: "Princess Lillia, Mas'eel agents, corrupted cooks, and food-magic experiments.",
+    gameplayUse: "Potential late-story dungeon, stealth/investigation space, and place to connect Lillia's ambitions to the Mas'eel hunt."
+  }, [
+    related("character", lillia?.id, "Lillia uses the camp to scale Dark Culinary Arts."),
+    related("character", muramar?.id, "Mur'amar can connect the camp to the Mas'eel network.")
+  ]);
 
   seedEntry("cultures", "Whisken People", "Culture / People", "Cat-like people connected to Tabby Island, Whisker Woods, tavern culture, food, gathering, community, and the Triadic faith.", ["Whisken", "Tabby Island", "Whisker Woods", "Triadic Faith"], {
     overview: "A people who originally lived on Tabby Island, forgot their first exodus, and later fled again after the Cat Cauldron's second decay and Mas'eel persecution.",
@@ -309,6 +341,15 @@ export const createStarterWorldBuilding = (
     beliefsCustoms: "The Whisken follow the Tablemaker and the Triadic faith, practicing it through their own food, feasts, tavern life, and community traditions.",
     exodusHistory: "Ancient Whisken buried the Cat Cauldron and erased it from history after the first decay. Modern Whisken fled Tabby Island again after Tohm awakened it and the Mas'eel infiltrated the village."
   }, [related("character", tohm?.id, "Tohm is a Whisken chef with a hidden past.")]);
+  seedEntry("cultures", "Whisken Saints", "Cultural Faith Thread", "A review slot for Whisken holy stories and teachers, harmonized under the Tablemaker and the Triadic faith.", ["Whisken", "Saints", "Tablemaker", "Needs Rewrite"], {
+    overview: "A cultural layer for Whisken stories about old teachers, feast days, mercy, tavern life, and shared food.",
+    dailyLife: "These stories can appear in harvest customs, village proverbs, tavern wall art, and the Festival of Full Plates.",
+    beliefsCustoms: "The useful thread is the movement from hunger and isolation toward hearth, table, mercy, and community under Passion, Taste, and Love.",
+    relationships: "This must not become a separate contradictory religion. It should support the wider Tablemaker faith practiced through Whisken traditions."
+  }, [
+    related("character", tablemaker?.id, "The Whisken saints thread sits under the Tablemaker faith."),
+    related("character", ladyKiko?.id, "Lady Kiko can embody this tradition in village life.")
+  ]);
   seedEntry("factions", "Human Kingdom", "Kingdom", "The royal human kingdom connected to Lillia, the Dragon Knife war, and fears around humans gaining magic.", ["Human Kingdom", "Royal Family", "Lillia", "Dragon Knife"], {
     overview: "Kingdom ruled by Lillia's parents. Their desire to give Lillia magic leads to war with the dwarves.",
     beliefsGoals: "The royal family wants magical access for Lillia despite warnings from faeries and dwarves.",
@@ -320,11 +361,31 @@ export const createStarterWorldBuilding = (
     visualEffects: "Dark glowing ingredients, corrupted meal auras, unstable magic, and theatrical food-based powers.",
     storyFunction: "Explains corrupted bosses, recipe-powered enemies, and magical food as both power and danger."
   }, [related("character", lillia?.id, "Lillia spreads corrupted meals through this magic.")]);
+  seedEntry("magicSystems", "Food Essence", "Sacred Culinary Magic", "The spiritual and magical force released into the world by the Tablemaker after the meal that ended the 300 Year War.", ["Food Essence", "Tablemaker", "Passion", "Taste", "Love"], {
+    overview: "Food Essence is the sacred foundation that lets meals carry healing, memory, culture, magic, and danger.",
+    rules: "Healthy Food Essence is aligned with Passion, Taste, and Love. Dark Culinary Arts and Mas'eel FEAST doctrine distort it toward control, hunger, and corruption.",
+    visualEffects: "Warm steam, golden motes, meal-memory glows, and three-dot Triadic symbolism when expressed cleanly.",
+    gameplayFunction: "Frames why cooking can heal, empower, reveal, corrupt, and solve story problems.",
+    storyFunction: "Connects the Tablemaker, Tohm's obsession, Lillia's corrupted meals, and the Mas'eel distortion."
+  }, [
+    related("character", tablemaker?.id, "The Tablemaker released Food Essence into the world."),
+    related("character", tohm?.id, "Tohm's obsession grows around sacred food and ultimate taste.")
+  ]);
   seedEntry("factions", "Mas'eel Cult", "Cult", "A cult that corrupts the Triadic faith into FEAST and hunts the Cat Cauldron and Tohm's magical recipes.", ["Mas'eel", "FEAST", "Triadic Faith", "Cat Cauldron", "Princess Lillia"], {
     overview: "The Mas'eel oppose the Tablemaker's triad of Passion, Taste, and Love by corrupting it into FEAST.",
     tabbyIslandRole: "They sensed the Cat Cauldron pulse, came to Tabby Island pretending to be traders, introduced new foods, gained power in the Whisken village, and persecuted Triadic believers.",
     currentGoal: "After leaving Tabby Island, they search for the Cat Cauldron and Tohm's magical recipes while working with Princess Lillia."
   }, [related("character", lillia?.id, "The Mas'eel now work with Lillia."), related("character", tohm?.id, "The Mas'eel are hunting Tohm's recipes and the Cat Cauldron.")]);
+  seedEntry("factions", "Mas'eel False Traders", "Cult Operation", "The Mas'eel trading front that entered Tabby Island with new foods and hid a slow takeover behind hospitality.", ["Mas'eel", "False Traders", "Tabby Island", "Food Corruption"], {
+    overview: "A disguised Mas'eel operation that looked like trade, novelty, and abundance while spreading control.",
+    leadership: "Mur'amar and other Mas'eel agents can use trader identities, food gifts, and gentle public language.",
+    beliefsGoals: "Find the Cat Cauldron, locate Tohm's magical recipes, weaken Triadic faith, and replace shared abundance with FEAST.",
+    resourcesPower: "Imported foods, suspicious spices, influence inside village ranks, hidden cult marks, and searing corruption.",
+    storyRole: "Explains how Tabby Island was corrupted socially and spiritually before the Whisken realized what was happening."
+  }, [
+    related("character", muramar?.id, "Mur'amar can serve as a recognizable face of this operation."),
+    related("character", tohm?.id, "Tohm's activation of the Cat Cauldron drew the false traders to Tabby Island.")
+  ]);
   seedEntry("items", "Cat Cauldron", "Artifact", "An ancient Whisken cauldron created to improve food and reveal what is untasted, later awakened by Tohm and hunted by the Mas'eel.", ["Cat Cauldron", "Tabby Island", "Tohm Kyatt", "Whisken", "Mas'eel", "Major Spoiler"], {
     overview: "An ancient Whisken artifact that caused Tabby Island to decay once in antiquity and again after Tohm activated it.",
     powersUses: "Created to improve food and reach the knowledge of what is untasted. When activated, it can send a pulse into the earth strong enough to decay land and draw the Mas'eel's attention.",
@@ -335,6 +396,120 @@ export const createStarterWorldBuilding = (
     fullStory: "The Master Chef is another name for the Tablemaker, not a separate being. The faith's central triad is Passion, Taste, and Love.",
     meaning: "This faith shapes Whisken culture, Tohm's childhood stories, and the Mas'eel Cult's opposition."
   }, [related("character", tohm?.id, "Stories of the Tablemaker seed Tohm's obsession with sacred meals and untasted food.")]);
+  seedEntry("foodAndRecipes", "Festival of Full Plates", "Whisken Feast", "A yearly Whisken feast celebrating balance, gratitude, remembrance, and the promise that no plate should go empty.", ["Whisken", "Festival", "Triadic Faith", "Full Plates"], {
+    overview: "A Whisken feast and village tradition tied to shared abundance under the Tablemaker faith.",
+    culinaryUse: "Built around Hearth Stew, Healthy Ale, roots, herbs, gathered produce, and everyone being fed.",
+    gameplayUse: "Potential village event, reputation moment, recipe set, and cultural tutorial.",
+    magicalEffect: "Can quietly express healthy Food Essence through Passion, Taste, and Love without becoming a combat spell."
+  }, [related("character", ladyKiko?.id, "Lady Kiko can guide or protect this tradition.")]);
+  seedEntry("foodAndRecipes", "Healthy Ale", "Ale / Tonic", "Oswin's famous Whisken ale; villagers rely on it even though the name is mostly optimistic.", ["Oswin", "Ale", "Whisken", "Brewing"], {
+    overview: "A village drink and recipe slot in The Pantry.",
+    culinaryUse: "Whisken Root Ferment, Moonlit Dew, and Specialty Herbs make it feel medicinal, odd, and tavern-ready.",
+    gameplayUse: "Possible stamina, warmth, light recovery, or comedic side-effect drink.",
+    magicalEffect: "Should stay lightly magical or alchemical unless later upgraded."
+  }, [related("character", oswin?.id, "Oswin invented Healthy Ale.")]);
+  seedEntry("foodAndRecipes", "Whisken Hearth Stew", "Tavern Meal Recipe", "A hearty Whisken stew built from roots, broth, herbs, and safe village ingredients.", ["Whisken", "Stew", "Tavern Meal", "Pantry"], {
+    overview: "Practical comfort recipe for the Pantry and Whisken Village food culture.",
+    culinaryUse: "Potato, Turnip, Boga, Specialty Herbs, and Cat Cauldron Broth Base.",
+    gameplayUse: "Starter recovery meal, comfort meal, village favor, or cooking tutorial recipe.",
+    magicalEffect: "A clean everyday Food Essence expression: feeding people before chasing power."
+  }, [
+    related("character", momon?.id, "Momon anchors the farming side of this meal."),
+    related("character", mona?.id, "Mona can provide produce or orchard timing.")
+  ]);
+  seedEntry("foodAndRecipes", "False Trader Spice", "Corrupted Ingredient", "A suspicious spice blend introduced by Mas'eel false traders during their slow infiltration of Tabby Island.", ["Mas'eel", "Spice", "Corrupted Ingredient", "Tabby Island"], {
+    overview: "Ingredient and clue that food culture was used as cover for the Mas'eel takeover.",
+    culinaryUse: "Looks like an exciting imported spice, but belongs in corrupted recipes and investigation scenes.",
+    gameplayUse: "Quest evidence, dangerous recipe component, debuff ingredient, or clue leading to Mur'amar.",
+    magicalEffect: "Can carry searing corruption or distort healthy Food Essence toward FEAST."
+  }, [related("character", muramar?.id, "Mur'amar may use gentle language around this kind of imported food.")]);
+  seedEntry("foodAndRecipes", "Cat Cauldron Broth Base", "Recipe Component", "A flexible broth base made in the Cat Cauldron for stews, magical meals, and comfort dishes.", ["Cat Cauldron", "Broth", "Recipe Component", "Pantry"], {
+    overview: "Everyday Pantry slot for the Cat Cauldron's normal cooking use.",
+    culinaryUse: "Any safe meat or creature drop, produce, and Specialty Herbs simmered into a flexible base.",
+    gameplayUse: "Meal component for Hearth Stew, magical meals, restorative recipes, and cooking tutorials.",
+    magicalEffect: "Separates normal broth work from the catastrophic act of awakening the ancient cauldron."
+  }, [related("character", catCauldronCharacter?.id, "The sentient cauldron is the station for this recipe.")]);
+  seedEntry("creatureLinks", "Cauldron Echo Slime", "Bestiary Link", "A rare slime formed near places touched by Cat Cauldron pulses and old recipe memory.", ["Slime", "Cat Cauldron", "Tabby Island"], {
+    loreNote: "This creature gives the Cat Cauldron disaster a visible ecosystem consequence.",
+    ecosystem: "Appears near buried kitchens, ruins, broth residue, and pulse-touched ground.",
+    gameplayStoryLinks: "Drops Cauldron echo gel for truth-reveal tonics and late-game investigation meals."
+  }, [related("creature", cauldronEchoSlime?.id, "Bestiary slot seeded from Cat Cauldron lore.")]);
+  seedEntry("creatureLinks", "Seared Scarab", "Bestiary Link", "An insect tied to Mas'eel searing, false trader stores, and corrupted Tabby Island roots.", ["Insect", "Mas'eel", "Tabby Island", "False Traders"], {
+    loreNote: "A small enemy that makes the Mas'eel's slow corruption visible in the environment.",
+    ecosystem: "Clusters around corrupted roots, old food stores, and false trader caches.",
+    gameplayStoryLinks: "Drops Seared shell chips and traces of False Trader Spice."
+  }, [related("creature", searedScarab?.id, "Bestiary slot seeded for Mas'eel corruption.")]);
+  seedEntry("creatureLinks", "False Feast Fly", "Bestiary Link", "A deceptive swarm drawn to food that looks abundant but has been spiritually spoiled.", ["Insect", "Aberration", "FEAST", "Mas'eel"], {
+    loreNote: "A creature-symbol for the Mas'eel version of abundance: hunger wearing a beautiful mask.",
+    ecosystem: "Appears near corrupted feasts, rotten ceremonial leftovers, and Dark Culinary Arts experiments.",
+    gameplayStoryLinks: "Drops False feast wings for deception tonics and corruption-diagnosis recipes."
+  }, [related("creature", falseFeastFly?.id, "Bestiary slot seeded for FEAST symbolism.")]);
+  seedEntry("characterLinks", "Mona the Orchardist", "Character Link", "A reserved Whisken orchardist who connects village produce, family, and longing for the wider world.", ["Mona", "Whisken", "Orchard", "Village"], {
+    worldRole: "Whisken Village orchardist and possible produce source.",
+    relationships: "Daughter of Momon; connected to Gwen's gathering work and village routines.",
+    automaticLinks: "Whisken Village, Whisken People, Festival of Full Plates, Moonlit Dew, Whisken Hearth Stew."
+  }, [related("character", mona?.id, "Main database character entry.")]);
+  seedEntry("characterLinks", "Momon", "Character Link", "A Whisken farmer who anchors village food production and passes agricultural knowledge to Mona.", ["Momon", "Whisken", "Farm", "Village"], {
+    worldRole: "Farmer, agricultural teacher, and food-security figure.",
+    relationships: "Father of Mona; village peer to Kap, Oswin, and Lady Kiko.",
+    automaticLinks: "Whisken Village, Festival of Full Plates, Whisken Hearth Stew, Potato, Turnip, Boga."
+  }, [related("character", momon?.id, "Main database character entry.")]);
+  seedEntry("characterLinks", "Lady Kiko", "Character Link", "A protective Whisken guide who expresses unity, faith, and community care.", ["Lady Kiko", "Whisken", "Protector", "Triadic Faith"], {
+    worldRole: "Protector, mediator, or cultural guide for Whisken Village.",
+    relationships: "Linked to village families, Gwen's learning of Whisken customs, and the Festival of Full Plates.",
+    automaticLinks: "Whisken People, Whisken Saints, Whisken Village, Festival of Full Plates."
+  }, [related("character", ladyKiko?.id, "Main database character entry.")]);
+  seedEntry("characterLinks", "Mur'amar", "Character Link", "A Mas'eel-linked stranger who presents his faith gently while searching for the Cat Cauldron and recipes.", ["Mur'amar", "Mas'eel", "Deception", "Gwen"], {
+    worldRole: "Cult agent or linked figure moving through Whisken spaces under a peaceful mask.",
+    relationships: "Speaks with Gwen, moves among villagers as if he belongs, and connects to Princess Lillia's broader villain network.",
+    automaticLinks: "Mas'eel Cult, Mas'eel False Traders, Whisken Village, Lillia's Camp, Cat Cauldron."
+  }, [related("character", muramar?.id, "Main database character entry.")]);
+  seedEntry("characterLinks", "The Cat Cauldron", "Character Link", "A sentient artifact-character whose everyday cooking role hides catastrophic history.", ["Cat Cauldron", "Sentient Artifact", "Tohm", "Gwen"], {
+    worldRole: "Cooking station, character, lore witness, and hunted artifact.",
+    relationships: "Created by ancient Whisken, awakened by Tohm, used by Gwen, and sought by the Mas'eel.",
+    automaticLinks: "Cat Cauldron, Tabby Island, Cat Cauldron Broth Base, Mas'eel Cult, Tohm Kyatt."
+  }, [related("character", catCauldronCharacter?.id, "Character-style entry for the sentient cauldron.")]);
+  seedEntry("characterLinks", "The Tablemaker", "Character Link", "The divine figure also called the Master Chef, source of the Tablemaker faith and Food Essence.", ["Tablemaker", "Master Chef", "Triadic Faith"], {
+    worldRole: "Sacred figure whose meal ended the 300 Year War and shaped most cultures' faith.",
+    relationships: "Inspires Tohm's childhood stories and opposes the Mas'eel distortion of FEAST.",
+    automaticLinks: "The Everfeast, Food Essence, Ovenhold, Faery Realm, Whisken People, Mas'eel Cult."
+  }, [related("character", tablemaker?.id, "Main database character entry.")]);
+  seedEntry("quests", "Lel Kai's Rescue Fleet", "Backstory Event / Rescue Quest", "Tohm asks Lel Kai to send boats to rescue the Whisken from Tabby Island during the second exodus.", ["Lel Kai", "Rescue", "Whisken", "Tabby Island"], {
+    overview: "Rescue-fleet event explaining how the known Whisken survivors reached Whisker Woods.",
+    objectives: "Gather boats, cross corrupted waters, save as many Whisken as possible, and survive scattered routes.",
+    majorBeats: "Tohm hears what is happening, gets Lel Kai's help, boats are sent, corruption scatters many, known survivors reach Whisker Woods.",
+    rewardsConsequences: "The current Whisken Village exists, but missing boats and survivor trauma remain story hooks."
+  }, [related("character", tohm?.id, "Tohm sets the rescue in motion."), related("character", kap?.id, "Kap represents the current survivor village generation.")]);
+  seedEntry("quests", "Investigate the False Traders", "Story Investigation", "A quest thread for uncovering how Mas'eel trade, spices, and gentle language corrupted Tabby Island.", ["Mas'eel", "False Traders", "Tabby Island", "Mur'amar"], {
+    overview: "Investigation line connecting suspicious foods, cult signs, creature evidence, and Mur'amar's public mask.",
+    objectives: "Inspect trader stores, identify False Trader Spice, fight Seared Scarabs or False Feast Flies, question Mur'amar, and connect clues to the Cat Cauldron pulse.",
+    majorBeats: "The player realizes that food was not just flavor here. It was the method of takeover.",
+    rewardsConsequences: "Unlocks Mas'eel truth, Dark Culinary Arts context, and Tabby Island history."
+  }, [related("character", muramar?.id, "Mur'amar is a key face for this investigation.")]);
+  seedEntry("timeline", "Ancient Cat Cauldron Disaster", "Ancient Timeline Event", "Ancient Whisken create the Cat Cauldron, trigger Tabby Island decay, flee, bury it, and erase it from history.", ["Cat Cauldron", "First Exodus", "Whisken", "Tabby Island"], {
+    event: "Ancient Whisken seek better food and knowledge of what is untasted; the Cat Cauldron's power damages Tabby Island.",
+    causes: "Good hunger for food knowledge mixed with unsafe magical invention.",
+    consequences: "First exodus, Cat Cauldron buried beneath the island, records removed, and the event eventually forgotten.",
+    involved: "Ancient Whisken, Tabby Island, Cat Cauldron, Tablemaker faith."
+  }, [related("character", catCauldronCharacter?.id, "Sentient artifact tied to this ancient disaster.")]);
+  seedEntry("timeline", "Tohm Awakens the Cat Cauldron", "Backstory Timeline Event", "Tohm discovers the forgotten Cat Cauldron, cooks in it, releases a pulse into the earth, and secretly flees with it.", ["Tohm Kyatt", "Cat Cauldron", "Mas'eel", "Major Spoiler"], {
+    event: "Tohm cooks a meal in the Cat Cauldron and activates it.",
+    causes: "Tohm's obsession with magical food, the Tablemaker stories, and the knowledge of what is untasted.",
+    consequences: "Tabby Island begins dying again, the Mas'eel sense the cauldron, and Tohm flees with it in the Living Tavern.",
+    involved: "Tohm Kyatt, Cat Cauldron, Tabby Island, Mas'eel Cult."
+  }, [related("character", tohm?.id, "Tohm is the one who awakens the cauldron.")]);
+  seedEntry("timeline", "Mas'eel Infiltrate Tabby Island", "Backstory Timeline Event", "Mas'eel cultists arrive as false traders, introduce new foods, gain power, and persecute the Whisken faith.", ["Mas'eel", "False Traders", "Whisken", "FEAST"], {
+    event: "The Mas'eel trading front enters Tabby Island after sensing the Cat Cauldron pulse.",
+    causes: "They know the Cat Cauldron was on Tabby Island and want Tohm's recipes.",
+    consequences: "Whisken village authority is corrupted, Triadic believers are persecuted, and the second exodus begins.",
+    involved: "Mas'eel Cult, Whisken People, Mur'amar, False Trader Spice, Tabby Island."
+  }, [related("character", muramar?.id, "Mur'amar can be connected to this infiltration thread.")]);
+  seedEntry("timeline", "Lel Kai's Rescue Fleet", "Backstory Timeline Event", "Lel Kai sends boats at Tohm's request, but corruption scatters many of them before the known survivors reach Whisker Woods.", ["Lel Kai", "Whisken", "Rescue", "Second Exodus"], {
+    event: "Rescue boats leave for Tabby Island during the second exodus.",
+    causes: "Tohm hears what is happening and gets Lel Kai, who is becoming general of the faery army, to help.",
+    consequences: "Known survivors settle in Whisker Woods and Whisken Village; scattered boats and missing survivors remain open story hooks.",
+    involved: "Tohm Kyatt, Lel Kai, Whisken People, Tabby Island, Whisker Woods."
+  }, [related("character", tohm?.id, "Tohm initiates the rescue after hiding his own earlier role.")]);
   seedEntry("rules", "Tohm Never Drinks From The Cauldron", "Canon Rule", "A hard canon fact for contradiction detection: Tohm never drinks from the cauldron.", ["Canon Rule", "Tohm Kyatt", "Cat Cauldron"], {
     rule: "Tohm never drinks from the cauldron. Any lore implying that he does should be rewritten.",
     affectedEntries: "Tohm Kyatt, Cat Cauldron, Tabby Island disaster, Tablemaker faith, magical cooking backstory."
