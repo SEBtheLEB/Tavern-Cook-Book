@@ -11,7 +11,14 @@
   BestiaryCreatureStats,
   CharacterArtVault
 } from "../types";
-import { normalizeArtVault, nowIso, slugify } from "./entries";
+import {
+  isDefaultArtVaultSectionId,
+  isDefaultArtVaultSlotId,
+  normalizeArtVault,
+  normalizeArtVaultWithFallback,
+  nowIso,
+  slugify
+} from "./entries";
 import { legacyCreatureFit, normalizeImageFit } from "./imageFit";
 
 const creatureArtVaultBlueprints = [
@@ -27,7 +34,15 @@ const creatureArtVaultBlueprints = [
     title: "Animation & Combat",
     description: "Movement, attacks, defeat poses, and animation reference for gameplay.",
     requirementType: "Animation Reference",
-    slots: ["Animation Reference", "Attack Poses", "Death / Defeat Pose"]
+    slots: [
+      "Idle Animation",
+      "Move / Crawl Cycle",
+      "Attack 01",
+      "Attack 02",
+      "Hit Reaction",
+      "Death / Defeat",
+      "Special Ability / Behavior"
+    ]
   },
   {
     id: "creature-gameplay-references",
@@ -288,12 +303,48 @@ export const sanitizeBestiaryCategoryArtVaultForPersistence = (
 });
 
 export const normalizeCreatureArtVault = (value: unknown): CharacterArtVault => {
-  const normalized = normalizeArtVault(value);
   if (value && typeof value === "object" && Array.isArray((value as CharacterArtVault).sections)) {
-    return normalized;
+    const normalized = normalizeArtVaultWithFallback(value, createDefaultCreatureArtVault());
+    const removedCharacterDefaults = normalized.sections.some(isBlankCharacterDefaultSection);
+    const cleaned = removeBlankCharacterDefaultsFromCreatureVault(normalized);
+    return removedCharacterDefaults ? ensureCreatureDefaultSections(cleaned) : cleaned;
   }
   return createDefaultCreatureArtVault();
 };
+
+function removeBlankCharacterDefaultsFromCreatureVault(vault: CharacterArtVault): CharacterArtVault {
+  return {
+    sections: vault.sections
+      .filter((section) => !isBlankCharacterDefaultSection(section))
+      .map((section, order) => ({ ...section, order }))
+  };
+}
+
+function isBlankCharacterDefaultSection(section: ArtVaultSection) {
+  if (!isDefaultArtVaultSectionId(section.id)) return false;
+  return section.slots.every((slot) =>
+    isDefaultArtVaultSlotId(slot.id) &&
+    !slot.image &&
+    !slot.notes.trim() &&
+    (!slot.status || ["empty", "missing"].includes(String(slot.status).toLowerCase()))
+  );
+}
+
+function ensureCreatureDefaultSections(vault: CharacterArtVault): CharacterArtVault {
+  const defaultSections = createDefaultCreatureArtVault().sections;
+  const existingIds = new Set(vault.sections.map((section) => section.id.toLowerCase()));
+  const existingTitles = new Set(vault.sections.map((section) => section.title.toLowerCase()));
+  const missingDefaults = defaultSections
+    .filter((section) => !existingIds.has(section.id.toLowerCase()) && !existingTitles.has(section.title.toLowerCase()))
+    .map((section) => ({
+      ...section,
+      slots: section.slots.map((slot) => ({ ...slot, image: slot.image ? { ...slot.image } : null }))
+    }));
+
+  return {
+    sections: [...missingDefaults, ...vault.sections].map((section, order) => ({ ...section, order }))
+  };
+}
 
 export const createBlankBestiaryCreature = (): BestiaryCreature =>
   normalizeBestiaryCreature({

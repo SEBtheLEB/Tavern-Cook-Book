@@ -65,6 +65,24 @@ export const SCRIBE_TARGET_HELPERS: ScribeTargetHelper[] = [
       "If the command contains [Scribe Target: Bestiary only], only change Bestiary creatures, Bestiary category art slots, or Bestiary creature art slots. Use addCreature for new creatures and removeCreature for deleted creatures. Do not update lore entries or world entries."
   },
   {
+    id: "target-art-vault",
+    label: "Art Vault",
+    group: "target",
+    insertText: "[Scribe Target: Art Vault only]",
+    description: "Only subject art vault categories, slots, labels, and notes.",
+    scribeGuidance:
+      "If the command contains [Scribe Target: Art Vault only], only organize art production data: artVault sections/categories, art slots, slot labels, requirement types, and notes. Use target \"entry\" plus an entry id for character/lore Art Vaults, target \"creature\" plus a creature id for Bestiary creature Art Vaults, and target \"bestiaryCategory\" plus categoryName for shared Bestiary category vaults. Prefer addArtCategory, renameArtCategory, removeArtCategory, addArtSlot, renameArtSlot, and removeArtSlot. Do not change lore text, UI layout, image files, Drive files, API keys, or uploaded image metadata. If removing a category or slot, only remove local app metadata."
+  },
+  {
+    id: "target-art-binder",
+    label: "Art Binder",
+    group: "target",
+    insertText: "[Scribe Target: Art Binder only]",
+    description: "Organize the cross-project art board by subject, category, and slot.",
+    scribeGuidance:
+      "If the command contains [Scribe Target: Art Binder only], organize the same artVault data as it appears in the Art Binder. If the user names one subject like Crayhusk or Gwen, affect only that subject's own Art Binder categories and slots unless the user explicitly says all subjects, all creatures, or a whole category. For creatures, avoid character-only categories such as Dialogue Sprites or character weapon attacks unless explicitly requested; use creature-specific categories such as Core Creature Art, Animation & Combat, Gameplay References, Marketing & Misc Art, or custom creature categories. Prefer addArtCategory, renameArtCategory, removeArtCategory, addArtSlot, renameArtSlot, and removeArtSlot. Do not create lore entries or alter images/Drive files."
+  },
+  {
     id: "target-world",
     label: "World Building",
     group: "target",
@@ -116,7 +134,7 @@ export const SCRIBE_TARGET_HELPERS: ScribeTargetHelper[] = [
     insertText: "[Scribe Mode: Add/remove entries only]",
     description: "Create or remove records and slots, without rewriting existing text.",
     scribeGuidance:
-      "If the command contains [Scribe Mode: Add/remove entries only], do not rewrite or update existing text fields. Only create or remove records: add, removeEntry, addCreature, removeCreature, addWorldEntry, addArtSlot, removeArtSlot, or archive. If creating a new entry, creature, world entry, art slot, or archive note, include the user's supplied text inside that new record. If the user asks to remove an existing normal lore entry, use removeEntry with the entry id from entryIndex/relevantEntries."
+      "If the command contains [Scribe Mode: Add/remove entries only], do not rewrite or update existing text fields. Only create or remove records: add, removeEntry, addCreature, removeCreature, addWorldEntry, addArtCategory, removeArtCategory, addArtSlot, removeArtSlot, or archive. If creating a new entry, creature, world entry, art category, art slot, or archive note, include the user's supplied text inside that new record. If the user asks to remove an existing normal lore entry, use removeEntry with the entry id from entryIndex/relevantEntries."
   }
 ];
 

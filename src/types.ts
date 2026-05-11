@@ -551,6 +551,19 @@ export type AssistantAction =
       notes?: string;
     }
   | {
+      action: "renameArtSlot";
+      target: "entry" | "creature" | "bestiaryCategory";
+      id?: string;
+      categoryName?: string;
+      sectionId?: string;
+      sectionTitle?: string;
+      slotId?: string;
+      label?: string;
+      newLabel: string;
+      requirementType?: string;
+      notes?: string;
+    }
+  | {
       action: "removeArtSlot";
       target: "entry" | "creature" | "bestiaryCategory";
       id?: string;
@@ -559,6 +572,36 @@ export type AssistantAction =
       sectionTitle?: string;
       slotId?: string;
       label?: string;
+    }
+  | {
+      action: "addArtCategory";
+      target: "entry" | "creature" | "bestiaryCategory";
+      id?: string;
+      categoryName?: string;
+      sectionTitle: string;
+      description?: string;
+      firstSlotLabel?: string;
+      slots?: string[];
+      requirementType?: string;
+      notes?: string;
+    }
+  | {
+      action: "renameArtCategory";
+      target: "entry" | "creature" | "bestiaryCategory";
+      id?: string;
+      categoryName?: string;
+      sectionId?: string;
+      sectionTitle?: string;
+      newTitle: string;
+      description?: string;
+    }
+  | {
+      action: "removeArtCategory";
+      target: "entry" | "creature" | "bestiaryCategory";
+      id?: string;
+      categoryName?: string;
+      sectionId?: string;
+      sectionTitle?: string;
     }
   | {
       action: "archive";

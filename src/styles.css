@@ -9566,6 +9566,12 @@ button,
   padding: 6px 10px;
 }
 
+.art-binder-set-folder-button.danger {
+  border-color: var(--danger-border);
+  color: var(--danger-ink);
+  background: color-mix(in srgb, var(--danger-bg) 68%, var(--field-bg));
+}
+
 .art-binder-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));

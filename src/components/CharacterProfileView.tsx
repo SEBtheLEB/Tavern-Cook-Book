@@ -17,8 +17,6 @@ import type {
 } from "../types";
 import { isDriveConfigured, showDriveSetupMessage } from "../utils/driveSettings";
 import {
-  isDefaultArtVaultSectionId,
-  isDefaultArtVaultSlotId,
   isDefaultCharacterArtBoardCategoryId,
   normalizeArtVault,
   normalizeCharacterArtBoard
@@ -2003,10 +2001,6 @@ function CharacterArtVaultView({
 
   const deleteSection = (sectionId: string) => {
     if (!requireVaultEdit()) return;
-    if (isDefaultArtVaultSectionId(sectionId)) {
-      window.alert("Default Art Vault sections can be renamed and reordered, but they stay in the vault.");
-      return;
-    }
     const section = vault.sections.find((candidate) => candidate.id === sectionId);
     if (!section) return;
     if (!window.confirm(`Delete "${section.title}" from this Art Vault? This will not delete any files from Google Drive.`)) return;
@@ -2040,10 +2034,6 @@ function CharacterArtVaultView({
     if (!requireVaultEdit()) return;
     const slot = findVaultSlot(vault, ref)?.slot;
     if (!slot) return;
-    if (isDefaultArtVaultSlotId(slot.id)) {
-      window.alert("Default Art Vault slots can be renamed, moved, and reordered, but they stay in the vault.");
-      return;
-    }
     if (!window.confirm(`Delete the "${slot.label}" slot? This will not delete anything from Google Drive.`)) return;
     saveVault(deleteVaultSlot(vault, ref));
   };
@@ -2546,9 +2536,7 @@ function CharacterArtVaultView({
             >
               <Icon name="Plus" className="h-4 w-4" />
             </button>
-            {!isDefaultArtVaultSectionId(activeSection.id) && (
-              <button className="danger" onClick={() => deleteSection(activeSection.id)}>Delete Section</button>
-            )}
+            <button className="danger" onClick={() => deleteSection(activeSection.id)}>Delete Section</button>
           </div>
         </section>
       )}
@@ -2640,11 +2628,9 @@ function CharacterArtVaultView({
                           <button onClick={() => { moveSlot(ref, 1); setSlotMenuRef(null); }} disabled={!isEditing}>
                             Move down
                           </button>
-                          {!isDefaultArtVaultSlotId(slot.id) && (
-                            <button className="danger" onClick={() => { deleteSlot(ref); setSlotMenuRef(null); }} disabled={!isEditing}>
-                              Delete slot
-                            </button>
-                          )}
+                          <button className="danger" onClick={() => { deleteSlot(ref); setSlotMenuRef(null); }} disabled={!isEditing}>
+                            Delete slot
+                          </button>
                         </div>
                       )}
                       <button className="character-art-vault-slot-main" onClick={() => triggerPrimarySlotAction(ref)}>

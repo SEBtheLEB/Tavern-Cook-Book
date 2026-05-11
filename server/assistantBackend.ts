@@ -60,6 +60,22 @@ const SCRIBE_TARGET_HELPERS: ServerScribeTargetHelper[] = [
       "If the command contains [Scribe Target: Bestiary only], only change Bestiary creatures, Bestiary category art slots, or Bestiary creature art slots. Use addCreature for new creatures and removeCreature for deleted creatures. Do not update lore entries or world entries."
   },
   {
+    label: "Art Vault",
+    group: "target",
+    insertText: "[Scribe Target: Art Vault only]",
+    description: "Only subject art vault categories, slots, labels, and notes.",
+    scribeGuidance:
+      "If the command contains [Scribe Target: Art Vault only], only organize art production data: artVault sections/categories, art slots, slot labels, requirement types, and notes. Use target \"entry\" plus an entry id for character/lore Art Vaults, target \"creature\" plus a creature id for Bestiary creature Art Vaults, and target \"bestiaryCategory\" plus categoryName for shared Bestiary category vaults. Prefer addArtCategory, renameArtCategory, removeArtCategory, addArtSlot, renameArtSlot, and removeArtSlot. Do not change lore text, UI layout, image files, Drive files, API keys, or uploaded image metadata. If removing a category or slot, only remove local app metadata."
+  },
+  {
+    label: "Art Binder",
+    group: "target",
+    insertText: "[Scribe Target: Art Binder only]",
+    description: "Organize the cross-project art board by subject, category, and slot.",
+    scribeGuidance:
+      "If the command contains [Scribe Target: Art Binder only], organize the same artVault data as it appears in the Art Binder. If the user names one subject like Crayhusk or Gwen, affect only that subject's own Art Binder categories and slots unless the user explicitly says all subjects, all creatures, or a whole category. For creatures, avoid character-only categories such as Dialogue Sprites or character weapon attacks unless explicitly requested; use creature-specific categories such as Core Creature Art, Animation & Combat, Gameplay References, Marketing & Misc Art, or custom creature categories. Prefer addArtCategory, renameArtCategory, removeArtCategory, addArtSlot, renameArtSlot, and removeArtSlot. Do not create lore entries or alter images/Drive files."
+  },
+  {
     label: "World Building",
     group: "target",
     insertText: "[Scribe Target: World Building only]",
@@ -105,7 +121,7 @@ const SCRIBE_TARGET_HELPERS: ServerScribeTargetHelper[] = [
     insertText: "[Scribe Mode: Add/remove entries only]",
     description: "Create or remove records and slots, without rewriting existing text.",
     scribeGuidance:
-      "If the command contains [Scribe Mode: Add/remove entries only], do not rewrite or update existing text fields. Only create or remove records: add, removeEntry, addCreature, removeCreature, addWorldEntry, addArtSlot, removeArtSlot, or archive. If creating a new entry, creature, world entry, art slot, or archive note, include the user's supplied text inside that new record. If the user asks to remove an existing normal lore entry, use removeEntry with the entry id from entryIndex/relevantEntries."
+      "If the command contains [Scribe Mode: Add/remove entries only], do not rewrite or update existing text fields. Only create or remove records: add, removeEntry, addCreature, removeCreature, addWorldEntry, addArtCategory, removeArtCategory, addArtSlot, removeArtSlot, or archive. If creating a new entry, creature, world entry, art category, art slot, or archive note, include the user's supplied text inside that new record. If the user asks to remove an existing normal lore entry, use removeEntry with the entry id from entryIndex/relevantEntries."
   }
 ];
 
@@ -189,7 +205,7 @@ export async function handleAssistantRequest(body: AssistantBackendRequest): Pro
           {
             role: "system",
             content:
-              `You are Tavern Scribe, the secure backend lore assistant for The Tavern Cook Book, a local-first lore bible for Tales of the Tavern by STL Productionz. Return only valid JSON matching the requested schema. Make precise, reviewable app-data changes. You may update lore text, structured fields, tags, bestiary stats/drops/lore, world-building entries, pantry/recipe/item entries, and art slot labels. You may add lore entries, bestiary creatures, world entries, and art slots. You may remove Bestiary creatures and art slots when asked. Never propose code, UI layout, CSS, API keys, secrets, image uploads, Drive file deletion, or development changes. Preserve canon facts unless the user explicitly asks to change them. Tohm never drinks from the cauldron. Lillia tore pages from the recipe book; she did not steal the whole book. Every requested clause must produce at least one change or a warning. Characters, factions, cultures, locations, quests, story pages, items, recipes, and marketing pages from entryIndex are entries; update them with setData target entry and never with targets like character, faction, or culture. Before adding a normal lore entry, scan entryIndex for an exact or near-exact title match and update that existing entry instead of creating a duplicate. The Pantry is a top-level app tab; its underlying stored entry.category is "Food & Inventory". Food, menu items, ingredients, meals, recipes, drinks, ales, tonics, cooking inventory, and culinary magic belong in The Pantry, not Story, unless the user explicitly asks for story lore about food culture. World Building modules from worldIndex are separate records; if the same concept appears in entryIndex and worldIndex, update both records. If the user asks to remove/delete/archive a Bestiary creature, return removeCreature using the id from bestiaryIndex/relevantCreatures; do not return only archive. Include archiveContent on removeCreature only when the user wants a note kept. If the user changes a character's age, update existing age text and add or update fields.Age. If the user declares a relationship between an existing character and an existing people/culture/faction, update both related existing entries when possible, update matching worldEntry fields, and add the character to relatedEntries when the current worldEntry has relationship data. Do not copy the user's command, Scribe target directives, or UI routing phrases into summaries/descriptions/internal lore. For meals and recipes, put routing data in category, type, fields.pantryMealGroup, fields.ingredientsRequired, and wiki ingredients instead of prose like "belongs in The Pantry section".
+              `You are Tavern Scribe, the secure backend lore assistant for The Tavern Cook Book, a local-first lore bible for Tales of the Tavern by STL Productionz. Return only valid JSON matching the requested schema. Make precise, reviewable app-data changes. You may update lore text, structured fields, tags, bestiary stats/drops/lore, world-building entries, pantry/recipe/item entries, art vault categories, and art slot labels. You may add lore entries, bestiary creatures, world entries, art categories, and art slots. You may remove Bestiary creatures, art categories, and art slots when asked. Never propose code, UI layout, CSS, API keys, secrets, image uploads, Drive file deletion, or development changes. Preserve canon facts unless the user explicitly asks to change them. Tohm never drinks from the cauldron. Lillia tore pages from the recipe book; she did not steal the whole book. Every requested clause must produce at least one change or a warning. Characters, factions, cultures, locations, quests, story pages, items, recipes, and marketing pages from entryIndex are entries; update them with setData target entry and never with targets like character, faction, or culture. Before adding a normal lore entry, scan entryIndex for an exact or near-exact title match and update that existing entry instead of creating a duplicate. The Pantry is a top-level app tab; its underlying stored entry.category is "Food & Inventory". Food, menu items, ingredients, meals, recipes, drinks, ales, tonics, cooking inventory, and culinary magic belong in The Pantry, not Story, unless the user explicitly asks for story lore about food culture. For Art Vault and Art Binder requests, use artSlotIndex and the art actions; target one named subject only unless the user explicitly asks for all visible/all subjects/all creatures. Creature Art Binder categories should be creature-specific and should not receive character-only Dialogue Sprites or Gwen weapon slots unless explicitly requested. World Building modules from worldIndex are separate records; if the same concept appears in entryIndex and worldIndex, update both records. If the user asks to remove/delete/archive a Bestiary creature, return removeCreature using the id from bestiaryIndex/relevantCreatures; do not return only archive. Include archiveContent on removeCreature only when the user wants a note kept. If the user changes a character's age, update existing age text and add or update fields.Age. If the user declares a relationship between an existing character and an existing people/culture/faction, update both related existing entries when possible, update matching worldEntry fields, and add the character to relatedEntries when the current worldEntry has relationship data. Do not copy the user's command, Scribe target directives, or UI routing phrases into summaries/descriptions/internal lore. For meals and recipes, put routing data in category, type, fields.pantryMealGroup, fields.ingredientsRequired, and wiki ingredients instead of prose like "belongs in The Pantry section".
 Known Scribe target helper directives:
 ${scribeTargetHelperGuidance}`
           },
@@ -199,7 +215,7 @@ ${scribeTargetHelperGuidance}`
               mode: typeof mode === "string" ? mode : "patch",
               command,
               contextPolicy:
-                "You are receiving compact app data, not raw app storage. Media data has been removed. Use ids from entryIndex, bestiaryIndex, worldIndex, artSlotIndex, scribeTargetHelpers, and activeScribeHelpers. For direct field changes, return setData. For text replacements that should affect all entries/creatures/world records, return renameReference. If the user command includes a [Scribe Target: ...] or [Scribe Mode: ...] directive, treat it as a hard routing constraint. If multiple targets are active, satisfy each destination with separate correctly shaped actions. If the user asks to add/remove visual production slots, use addArtSlot/removeArtSlot. If the user asks to remove/delete/archive a Bestiary creature, use removeCreature with an id from bestiaryIndex/relevantCreatures. If the user asks to remove/delete a normal lore entry, use removeEntry with an id from entryIndex/relevantEntries. Do not satisfy Bestiary creature removal with archive alone. If context is insufficient for a precise update, include a warning and avoid guessing. Do not return any action outside the app-data schema. Characters, factions, cultures, locations, quests, story pages, items, recipes, and marketing pages from entryIndex are entries; update them with target entry. Before adding, scan entryIndex for same-title entries and update existing records instead of duplicating. The Pantry is a top-level app tab whose stored category is Food & Inventory. Food, menu items, ingredients, meals, recipes, drinks, ales, tonics, cooking inventory, and culinary magic should be Food & Inventory entries for The Pantry, never Story entries. World Building modules from worldIndex are separate records; when the same concept appears in entryIndex and worldIndex, update both records. Every requested clause must be represented by at least one change or warning. Do not copy target directives or UI routing instructions into lore descriptions.",
+                "You are receiving compact app data, not raw app storage. Media data has been removed. Use ids from entryIndex, bestiaryIndex, worldIndex, artCategoryIndex, artSlotIndex, scribeTargetHelpers, and activeScribeHelpers. For direct field changes, return setData. For text replacements that should affect all entries/creatures/world records, return renameReference. If the user command includes a [Scribe Target: ...] or [Scribe Mode: ...] directive, treat it as a hard routing constraint. If multiple targets are active, satisfy each destination with separate correctly shaped actions. If the user asks to add/remove/rename visual production categories or slots, use addArtCategory, renameArtCategory, removeArtCategory, addArtSlot, renameArtSlot, or removeArtSlot. If the user asks to remove/delete/archive a Bestiary creature, use removeCreature with an id from bestiaryIndex/relevantCreatures. If the user asks to remove/delete a normal lore entry, use removeEntry with an id from entryIndex/relevantEntries. Do not satisfy Bestiary creature removal with archive alone. If context is insufficient for a precise update, include a warning and avoid guessing. Do not return any action outside the app-data schema. Characters, factions, cultures, locations, quests, story pages, items, recipes, and marketing pages from entryIndex are entries; update them with target entry. Before adding, scan entryIndex for same-title entries and update existing records instead of duplicating. The Pantry is a top-level app tab whose stored category is Food & Inventory. Food, menu items, ingredients, meals, recipes, drinks, ales, tonics, cooking inventory, and culinary magic should be Food & Inventory entries for The Pantry, never Story entries. For Art Vault and Art Binder requests, target one named subject only unless the user explicitly asks for all subjects/all creatures; creature art categories should be creature-specific and should not include character-only Dialogue Sprites or Gwen weapon slots unless explicitly requested. World Building modules from worldIndex are separate records; when the same concept appears in entryIndex and worldIndex, update both records. Every requested clause must be represented by at least one change or warning. Do not copy target directives or UI routing instructions into lore descriptions.",
               requiredPatchShape: {
                 summary: "Short explanation of proposed changes",
                 changes: [
@@ -260,6 +276,13 @@ ${scribeTargetHelperGuidance}`
                     entry: { title: "New Culture", summary: "..." }
                   },
                   {
+                    action: "addArtCategory",
+                    target: "creature",
+                    id: "creature-id",
+                    sectionTitle: "Animation & Combat",
+                    slots: ["Idle Animation", "Attack 01"]
+                  },
+                  {
                     action: "addArtSlot",
                     target: "creature",
                     id: "creature-id",
@@ -267,10 +290,24 @@ ${scribeTargetHelperGuidance}`
                     label: "New Slot"
                   },
                   {
+                    action: "renameArtSlot",
+                    target: "creature",
+                    id: "creature-id",
+                    sectionTitle: "Animation & Combat",
+                    label: "Old Slot",
+                    newLabel: "New Slot"
+                  },
+                  {
                     action: "removeArtSlot",
                     target: "bestiaryCategory",
                     categoryName: "Insects",
                     label: "Old Slot"
+                  },
+                  {
+                    action: "removeArtCategory",
+                    target: "creature",
+                    id: "creature-id",
+                    sectionTitle: "Dialogue Sprites"
                   },
                   {
                     action: "archive",
@@ -308,7 +345,7 @@ ${scribeTargetHelperGuidance}`
                     properties: {
                       action: {
                         type: "string",
-                        enum: ["update", "setData", "renameReference", "add", "removeEntry", "addCreature", "removeCreature", "addWorldEntry", "addArtSlot", "removeArtSlot", "archive"]
+                        enum: ["update", "setData", "renameReference", "add", "removeEntry", "addCreature", "removeCreature", "addWorldEntry", "addArtCategory", "renameArtCategory", "removeArtCategory", "addArtSlot", "renameArtSlot", "removeArtSlot", "archive"]
                       },
                       target: { type: "string" },
                       id: { type: "string" },
@@ -330,6 +367,14 @@ ${scribeTargetHelperGuidance}`
                       sectionTitle: { type: "string" },
                       slotId: { type: "string" },
                       label: { type: "string" },
+                      newLabel: { type: "string" },
+                      newTitle: { type: "string" },
+                      firstSlotLabel: { type: "string" },
+                      slots: {
+                        type: "array",
+                        items: { type: "string" }
+                      },
+                      description: { type: "string" },
                       requirementType: { type: "string" },
                       notes: { type: "string" },
                       title: { type: "string" },
@@ -432,7 +477,8 @@ function buildAssistantLoreContext(database: AssistantBackendRequest["database"]
     relevantCreatures: relevantCreatures(creatures, command),
     worldIndex: compactWorldEntries(worldEntries, command, "index"),
     relevantWorldEntries: compactWorldEntries(worldEntries, command, "full").slice(0, 18),
-    artSlotIndex: compactArtSlotIndex(entries, creatures, categoryVaults).slice(0, 80)
+    artCategoryIndex: compactArtCategoryIndex(entries, creatures, categoryVaults).slice(0, 120),
+    artSlotIndex: compactArtSlotIndex(entries, creatures, categoryVaults).slice(0, 120)
   };
 }
 
@@ -555,6 +601,37 @@ function compactArtSlotIndex(
   return [...entrySlots, ...creatureSlots, ...categorySlots];
 }
 
+function compactArtCategoryIndex(
+  entries: Record<string, unknown>[],
+  creatures: Record<string, unknown>[],
+  categoryVaults: Record<string, unknown>[]
+) {
+  const entryCategories = entries.flatMap((entry) =>
+    artSections(entry).map((section) => ({
+      target: "entry",
+      id: stringValue(entry.id),
+      title: stringValue(entry.title),
+      ...section
+    }))
+  );
+  const creatureCategories = creatures.flatMap((creature) =>
+    artSections(creature).map((section) => ({
+      target: "creature",
+      id: stringValue(creature.id),
+      title: stringValue(creature.name),
+      ...section
+    }))
+  );
+  const categoryCategories = categoryVaults.flatMap((vault) =>
+    artSections(vault).map((section) => ({
+      target: "bestiaryCategory",
+      categoryName: stringValue(vault.categoryName),
+      ...section
+    }))
+  );
+  return [...entryCategories, ...creatureCategories, ...categoryCategories];
+}
+
 function scoreEntry(entry: Record<string, unknown>, command: string) {
   const terms = command
     .toLowerCase()
@@ -603,6 +680,19 @@ function scoreUnknown(value: unknown, command: string, title = "") {
 
 function artSlotLabels(subject: Record<string, unknown>) {
   return artSlots(subject).map((slot) => `${slot.sectionTitle}: ${slot.label}`);
+}
+
+function artSections(subject: Record<string, unknown>) {
+  const artVault = subject.artVault && typeof subject.artVault === "object"
+    ? subject.artVault as { sections?: unknown[] }
+    : { sections: [] };
+  return (Array.isArray(artVault.sections) ? artVault.sections : [])
+    .filter((sectionValue): sectionValue is Record<string, unknown> => Boolean(sectionValue) && typeof sectionValue === "object")
+    .map((section) => ({
+      sectionId: stringValue(section.id),
+      sectionTitle: stringValue(section.title),
+      slotCount: Array.isArray(section.slots) ? section.slots.length : 0
+    }));
 }
 
 function artSlots(subject: Record<string, unknown>) {

@@ -256,6 +256,28 @@ export function ArtBinderPage({
     onDatabaseChange(updateDatabaseAddSlotToCategory(database, cardsToUpdate, slotLabel, requirementType));
   };
 
+  const deleteCategory = (group: ArtBinderFolderGroup) => {
+    if (readOnly) return;
+    const cardsToDelete = uniqueSectionCards(group.cards).filter((card) => card.subject.source !== "environment");
+    if (!cardsToDelete.length) {
+      window.alert("This category is generated from environment media and cannot be removed from the Art Binder yet.");
+      return;
+    }
+    const filledCount = group.cards.filter((card) => isSlotFilled(card.slot)).length;
+    const subjectCount = cardsToDelete.length;
+    const detail = filledCount
+      ? `\n\n${filledCount} slot${filledCount === 1 ? "" : "s"} in this category have assigned art. The app will only remove local slot/category metadata; it will not delete Drive files.`
+      : "\n\nThis will not delete files from Google Drive.";
+    if (!window.confirm(`Remove "${group.category}" from ${subjectCount} visible subject${subjectCount === 1 ? "" : "s"}?${detail}`)) return;
+    onDatabaseChange(updateDatabaseRemoveArtBinderCategory(database, cardsToDelete));
+    setCategoryFilter((current) => current === group.category ? "all" : current);
+    setCollapsedCategories((current) => {
+      const next = new Set(current);
+      next.delete(group.category);
+      return next;
+    });
+  };
+
   return (
     <section className="art-binder-page">
       <header className="art-binder-hero">
@@ -313,7 +335,10 @@ export function ArtBinderPage({
           <span>Specific</span>
           <CustomSelect
             value={subjectFilter}
-            onChange={setSubjectFilter}
+            onChange={(value) => {
+              setSubjectFilter(value);
+              setCategoryFilter("all");
+            }}
             options={[
               { value: "all", label: subjectGroupFilter === "all" ? "All Boards" : `All ${selectedGroupLabel}` },
               ...specificSubjectOptions.map((subject) => ({ value: subject.id, label: subject.title }))
@@ -403,6 +428,10 @@ export function ArtBinderPage({
                       <button className="art-binder-set-folder-button" onClick={() => addSlotToCategory(group)}>
                         <Icon name="Plus" className="h-4 w-4" />
                         Slot
+                      </button>
+                      <button className="art-binder-set-folder-button danger" onClick={() => deleteCategory(group)}>
+                        <Icon name="Trash2" className="h-4 w-4" />
+                        Remove
                       </button>
                       <button
                         className="art-binder-set-folder-button"
@@ -737,6 +766,12 @@ function updateDatabaseAddArtBinderCategory(database: LoreDatabase, subjects: Ar
     .reduce((current, subject) => addArtBinderCategoryToSubject(current, subject, title, firstSlotLabel), database);
 }
 
+function updateDatabaseRemoveArtBinderCategory(database: LoreDatabase, cards: ArtBinderSlotCard[]): LoreDatabase {
+  return uniqueSectionCards(cards)
+    .filter((card) => card.subject.source !== "environment")
+    .reduce((current, card) => removeArtBinderCategoryFromSubject(current, card), database);
+}
+
 function updateDatabaseArtBinderSections(
   database: LoreDatabase,
   cards: ArtBinderSlotCard[],
@@ -857,6 +892,59 @@ function addArtBinderCategoryToSubject(database: LoreDatabase, subject: ArtBinde
   return database;
 }
 
+function removeArtBinderCategoryFromSubject(database: LoreDatabase, card: ArtBinderSlotCard): LoreDatabase {
+  if (card.subject.source === "character") {
+    return {
+      ...database,
+      entries: database.entries.map((entry) =>
+        entry.id === card.subject.id
+          ? {
+              ...entry,
+              artVault: removeSectionFromVault(normalizeArtVault(entry.artVault), card.section.id),
+              updatedAt: new Date().toISOString()
+            }
+          : entry
+      )
+    };
+  }
+
+  if (card.subject.source === "creature") {
+    return {
+      ...database,
+      bestiary: (database.bestiary || []).map((creature) =>
+        creature.id === card.subject.id
+          ? {
+              ...creature,
+              artVault: removeSectionFromVault(normalizeCreatureArtVault(creature.artVault), card.section.id),
+              updatedAt: new Date().toISOString()
+            }
+          : creature
+      )
+    };
+  }
+
+  if (card.subject.source === "bestiary-category") {
+    const existing = database.bestiaryCategoryVaults || [];
+    const current =
+      existing.find((vault) => vault.id === card.subject.id) ||
+      createBestiaryCategoryArtVaultRecord(card.subject.groupLabel, database.bestiary || []);
+    const normalized = normalizeBestiaryCategoryArtVault(current, current.categoryName || card.subject.groupLabel, database.bestiary || []);
+    const updated = {
+      ...normalized,
+      artVault: removeSectionFromVault(normalized.artVault, card.section.id),
+      updatedAt: new Date().toISOString()
+    };
+    return {
+      ...database,
+      bestiaryCategoryVaults: existing.some((vault) => vault.id === updated.id)
+        ? existing.map((vault) => (vault.id === updated.id ? updated : vault))
+        : [updated, ...existing]
+    };
+  }
+
+  return database;
+}
+
 function updateArtVaultSection(vault: { sections: ArtVaultSection[] }, sectionId: string, updater: (section: ArtVaultSection) => ArtVaultSection) {
   return {
     sections: vault.sections.map((section) => section.id === sectionId ? updater(section) : section)
@@ -885,6 +973,12 @@ function addSectionToVault(vault: { sections: ArtVaultSection[] }, title: string
         slots: [slot]
       }
     ]
+  };
+}
+
+function removeSectionFromVault(vault: { sections: ArtVaultSection[] }, sectionId: string) {
+  return {
+    sections: normalizeArtBinderOrders(vault.sections.filter((section) => section.id !== sectionId))
   };
 }
 
@@ -929,6 +1023,13 @@ function uniqueSlotId(slots: ArtVaultSlot[], baseId: string) {
   }
   return candidate;
 }
+
+function normalizeArtBinderOrders<T extends { order: number }>(items: T[]) {
+  return [...items]
+    .sort((left, right) => left.order - right.order)
+    .map((item, order) => ({ ...item, order }));
+}
+
 function updateDatabaseSlotImage(database: LoreDatabase, card: ArtBinderSlotCard, imageSlot: ImageManagerSlotDraft): LoreDatabase {
   if (card.subject.source === "character") {
     return {

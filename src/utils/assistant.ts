@@ -77,6 +77,13 @@ const assistantJsonInstructions = `Return only structured JSON in this exact sha
       "entry": { "title": "New Culture", "summary": "..." }
     },
     {
+      "action": "addArtCategory",
+      "target": "creature",
+      "id": "creature-id",
+      "sectionTitle": "Animation & Combat",
+      "slots": ["Idle Animation", "Attack 01"]
+    },
+    {
       "action": "addArtSlot",
       "target": "creature",
       "id": "creature-id",
@@ -84,10 +91,24 @@ const assistantJsonInstructions = `Return only structured JSON in this exact sha
       "label": "New Slot"
     },
     {
+      "action": "renameArtSlot",
+      "target": "creature",
+      "id": "creature-id",
+      "sectionTitle": "Animation & Combat",
+      "label": "Old Slot",
+      "newLabel": "New Slot"
+    },
+    {
       "action": "removeArtSlot",
       "target": "bestiaryCategory",
       "categoryName": "Insects",
       "label": "Old Slot"
+    },
+    {
+      "action": "removeArtCategory",
+      "target": "creature",
+      "id": "creature-id",
+      "sectionTitle": "Dialogue Sprites"
     },
     {
       "action": "archive",
@@ -97,8 +118,8 @@ const assistantJsonInstructions = `Return only structured JSON in this exact sha
   ],
   "warnings": []
 }
-Rules: only change app database content such as text, fields, tags, bestiary stats/drops/lore, world-building fields, and art slot labels. Never propose code, layout, CSS, API keys, images, Drive file deletion, or development changes. Prefer precise updates across every related place that should reflect the user's instruction. Include warnings when canon or naming decisions are uncertain.
-Rules continued: every requested clause must produce a matching change or a warning. If the user asks to change an existing character, faction, culture, location, quest, story, item, recipe, or marketing page, use action "setData" with target "entry" and the id from entryIndex/relevantEntries. Do not use targets like "character", "faction", or "culture"; those are stored as entries. Before adding a normal lore entry, scan entryIndex for an exact or near-exact title match and update that existing entry instead of creating a duplicate. The Pantry is a top-level app tab; its underlying stored entry.category is "Food & Inventory". Food, menu items, ingredients, meals, recipes, drinks, ales, tonics, cooking inventory, and culinary magic belong in The Pantry, not Story, unless the user explicitly asks for story lore about food culture. World Building modules are separate from lore entries: if a matching concept exists in worldIndex/relevantWorldEntries, also update it with setData target "worldEntry". If both an entry and worldEntry exist for the same concept, update both. If the user asks to remove/delete/archive a Bestiary creature, return removeCreature using the id from bestiaryIndex/relevantCreatures; do not return only archive for that request. Include archiveContent on removeCreature only when the user wants a note kept. If the user changes a character's age, update existing age text and add or update fields.Age. If the user declares a relationship between an existing character and an existing people/culture/faction, update both related existing entries when possible, update the matching worldEntry fields, and add the character to relatedEntries when the current worldEntry has relationship data. Do not copy the user's command, Scribe target directives, or UI routing phrases into summaries/descriptions/internal lore. For meals and recipes, put routing data in category, type, fields.pantryMealGroup, fields.ingredientsRequired, and wiki ingredients instead of prose like "belongs in The Pantry section".
+Rules: only change app database content such as text, fields, tags, bestiary stats/drops/lore, world-building fields, art vault categories, and art slot labels. Never propose code, layout, CSS, API keys, images, Drive file deletion, or development changes. Prefer precise updates across every related place that should reflect the user's instruction. Include warnings when canon or naming decisions are uncertain.
+Rules continued: every requested clause must produce a matching change or a warning. If the user asks to change an existing character, faction, culture, location, quest, story, item, recipe, or marketing page, use action "setData" with target "entry" and the id from entryIndex/relevantEntries. Do not use targets like "character", "faction", or "culture"; those are stored as entries. Before adding a normal lore entry, scan entryIndex for an exact or near-exact title match and update that existing entry instead of creating a duplicate. The Pantry is a top-level app tab; its underlying stored entry.category is "Food & Inventory". Food, menu items, ingredients, meals, recipes, drinks, ales, tonics, cooking inventory, and culinary magic belong in The Pantry, not Story, unless the user explicitly asks for story lore about food culture. For Art Vault and Art Binder requests, use artSlotIndex and the art actions; target one named subject only unless the user explicitly asks for all visible/all subjects/all creatures. Creature Art Binder categories should be creature-specific and should not receive character-only Dialogue Sprites or Gwen weapon slots unless explicitly requested. World Building modules are separate from lore entries: if a matching concept exists in worldIndex/relevantWorldEntries, also update it with setData target "worldEntry". If both an entry and worldEntry exist for the same concept, update both. If the user asks to remove/delete/archive a Bestiary creature, return removeCreature using the id from bestiaryIndex/relevantCreatures; do not return only archive for that request. Include archiveContent on removeCreature only when the user wants a note kept. If the user changes a character's age, update existing age text and add or update fields.Age. If the user declares a relationship between an existing character and an existing people/culture/faction, update both related existing entries when possible, update the matching worldEntry fields, and add the character to relatedEntries when the current worldEntry has relationship data. Do not copy the user's command, Scribe target directives, or UI routing phrases into summaries/descriptions/internal lore. For meals and recipes, put routing data in category, type, fields.pantryMealGroup, fields.ingredientsRequired, and wiki ingredients instead of prose like "belongs in The Pantry section".
 Known Scribe target helper directives:
 ${scribeTargetHelperGuidance}`;
 
@@ -766,32 +787,39 @@ const bestiaryCategoryVaultTargetAliases = new Set([
   "bestiarycategory"
 ]);
 
-const updateArtSlots = (
+type ArtSlotAction = Extract<AssistantAction, { action: "addArtSlot" | "renameArtSlot" | "removeArtSlot" }>;
+type ArtCategoryAction = Extract<AssistantAction, { action: "addArtCategory" | "renameArtCategory" | "removeArtCategory" }>;
+type AnyArtAction = ArtSlotAction | ArtCategoryAction;
+type ArtSectionRef = { sectionId?: string; sectionTitle?: string };
+type ArtSlotRef = { slotId?: string; label?: string };
+
+const updateArtVaultForAction = (
   database: LoreDatabase,
-  action: Extract<AssistantAction, { action: "addArtSlot" | "removeArtSlot" }>,
-  mode: "add" | "remove"
+  action: AnyArtAction,
+  mutate: (artVault: { sections?: ArtVaultSection[] } | undefined) => { sections: ArtVaultSection[] }
 ): LoreDatabase => {
-  if (action.target === "entry" && action.id) {
+  const target = normalizeArtActionTarget(action.target);
+  if (target === "entry" && action.id) {
     return {
       ...database,
       entries: database.entries.map((entry) => {
         if (entry.id !== action.id) return entry;
-        return normalizeEntry({ ...entry, artVault: mutateArtVaultSlots(entry.artVault, action, mode), updatedAt: nowIso() });
+        return normalizeEntry({ ...entry, artVault: mutate(entry.artVault), updatedAt: nowIso() });
       })
     };
   }
 
-  if (action.target === "creature" && action.id) {
+  if (target === "creature" && action.id) {
     return {
       ...database,
       bestiary: (database.bestiary || []).map((creature) => {
         if (creature.id !== action.id) return creature;
-        return normalizeBestiaryCreature({ ...creature, artVault: mutateArtVaultSlots(creature.artVault, action, mode), updatedAt: nowIso() });
+        return normalizeBestiaryCreature({ ...creature, artVault: mutate(creature.artVault), updatedAt: nowIso() });
       })
     };
   }
 
-  if (action.target === "bestiaryCategory" && action.categoryName) {
+  if (target === "bestiaryCategory" && action.categoryName) {
     const normalizedCategory = action.categoryName.trim();
     const existing = database.bestiaryCategoryVaults || [];
     const targetIndex = existing.findIndex((vault) => vault.categoryName.toLowerCase() === normalizedCategory.toLowerCase());
@@ -804,7 +832,7 @@ const updateArtSlots = (
       bestiaryCategoryVaults: vaults.map((vault) => {
         if (vault.categoryName.toLowerCase() !== normalizedCategory.toLowerCase()) return vault;
         return normalizeBestiaryCategoryArtVault(
-          { ...vault, artVault: mutateArtVaultSlots(vault.artVault, action, mode), updatedAt: nowIso() },
+          { ...vault, artVault: mutate(vault.artVault), updatedAt: nowIso() },
           vault.categoryName,
           database.bestiary || []
         );
@@ -815,53 +843,148 @@ const updateArtSlots = (
   return database;
 };
 
+const normalizeArtActionTarget = (target: unknown) => {
+  const normalized = String(target || "").toLowerCase().replace(/[^a-z]/g, "");
+  if (normalized === "character" || normalized === "entry" || normalized === "loreentry") return "entry";
+  if (normalized === "creature" || normalized === "bestiary" || normalized === "monster" || normalized === "enemy") return "creature";
+  if (
+    normalized === "bestiarycategory" ||
+    normalized === "bestiarycategoryvault" ||
+    normalized === "categoryvault"
+  ) return "bestiaryCategory";
+  return String(target || "");
+};
+
+const updateArtSlots = (
+  database: LoreDatabase,
+  action: ArtSlotAction,
+  mode: "add" | "rename" | "remove"
+): LoreDatabase => updateArtVaultForAction(database, action, (artVault) => mutateArtVaultSlots(artVault, action, mode));
+
+const updateArtCategories = (
+  database: LoreDatabase,
+  action: ArtCategoryAction
+): LoreDatabase => updateArtVaultForAction(database, action, (artVault) => mutateArtVaultCategories(artVault, action));
+
 const mutateArtVaultSlots = (
   artVault: { sections?: ArtVaultSection[] } | undefined,
-  action: Extract<AssistantAction, { action: "addArtSlot" | "removeArtSlot" }>,
-  mode: "add" | "remove"
+  action: ArtSlotAction,
+  mode: "add" | "rename" | "remove"
 ) => {
   const sections = [...(artVault?.sections || [])].map((section) => ({
     ...section,
     slots: [...(section.slots || [])]
   }));
-  const section = findOrCreateArtSection(sections, action);
+  const section = mode === "add" ? findOrCreateArtSection(sections, action) : findExistingArtSection(sections, action);
+  if (!section) return { sections: normalizeArtVaultOrders(sections) };
 
   if (mode === "add" && action.action === "addArtSlot") {
     const label = action.label.trim();
     if (!label || section.slots.some((slot) => slot.label.toLowerCase() === label.toLowerCase())) {
-      return { sections };
+      return { sections: normalizeArtVaultOrders(sections) };
     }
-    section.slots.push(createScribeArtSlot(section.id, label, action.requirementType || "Optional", section.slots.length, action.notes || ""));
+    section.slots.push(createScribeArtSlot(section.id, label, action.requirementType || section.title || "Optional", section.slots.length, action.notes || "", section.slots));
+  }
+
+  if (mode === "rename" && action.action === "renameArtSlot") {
+    const slot = findExistingArtSlot(section, action);
+    const newLabel = action.newLabel.trim();
+    if (slot && newLabel) {
+      slot.label = newLabel;
+      if (action.requirementType?.trim()) slot.requirementType = action.requirementType.trim();
+      if (typeof action.notes === "string") slot.notes = action.notes;
+      if (slot.image) slot.image = { ...slot.image, title: newLabel, category: section.title };
+    }
   }
 
   if (mode === "remove" && action.action === "removeArtSlot") {
-    const slotId = action.slotId?.trim().toLowerCase() || "";
-    const label = action.label?.trim().toLowerCase() || "";
     section.slots = section.slots.filter((slot) => {
-      if (slotId && slot.id.toLowerCase() === slotId) return false;
-      if (label && slot.label.toLowerCase() === label) return false;
+      if (action.slotId?.trim() && slot.id.toLowerCase() === action.slotId.trim().toLowerCase()) return false;
+      if (action.label?.trim() && slot.label.toLowerCase() === action.label.trim().toLowerCase()) return false;
       return true;
-    }).map((slot, index) => ({ ...slot, order: index }));
+    });
   }
 
-  return { sections };
+  return { sections: normalizeArtVaultOrders(sections) };
+};
+
+const mutateArtVaultCategories = (
+  artVault: { sections?: ArtVaultSection[] } | undefined,
+  action: ArtCategoryAction
+) => {
+  let sections = [...(artVault?.sections || [])].map((section) => ({
+    ...section,
+    slots: [...(section.slots || [])]
+  }));
+
+  if (action.action === "addArtCategory") {
+    const title = action.sectionTitle.trim();
+    if (!title) return { sections: normalizeArtVaultOrders(sections) };
+    const section = findExistingArtSection(sections, { ...action, sectionTitle: title }) || createScribeArtSection(sections, title, action.description || "Category created by Tavern Scribe.");
+    const slotLabels = uniqueStrings([
+      ...(Array.isArray(action.slots) ? action.slots : []),
+      action.firstSlotLabel || ""
+    ]);
+    slotLabels.forEach((label) => {
+      if (!label || section.slots.some((slot) => slot.label.toLowerCase() === label.toLowerCase())) return;
+      section.slots.push(createScribeArtSlot(section.id, label, action.requirementType || title, section.slots.length, action.notes || "", section.slots));
+    });
+  }
+
+  if (action.action === "renameArtCategory") {
+    const section = findExistingArtSection(sections, action);
+    const newTitle = action.newTitle.trim();
+    if (section && newTitle) {
+      const oldTitle = section.title;
+      section.title = newTitle;
+      if (typeof action.description === "string") section.description = action.description;
+      section.slots = section.slots.map((slot) => ({
+        ...slot,
+        requirementType: slot.requirementType === oldTitle ? newTitle : slot.requirementType,
+        image: slot.image ? { ...slot.image, category: newTitle } : slot.image
+      }));
+    }
+  }
+
+  if (action.action === "removeArtCategory") {
+    const section = findExistingArtSection(sections, action);
+    if (section) sections = sections.filter((candidate) => candidate.id !== section.id);
+  }
+
+  return { sections: normalizeArtVaultOrders(sections) };
 };
 
 const findOrCreateArtSection = (
   sections: ArtVaultSection[],
-  action: Extract<AssistantAction, { action: "addArtSlot" | "removeArtSlot" }>
+  action: ArtSectionRef
+) => {
+  const existing = findExistingArtSection(sections, action);
+  if (existing) return existing;
+  return createScribeArtSection(sections, action.sectionTitle?.trim() || "Scribe Slots", "Slots created by Tavern Scribe.");
+};
+
+const findExistingArtSection = (
+  sections: ArtVaultSection[],
+  action: ArtSectionRef
 ) => {
   const sectionId = action.sectionId?.trim().toLowerCase() || "";
-  const sectionTitle = action.sectionTitle?.trim() || "Scribe Slots";
+  const sectionTitle = action.sectionTitle?.trim().toLowerCase() || "";
+  if (!sectionId && !sectionTitle) return null;
   const existing = sections.find((section) =>
-    sectionId ? section.id.toLowerCase() === sectionId : section.title.toLowerCase() === sectionTitle.toLowerCase()
+    sectionId ? section.id.toLowerCase() === sectionId : section.title.toLowerCase() === sectionTitle
   );
-  if (existing) return existing;
+  return existing || null;
+};
 
+const createScribeArtSection = (
+  sections: ArtVaultSection[],
+  title: string,
+  description: string
+) => {
   const section: ArtVaultSection = {
-    id: `scribe-section-${slugify(sectionTitle) || Date.now()}`,
-    title: sectionTitle,
-    description: "Slots created by Tavern Scribe.",
+    id: uniqueArtSectionId(sections, `scribe-section-${slugify(title) || Date.now()}`),
+    title,
+    description,
     slots: [],
     order: sections.length
   };
@@ -869,14 +992,26 @@ const findOrCreateArtSection = (
   return section;
 };
 
+const findExistingArtSlot = (
+  section: ArtVaultSection,
+  action: ArtSlotRef
+) => {
+  const slotId = action.slotId?.trim().toLowerCase() || "";
+  const label = action.label?.trim().toLowerCase() || "";
+  return section.slots.find((slot) =>
+    slotId ? slot.id.toLowerCase() === slotId : Boolean(label) && slot.label.toLowerCase() === label
+  ) || null;
+};
+
 const createScribeArtSlot = (
   sectionId: string,
   label: string,
   requirementType: string,
   order: number,
-  notes: string
+  notes: string,
+  siblingSlots: ArtVaultSlot[]
 ): ArtVaultSlot => ({
-  id: `${sectionId}-${slugify(label) || Date.now()}`,
+  id: uniqueArtSlotId(siblingSlots, `${sectionId}-${slugify(label) || Date.now()}`),
   label,
   requirementType,
   status: "Missing",
@@ -884,6 +1019,35 @@ const createScribeArtSlot = (
   notes,
   order
 });
+
+const uniqueArtSectionId = (sections: ArtVaultSection[], baseId: string) => {
+  const existing = new Set(sections.map((section) => section.id));
+  let candidate = baseId || `scribe-section-${Date.now()}`;
+  let index = 2;
+  while (existing.has(candidate)) {
+    candidate = `${baseId}-${index}`;
+    index += 1;
+  }
+  return candidate;
+};
+
+const uniqueArtSlotId = (slots: ArtVaultSlot[], baseId: string) => {
+  const existing = new Set(slots.map((slot) => slot.id));
+  let candidate = baseId || `scribe-slot-${Date.now()}`;
+  let index = 2;
+  while (existing.has(candidate)) {
+    candidate = `${baseId}-${index}`;
+    index += 1;
+  }
+  return candidate;
+};
+
+const normalizeArtVaultOrders = (sections: ArtVaultSection[]) =>
+  sections.map((section, sectionIndex) => ({
+    ...section,
+    order: sectionIndex,
+    slots: section.slots.map((slot, slotIndex) => ({ ...slot, order: slotIndex }))
+  }));
 
 const validWorldCategory = (value: unknown): WorldBuildingCategoryId | "" => {
   const normalized = String(value || "");
@@ -1043,8 +1207,16 @@ const applyAction = (database: LoreDatabase, action: AssistantAction): LoreDatab
     return updateArtSlots(database, action, "add");
   }
 
+  if (action.action === "renameArtSlot") {
+    return updateArtSlots(database, action, "rename");
+  }
+
   if (action.action === "removeArtSlot") {
     return updateArtSlots(database, action, "remove");
+  }
+
+  if (action.action === "addArtCategory" || action.action === "renameArtCategory" || action.action === "removeArtCategory") {
+    return updateArtCategories(database, action);
   }
 
   if (action.action === "archive") {
@@ -1183,7 +1355,7 @@ const buildCompactLoreContext = (database: LoreDatabase, command: string) => {
     totalBestiaryCreatures: (database.bestiary || []).length,
     totalWorldEntries: worldBuildingCategoryIds.reduce((count, category) => count + (database.worldBuilding?.[category] || []).length, 0),
     contextPolicy:
-      "This compact context removes media payloads. Tavern Scribe can only return app-data changes: text, fields, tags, bestiary stats/drops/lore, world-building fields, lore entries, creatures, world entries, bestiary creature remove actions, entry remove actions, and art slot add/remove actions. It cannot change code, UI layout, images, Drive files, API keys, secrets, or development settings. Use activeScribeHelpers plus any [Scribe Target: ...] or [Scribe Mode: ...] directives in the user command as hard routing constraints. If multiple target helpers are active, satisfy each selected destination with separate correctly shaped actions. For exact whole-database replacements, return renameReference instead of many update actions. Characters, factions, cultures, locations, quests, items, recipes, story pages, and marketing pages from entryIndex are entries; update them with setData target entry. Before adding, scan entryIndex for same-title entries and update existing records instead of duplicating. The Pantry is a top-level app tab whose stored category is Food & Inventory. Food, menu items, ingredients, meals, recipes, drinks, ales, tonics, cooking inventory, and culinary magic should be Food & Inventory entries for The Pantry, never Story entries. World Building modules from worldIndex are separate records; when the same concept appears in entryIndex and worldIndex, update both records. For removing Bestiary creatures, return removeCreature with the creature id from bestiaryIndex. For removing normal lore entries, return removeEntry with the entry id from entryIndex. Every requested clause must be represented by at least one change or warning. Do not copy target directives or UI routing instructions into lore descriptions.",
+      "This compact context removes media payloads. Tavern Scribe can only return app-data changes: text, fields, tags, bestiary stats/drops/lore, world-building fields, lore entries, creatures, world entries, bestiary creature remove actions, entry remove actions, and art vault/category/slot organization actions. It cannot change code, UI layout, images, Drive files, API keys, secrets, or development settings. Use activeScribeHelpers plus any [Scribe Target: ...] or [Scribe Mode: ...] directives in the user command as hard routing constraints. If multiple target helpers are active, satisfy each selected destination with separate correctly shaped actions. For exact whole-database replacements, return renameReference instead of many update actions. Characters, factions, cultures, locations, quests, items, recipes, story pages, and marketing pages from entryIndex are entries; update them with setData target entry. Before adding, scan entryIndex for same-title entries and update existing records instead of duplicating. The Pantry is a top-level app tab whose stored category is Food & Inventory. Food, menu items, ingredients, meals, recipes, drinks, ales, tonics, cooking inventory, and culinary magic should be Food & Inventory entries for The Pantry, never Story entries. For Art Vault and Art Binder requests, use artCategoryIndex, artSlotIndex, and activeScribeHelpers. Target one named subject only unless the user explicitly asks for all subjects/all creatures. Creature art categories should be creature-specific and should not include character-only Dialogue Sprites or Gwen weapon slots unless explicitly requested. World Building modules from worldIndex are separate records; when the same concept appears in entryIndex and worldIndex, update both records. For removing Bestiary creatures, return removeCreature with the creature id from bestiaryIndex. For removing normal lore entries, return removeEntry with the entry id from entryIndex. Every requested clause must be represented by at least one change or warning. Do not copy target directives or UI routing instructions into lore descriptions.",
     entryIndex: database.entries.map((entry) => compactEntry(entry, "index")),
     relevantEntries: relevantEntries.length
       ? relevantEntries
@@ -1192,7 +1364,8 @@ const buildCompactLoreContext = (database: LoreDatabase, command: string) => {
     relevantCreatures: relevantCreatures(database, command),
     worldIndex: compactWorldEntries(database, command, "index"),
     relevantWorldEntries: compactWorldEntries(database, command, "full").slice(0, 18),
-    artSlotIndex: compactArtSlotIndex(database).slice(0, 80)
+    artCategoryIndex: compactArtCategoryIndex(database).slice(0, 120),
+    artSlotIndex: compactArtSlotIndex(database).slice(0, 120)
   };
 };
 
@@ -1325,6 +1498,39 @@ const compactArtSlotIndex = (database: LoreDatabase) => {
     )
   );
   return [...entrySlots, ...creatureSlots, ...categorySlots];
+};
+
+const compactArtCategoryIndex = (database: LoreDatabase) => {
+  const entryCategories = database.entries.flatMap((entry) =>
+    (entry.artVault?.sections || []).map((section) => ({
+      target: "entry",
+      id: entry.id,
+      title: entry.title,
+      sectionId: section.id,
+      sectionTitle: section.title,
+      slotCount: section.slots?.length || 0
+    }))
+  );
+  const creatureCategories = (database.bestiary || []).flatMap((creature) =>
+    (creature.artVault?.sections || []).map((section) => ({
+      target: "creature",
+      id: creature.id,
+      title: creature.name,
+      sectionId: section.id,
+      sectionTitle: section.title,
+      slotCount: section.slots?.length || 0
+    }))
+  );
+  const bestiaryCategoryCategories = (database.bestiaryCategoryVaults || []).flatMap((vault) =>
+    (vault.artVault?.sections || []).map((section) => ({
+      target: "bestiaryCategory",
+      categoryName: vault.categoryName,
+      sectionId: section.id,
+      sectionTitle: section.title,
+      slotCount: section.slots?.length || 0
+    }))
+  );
+  return [...entryCategories, ...creatureCategories, ...bestiaryCategoryCategories];
 };
 
 const scoreEntry = (entry: LoreEntry, command: string) => {

@@ -728,7 +728,14 @@ function resolveChangedItem(
     if (worldEntry) return worldEntryReport(worldEntry, describeChange(change));
   }
 
-  if (change.action === "addArtSlot" || change.action === "removeArtSlot") {
+  if (
+    change.action === "addArtSlot" ||
+    change.action === "renameArtSlot" ||
+    change.action === "removeArtSlot" ||
+    change.action === "addArtCategory" ||
+    change.action === "renameArtCategory" ||
+    change.action === "removeArtCategory"
+  ) {
     if (change.target === "entry" && change.id) {
       const entry = findEntry(after, change.id);
       if (entry) return entryReport(entry, describeChange(change));
@@ -892,7 +899,11 @@ function describeChange(change: AssistantAction) {
   if (change.action === "addCreature") return `Add creature ${change.creature.name || "new creature"}`;
   if (change.action === "removeCreature") return `Remove creature ${change.name || change.id || "from Bestiary"}`;
   if (change.action === "addWorldEntry") return `Add world entry ${change.entry.title || "new world entry"}`;
+  if (change.action === "addArtCategory") return `Add art category ${change.sectionTitle}`;
+  if (change.action === "renameArtCategory") return `Rename art category ${change.sectionTitle || change.sectionId || "selected category"} to ${change.newTitle}`;
+  if (change.action === "removeArtCategory") return `Remove art category ${change.sectionTitle || change.sectionId || "selected category"}`;
   if (change.action === "addArtSlot") return `Add slot ${change.label}`;
+  if (change.action === "renameArtSlot") return `Rename slot ${change.label || change.slotId || "selected slot"} to ${change.newLabel}`;
   if (change.action === "removeArtSlot") return `Remove slot ${change.label || change.slotId || "selected slot"}`;
   return `Archive ${change.title}`;
 }
@@ -924,7 +935,14 @@ function ChangeDetails({ change }: { change: AssistantAction }) {
   if (change.action === "addWorldEntry") {
     return <ValuePreview label="New world entry details" value={change.entry} />;
   }
-  if (change.action === "addArtSlot" || change.action === "removeArtSlot") {
+  if (
+    change.action === "addArtSlot" ||
+    change.action === "renameArtSlot" ||
+    change.action === "removeArtSlot" ||
+    change.action === "addArtCategory" ||
+    change.action === "renameArtCategory" ||
+    change.action === "removeArtCategory"
+  ) {
     return <p className="mt-1 text-sm">Target: {change.target}</p>;
   }
   return <p className="mt-1 text-sm">{change.content}</p>;

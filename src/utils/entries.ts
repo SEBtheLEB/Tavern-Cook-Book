@@ -352,10 +352,15 @@ export const createDefaultArtVault = (): CharacterArtVault => ({
   }))
 });
 
-export const normalizeArtVault = (value: unknown): CharacterArtVault => {
-  const defaults = createDefaultArtVault();
+export const normalizeArtVault = (value: unknown): CharacterArtVault =>
+  normalizeArtVaultWithFallback(value, createDefaultArtVault());
+
+export const normalizeArtVaultWithFallback = (
+  value: unknown,
+  fallback: CharacterArtVault = createDefaultArtVault()
+): CharacterArtVault => {
   if (!value || typeof value !== "object" || !Array.isArray((value as CharacterArtVault).sections)) {
-    return defaults;
+    return cloneArtVault(fallback);
   }
 
   const rawSections = ((value as { sections?: unknown }).sections || []) as unknown[];
@@ -363,14 +368,8 @@ export const normalizeArtVault = (value: unknown): CharacterArtVault => {
     .filter((section): section is Partial<ArtVaultSection> => Boolean(section) && typeof section === "object")
     .map((section, index) => normalizeArtVaultSection(section, index));
 
-  const mergedSections = incomingSections.map((section) => mergeDefaultSlotsIntoSection(section, defaults));
-  const sectionIds = new Set(mergedSections.map((section) => section.id));
-  defaults.sections.forEach((section) => {
-    if (!sectionIds.has(section.id)) mergedSections.push(section);
-  });
-
   return {
-    sections: sortByOrder(mergedSections).map((section, sectionIndex) => ({
+    sections: sortByOrder(incomingSections).map((section, sectionIndex) => ({
       ...section,
       order: Number.isFinite(section.order) ? section.order : sectionIndex,
       slots: sortByOrder(section.slots).map((slot, slotIndex) => ({
@@ -380,6 +379,18 @@ export const normalizeArtVault = (value: unknown): CharacterArtVault => {
     }))
   };
 };
+
+function cloneArtVault(vault: CharacterArtVault): CharacterArtVault {
+  return {
+    sections: vault.sections.map((section) => ({
+      ...section,
+      slots: section.slots.map((slot) => ({
+        ...slot,
+        image: slot.image ? { ...slot.image } : null
+      }))
+    }))
+  };
+}
 
 function normalizeArtVaultSection(section: Partial<ArtVaultSection>, index: number): ArtVaultSection {
   const id = typeof section.id === "string" && section.id.trim()
@@ -484,20 +495,6 @@ function normalizeArtVaultStatus(status: unknown, image: ArtVaultImageMetadata |
   if (value === "uploaded" || value === "filled") return "uploaded";
   if (value === "missing" || value === "empty") return "empty";
   return image ? "uploaded" : "empty";
-}
-
-function mergeDefaultSlotsIntoSection(section: ArtVaultSection, defaults: CharacterArtVault): ArtVaultSection {
-  const defaultSection = defaults.sections.find((candidate) => candidate.id === section.id);
-  if (!defaultSection) return section;
-
-  const slotIds = new Set(section.slots.map((slot) => slot.id));
-  const missingSlots = defaultSection.slots.filter((slot) => !slotIds.has(slot.id));
-  return {
-    ...section,
-    title: section.title || defaultSection.title,
-    description: section.description || defaultSection.description,
-    slots: [...section.slots, ...missingSlots]
-  };
 }
 
 function sortByOrder<T extends { order: number }>(items: T[]) {

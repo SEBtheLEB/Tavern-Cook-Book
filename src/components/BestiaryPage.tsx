@@ -1592,6 +1592,15 @@ function CreatureArtVaultPage({
     commitVault({ sections: normalizeSectionOrders(sections) });
   };
 
+  const deleteSection = (sectionId: string) => {
+    if (!requireEdit()) return;
+    const section = vault.sections.find((candidate) => candidate.id === sectionId);
+    if (!section) return;
+    if (!window.confirm(`Delete "${section.title}" from this creature Art Vault? This will not delete anything from Google Drive.`)) return;
+    commitVault({ sections: normalizeSectionOrders(vault.sections.filter((candidate) => candidate.id !== sectionId)) });
+    setActiveSectionId("all");
+  };
+
   const moveSlot = (ref: VaultSlotRef, direction: -1 | 1) => {
     if (!requireEdit()) return;
     commitVault({
@@ -1974,6 +1983,7 @@ function CreatureArtVaultPage({
             <button className="character-art-vault-icon-only" onClick={() => addSlot(activeSection.id)} title="Add slot" aria-label="Add slot">
               <Icon name="Plus" className="h-4 w-4" />
             </button>
+            <button className="danger" onClick={() => deleteSection(activeSection.id)}>Delete Section</button>
           </div>
         </section>
       )}
