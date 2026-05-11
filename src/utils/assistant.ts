@@ -45,8 +45,8 @@ const assistantJsonInstructions = `Return only structured JSON in this exact sha
     },
     {
       "action": "renameReference",
-      "oldName": "Wiscan",
-      "newName": "Whisken",
+      "oldName": "Old Name",
+      "newName": "New Name",
       "scope": "all"
     },
     {
@@ -112,8 +112,8 @@ const assistantJsonInstructions = `Return only structured JSON in this exact sha
     },
     {
       "action": "archive",
-      "title": "Old Naming: Wiscan",
-      "content": "Wiscan was an older name for Whisken."
+      "title": "Old Entry Note",
+      "content": "Short note about why this older entry was archived."
     }
   ],
   "warnings": []

@@ -72,30 +72,32 @@ export const starterEntries: LoreEntry[] = [
     tags: [
       "chef",
       "Whisken",
-      "Wiscan",
       "food critic",
       "mentor",
       "secret",
+      "Tablemaker",
       "Tabby Island",
       "Cat Cauldron",
       "redemption"
     ],
     summary:
-      "Tohm Kyatt is a world-renowned Whisken/Wiscan chef and food critic who hires Gwen to recover torn magical recipe pages.",
+      "Tohm Kyatt is a world-renowned Whisken chef and food critic who discovers the Cat Cauldron, awakens its power, and later hires Gwen to recover torn magical recipe pages.",
     publicDescription:
       "Tohm Kyatt is a world-renowned Whisken chef and food critic whose mysterious recipes may be the key to saving the land. Brilliant, dramatic, and more than a little secretive, Tohm recruits Gwen to help recover stolen recipes before they cause even more chaos.",
     internalLore:
-      "Tohm Kyatt is a Wiscan/Whisken cat chef and food critic. He is the only cat to ever possess sweet taste buds, making him obsessed with tasting every possible food. As a child, his mother told him fairy tales about Datka/Dagda and a magical cauldron capable of creating food unlike anything in the world. Tohm originally lived on Tabby Island with the Wiscan/Whisken people. Beneath Tabby Island was the Cat Cauldron. Tohm attempted to use magical cooking knowledge connected to Datka/Dagda and the Cat Cauldron despite warnings. His experiment caused a massive explosion/corruption that forced the Wiscan/Whisken people to flee Tabby Island. No one publicly knows Tohm caused this disaster. After fleeing, Tohm settled in Whisker Woods, rebuilt his life, and became known as a world-renowned chef and award-winning food critic. He recruits Gwen as his sous chef and later involves her in recovering torn recipe pages. Tohm is not purely evil. He is flawed, obsessive, secretive, prideful, and morally compromised, but he has a redemption arc. He wants to fix the harm caused by his obsession. Important canon detail: Tohm never drinks from the cauldron. Updated Lillia Incident: Tohm creates an unstable magical dish using the dragon knife and magical culinary knowledge. Lillia consumes it and gains dangerous magical powers. The living chicken tavern suddenly stands up, causing Lillia, who wears large pajamas resembling a witch costume, to fall over. This gives Tohm the opportunity to snatch the recipe book back, but Lillia rips out several pages. As guards approach, Tohm is forced to flee.",
+      "Tohm Kyatt is a Whisken cat chef and food critic. He is the only cat to ever possess sweet taste buds, making him obsessed with tasting every possible food. As a child, his mother told him stories of the Tablemaker, the canonical divine figure also called the Master Chef, and those stories shaped his obsession with cooking, sacred meals, and the knowledge of what is untasted. Tohm originally lived on Tabby Island with the Whisken people. Later in life, he discovered that the ancient Whisken had created the Cat Cauldron beneath Tabby Island and erased it from their own history after it caused the island's first decay and first exodus. Tohm returned to Tabby Island, found the Cat Cauldron, and cooked a meal in it. Activating it released a large pulse into the earth, causing Tabby Island to begin decaying again and allowing the Mas'eel Cult to sense the Cat Cauldron's power. Tohm then took the Cat Cauldron and fled in the Living Tavern without anyone knowing. When he later heard that Tabby Island had become corrupted and that the Whisken were being persecuted by Mas'eel infiltrators, he got his friend Lel Kai, who was becoming general of the faery army, to send boats and save as many people as possible. Tohm is not purely evil. He is flawed, obsessive, secretive, prideful, and morally compromised, but he has a redemption arc. He wants to fix the harm caused by his obsession. Important canon detail: Tohm never drinks from the cauldron. Updated Lillia Incident: Tohm creates an unstable magical dish using the dragon knife and magical culinary knowledge. Lillia consumes it and gains dangerous magical powers. The living chicken tavern suddenly stands up, causing Lillia, who wears large pajamas resembling a witch costume, to fall over. This gives Tohm the opportunity to snatch the recipe book back, but Lillia rips out several pages. As guards approach, Tohm is forced to flee.",
     fields: {
       Motivation:
         "To taste the impossible, master magical cooking, and eventually fix the damage his obsession caused.",
       Arc:
         "From obsessive culinary genius hiding from his consequences to flawed mentor seeking redemption.",
       "Gameplay Role":
-        "Quest giver, mentor, chef, lore source, recipe system anchor, morally complex guide."
+        "Quest giver, mentor, chef, lore source, recipe system anchor, morally complex guide.",
+      "Faith Link": "Raised on stories of the Tablemaker, also called the Master Chef.",
+      "Canon Note": "Discarded older mythic names are not canon entities."
     },
     connections: {
-      characters: ["Gwen", "Princess Lillia", "Datka / Dagda", "King"],
+      characters: ["Gwen", "Princess Lillia", "Lel Kai", "King"],
       locations: ["Tabby Island", "Whisker Woods"],
       recipes: ["Dark Culinary Arts", "Magical Meals"],
       quests: ["Recover Recipe Pages"],
@@ -106,15 +108,17 @@ export const starterEntries: LoreEntry[] = [
         "Recipe Pages",
         "Living Chicken Tavern"
       ],
-      factions: ["Whisken / Wiscan People"],
+      factions: ["Whisken People", "Mas'eel Cult"],
       secrets: [
-        "Secret: Tohm Caused Tabby Island",
+        "Secret: Tohm Awakened the Cat Cauldron",
         "Secret: Tohm Never Drinks From The Cauldron"
       ],
       gameplaySystems: ["Cooking System"],
       enemies: [],
       timelineEvents: [
-        "Tohm Finds / Uses the Cat Cauldron",
+        "Tohm Awakens the Cat Cauldron",
+        "Mas'eel Infiltrate Tabby Island",
+        "Second Whisken Exodus",
         "Lillia Consumes the Unstable Magical Dish"
       ]
     }
@@ -131,14 +135,15 @@ export const starterEntries: LoreEntry[] = [
       "magic",
       "faery obsession",
       "Dark Culinary Arts",
-      "corrupted recipes"
+      "corrupted recipes",
+      "Mas'eel"
     ],
     summary:
       "Princess Lillia is a stubborn young princess of the human kingdom who grew up wanting to become a faery. Her obsession with magic leads to the spread of the Dark Culinary Arts.",
     publicDescription:
       "Princess Lillia is a magical threat tied to the rise of corrupted cooking and dangerous recipe-powered enemies. Her obsession with magic has left a trail of strange meals, twisted powers, and chaos across the land.",
     internalLore:
-      "Lillia is the daughter of the king and queen. Because the royal family was close to the faery kingdom, Lillia grew up fascinated by faeries and eventually became obsessed with becoming one. The king and queen spent about a year consulting mages and allies to find a way to give her magical powers. The faeries refused to help because they feared humans gaining magic would lead to humans dominating all kingdoms. The king eventually turned to the dwarven kingdom, knowing they possessed a magical dragon knife. The dwarves refused to give it up, and the king declared war. After winning, he took the dragon knife. Tohm Kyatt eventually gains access to the dragon knife through the royal food contest / royal access plotline. He creates an unstable magical dish. Lillia consumes it and gains dangerous magical powers. She attempts to steal Tohm's recipe book, but only tears out several pages before Tohm escapes. The torn recipe pages become central to the game. Lillia later sets up camp in the faery realm because she can consume the magic in the environment to mass-produce Dark Culinary Arts instead of infusing each meal one at a time.",
+      "Lillia is the daughter of the king and queen. Because the royal family was close to the faery kingdom, Lillia grew up fascinated by faeries and eventually became obsessed with becoming one. The king and queen spent about a year consulting mages and allies to find a way to give her magical powers. The faeries refused to help because they feared humans gaining magic would lead to humans dominating all kingdoms. The king eventually turned to the dwarven kingdom, knowing they possessed a magical dragon knife. The dwarves refused to give it up, and the king declared war. After winning, he took the dragon knife. Tohm Kyatt eventually gains access to the dragon knife through the royal food contest / royal access plotline. He creates an unstable magical dish. Lillia consumes it and gains dangerous magical powers. She attempts to steal Tohm's recipe book, but only tears out several pages before Tohm escapes. The torn recipe pages become central to the game. Lillia later sets up camp in the faery realm because she can consume the magic in the environment to mass-produce Dark Culinary Arts instead of infusing each meal one at a time. The Mas'eel Cult now works with her while searching for the Cat Cauldron and Tohm's magical recipes.",
     fields: {
       "Dark Culinary Arts":
         "Lillia uses magic to corrupt food. Food infused with the Dark Culinary Arts can make consumers evil or corrupted. She distributes magically enhanced dishes to people who later become bosses Gwen must defeat.",
@@ -153,7 +158,7 @@ export const starterEntries: LoreEntry[] = [
       recipes: ["Dark Culinary Arts"],
       quests: ["Recover Recipe Pages"],
       items: ["Dragon Knife", "Recipe Pages", "Tohm's Recipe Book"],
-      factions: ["Faery Kingdom", "Dwarven Kingdom", "Human Kingdom"],
+      factions: ["Faery Kingdom", "Dwarven Kingdom", "Human Kingdom", "Mas'eel Cult"],
       secrets: ["Secret: Lillia Tore Recipe Pages"],
       gameplaySystems: ["Cooking System"],
       enemies: ["Ice Queen"],
@@ -166,11 +171,11 @@ export const starterEntries: LoreEntry[] = [
     type: "Character",
     status: "Soft Canon",
     spoilerLevel: "Minor Spoiler",
-    tags: ["faery", "magical", "Whisker Woods", "NPC"],
+    tags: ["faery", "magical", "Whisker Woods", "NPC", "Tabby Island rescue"],
     summary:
       "Lel Kai is a character connected to Tales of the Tavern's faery/magical side and appears in plans for Whisker Woods content and marketing scenes.",
     internalLore:
-      "Lel Kai has a human form and is connected to the fairy/faery kingdom side of the world. They are planned to appear in the Whisker Woods vertical slice and later story progression. In New Year marketing art, Lel Kai appears at the fairy kingdom popping champagne with fairy dust in the sky like fireworks.",
+      "Lel Kai has a human form and is connected to the fairy/faery kingdom side of the world. Later, as Lel Kai is becoming general of the faery army, Tohm conveniently gets them to send boats to rescue the Whisken from Tabby Island during the second exodus. The corruption is severe enough that many boats are dispersed, and the known survivors are the Whisken who reach Whisker Woods. Lel Kai is planned to appear in the Whisker Woods vertical slice and later story progression. In New Year marketing art, Lel Kai appears at the fairy kingdom popping champagne with fairy dust in the sky like fireworks.",
     notes: {
       art: "Needs dialogue art planned.",
       gameplay: "",
@@ -181,15 +186,15 @@ export const starterEntries: LoreEntry[] = [
     },
     connections: {
       characters: ["Gwen", "Tohm Kyatt"],
-      locations: ["Faery Realm", "Whisker Woods"],
+      locations: ["Faery Realm", "Whisker Woods", "Tabby Island"],
       recipes: [],
       quests: [],
       items: [],
-      factions: ["Faery Kingdom"],
+      factions: ["Faery Kingdom", "Whisken People"],
       secrets: [],
       gameplaySystems: [],
       enemies: [],
-      timelineEvents: []
+      timelineEvents: ["Second Whisken Exodus", "Survivors Reach Whisker Woods"]
     }
   }),
   entry({
@@ -213,7 +218,7 @@ export const starterEntries: LoreEntry[] = [
       quests: [],
       items: [],
       factions: [],
-      secrets: ["Secret: Tohm Caused Tabby Island"],
+      secrets: ["Secret: Tohm Awakened the Cat Cauldron"],
       gameplaySystems: ["Cooking System", "Crafting System"],
       enemies: [],
       timelineEvents: []
@@ -296,22 +301,22 @@ export const starterEntries: LoreEntry[] = [
     }
   }),
   entry({
-    title: "Datka / Dagda",
-    category: "Characters",
-    type: "Mythic Figure",
-    status: "Needs Rewrite",
+    title: "The Tablemaker and Triadic Faith",
+    category: "Story",
+    type: "World Faith",
+    status: "Canon",
     spoilerLevel: "Minor Spoiler",
-    tags: ["myth", "cauldron", "magical cooking", "naming decision"],
+    tags: ["Tablemaker", "Master Chef", "Triadic faith", "Passion", "Taste", "Love"],
     summary:
-      "Datka/Dagda is the legendary figure from Tohm's childhood fairy tale, associated with a magical cauldron and divine recipes.",
+      "The Tablemaker is the canonical divine figure of the setting, also called the Master Chef, and most cultures follow the Triadic faith in their own traditions.",
     internalLore:
-      "Tohm's mother used to tell him a fairy tale about a god or mythic chef with a magical cauldron that could cook food unlike anything in existence. This tale becomes the seed of Tohm's lifelong obsession.",
-    notes: {
-      art: "",
-      gameplay: "",
-      production: "Naming issue: choose either Datka or Dagda.",
-      marketing: "",
-      unresolved: "Need consistency. Choose either Datka or Dagda."
+      "The Tablemaker is the canonical one God of the world. The Master Chef is another name for him, not a separate being. Most races now worship the Tablemaker and follow the Triadic faith, though each race practices the faith through its own local traditions, foods, feasts, rites, and cultural habits. The core triad is Passion, Taste, and Love. The Whisken people are strongly tied to this faith, and Tohm grew up listening to stories of the Tablemaker before his obsession with magical cooking and the Cat Cauldron took hold.",
+    fields: {
+      Aliases: "The Master Chef",
+      "Core Triad": "Passion, Taste, Love",
+      "Cultural Practice":
+        "Most races believe in the same God and same faith, but practice it differently through their own traditions.",
+      "Canon Note": "Discarded older mythic names are not canon figures."
     },
     connections: {
       characters: ["Tohm Kyatt"],
@@ -319,11 +324,11 @@ export const starterEntries: LoreEntry[] = [
       recipes: ["Magical Meals"],
       quests: [],
       items: ["Cat Cauldron", "Recipe Pages", "Tohm's Recipe Book"],
-      factions: [],
+      factions: ["Whisken People", "Mas'eel Cult"],
       secrets: [],
       gameplaySystems: ["Cooking System"],
       enemies: [],
-      timelineEvents: ["Datka/Dagda Fairy Tale"]
+      timelineEvents: ["Tablemaker Stories Inspire Tohm"]
     }
   }),
   entry({
@@ -334,7 +339,7 @@ export const starterEntries: LoreEntry[] = [
     spoilerLevel: "No Spoiler",
     tags: ["forest", "Act 1", "Whisken", "village", "playtest", "corruption"],
     summary:
-      "Whisker Woods is a major early-game region where the Wiscan/Whisken people live after fleeing Tabby Island.",
+      "Whisker Woods is a major early-game region where the Whisken survivors live after fleeing Tabby Island.",
     internalLore:
       "Whisker Woods is a cozy but increasingly corrupted forest region. It includes cliffs, flowers, grass, trees, village areas, ponds, bug nests, groves, farms, and magical points of interest. It is the main setting for the Act 1 / vertical slice playtest.",
     fields: {
@@ -349,7 +354,7 @@ export const starterEntries: LoreEntry[] = [
       recipes: ["Slime Substitutions"],
       quests: ["Opening Grocery Quest", "Kap's Pond Rescue"],
       items: ["Recipe Pages"],
-      factions: ["Whisken / Wiscan People"],
+      factions: ["Whisken People"],
       secrets: [],
       gameplaySystems: ["Cooking System", "Day / Night and Seasons"],
       enemies: ["Slimes", "Ice Queen", "Prawnhusk"],
@@ -362,9 +367,9 @@ export const starterEntries: LoreEntry[] = [
     type: "Location",
     status: "Canon",
     spoilerLevel: "No Spoiler",
-    tags: ["village", "Whisken", "Wiscan", "tavern culture", "NPC hub"],
+    tags: ["village", "Whisken", "tavern culture", "NPC hub"],
     summary:
-      "Village area in Whisker Woods where the Whisken/Wiscan people live.",
+      "Village area in Whisker Woods where the Whisken survivors live.",
     internalLore:
       "A village culture built around taverns, cooking, hunting, farming, fishing, gathering, and community survival. The village represents the cozy heart of the game and shows how food is tied to identity and daily life.",
     fields: {
@@ -376,7 +381,7 @@ export const starterEntries: LoreEntry[] = [
       recipes: [],
       quests: [],
       items: [],
-      factions: ["Whisken / Wiscan People"],
+      factions: ["Whisken People"],
       secrets: [],
       gameplaySystems: ["Cooking System"],
       enemies: [],
@@ -389,26 +394,38 @@ export const starterEntries: LoreEntry[] = [
     type: "Location",
     status: "Canon",
     spoilerLevel: "Major Spoiler",
-    tags: ["original home", "corruption", "Cat Cauldron", "Tohm secret", "Wiscan"],
+    tags: ["original home", "corruption", "Cat Cauldron", "Tohm secret", "Whisken", "Mas'eel"],
     summary:
-      "The original home of the Wiscan/Whisken people, corrupted after Tohm's experiment with the Cat Cauldron.",
+      "The original home of the Whisken people, twice struck by decay tied to the Cat Cauldron and later infiltrated by the Mas'eel Cult.",
     internalLore:
-      "Tabby Island was once the home of the Wiscan/Whisken people, including Tohm Kyatt. The Cat Cauldron was located beneath the island. Tohm secretly accessed it and tried to cook with it despite warnings. The result was a massive explosion/corruption that forced the Wiscan/Whisken people to flee. No one publicly knows that Tohm caused the disaster.",
+      "Tabby Island was the original home of the Whisken people, including Tohm Kyatt. In ancient times, Whisken seekers created the Cat Cauldron while trying to improve food and reach the knowledge of what is untasted. Its power caused the island to begin decaying, leading to the first exodus. The ancient Whisken locked the Cat Cauldron away at the bottom of the island, erased it from history books, and stopped speaking about it until it was forgotten by the time their people returned. Later, Tohm discovered the buried knowledge, returned to Tabby Island, cooked a meal in the Cat Cauldron, and released a pulse into the earth that started the island decaying again. Tohm fled with the Cat Cauldron in the Living Tavern without anyone knowing. The pulse also let the Mas'eel Cult sense the artifact, and cultists came to Tabby Island pretending to be traders before slowly searing the island, gaining power in the village, and persecuting the Whisken for their Triadic faith.",
     fields: {
       "Gameplay / Story Purpose":
-        "Major backstory location, source of Tohm's guilt, potential future reveal location or memory sequence."
+        "Major backstory location, source of Tohm's guilt, Mas'eel infiltration site, potential future reveal location or memory sequence.",
+      "First Exodus": "Ancient Whisken fled after the Cat Cauldron caused Tabby Island to decay.",
+      "Second Exodus":
+        "Later Whisken fled again after Tohm reawakened the Cat Cauldron and the Mas'eel Cult corrupted the island."
     },
     connections: {
-      characters: ["Tohm Kyatt"],
+      characters: ["Tohm Kyatt", "Lel Kai"],
       locations: ["Whisker Woods"],
       recipes: [],
       quests: [],
       items: ["Cat Cauldron"],
-      factions: ["Whisken / Wiscan People"],
-      secrets: ["Secret: Tohm Caused Tabby Island", "Secret: Cat Cauldron Beneath Tabby Island"],
+      factions: ["Whisken People", "Mas'eel Cult"],
+      secrets: [
+        "Secret: Tohm Awakened the Cat Cauldron",
+        "Secret: Cat Cauldron Beneath Tabby Island",
+        "Secret: Mas'eel Infiltrated Tabby Island"
+      ],
       gameplaySystems: [],
       enemies: [],
-      timelineEvents: ["Tabby Island Is Corrupted"]
+      timelineEvents: [
+        "First Whisken Exodus",
+        "Tohm Awakens the Cat Cauldron",
+        "Mas'eel Infiltrate Tabby Island",
+        "Second Whisken Exodus"
+      ]
     }
   }),
   entry({
@@ -1525,34 +1542,45 @@ export const starterEntries: LoreEntry[] = [
     }
   }),
   entry({
-    title: "Whisken / Wiscan People",
+    title: "Whisken People",
     category: "Story",
     type: "Faction / Culture",
-    status: "Needs Rewrite",
+    status: "Canon",
     spoilerLevel: "Minor Spoiler",
-    tags: ["Whisken", "Wiscan", "cat people", "culture", "naming decision"],
+    tags: ["Whisken", "cat people", "culture", "Tabby Island", "Triadic faith"],
     summary:
-      "Cat-like people connected to Tabby Island, Whisker Woods, tavern culture, food, hunting, farming, fishing, and community.",
+      "Cat-like people connected to Tabby Island, Whisker Woods, tavern culture, food, hunting, farming, fishing, community, and the Triadic faith.",
     internalLore:
-      "The Whisken/Wiscan people originally lived on Tabby Island but fled after the corruption caused by Tohm's experiment with the Cat Cauldron. They now live in places like Whisker Woods. Their culture is deeply tied to taverns, food, gathering, and community.",
-    notes: {
-      art: "",
-      gameplay: "",
-      production: "Naming issue: decide consistent spelling, Whisken or Wiscan.",
-      marketing: "",
-      unresolved: "Need to decide consistent spelling: Whisken or Wiscan."
+      "The Whisken people originally lived on Tabby Island. In ancient times, Whisken seekers created the Cat Cauldron while looking for ways to improve food and achieve knowledge of what is untasted. The Cat Cauldron caused Tabby Island to decay, triggering the first exodus. The ancient Whisken locked it away beneath the island, removed it from their history books, stopped talking about it, and eventually forgot it. By the time later Whisken returned to Tabby Island, the first exodus had fallen out of memory. After Tohm Kyatt reactivated the Cat Cauldron and fled with it, the island started decaying again. Before the Whisken understood what was happening, the Mas'eel arrived pretending to be traders, introduced new foods, gained power in the village over years, and began persecuting the Whisken for believing in the Triadic faith taught by the Tablemaker. The Whisken fled again, though to them it felt like the first time. Tohm heard what was happening and got Lel Kai, who was becoming general of the faery army, to send boats. The corruption scattered many boats, and the known survivors became the current Whisken who live in Whisker Woods and Whisken Village.",
+    fields: {
+      Faith: "The Whisken follow the Tablemaker and the Triadic faith.",
+      "Faith Practice":
+        "Like most races, they believe in the same God and faith but practice it through their own traditions.",
+      "Known Refugees": "The current Whisken in Whisker Woods / Whisken Village are the known survivors.",
+      "Canon Name": "Whisken"
     },
     connections: {
-      characters: ["Tohm Kyatt"],
+      characters: ["Tohm Kyatt", "Lel Kai"],
       locations: ["Whisker Woods", "Tabby Island", "Whisken Village"],
       recipes: [],
       quests: [],
-      items: [],
-      factions: [],
-      secrets: ["Secret: Tohm Caused Tabby Island"],
+      items: ["Cat Cauldron"],
+      factions: ["Mas'eel Cult"],
+      secrets: [
+        "Secret: Tohm Awakened the Cat Cauldron",
+        "Secret: Cat Cauldron Beneath Tabby Island",
+        "Secret: Mas'eel Infiltrated Tabby Island"
+      ],
       gameplaySystems: [],
       enemies: [],
-      timelineEvents: ["Tabby Island Is Corrupted"]
+      timelineEvents: [
+        "First Whisken Exodus",
+        "Cat Cauldron Is Buried and Forgotten",
+        "Tohm Awakens the Cat Cauldron",
+        "Mas'eel Infiltrate Tabby Island",
+        "Second Whisken Exodus",
+        "Survivors Reach Whisker Woods"
+      ]
     }
   }),
   entry({
@@ -1627,23 +1655,51 @@ export const starterEntries: LoreEntry[] = [
     title: "Mas'eel Cult",
     category: "Story",
     type: "Faction / Cult",
-    status: "Idea",
-    spoilerLevel: "Minor Spoiler",
-    tags: ["cult", "FEAST", "triad", "corruption", "world mythology"],
-    summary: "A cult that perverts the triadic culinary philosophy into FEAST.",
+    status: "Canon",
+    spoilerLevel: "Major Spoiler",
+    tags: ["cult", "FEAST", "triad", "corruption", "world mythology", "Tabby Island", "Princess Lillia"],
+    summary: "A cult that perverts the Triadic faith into FEAST and hunts the Cat Cauldron and Tohm's magical recipes.",
     internalLore:
-      "The core worldbuilding triad is Passion, Taste, Love. The Mas'eel cult corrupts this into FEAST. Their symbol is a single distorted dot/eye, opposing the three dots of the triad.",
+      "The core world faith is the Triadic faith of Passion, Taste, and Love. The Mas'eel Cult corrupts this into FEAST. Their symbol is a single distorted dot or eye, opposing the three dots of the triad. When Tohm activated the Cat Cauldron on Tabby Island, the pulse let the Mas'eel sense its power and know it was on the island. Cultists sailed there pretending to be traders, introduced new foods, and spent years secretly searing the island, gaining power inside the Whisken village, and persecuting Whisken people for believing in the Triadic faith taught by the Tablemaker. After the second exodus, the Mas'eel left Tabby Island and began searching for the Cat Cauldron and Tohm's magical recipes while working with Princess Lillia.",
     connections: {
-      characters: [],
-      locations: [],
-      recipes: ["Dark Culinary Arts"],
+      characters: ["Princess Lillia", "Tohm Kyatt"],
+      locations: ["Tabby Island", "Whisker Woods"],
+      recipes: ["Dark Culinary Arts", "Magical Meals"],
       quests: [],
-      items: [],
-      factions: [],
-      secrets: [],
+      items: ["Cat Cauldron", "Tohm's Recipe Book", "Recipe Pages"],
+      factions: ["Whisken People"],
+      secrets: ["Secret: Mas'eel Infiltrated Tabby Island", "Secret: Tohm Awakened the Cat Cauldron"],
       gameplaySystems: ["Slime Flavor / Element System"],
       enemies: [],
-      timelineEvents: []
+      timelineEvents: ["Mas'eel Sense the Cat Cauldron", "Mas'eel Infiltrate Tabby Island", "Second Whisken Exodus"]
+    }
+  }),
+  entry({
+    title: "Mur'amar",
+    category: "Characters",
+    type: "Character",
+    status: "Soft Canon",
+    spoilerLevel: "Major Spoiler",
+    tags: ["Mas'eel", "cult agent", "Swan of Peace", "deception"],
+    summary:
+      "Mur'amar is a Mas'eel-linked figure whose name spelling is canonical as Mur'amar.",
+    internalLore:
+      "Mur'amar is tied to the Mas'eel Cult and should use this spelling going forward. He can present himself as peaceful or benevolent while still serving the cult's search for the Cat Cauldron and Tohm's magical recipes.",
+    fields: {
+      "Canon Name": "Mur'amar",
+      "Faction Link": "Mas'eel Cult"
+    },
+    connections: {
+      characters: ["Princess Lillia", "Tohm Kyatt"],
+      locations: ["Tabby Island", "Whisker Woods"],
+      recipes: ["Dark Culinary Arts"],
+      quests: [],
+      items: ["Cat Cauldron", "Tohm's Recipe Book", "Recipe Pages"],
+      factions: ["Mas'eel Cult"],
+      secrets: ["Secret: Mas'eel Infiltrated Tabby Island"],
+      gameplaySystems: [],
+      enemies: [],
+      timelineEvents: ["Mas'eel Infiltrate Tabby Island"]
     }
   }),
   entry({
@@ -1652,33 +1708,40 @@ export const starterEntries: LoreEntry[] = [
     type: "Artifact",
     status: "Canon",
     spoilerLevel: "Major Spoiler",
-    tags: ["artifact", "cauldron", "Tabby Island", "Tohm", "disaster"],
+    tags: ["artifact", "cauldron", "Tabby Island", "Tohm", "Whisken", "Mas'eel", "disaster"],
     summary:
-      "A magical cauldron located beneath Tabby Island that Tohm tried to use, causing disaster.",
+      "An ancient Whisken cauldron created to improve food and discover what is untasted, later awakened by Tohm and hunted by the Mas'eel Cult.",
     internalLore:
-      "The Cat Cauldron was not Datka/Dagda's true cauldron and could not withstand the magical recipes Tohm attempted to cook. Despite warnings, Tohm tried to use it, causing a massive explosion/corruption that forced the Wiscan/Whisken people to flee Tabby Island. Important: Tohm never drinks from the cauldron.",
+      "The ancient Whisken created the Cat Cauldron while looking for ways to improve food and achieve knowledge of what is untasted. Its power caused Tabby Island to begin decaying, creating the first exodus. The Whisken locked it away at the bottom of the island, removed it from their history books, and stopped talking about it until it was forgotten. Tohm later discovered the hidden knowledge, returned to Tabby Island, cooked a meal in the Cat Cauldron, and activated it. The cauldron released a large pulse into the earth, causing Tabby Island to decay again and letting the Mas'eel Cult sense its power. Tohm took the Cat Cauldron and fled in the Living Tavern without anyone knowing. Important: Tohm never drinks from the cauldron.",
     wiki: {
       itemType: "Artifact",
       rarity: "Legendary",
-      whereToFind: "Beneath Tabby Island.",
-      gameplayUse: "Major lore artifact and disaster source.",
+      whereToFind: "Originally buried beneath Tabby Island; later taken by Tohm in the Living Tavern.",
+      gameplayUse: "Major lore artifact, disaster source, and object hunted by the Mas'eel Cult.",
       loreDescription:
-        "A dangerous magical cauldron tied to Tohm's guilt and Tabby Island's corruption."
+        "A dangerous ancient Whisken cauldron tied to Tohm's guilt, Tabby Island's decay, and the Mas'eel hunt for magical recipes."
     },
     connections: {
-      characters: ["Tohm Kyatt", "Datka / Dagda"],
+      characters: ["Tohm Kyatt"],
       locations: ["Tabby Island"],
       recipes: ["Magical Meals"],
       quests: [],
       items: [],
-      factions: ["Whisken / Wiscan People"],
+      factions: ["Whisken People", "Mas'eel Cult"],
       secrets: [
         "Secret: Cat Cauldron Beneath Tabby Island",
+        "Secret: Tohm Awakened the Cat Cauldron",
         "Secret: Tohm Never Drinks From The Cauldron"
       ],
       gameplaySystems: ["Cooking System"],
       enemies: [],
-      timelineEvents: ["Tohm Finds / Uses the Cat Cauldron", "Tabby Island Is Corrupted"]
+      timelineEvents: [
+        "Ancient Whisken Create the Cat Cauldron",
+        "First Whisken Exodus",
+        "Cat Cauldron Is Buried and Forgotten",
+        "Tohm Awakens the Cat Cauldron",
+        "Mas'eel Sense the Cat Cauldron"
+      ]
     }
   }),
   entry({
@@ -2041,12 +2104,19 @@ export const starterEntries: LoreEntry[] = [
     }
   }),
   ...[
-    ["Datka/Dagda Fairy Tale", "Ancient Myth / Fairy Tale Era", "A mythic tale about a magical cauldron and food unlike anything in existence is passed down and eventually told to young Tohm by his mother."],
-    ["Tohm Grows Up on Tabby Island", "Tabby Island Era", "Tohm lives among the Wiscan/Whisken people on Tabby Island."],
+    ["Ancient Whisken Create the Cat Cauldron", "Ancient Whisken Era", "Ancient Whisken seekers create the Cat Cauldron while trying to improve food and reach the knowledge of what is untasted."],
+    ["First Whisken Exodus", "Ancient Whisken Era", "The Cat Cauldron causes Tabby Island to begin decaying, forcing the ancient Whisken to flee for the first time."],
+    ["Cat Cauldron Is Buried and Forgotten", "Ancient Whisken Era", "The ancient Whisken lock the Cat Cauldron at the bottom of Tabby Island, remove it from history books, and stop speaking of it until it is forgotten."],
+    ["Tablemaker Stories Inspire Tohm", "Tohm's Childhood Era", "Stories of the Tablemaker, also called the Master Chef, are told to young Tohm and seed his obsession with sacred meals and untasted food."],
+    ["Tohm Grows Up on Tabby Island", "Tabby Island Era", "Tohm lives among the Whisken people on Tabby Island."],
     ["Tohm Becomes Obsessed with Magical Food", "Tohm's Obsession Era", "Because he has sweet taste buds and has tasted every normal food, Tohm becomes obsessed with tasting magical food."],
-    ["Tohm Finds / Uses the Cat Cauldron", "Tabby Island Disaster", "Tohm accesses the Cat Cauldron beneath Tabby Island and attempts magical cooking despite warnings."],
-    ["Tabby Island Is Corrupted", "Tabby Island Disaster", "The Cat Cauldron cannot withstand the recipe/magic, causing a massive explosion or corruption. The Wiscan/Whisken people flee. The public does not know Tohm caused it."],
-    ["Tohm Rebuilds in Whisker Woods", "Whisker Woods Era", "Tohm flees and eventually establishes himself in Whisker Woods, later becoming a renowned chef and food critic."],
+    ["Tohm Awakens the Cat Cauldron", "Tabby Island Disaster", "Tohm discovers the forgotten Cat Cauldron, cooks a meal in it, releases a pulse into the earth, and begins Tabby Island's second decay."],
+    ["Mas'eel Sense the Cat Cauldron", "Tabby Island Disaster", "The pulse from the awakened Cat Cauldron lets the Mas'eel Cult sense its power and know it was on Tabby Island."],
+    ["Tohm Flees With the Cat Cauldron", "Tabby Island Disaster", "Tohm takes the Cat Cauldron and flees in the Living Tavern without anyone knowing."],
+    ["Mas'eel Infiltrate Tabby Island", "Mas'eel Infiltration Era", "Mas'eel cultists sail to Tabby Island pretending to be traders, introduce new foods, gain power, and persecute the Whisken for their Triadic faith."],
+    ["Second Whisken Exodus", "Mas'eel Infiltration Era", "The Whisken flee Tabby Island again, though to them it feels like the first time, while Lel Kai's rescue boats are scattered by corruption."],
+    ["Survivors Reach Whisker Woods", "Whisker Woods Era", "The known Whisken survivors reach Whisker Woods and establish the current Whisken Village."],
+    ["Tohm Rebuilds in Whisker Woods", "Whisker Woods Era", "Tohm establishes himself in Whisker Woods and later becomes a renowned chef and food critic while carrying guilt over the Cat Cauldron."],
     ["Lillia Wants to Become a Faery", "Royal Contest / Dragon Knife Era", "Princess Lillia becomes obsessed with gaining magic and becoming like a faery."],
     ["Faeries Refuse to Help", "Royal Contest / Dragon Knife Era", "The faeries refuse to give humans magic because they fear humans would dominate the world."],
     ["King Takes the Dragon Knife", "Royal Contest / Dragon Knife Era", "The king wages war against the dwarves and takes the magical dragon knife."],
@@ -2083,8 +2153,8 @@ export const starterEntries: LoreEntry[] = [
   ),
   ...[
     {
-      title: "Secret: Tohm Caused Tabby Island",
-      fact: "Tohm caused the corruption of Tabby Island.",
+      title: "Secret: Tohm Awakened the Cat Cauldron",
+      fact: "Tohm activated the buried Cat Cauldron, restarted Tabby Island's decay, drew the Mas'eel Cult's attention, and fled with the artifact.",
       knownBy: ["Tohm Kyatt"],
       suspectedBy: ["Oswin"],
       unknownTo: ["Gwen", "Villagers", "Public"],
@@ -2093,7 +2163,7 @@ export const starterEntries: LoreEntry[] = [
     },
     {
       title: "Secret: Public Does Not Know Tohm Caused Disaster",
-      fact: "The public does not know Tohm caused the disaster.",
+      fact: "The public does not know Tohm awakened the Cat Cauldron, removed it from Tabby Island, and triggered the second decay.",
       knownBy: ["Tohm Kyatt"],
       suspectedBy: [],
       unknownTo: ["Gwen", "Villagers", "Public"],
@@ -2111,11 +2181,20 @@ export const starterEntries: LoreEntry[] = [
     },
     {
       title: "Secret: Cat Cauldron Beneath Tabby Island",
-      fact: "The Cat Cauldron was beneath Tabby Island.",
+      fact: "The ancient Whisken created the Cat Cauldron, buried it beneath Tabby Island, erased it from their history, and forgot it.",
       knownBy: ["Tohm Kyatt"],
-      suspectedBy: ["Old Wiscan/Whisken sources"],
+      suspectedBy: ["Old Whisken sources"],
       unknownTo: ["Gwen", "Public"],
       playerKnowledge: "Revealed later.",
+      spoilerLevel: "Major Spoiler"
+    },
+    {
+      title: "Secret: Mas'eel Infiltrated Tabby Island",
+      fact: "The Mas'eel arrived as false traders, introduced new foods, gained village power, persecuted Triadic Whisken, and then left to hunt the Cat Cauldron and Tohm's recipes with Princess Lillia.",
+      knownBy: ["Mas'eel Cult", "Princess Lillia"],
+      suspectedBy: ["Tohm Kyatt"],
+      unknownTo: ["Gwen", "Whisken Village", "Public"],
+      playerKnowledge: "Revealed through Tabby Island / Whisken history.",
       spoilerLevel: "Major Spoiler"
     },
     {
@@ -2251,7 +2330,7 @@ export const starterEntries: LoreEntry[] = [
       recipes: ["Magical Meals"],
       quests: ["Recover Recipe Pages"],
       items: ["Recipe Pages"],
-      factions: ["Whisken / Wiscan People"],
+      factions: ["Whisken People"],
       secrets: [],
       gameplaySystems: ["Cooking System"],
       enemies: [],
@@ -2343,40 +2422,6 @@ export const starterEntries: LoreEntry[] = [
       "In a newer version, the king creates a nationwide cooking contest, and Tohm wins, giving him access to royal spoils including the dragon knife.",
     internalLore:
       "This is the newer preferred access path, but it still needs exact quest/story structure."
-  }),
-  entry({
-    title: "Naming Decision Needed: Whisken vs Wiscan",
-    category: "Archive",
-    type: "Naming Decision",
-    status: "Needs Rewrite",
-    spoilerLevel: "No Spoiler",
-    tags: ["naming decision", "Whisken", "Wiscan"],
-    summary:
-      "Both names have been used for the cat people. The app should flag this as a naming consistency issue.",
-    notes: {
-      art: "",
-      gameplay: "",
-      production: "Choose one current spelling and archive the older one.",
-      marketing: "",
-      unresolved: "Need final naming decision."
-    }
-  }),
-  entry({
-    title: "Naming Decision Needed: Datka vs Dagda",
-    category: "Archive",
-    type: "Naming Decision",
-    status: "Needs Rewrite",
-    spoilerLevel: "Minor Spoiler",
-    tags: ["naming decision", "Datka", "Dagda"],
-    summary:
-      "Both names have been used for the mythic cauldron figure. The app should flag this as a naming consistency issue.",
-    notes: {
-      art: "",
-      gameplay: "",
-      production: "Choose the final mythic figure name and archive the old one.",
-      marketing: "",
-      unresolved: "Need final naming decision."
-    }
   })
 ];
 

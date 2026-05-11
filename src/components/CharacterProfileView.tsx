@@ -5131,7 +5131,7 @@ function importantTags(entry: LoreEntry, isGwen: boolean) {
 }
 
 function firstSpecies(entry: LoreEntry) {
-  return firstMatchingTag(entry.tags, ["Human", "Whisken", "Wiscan", "Faery", "Dwarf"]) || entry.type;
+  return firstMatchingTag(entry.tags, ["Human", "Whisken", "Faery", "Dwarf"]) || entry.type;
 }
 
 function firstMatchingTag(tags: string[], needles: string[]) {

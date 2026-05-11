@@ -338,7 +338,7 @@ export function AssistantPanel({
             <input
               className="field min-w-0 rounded px-3 py-2 text-sm"
               value={command}
-              placeholder="Example: Rename Wiscan to Whisken everywhere."
+              placeholder="Example: Update the Whisken faith notes everywhere."
               onChange={(event) => setCommand(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === "Enter") {
