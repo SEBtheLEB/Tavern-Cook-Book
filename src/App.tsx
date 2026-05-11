@@ -929,7 +929,7 @@ export default function App() {
                 />
               )}
 
-              {(activeView === "ingredients" || activeView === "recipes") && (
+              {(activeView === "food" || activeView === "ingredients" || activeView === "recipes") && (
                 <PantryPage
                   entries={database.entries}
                   bestiary={database.bestiary || []}
@@ -955,7 +955,7 @@ export default function App() {
                 />
               )}
 
-              {!["dashboard", "storyJourney", "spriteAnimator", "search", "timeline", "secrets", "settings", "bestiary", "world", "ingredients", "recipes"].includes(activeView) && (
+              {!["dashboard", "storyJourney", "spriteAnimator", "search", "timeline", "secrets", "settings", "bestiary", "world", "food", "ingredients", "recipes"].includes(activeView) && (
                 <HubPage
                   view={activeConfig}
                   entries={viewEntries}
@@ -1140,7 +1140,7 @@ function normalizeKeyword(value: string) {
 
 function selectEntriesForView(entries: LoreEntry[], view: ActiveView) {
   if (view === "recipes") {
-    return entries.filter((entry) => /recipe|meal|food magic|consumable/i.test(entry.type));
+    return entries.filter((entry) => /recipe|meal|menu|dish|broth|tonic|ale|drink|consumable|food magic|food item/i.test(entry.type));
   }
   if (view === "ingredients") {
     return entries.filter((entry) => /ingredient|drop|substitute/i.test(entry.type));
@@ -1174,7 +1174,7 @@ function categoryForView(view: ActiveView) {
 function categoryToView(category: string): ActiveView {
   if (category === "Characters") return "characters";
   if (category === "Enemies & Creatures") return "bestiary";
-  if (category === "Food & Inventory") return "ingredients";
+  if (category === "Food & Inventory") return "food";
   if (category === "Marketing") return "marketing";
   return allViews.find((item) => item.category === category)?.id || "search";
 }

@@ -45,10 +45,10 @@ export const mainNavigation: ViewConfig[] = [
   },
   {
     id: "food",
-    label: "Food & Inventory",
-    description: "Ingredients, meals, recipes, tools, artifacts, inventory, and food magic.",
+    label: "The Pantry",
+    description: "Food inventory, menu items, ingredients, meals, recipes, and cooking magic.",
     tooltip:
-      "Organize ingredients, meals, recipes, tools, artifacts, inventory items, and cooking-related gameplay.",
+      "Manage the dedicated pantry system for ingredients, food inventory, menu items, meals, recipes, drops, prep variants, and cooking-related gameplay.",
     category: "Food & Inventory",
     icon: "ChefHat"
   },
@@ -132,8 +132,9 @@ export const hubSections: Record<string, { title: string; view: ActiveView; desc
     { title: "Dialogue / Quest Framework", view: "gameplay", description: "Story Framework 5 notes and quest logic." }
   ],
   food: [
-    { title: "Pantry", view: "ingredients", description: "All ingredients, creature drops, prep variants, spawn sources, and recipe uses." },
-    { title: "Meals / Recipes", view: "recipes", description: "Cooked dishes, magical meals, and food powers." },
+    { title: "The Pantry", view: "food", description: "All food inventory, ingredients, menu items, recipes, meals, drops, and prep variants." },
+    { title: "Pantry Ingredients", view: "ingredients", description: "All ingredients, creature drops, prep variants, spawn sources, and recipe uses." },
+    { title: "Pantry Meals / Recipes", view: "recipes", description: "Cooked dishes, magical meals, menu items, and food powers." },
     { title: "Items", view: "items", description: "Inventory objects and practical items." },
     { title: "Tools", view: "items", description: "Crafted tools and utility items." },
     { title: "Artifacts", view: "items", description: "Magical objects and story artifacts." },
@@ -161,13 +162,13 @@ export const dashboardBoxes: ViewConfig[] = [
   ),
   {
     id: "recipes",
-    label: "Recipes & Food Magic",
-    description: "Magical meals, broths, corrupted dishes, ales, and cooking lore.",
+    label: "Pantry Meals / Recipes",
+    description: "Magical meals, menu items, broths, corrupted dishes, ales, and cooking lore.",
     icon: "Soup"
   },
   {
     id: "ingredients",
-    label: "Pantry",
+    label: "Pantry Ingredients",
     description: "Raw ingredients, prepared ingredients, slime gels, enemy drops, and recipe uses.",
     icon: "Wheat"
   },

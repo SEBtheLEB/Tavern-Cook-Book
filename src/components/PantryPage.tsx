@@ -322,7 +322,7 @@ export function PantryPage({
     <div className="pantry-tabs">
       <button className={tab === "pantry" ? "active" : ""} onClick={() => setTab("pantry")}>
         <Icon name="Wheat" className="h-4 w-4" />
-        Pantry
+        Pantry Inventory
       </button>
       <button className={tab === "meals" ? "active" : ""} onClick={() => setTab("meals")}>
         <Icon name="Soup" className="h-4 w-4" />
@@ -337,9 +337,9 @@ export function PantryPage({
         <>
           <header className="pantry-hero">
             <div>
-              <p>Food & Inventory</p>
-              <h1 className="font-display">Pantry</h1>
-              <span>Track every ingredient, creature drop, prepared form, cooking station, and meal connection in Tales of the Tavern.</span>
+              <p>The Pantry</p>
+              <h1 className="font-display">Food Inventory & Recipes</h1>
+              <span>Track every ingredient, menu item, magical meal, recipe, creature drop, prepared form, cooking station, and meal connection in Tales of the Tavern.</span>
             </div>
             <div className="pantry-hero-stats">
               <article>
@@ -379,7 +379,7 @@ export function PantryPage({
             <div className="pantry-section-heading">
               <div>
                 <p>Ingredient Archive</p>
-                <h2 className="font-display">{baseFilter === allOption ? "All Pantry Items" : `${baseFilter} Family`}</h2>
+                <h2 className="font-display">{baseFilter === allOption ? "The Pantry" : `${baseFilter} Family`}</h2>
               </div>
               <div className="pantry-heading-actions">
                 <span>{visibleIngredients.length} shown</span>

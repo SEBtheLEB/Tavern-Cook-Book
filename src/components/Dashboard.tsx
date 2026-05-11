@@ -36,7 +36,7 @@ export function Dashboard({ database, onNavigate, onOpenEntry }: DashboardProps)
   const countForBox = (view: ActiveView) => {
     if (view === "bestiary") return database.bestiary?.length || 0;
     if (view === "recipes") {
-      return entries.filter((entry) => /recipe|meal|food magic|consumable/i.test(entry.type)).length;
+      return entries.filter((entry) => /recipe|meal|menu|dish|broth|tonic|ale|drink|consumable|food magic|food item/i.test(entry.type)).length;
     }
     if (view === "ingredients") {
       return entries.filter((entry) => /ingredient|drop|substitute/i.test(entry.type)).length;

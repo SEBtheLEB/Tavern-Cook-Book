@@ -305,7 +305,7 @@ function isIngredientEntry(entry: LoreEntry) {
 }
 
 function isRecipeEntry(entry: LoreEntry) {
-  return entry.category === "Food & Inventory" && /recipe|meal|broth|tonic|ale|consumable|food magic/i.test(entry.type);
+  return entry.category === "Food & Inventory" && /recipe|meal|menu|dish|broth|tonic|ale|drink|consumable|food magic|food item/i.test(entry.type);
 }
 
 function recipeUsesIngredient(recipe: LoreEntry, ingredient: PantryIngredient) {
@@ -362,7 +362,7 @@ function inferMealGroup(entry: LoreEntry): PantryMealGroupId {
     entry.tags.join(" ")
   ].join(" ").toLowerCase();
 
-  if (/broth|stock|base|component|sauce|prep|reduction|chopped|sliced|diced|crushed/.test(value)) return "components";
+  if (/\b(broth|stock|base|component|sauce|reduction|chopped|sliced|diced|crushed)\b|\bprep(?:ped)?\s+(ingredient|component|base)\b/.test(value)) return "components";
   if (/magical ale|magic ale|buff ale|ability ale|tonic|elixir/.test(value)) return "magical-ales";
   if (/\bale\b|drink|beverage|brew/.test(value)) return "ales";
   if (/snack|quick bite|travel bite|stamina|small bite/.test(value)) return "snacks";

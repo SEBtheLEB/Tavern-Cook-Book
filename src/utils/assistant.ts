@@ -98,7 +98,7 @@ const assistantJsonInstructions = `Return only structured JSON in this exact sha
   "warnings": []
 }
 Rules: only change app database content such as text, fields, tags, bestiary stats/drops/lore, world-building fields, and art slot labels. Never propose code, layout, CSS, API keys, images, Drive file deletion, or development changes. Prefer precise updates across every related place that should reflect the user's instruction. Include warnings when canon or naming decisions are uncertain.
-Rules continued: every requested clause must produce a matching change or a warning. If the user asks to change an existing character, faction, culture, location, quest, story, item, recipe, or marketing page, use action "setData" with target "entry" and the id from entryIndex/relevantEntries. Do not use targets like "character", "faction", or "culture"; those are stored as entries. Before adding a normal lore entry, scan entryIndex for an exact or near-exact title match and update that existing entry instead of creating a duplicate. World Building modules are separate from lore entries: if a matching concept exists in worldIndex/relevantWorldEntries, also update it with setData target "worldEntry". If both an entry and worldEntry exist for the same concept, update both. If the user asks to remove/delete/archive a Bestiary creature, return removeCreature using the id from bestiaryIndex/relevantCreatures; do not return only archive for that request. Include archiveContent on removeCreature only when the user wants a note kept. If the user changes a character's age, update existing age text and add or update fields.Age. If the user declares a relationship between an existing character and an existing people/culture/faction, update both related existing entries when possible, update the matching worldEntry fields, and add the character to relatedEntries when the current worldEntry has relationship data. Do not copy the user's command, Scribe target directives, or UI routing phrases into summaries/descriptions/internal lore. For meals and recipes, put routing data in category, type, fields.pantryMealGroup, fields.ingredientsRequired, and wiki ingredients instead of prose like "belongs in the Pantry section".
+Rules continued: every requested clause must produce a matching change or a warning. If the user asks to change an existing character, faction, culture, location, quest, story, item, recipe, or marketing page, use action "setData" with target "entry" and the id from entryIndex/relevantEntries. Do not use targets like "character", "faction", or "culture"; those are stored as entries. Before adding a normal lore entry, scan entryIndex for an exact or near-exact title match and update that existing entry instead of creating a duplicate. The Pantry is a top-level app tab; its underlying stored entry.category is "Food & Inventory". Food, menu items, ingredients, meals, recipes, drinks, ales, tonics, cooking inventory, and culinary magic belong in The Pantry, not Story, unless the user explicitly asks for story lore about food culture. World Building modules are separate from lore entries: if a matching concept exists in worldIndex/relevantWorldEntries, also update it with setData target "worldEntry". If both an entry and worldEntry exist for the same concept, update both. If the user asks to remove/delete/archive a Bestiary creature, return removeCreature using the id from bestiaryIndex/relevantCreatures; do not return only archive for that request. Include archiveContent on removeCreature only when the user wants a note kept. If the user changes a character's age, update existing age text and add or update fields.Age. If the user declares a relationship between an existing character and an existing people/culture/faction, update both related existing entries when possible, update the matching worldEntry fields, and add the character to relatedEntries when the current worldEntry has relationship data. Do not copy the user's command, Scribe target directives, or UI routing phrases into summaries/descriptions/internal lore. For meals and recipes, put routing data in category, type, fields.pantryMealGroup, fields.ingredientsRequired, and wiki ingredients instead of prose like "belongs in The Pantry section".
 Known Scribe target helper directives:
 ${scribeTargetHelperGuidance}`;
 
@@ -161,6 +161,7 @@ export const prepareAssistantPatchForCommand = (
   command: string
 ): AssistantPatch => {
   const helpers = getSelectedScribeHelpers(command);
+  const hasThePantryTarget = helpers.some((helper) => helper.id === "target-the-pantry");
   const hasMealsTarget = helpers.some((helper) => helper.id === "target-recipes");
   const hasPantryTarget = helpers.some((helper) => helper.id === "target-pantry");
   const changes = patch.changes.map((change): AssistantAction => {
@@ -176,7 +177,7 @@ export const prepareAssistantPatchForCommand = (
 
   return {
     ...patch,
-    changes: hasMealsTarget && hasPantryTarget
+    changes: hasThePantryTarget || (hasMealsTarget && hasPantryTarget)
       ? addMissingPantryIngredientsForRecipes(database, changes)
       : changes
   };
@@ -268,7 +269,7 @@ const safeSetDeepValue = (target: Record<string, unknown>, path: string, value: 
   return true;
 };
 
-const recipeTypePattern = /recipe|meal|broth|tonic|ale|consumable|food magic/i;
+const recipeTypePattern = /recipe|meal|menu|dish|broth|tonic|ale|drink|consumable|food magic|food item/i;
 const ingredientTypePattern = /ingredient|drop|substitute|gel|essence|produce|meat|spice/i;
 
 const normalizeScribeAddedEntry = (
@@ -331,7 +332,7 @@ const looksLikeRecipeEntry = (entry: Partial<LoreEntry>) => {
     entry.wiki?.ingredientsRequired
   );
   const typeLooksRecipe = recipeTypePattern.test(type) && !/system|wheel/i.test(type);
-  const titleLooksRecipe = /\b(recipe|meal|broth|tonic|ale|consumable)\b/i.test(title) && !/\b(system|wheel|slot)\b/i.test(title);
+  const titleLooksRecipe = /\b(recipe|meal|menu|dish|broth|tonic|ale|drink|consumable|food item)\b/i.test(title) && !/\b(system|wheel|slot)\b/i.test(title);
   const tagLooksRecipe = recipeTypePattern.test(tags);
   return hasRecipeFields || typeLooksRecipe || titleLooksRecipe || tagLooksRecipe;
 };
@@ -430,14 +431,14 @@ const inferRecipeEntryType = (entry: Partial<LoreEntry>) => {
   const value = compactUnknown(entry, 2000).toLowerCase();
   if (/magical ale|magic ale|buff ale|ability ale|tonic|elixir/.test(value)) return "Magical Ale";
   if (/\bale\b|drink|beverage|brew/.test(value)) return "Ale / Tonic";
-  if (/broth|stock|base|component|sauce|prep|reduction/.test(value)) return "Recipe Component";
+  if (/\b(broth|stock|base|component|sauce|reduction)\b|\bprep(?:ped)?\s+(ingredient|component|base)\b/.test(value)) return "Recipe Component";
   if (/magic|magical|power|buff|ability|combat|spell|dark culinary|fire|ice|lightning|earth/.test(value)) return "Magical Meal";
   return "Meal / Recipe";
 };
 
 const inferPantryMealGroup = (entry: Partial<LoreEntry>) => {
   const value = compactUnknown(entry, 2000).toLowerCase();
-  if (/broth|stock|base|component|sauce|prep|reduction/.test(value)) return "components";
+  if (/\b(broth|stock|base|component|sauce|reduction)\b|\bprep(?:ped)?\s+(ingredient|component|base)\b/.test(value)) return "components";
   if (/magical ale|magic ale|buff ale|ability ale|tonic|elixir/.test(value)) return "magical-ales";
   if (/\bale\b|drink|beverage|brew/.test(value)) return "ales";
   if (/snack|quick bite|travel bite|stamina|small bite/.test(value)) return "snacks";
@@ -1182,7 +1183,7 @@ const buildCompactLoreContext = (database: LoreDatabase, command: string) => {
     totalBestiaryCreatures: (database.bestiary || []).length,
     totalWorldEntries: worldBuildingCategoryIds.reduce((count, category) => count + (database.worldBuilding?.[category] || []).length, 0),
     contextPolicy:
-      "This compact context removes media payloads. Tavern Scribe can only return app-data changes: text, fields, tags, bestiary stats/drops/lore, world-building fields, lore entries, creatures, world entries, bestiary creature remove actions, entry remove actions, and art slot add/remove actions. It cannot change code, UI layout, images, Drive files, API keys, secrets, or development settings. Use activeScribeHelpers plus any [Scribe Target: ...] or [Scribe Mode: ...] directives in the user command as hard routing constraints. If multiple target helpers are active, satisfy each selected destination with separate correctly shaped actions. For exact whole-database replacements, return renameReference instead of many update actions. Characters, factions, cultures, locations, quests, items, recipes, story pages, and marketing pages from entryIndex are entries; update them with setData target entry. Before adding, scan entryIndex for same-title entries and update existing records instead of duplicating. Meals and recipes must be Food & Inventory entries, never Story entries. World Building modules from worldIndex are separate records; when the same concept appears in entryIndex and worldIndex, update both records. For removing Bestiary creatures, return removeCreature with the creature id from bestiaryIndex. For removing normal lore entries, return removeEntry with the entry id from entryIndex. Every requested clause must be represented by at least one change or warning. Do not copy target directives or UI routing instructions into lore descriptions.",
+      "This compact context removes media payloads. Tavern Scribe can only return app-data changes: text, fields, tags, bestiary stats/drops/lore, world-building fields, lore entries, creatures, world entries, bestiary creature remove actions, entry remove actions, and art slot add/remove actions. It cannot change code, UI layout, images, Drive files, API keys, secrets, or development settings. Use activeScribeHelpers plus any [Scribe Target: ...] or [Scribe Mode: ...] directives in the user command as hard routing constraints. If multiple target helpers are active, satisfy each selected destination with separate correctly shaped actions. For exact whole-database replacements, return renameReference instead of many update actions. Characters, factions, cultures, locations, quests, items, recipes, story pages, and marketing pages from entryIndex are entries; update them with setData target entry. Before adding, scan entryIndex for same-title entries and update existing records instead of duplicating. The Pantry is a top-level app tab whose stored category is Food & Inventory. Food, menu items, ingredients, meals, recipes, drinks, ales, tonics, cooking inventory, and culinary magic should be Food & Inventory entries for The Pantry, never Story entries. World Building modules from worldIndex are separate records; when the same concept appears in entryIndex and worldIndex, update both records. For removing Bestiary creatures, return removeCreature with the creature id from bestiaryIndex. For removing normal lore entries, return removeEntry with the entry id from entryIndex. Every requested clause must be represented by at least one change or warning. Do not copy target directives or UI routing instructions into lore descriptions.",
     entryIndex: database.entries.map((entry) => compactEntry(entry, "index")),
     relevantEntries: relevantEntries.length
       ? relevantEntries

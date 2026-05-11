@@ -631,7 +631,7 @@ export const createShareableHtml = (database: LoreDatabase) => {
 
     function entriesForView(view) {
       if (view === "bestiary") return data.bestiary || [];
-      if (view === "recipes") return data.entries.filter(entry => /recipe|meal|food magic|consumable/i.test(entry.type));
+      if (view === "recipes") return data.entries.filter(entry => /recipe|meal|menu|dish|broth|tonic|ale|drink|consumable|food magic|food item/i.test(entry.type));
       if (view === "ingredients") return data.entries.filter(entry => /ingredient|drop|substitute/i.test(entry.type));
       if (view === "items") return data.entries.filter(entry => /item|artifact|tool|collectible/i.test(entry.type));
       if (view === "enemies") return data.entries.filter(entry => entry.category === "Enemies & Creatures");

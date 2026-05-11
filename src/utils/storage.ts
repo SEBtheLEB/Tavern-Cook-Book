@@ -368,7 +368,7 @@ const repairMisroutedScribeFoodEntry = (entry: LoreEntry): LoreEntry => {
 };
 
 const looksLikeMisroutedScribeRecipe = (entry: LoreEntry) => {
-  const titleLooksRecipe = /\b(recipe|meal|broth|tonic|ale|consumable)\b/i.test(entry.title) && !/\b(system|wheel|slot)\b/i.test(entry.title);
+  const titleLooksRecipe = /\b(recipe|meal|menu|dish|broth|tonic|ale|drink|consumable|food item)\b/i.test(entry.title) && !/\b(system|wheel|slot)\b/i.test(entry.title);
   const hasRecipeFields = Boolean(
     entry.fields?.ingredientsRequired ||
     entry.fields?.Ingredients ||
@@ -415,7 +415,7 @@ const isFoodRecipeEntry = (entry: LoreEntry) =>
     JSON.stringify(entry.wiki || {})
   ].join(" "));
 
-const recipeTypePattern = /recipe|meal|broth|tonic|ale|consumable|food magic/i;
+const recipeTypePattern = /recipe|meal|menu|dish|broth|tonic|ale|drink|consumable|food magic|food item/i;
 
 const inferFoodEntryType = (entry: LoreEntry) => {
   const value = JSON.stringify({
