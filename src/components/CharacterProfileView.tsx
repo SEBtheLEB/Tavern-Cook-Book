@@ -44,6 +44,7 @@ import { Icon } from "./Icon";
 import { LoreKeywordText } from "./LoreKeywordText";
 import { RichLoreText, RichTextEditor } from "./RichText";
 import { FavoriteButton } from "./FavoriteButton";
+import { StoryReaderModal, type StoryReaderSection, type StoryReaderStep } from "./StoryReaderModal";
 
 type ImageSlot =
   | "iconImage"
@@ -1122,6 +1123,21 @@ export function CharacterProfileView({
       </button>
     </div>
   );
+  const storyReaderSections: StoryReaderSection[] = storySections.map((section) => ({
+    key: section.key,
+    title: section.title,
+    icon: section.icon,
+    value: storyValue(entry, character, section.key),
+    placeholder: section.placeholder,
+    onChange: (value) => {
+      if (section.key === "futureUnresolvedThreads") {
+        onNotesChange({ unresolved: value });
+        return;
+      }
+      onSetField(section.field, value);
+    }
+  }));
+  const characterStorySteps = buildCharacterStorySteps(entry, character);
 
   return (
     <article className="character-codex-shell">
@@ -1387,14 +1403,18 @@ export function CharacterProfileView({
       </main>
 
       {fullStoryOpen && (
-        <FullStoryReader
-          entry={entry}
-          character={character}
+        <StoryReaderModal
+          title={entry.title}
+          eyebrow="Longform Story Scroll"
           activeTab={activeStoryTab}
+          sections={storyReaderSections}
+          fullStory={fullStoryText(entry, character)}
+          fullStoryEditValue={fieldText(entry, ["Full Story", "Longform Story", "Complete Story"]) || fullStoryText(entry, character)}
+          fullStoryPlaceholder="Write the complete in-depth character story here. This can be long-form prose, scene notes, emotional beats, mysteries, spoilers, and future plans."
+          steps={characterStorySteps}
           isEditing={isEditing}
-          onSetActiveTab={setActiveStoryTab}
-          onSetField={onSetField}
-          onNotesChange={onNotesChange}
+          onSetActiveTab={(tab) => setActiveStoryTab(tab as StoryReaderTab)}
+          onFullStoryChange={(value) => onSetField("Full Story", value)}
           onClose={() => setFullStoryOpen(false)}
         />
       )}
@@ -3423,104 +3443,6 @@ function CharacterArtGalleryModal({
   );
 }
 
-function FullStoryReader({
-  entry,
-  character,
-  activeTab,
-  isEditing,
-  onSetActiveTab,
-  onSetField,
-  onNotesChange,
-  onClose
-}: {
-  entry: LoreEntry;
-  character: ReturnType<typeof buildCharacterView>;
-  activeTab: StoryReaderTab;
-  isEditing: boolean;
-  onSetActiveTab: (tab: StoryReaderTab) => void;
-  onSetField: (key: string, value: string) => void;
-  onNotesChange: (patch: Partial<EntryNotes>) => void;
-  onClose: () => void;
-}) {
-  const fullStory = fullStoryText(entry, character);
-  const activeSection = storySections.find((section) => section.key === activeTab);
-  const activeSectionValue = activeSection ? storyValue(entry, character, activeSection.key) : "";
-  const activeSectionTitle = activeSection?.title || "Full Story";
-
-  return (
-    <div className="character-story-reader-backdrop">
-      <section className="character-story-reader">
-        <header>
-          <div>
-            <p>Longform Story Scroll</p>
-            <h2 className="font-display">{entry.title}</h2>
-          </div>
-          <button className="character-codex-icon-button" onClick={onClose} title="Close full story">
-            <Icon name="X" className="h-5 w-5" />
-          </button>
-        </header>
-
-        <div className="character-story-reader-layout">
-          <aside className="character-story-reader-tabs">
-            <button className={activeTab === "full" ? "active" : ""} onClick={() => onSetActiveTab("full")}>
-              <Icon name="ScrollText" className="h-4 w-4" />
-              Full Story
-            </button>
-            {storySections.map((section, index) => (
-              <button
-                key={section.key}
-                className={activeTab === section.key ? "active" : ""}
-                onClick={() => onSetActiveTab(section.key)}
-              >
-                <span>{index + 1}</span>
-                <Icon name={section.icon} className="h-4 w-4" />
-                {section.title}
-              </button>
-            ))}
-          </aside>
-
-          <div className="character-story-reader-body entry-scroll">
-            <h3>{activeSectionTitle}</h3>
-            {activeTab === "full" ? (
-              isEditing ? (
-                <RichTextEditor
-                  value={fieldText(entry, ["Full Story", "Longform Story", "Complete Story"]) || fullStory}
-                  placeholder="Write the complete in-depth character story here. This can be long-form prose, scene notes, emotional beats, mysteries, spoilers, and future plans."
-                  onChange={(value) => onSetField("Full Story", value)}
-                  tall
-                />
-              ) : (
-                <div className="character-story-reader-prose">
-                  <RichLoreText text={fullStory} />
-                </div>
-              )
-            ) : activeSection ? (
-              isEditing ? (
-                <RichTextEditor
-                  value={activeSectionValue}
-                  placeholder={activeSection.placeholder}
-                  onChange={(value) => {
-                    if (activeSection.key === "futureUnresolvedThreads") {
-                      onNotesChange({ unresolved: value });
-                      return;
-                    }
-                    onSetField(activeSection.field, value);
-                  }}
-                  tall
-                />
-              ) : (
-                <div className="character-story-reader-prose">
-                  <RichLoreText text={activeSectionValue || "No story notes added yet."} />
-                </div>
-              )
-            ) : null}
-          </div>
-        </div>
-      </section>
-    </div>
-  );
-}
-
 function CharacterMiniAssistant({
   changeRequest,
   prompt,
@@ -5113,6 +5035,26 @@ function fullStoryText(entry: LoreEntry, character: ReturnType<typeof buildChara
   if (sections.length) return sections.join("\n\n");
   if (entry.internalLore) return entry.internalLore;
   return "No full story scroll has been written yet.";
+}
+
+function buildCharacterStorySteps(entry: LoreEntry, character: ReturnType<typeof buildCharacterView>): StoryReaderStep[] {
+  const steps = storySections
+    .map((section) => {
+      const value = storyValue(entry, character, section.key);
+      return value ? {
+        title: section.title,
+        kicker: entry.type,
+        text: value
+      } : null;
+    })
+    .filter(Boolean) as StoryReaderStep[];
+
+  if (steps.length) return steps;
+  return [{
+    title: "Story Notes",
+    kicker: entry.type,
+    text: entry.internalLore || entry.summary || "No story notes added yet."
+  }];
 }
 
 function fieldText(entry: LoreEntry, labels: string[]) {

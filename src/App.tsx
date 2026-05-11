@@ -46,6 +46,7 @@ import { SearchResults } from "./components/SearchResults";
 import { SecretsView } from "./components/SecretsView";
 import { SettingsPage } from "./components/SettingsPage";
 import { Sidebar } from "./components/Sidebar";
+import { StoryPage } from "./components/StoryPage";
 import { StoryJourneyPage } from "./components/StoryJourneyPage";
 import { SpriteSheetAnimatorPage } from "./components/SpriteSheetAnimatorPage";
 import { TimelineView } from "./components/TimelineView";
@@ -866,6 +867,17 @@ export default function App() {
                 />
               )}
 
+              {activeView === "story" && (
+                <StoryPage
+                  entries={viewEntries}
+                  readOnly={readOnly}
+                  onNavigate={navigate}
+                  onOpenEntry={openEntry}
+                  isFavorite={isEntryFavorite}
+                  onToggleFavorite={(entry) => toggleFavoriteById("entry", entry.id)}
+                />
+              )}
+
               {activeView === "search" && (
                 <SearchResults
                   query={committedSearch}
@@ -955,7 +967,7 @@ export default function App() {
                 />
               )}
 
-              {!["dashboard", "storyJourney", "spriteAnimator", "search", "timeline", "secrets", "settings", "bestiary", "world", "food", "ingredients", "recipes"].includes(activeView) && (
+              {!["dashboard", "storyJourney", "story", "spriteAnimator", "search", "timeline", "secrets", "settings", "bestiary", "world", "food", "ingredients", "recipes"].includes(activeView) && (
                 <HubPage
                   view={activeConfig}
                   entries={viewEntries}
