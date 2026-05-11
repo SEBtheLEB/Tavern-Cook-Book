@@ -24,7 +24,7 @@ export const migrateDatabase = (value: unknown): LoreDatabase => {
 
   const incoming = value as Partial<LoreDatabase>;
   const entries = Array.isArray(incoming.entries)
-    ? incoming.entries.map((item) => normalizeEntry(item as Partial<LoreEntry>))
+    ? repairScribeFoodEntries(incoming.entries.map((item) => normalizeEntry(item as Partial<LoreEntry>)))
     : starter.entries;
   const bestiary = Array.isArray(incoming.bestiary)
     ? incoming.bestiary.map((item) => normalizeBestiaryCreature(item as Partial<BestiaryCreature>))
@@ -288,6 +288,218 @@ const sanitizeSpriteAnimationForPersistence = (value: unknown) => {
     loop: source.loop !== false
   };
 };
+
+const repairScribeFoodEntries = (entries: LoreEntry[]) => {
+  const repaired = entries.map(repairMisroutedScribeFoodEntry);
+  const merged: LoreEntry[] = [];
+
+  repaired.forEach((entry) => {
+    if (!isFoodRecipeEntry(entry)) {
+      merged.push(entry);
+      return;
+    }
+
+    const existingIndex = merged.findIndex((candidate) =>
+      isFoodRecipeEntry(candidate) && normalizeEntryTitle(candidate.title) === normalizeEntryTitle(entry.title)
+    );
+    if (existingIndex < 0) {
+      merged.push(entry);
+      return;
+    }
+
+    merged[existingIndex] = mergeFoodDuplicate(merged[existingIndex], entry);
+  });
+
+  return merged;
+};
+
+const repairMisroutedScribeFoodEntry = (entry: LoreEntry): LoreEntry => {
+  if (entry.category === "Food & Inventory") return entry;
+  if (!looksLikeMisroutedScribeRecipe(entry)) return entry;
+
+  const fields = { ...entry.fields };
+  const wiki = { ...(entry.wiki || {}) };
+  const type = recipeTypePattern.test(entry.type) && !/system|wheel/i.test(entry.type)
+    ? entry.type
+    : inferFoodEntryType(entry);
+  const ingredientsRequired = firstText(
+    fields.ingredientsRequired,
+    fields.Ingredients,
+    fields.ingredients,
+    wiki.ingredientsRequired
+  );
+  const gameplayEffect = firstText(
+    fields.gameplayEffect,
+    fields["Gameplay Effect"],
+    fields.magicalEffect,
+    fields.gameplayUse,
+    wiki.gameplayUse
+  );
+  const pantryMealGroup = firstText(fields.pantryMealGroup) || inferFoodMealGroup(entry);
+
+  return normalizeEntry({
+    ...entry,
+    category: "Food & Inventory",
+    type,
+    tags: uniqueStrings([...entry.tags, type, pantryMealGroupToTitle(pantryMealGroup), "recipe"]),
+    summary: cleanScribeRoutingText(entry.summary),
+    publicDescription: cleanScribeRoutingText(entry.publicDescription),
+    internalLore: cleanScribeRoutingText(entry.internalLore),
+    fields: {
+      ...fields,
+      pantryMealGroup,
+      ...(ingredientsRequired ? { ingredientsRequired } : {}),
+      ...(gameplayEffect ? { gameplayEffect } : {})
+    },
+    wiki: {
+      ...wiki,
+      itemType: wiki.itemType || type,
+      ...(ingredientsRequired ? { ingredientsRequired } : {}),
+      ...(gameplayEffect ? { gameplayUse: wiki.gameplayUse || gameplayEffect } : {})
+    },
+    connections: mergeConnections(entry.connections, {
+      recipes: pantryMealGroup === "magical-meals" ? ["Magical Meals"] : [],
+      gameplaySystems: pantryMealGroup === "magical-meals"
+        ? ["Cooking System", "Combat System", "Meal Slot Wheel"]
+        : ["Cooking System"]
+    }),
+    updatedAt: nowIso()
+  });
+};
+
+const looksLikeMisroutedScribeRecipe = (entry: LoreEntry) => {
+  const titleLooksRecipe = /\b(recipe|meal|broth|tonic|ale|consumable)\b/i.test(entry.title) && !/\b(system|wheel|slot)\b/i.test(entry.title);
+  const hasRecipeFields = Boolean(
+    entry.fields?.ingredientsRequired ||
+    entry.fields?.Ingredients ||
+    entry.fields?.cookingMethod ||
+    entry.wiki?.ingredientsRequired
+  );
+  const hasRoutingText = /pantry.*meals?\s*\/\s*recipes?|meals?\s*\/\s*recipes? section|belongs under .*meals?/i.test(
+    [
+      entry.summary,
+      entry.publicDescription,
+      entry.internalLore,
+      JSON.stringify(entry.fields || {}),
+      JSON.stringify(entry.wiki || {})
+    ].join(" ")
+  );
+  return hasRecipeFields || (titleLooksRecipe && hasRoutingText);
+};
+
+const mergeFoodDuplicate = (base: LoreEntry, duplicate: LoreEntry) =>
+  normalizeEntry({
+    ...base,
+    type: recipeTypePattern.test(base.type) ? base.type : duplicate.type,
+    status: base.status || duplicate.status,
+    spoilerLevel: base.spoilerLevel || duplicate.spoilerLevel,
+    tags: uniqueStrings([...base.tags, ...duplicate.tags]),
+    summary: base.summary || duplicate.summary,
+    publicDescription: base.publicDescription || duplicate.publicDescription,
+    internalLore: base.internalLore || duplicate.internalLore,
+    fields: mergeRecord(base.fields, duplicate.fields),
+    wiki: mergeRecord(
+      (base.wiki || {}) as unknown as Record<string, unknown>,
+      (duplicate.wiki || {}) as unknown as Record<string, unknown>
+    ) as unknown as LoreEntry["wiki"],
+    connections: mergeConnections(base.connections, duplicate.connections),
+    updatedAt: nowIso()
+  });
+
+const isFoodRecipeEntry = (entry: LoreEntry) =>
+  entry.category === "Food & Inventory" && recipeTypePattern.test([
+    entry.title,
+    entry.type,
+    entry.tags.join(" "),
+    JSON.stringify(entry.fields || {}),
+    JSON.stringify(entry.wiki || {})
+  ].join(" "));
+
+const recipeTypePattern = /recipe|meal|broth|tonic|ale|consumable|food magic/i;
+
+const inferFoodEntryType = (entry: LoreEntry) => {
+  const value = JSON.stringify({
+    title: entry.title,
+    type: entry.type,
+    tags: entry.tags,
+    summary: entry.summary,
+    fields: entry.fields,
+    wiki: entry.wiki
+  }).toLowerCase();
+  if (/magical ale|magic ale|buff ale|ability ale|tonic|elixir/.test(value)) return "Magical Ale";
+  if (/\bale\b|drink|beverage|brew/.test(value)) return "Ale / Tonic";
+  if (/broth|stock|base|component|sauce|prep|reduction/.test(value)) return "Recipe Component";
+  if (/magic|magical|power|buff|ability|combat|spell|dark culinary|fire|ice|lightning|earth/.test(value)) return "Magical Meal";
+  return "Meal / Recipe";
+};
+
+const inferFoodMealGroup = (entry: LoreEntry) => {
+  const value = JSON.stringify({
+    title: entry.title,
+    type: entry.type,
+    tags: entry.tags,
+    summary: entry.summary,
+    fields: entry.fields,
+    wiki: entry.wiki
+  }).toLowerCase();
+  if (/broth|stock|base|component|sauce|prep|reduction/.test(value)) return "components";
+  if (/magical ale|magic ale|buff ale|ability ale|tonic|elixir/.test(value)) return "magical-ales";
+  if (/\bale\b|drink|beverage|brew/.test(value)) return "ales";
+  if (/snack|quick bite|travel bite|stamina|small bite/.test(value)) return "snacks";
+  if (/magic|magical|power|buff|ability|combat|spell|dark culinary|fire|ice|lightning|earth/.test(value)) return "magical-meals";
+  return "tavern-meals";
+};
+
+const pantryMealGroupToTitle = (group: string) => {
+  if (group === "magical-meals") return "Magical Meal";
+  if (group === "magical-ales") return "Magical Ale";
+  if (group === "ales") return "Ale";
+  if (group === "snacks") return "Snack";
+  if (group === "components") return "Recipe Component";
+  return "Tavern Meal";
+};
+
+const cleanScribeRoutingText = (value: string) =>
+  value
+    .replace(/\s+in the pantry'?s?\s+Meals\s*\/\s*Recipes section/gi, "")
+    .replace(/\s+in the Meals\s*\/\s*Recipes section/gi, "")
+    .replace(/\bIt belongs under the [^.]+?\.\s*/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+
+const mergeRecord = <T extends Record<string, unknown>>(base: T, duplicate: Record<string, unknown> | undefined): T => ({
+  ...base,
+  ...Object.fromEntries(
+    Object.entries(duplicate || {}).filter(([, value]) =>
+      value != null && value !== "" && (!Array.isArray(value) || value.length > 0)
+    )
+  )
+}) as T;
+
+const mergeConnections = (
+  base: Partial<LoreEntry["connections"]> | undefined,
+  patch: Partial<LoreEntry["connections"]> | undefined
+): LoreEntry["connections"] => ({
+  characters: uniqueStrings([...(base?.characters || []), ...(patch?.characters || [])]),
+  locations: uniqueStrings([...(base?.locations || []), ...(patch?.locations || [])]),
+  recipes: uniqueStrings([...(base?.recipes || []), ...(patch?.recipes || [])]),
+  quests: uniqueStrings([...(base?.quests || []), ...(patch?.quests || [])]),
+  items: uniqueStrings([...(base?.items || []), ...(patch?.items || [])]),
+  factions: uniqueStrings([...(base?.factions || []), ...(patch?.factions || [])]),
+  secrets: uniqueStrings([...(base?.secrets || []), ...(patch?.secrets || [])]),
+  gameplaySystems: uniqueStrings([...(base?.gameplaySystems || []), ...(patch?.gameplaySystems || [])]),
+  enemies: uniqueStrings([...(base?.enemies || []), ...(patch?.enemies || [])]),
+  timelineEvents: uniqueStrings([...(base?.timelineEvents || []), ...(patch?.timelineEvents || [])])
+});
+
+const firstText = (...values: unknown[]) =>
+  values.map((value) => String(value || "").trim()).find(Boolean) || "";
+
+const uniqueStrings = (values: string[]) =>
+  values.map((value) => String(value || "").trim()).filter((value, index, list) => Boolean(value) && list.indexOf(value) === index);
+
+const normalizeEntryTitle = (value: string) =>
+  value.trim().toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 
 export const formatBytes = (bytes: number) => {
   if (bytes < 1024) return `${bytes} B`;
