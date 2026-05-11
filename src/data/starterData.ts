@@ -32,15 +32,28 @@ export const starterEntries: LoreEntry[] = [
       "Osul",
       "cooking",
       "player character",
-      "potatoes"
+      "potatoes",
+      "Tablekeeper",
+      "first true Magical Meal"
     ],
     summary:
-      "Gwen is the main protagonist of Tales of the Tavern. She is a 23-year-old human woman from Osul who used to work with her uncle before being recruited by Tohm Kyatt to work at his tavern in Neverue / Whisker Woods.",
+      "Gwen is the 23-year-old protagonist of Tales of the Tavern, a human fighter from Osul and devoted Tablekeeper whose cooking allows Tohm's long-feared Fire Meal to become the first true Magical Meal of the game.",
     publicDescription:
       "Gwen is a hardworking young fighter from Osul who finds herself swept into a strange culinary adventure after joining Tohm Kyatt's tavern. Armed with her sword, basket, and appetite, she gathers ingredients, protects villages, and cooks magical meals to face the dangers spreading through Whisker Woods.",
     internalLore:
-      "Gwen is tomboyish, hardworking, smart, a talented fighter, and protective of villages. She goes out to farm, gather, complete tasks, fight critters, and protect people with her sword. She has an ale addiction she is working on. Her favorite food is anything potatoes. She is recruited by Tohm Kyatt to help recover stolen/torn recipes and stop the spread of magical corruption.",
+      "Gwen is tomboyish, hardworking, smart, a talented fighter, and protective of villages. She goes out to farm, gather, complete tasks, fight critters, and protect people with her sword. She has an ale addiction she is working on. Her favorite food is anything potatoes. Gwen is a true Tablekeeper: she follows the Tablemaker devotionally, not only culturally, and since childhood she has said a short dedication in the name of the Tablemaker before cooking. Tohm does not understand that this devotion is the reason his Fire Meal works when Gwen cooks it. On the Feast of Full Plates night, Gwen gathers the ingredients Tohm requested, cooks his long-developed Magical Meal recipe before the watching Whisken villagers and Lel Kai, and sees no visible magic at first. After the feast winds down, she takes a bite of the meal, falls into a trance, her eyes roll back, and she wakes inside a snowstorm. The truth is that Gwen made the first true Magical Meal of the game because she cooked it in the name of the Tablemaker. Much later in history, after the end of her life, Gwen will be venerated as a saint in Whisken tradition and beyond.",
     fields: {
+      "Faith Identity": "Tablekeeper; a devoted follower of the Tablemaker who cooks in his name.",
+      "Tablemaker Cooking Prayer":
+        "Since childhood, Gwen says a dedication in the name of the Tablemaker whenever she cooks, almost like an incantation.",
+      "Opening Magical Meal":
+        "Gwen cooks Tohm's Fire Meal on the Feast of Full Plates night. It appears to fail in front of everyone, but later works when she eats it after serving the feast.",
+      "Secret Truth":
+        "The meal works because Gwen made it in the name of the Tablemaker. Tohm, Gwen, and Lel Kai do not understand this at first.",
+      "Future Veneration":
+        "After the end of her life, Gwen will be venerated as a saint in Whisken tradition and other Tablemaker-following cultures.",
+      "Full Story":
+        "Gwen begins as a 23-year-old fighter from Osul: practical, sarcastic, protective, and far more faithful than she tends to advertise. She is a Tablekeeper, a devoted follower of the Tablemaker. Ever since she was small, every time she was about to cook, she would cook in the name of the Tablemaker, saying it almost like an incantation.\n\nWhen Tohm asks her to gather ingredients before the big night, Gwen treats it like another strange tavern errand. The night is the Feast of Full Plates, a holy celebration where Whisken villagers and Lel Kai gather at the Living Tavern. Tohm has been writing one new Magical Meal recipe for years after losing his dark magical recipes: the Fire Meal. He is too afraid and ashamed to cook it himself, so he prepares Gwen to be the one to try.\n\nGwen gathers the ingredients, returns before the celebration, and cooks the Fire Meal while everyone watches in suspense. Nothing happens. No visible magic appears. Tohm is visibly heartbroken, but he collects himself and joyously tells everyone to continue the celebration and make more food for the night. Gwen puts the meal aside, gets to work, serves people, and helps the feast continue.\n\nWhen the celebration ends, everyone leaves except Tohm and Lel Kai. Gwen serves them at the table, catches up with Lel Kai, and then takes a bite of the meal. Instantly she goes into a trance. Her eyes roll back, and she wakes in a snowstorm.\n\nThe hidden truth is that the Fire Meal works because Gwen made it in the name of the Tablemaker. If Tohm had made that exact recipe himself, it would have been a dark meal. Gwen, Tohm, and Lel Kai do not know this yet. Much later in the world's history, after the end of her life, Gwen will be venerated as a saint in Whisken tradition and among other peoples who follow the Tablemaker.",
       Personality:
         "Direct, practical, slightly sarcastic, brave, protective, easily annoyed by nonsense, but kind underneath.",
       "Gameplay Role":
@@ -51,16 +64,16 @@ export const starterEntries: LoreEntry[] = [
         "Hands on hips, leaning on sword, carrying basket, rummaging through basket, protective combat stance, tired but determined, annoyed at Tohm, smiling after a good meal."
     },
     connections: {
-      characters: ["Tohm Kyatt", "Princess Lillia", "Lel Kai", "Oswin"],
+      characters: ["Tohm Kyatt", "Princess Lillia", "Lel Kai", "Oswin", "The Tablemaker"],
       locations: ["Whisker Woods", "Osul"],
-      recipes: ["Magical Meals"],
-      quests: ["Recover Recipe Pages", "Kap's Pond Rescue"],
+      recipes: ["Magical Meals", "Fire Meal", "Feast of Full Plates"],
+      quests: ["Recover Recipe Pages", "Kap's Pond Rescue", "Feast of Full Plates Opening Night"],
       items: ["Recipe Pages", "Gwen's Basket"],
-      factions: [],
-      secrets: [],
+      factions: ["Tablekeepers"],
+      secrets: ["Secret: Gwen's Tablemaker Prayer Made the Meal Work"],
       gameplaySystems: ["Cooking System", "Meal Slot Wheel", "Ales / Tonics"],
       enemies: [],
-      timelineEvents: ["Gwen Is Recruited"]
+      timelineEvents: ["Gwen Is Recruited", "Feast of Full Plates Night", "Gwen Cooks the First True Magical Meal", "Gwen Wakes in the Snowstorm"]
     }
   }),
   entry({
@@ -81,26 +94,36 @@ export const starterEntries: LoreEntry[] = [
       "redemption"
     ],
     summary:
-      "Tohm Kyatt is a world-renowned Whisken chef and food critic who discovers the Cat Cauldron, awakens its power, and later hires Gwen to recover torn magical recipe pages.",
+      "Tohm Kyatt is a world-renowned Whisken chef and food critic driven by a flavor unlike anything anyone had ever tasted, whose search for true Magical Meals leads him to the Living Tavern, the Cat Cauldron, a dark meal disaster, and eventually Gwen.",
     publicDescription:
       "Tohm Kyatt is a world-renowned Whisken chef and food critic whose mysterious recipes may be the key to saving the land. Brilliant, dramatic, and more than a little secretive, Tohm recruits Gwen to help recover stolen recipes before they cause even more chaos.",
     internalLore:
-      "Tohm Kyatt is a Whisken cat chef and food critic. He is the only cat to ever possess sweet taste buds, making him obsessed with tasting every possible food. As a child, his mother told him stories of the Tablemaker, the canonical divine figure also called the Master Chef, and those stories shaped his obsession with cooking, sacred meals, and the knowledge of what is untasted. Tohm originally lived on Tabby Island with the Whisken people. Later in life, he discovered that the ancient Whisken had created the Cat Cauldron beneath Tabby Island and erased it from their own history after it caused the island's first decay and first exodus. Tohm returned to Tabby Island, found the Cat Cauldron, and cooked a meal in it. Activating it released a large pulse into the earth, causing Tabby Island to begin decaying again and allowing the Mas'eel Cult to sense the Cat Cauldron's power. Tohm then took the Cat Cauldron and fled in the Living Tavern without anyone knowing. When he later heard that Tabby Island had become corrupted and that the Whisken were being persecuted by Mas'eel infiltrators, he got his friend Lel Kai, who was becoming general of the faery army, to send boats and save as many people as possible. Tohm is not purely evil. He is flawed, obsessive, secretive, prideful, and morally compromised, but he has a redemption arc. He wants to fix the harm caused by his obsession. Important canon detail: Tohm never drinks from the cauldron. Updated Lillia Incident: Tohm creates an unstable magical dish using the dragon knife and magical culinary knowledge. Lillia consumes it and gains dangerous magical powers. The living chicken tavern suddenly stands up, causing Lillia, who wears large pajamas resembling a witch costume, to fall over. This gives Tohm the opportunity to snatch the recipe book back, but Lillia rips out several pages. As guards approach, Tohm is forced to flee.",
+      "Tohm Kyatt is a Whisken cat chef and food critic. He is the only cat to ever possess sweet taste buds, and after making everything there was to make and tasting everything there was to taste, he became obsessed with finding a flavor unlike anything anyone had ever tasted. As a child, his mother told him stories of the Tablemaker and of the Whisken Saints, holy followers who could prepare Magical Meals that healed people, lifted people into flight, and revealed that food could carry the Tablemaker's power. Tohm realizes that Magical Meals might be the key to the flavor he seeks. Instead of seeking the Tablemaker himself, he begins a life of grinding, wandering the world, disappearing for years, discovering the Living Tavern, and hunting for the Cat Cauldron, the cauldron said to hold the secrets of chefs and culinary abilities from around the world. Tohm originally lived on Tabby Island with the Whisken people. Later in life, he discovers that the ancient Whisken had created the Cat Cauldron beneath Tabby Island and erased it from their history after it caused the island's first decay and first exodus. Tohm returns to Tabby Island, finds the Cat Cauldron, cooks in it, releases a pulse into the earth, and causes Tabby Island to begin decaying again while allowing the Mas'eel Cult to sense the Cat Cauldron's power. He takes the Cat Cauldron and flees in the Living Tavern without anyone knowing. Even with the Cat Cauldron's immense knowledge, it cannot answer Tohm's true question: how to make a Magical Meal. Tohm keeps going anyway, using his expertise and the Cat Cauldron's knowledge until he finally creates what he believes is a Magical Meal. The twist is that he did not create a true Magical Meal. He unknowingly created a Dark Magical Meal because he sought magic from another place rather than from the Tablemaker. Princess Lillia sneaks around that night, eats it, and receives dark magic. Tohm loses his dark magical recipes when Lillia tears pages from his recipe book, then begins writing a new recipe, the Fire Meal. But from that day forward, he never attempts to cook a magical meal again out of fear and shame. Instead, he looks for someone he can teach and mentor, someone who might one day try the recipe. That leads to Gwen, the Feast of Full Plates night, and the first true Magical Meal of the game. Tohm does not yet understand that Gwen succeeds because she cooks in the name of the Tablemaker. Important canon detail: Tohm never drinks from the cauldron. Tohm is not purely evil. He is flawed, obsessive, secretive, prideful, morally compromised, and carrying shame, but he has a redemption arc.",
     fields: {
       Motivation:
-        "To taste the impossible, master magical cooking, and eventually fix the damage his obsession caused.",
+        "To find a flavor unlike anything anyone had ever tasted.",
+      "Magical Meal Drive":
+        "Stories from his mother about the Tablemaker, Magical Meals, and the Whisken Saints convince Tohm that true magical cooking might be the key to the impossible flavor.",
+      "Cat Cauldron Discovery":
+        "Tohm seeks the Cat Cauldron because it is said to hold the secrets of chefs and culinary abilities from around the world, but even the cauldron does not know how to make a true Magical Meal.",
+      "Dark Meal Truth":
+        "Tohm believes he created a Magical Meal for Lillia. In truth, he created a Dark Magical Meal because he sought magic away from the Tablemaker.",
+      "Fear After Lillia":
+        "After Lillia eats the dark meal and tears out his recipes, Tohm never attempts to cook a magical meal again. He writes the Fire Meal and trains Gwen to try it instead.",
+      "Full Story":
+        "Tohm Kyatt's drive is simple and dangerous: he wants a flavor unlike anything anyone had ever tasted. He has made everything to make and tasted everything to taste. When ordinary culinary genius no longer satisfies him, he reflects on the Tablemaker and on the stories his mother told him as a child. She spoke of Magical Meals prepared by the Whisken Saints, followers of the Tablemaker whose dishes could heal people and even make people fly.\n\nTohm decides that a Magical Meal might be the key to the impossible flavor. That realization sends him into years of grinding, travel, disappearance, obsession, and secret study. He goes all over the world. He discovers the Living Tavern. He hunts for the Cat Cauldron because it is said to hold the secrets of chefs and culinary abilities from around the world.\n\nOn Tabby Island, Tohm uncovers the buried truth: ancient Whisken created the Cat Cauldron, caused the first decay, buried it, erased it from history, and forgot it. Tohm finds the cauldron and cooks in it. The act releases a pulse into the earth, begins Tabby Island's second decay, and lets the Mas'eel Cult sense its power. Tohm takes the cauldron and flees in the Living Tavern without anyone knowing.\n\nBut the Cat Cauldron cannot answer Tohm's real question. It does not know how to make a true Magical Meal. Tohm refuses to stop. Using his own expertise and the Cat Cauldron's knowledge, after a long time and many unseen steps, he finally creates what he believes is a Magical Meal. That night, Princess Lillia is sneaking around and eats it herself. She receives dark magic.\n\nThe secret truth is that Tohm did not make a true Magical Meal. He made a Dark Magical Meal. The Whisken Saints made Magical Meals by power given to them by the Tablemaker. Tohm sought magic somewhere else and never thought to seek it from the Tablemaker, so the meal's power came from a dark substance instead.\n\nAfter Lillia tears pages from his recipe book and Tohm loses his dark magical recipes, he begins writing a new one: the Fire Meal. From that day forward, he never attempts to cook a magical meal again out of fear and shame. Instead, he looks for someone to teach, mentor, and eventually trust with the recipe. This leads him to Gwen and the Feast of Full Plates night, though Tohm does not yet understand that Gwen's faith is the difference between a true Magical Meal and the dark meal Lillia ate.",
       Arc:
         "From obsessive culinary genius hiding from his consequences to flawed mentor seeking redemption.",
       "Gameplay Role":
         "Quest giver, mentor, chef, lore source, recipe system anchor, morally complex guide.",
-      "Faith Link": "Raised on stories of the Tablemaker, also called the Master Chef.",
+      "Faith Link": "Raised on stories of the Tablemaker, also called the Master Chef, but sought magical cooking through knowledge and power rather than devotion.",
       "Canon Note": "Discarded older mythic names are not canon entities."
     },
     connections: {
       characters: ["Gwen", "Princess Lillia", "Lel Kai", "King"],
       locations: ["Tabby Island", "Whisker Woods"],
-      recipes: ["Dark Culinary Arts", "Magical Meals"],
-      quests: ["Recover Recipe Pages"],
+      recipes: ["Dark Culinary Arts", "Magical Meals", "Fire Meal"],
+      quests: ["Recover Recipe Pages", "Feast of Full Plates Opening Night"],
       items: [
         "Cat Cauldron",
         "Dragon Knife",
@@ -111,7 +134,9 @@ export const starterEntries: LoreEntry[] = [
       factions: ["Whisken People", "Mas'eel Cult"],
       secrets: [
         "Secret: Tohm Awakened the Cat Cauldron",
-        "Secret: Tohm Never Drinks From The Cauldron"
+        "Secret: Tohm Never Drinks From The Cauldron",
+        "Secret: Tohm Created a Dark Magical Meal",
+        "Secret: Gwen's Tablemaker Prayer Made the Meal Work"
       ],
       gameplaySystems: ["Cooking System"],
       enemies: [],
@@ -119,7 +144,11 @@ export const starterEntries: LoreEntry[] = [
         "Tohm Awakens the Cat Cauldron",
         "Mas'eel Infiltrate Tabby Island",
         "Second Whisken Exodus",
-        "Lillia Consumes the Unstable Magical Dish"
+        "Cat Cauldron Cannot Teach Magical Meals",
+        "Tohm Creates a Dark Magical Meal",
+        "Lillia Consumes the Dark Magical Meal",
+        "Tohm Writes the Fire Meal",
+        "Feast of Full Plates Night"
       ]
     }
   }),
@@ -139,14 +168,18 @@ export const starterEntries: LoreEntry[] = [
       "Mas'eel"
     ],
     summary:
-      "Princess Lillia is a stubborn young princess of the human kingdom who grew up wanting to become a faery. Her obsession with magic leads to the spread of the Dark Culinary Arts.",
+      "Princess Lillia is a stubborn young princess of the human kingdom whose obsession with becoming a faery leads her to eat Tohm's first Dark Magical Meal and spread the Dark Culinary Arts.",
     publicDescription:
       "Princess Lillia is a magical threat tied to the rise of corrupted cooking and dangerous recipe-powered enemies. Her obsession with magic has left a trail of strange meals, twisted powers, and chaos across the land.",
     internalLore:
-      "Lillia is the daughter of the king and queen. Because the royal family was close to the faery kingdom, Lillia grew up fascinated by faeries and eventually became obsessed with becoming one. The king and queen spent about a year consulting mages and allies to find a way to give her magical powers. The faeries refused to help because they feared humans gaining magic would lead to humans dominating all kingdoms. The king eventually turned to the dwarven kingdom, knowing they possessed a magical dragon knife. The dwarves refused to give it up, and the king declared war. After winning, he took the dragon knife. Tohm Kyatt eventually gains access to the dragon knife through the royal food contest / royal access plotline. He creates an unstable magical dish. Lillia consumes it and gains dangerous magical powers. She attempts to steal Tohm's recipe book, but only tears out several pages before Tohm escapes. The torn recipe pages become central to the game. Lillia later sets up camp in the faery realm because she can consume the magic in the environment to mass-produce Dark Culinary Arts instead of infusing each meal one at a time. The Mas'eel Cult now works with her while searching for the Cat Cauldron and Tohm's magical recipes.",
+      "Lillia is the daughter of the king and queen. Because the royal family was close to the faery kingdom, Lillia grew up fascinated by faeries and eventually became obsessed with becoming one. The king and queen spent about a year consulting mages and allies to find a way to give her magical powers. The faeries refused to help because they feared humans gaining magic would lead to humans dominating all kingdoms. The king eventually turned to the dwarven kingdom, knowing they possessed a magical dragon knife. The dwarves refused to give it up, and the king declared war. After winning, he took the dragon knife. Tohm Kyatt eventually gains access to the dragon knife through the royal food contest / royal access plotline. After years of trying to make a Magical Meal, Tohm creates what he thinks is his first success. Lillia happens to be sneaking around that night and eats it herself. The twist is that Tohm did not create a true Magical Meal; he unknowingly created a Dark Magical Meal, and Lillia gains dark magic from it. She attempts to steal Tohm's recipe book, but only tears out several pages before Tohm escapes. The torn recipe pages become central to the game. Lillia later sets up camp in the faery realm because she can consume the magic in the environment to mass-produce Dark Culinary Arts instead of infusing each meal one at a time. The Mas'eel Cult now works with her while searching for the Cat Cauldron and Tohm's magical recipes.",
     fields: {
       "Dark Culinary Arts":
-        "Lillia uses magic to corrupt food. Food infused with the Dark Culinary Arts can make consumers evil or corrupted. She distributes magically enhanced dishes to people who later become bosses Gwen must defeat.",
+        "Lillia's powers begin when she eats Tohm's first Dark Magical Meal. She later uses magic to corrupt food. Food infused with the Dark Culinary Arts can make consumers evil or corrupted. She distributes magically enhanced dishes to people who later become bosses Gwen must defeat.",
+      "Secret Origin of Her Magic":
+        "Her dark magic comes from Tohm's failed attempt at a Magical Meal, not from a true Tablemaker-given Magical Meal.",
+      "Full Story":
+        "Princess Lillia grows up close enough to faery culture to become obsessed with it. She wants magic, wants transformation, and wants to become like a faery. Her parents spend about a year seeking magical solutions. The faeries refuse because they fear humans gaining magic would upset the balance of every kingdom. The king turns to the dwarves and the Dragon Knife, wins it through war, and sets the stage for Tohm's involvement.\n\nTohm eventually creates what he believes is his first Magical Meal. Lillia is sneaking around that night and eats it herself. The meal gives her dark magic. The hidden truth is that this was never a true Magical Meal. Tohm unknowingly created a Dark Magical Meal because he sought magic apart from the Tablemaker.\n\nLillia tries to take Tohm's recipe book, but Tohm snatches it back when the Living Chicken Tavern suddenly stands up and throws her off balance. She tears out several pages before he flees. Those pages become the recipe-page crisis Gwen must deal with in the game.\n\nLater, Lillia uses the Faery Realm's ambient magic to mass-produce the Dark Culinary Arts. She can corrupt meals at scale, empower others, and create recipe-powered bosses. The Mas'eel Cult works with her while hunting for the Cat Cauldron and Tohm's magical recipes.",
       Personality:
         "Stubborn, entitled, obsessive, magical, theatrical, dangerous, childish in some ways but terrifying because of her power.",
       "Gameplay Role":
@@ -155,14 +188,14 @@ export const starterEntries: LoreEntry[] = [
     connections: {
       characters: ["Tohm Kyatt", "Gwen", "King", "Queen"],
       locations: ["Faery Realm", "Human Kingdom / Royal Castle", "Dwarven Mountains"],
-      recipes: ["Dark Culinary Arts"],
+      recipes: ["Dark Culinary Arts", "Magical Meals"],
       quests: ["Recover Recipe Pages"],
       items: ["Dragon Knife", "Recipe Pages", "Tohm's Recipe Book"],
       factions: ["Faery Kingdom", "Dwarven Kingdom", "Human Kingdom", "Mas'eel Cult"],
-      secrets: ["Secret: Lillia Tore Recipe Pages"],
+      secrets: ["Secret: Lillia Tore Recipe Pages", "Secret: Tohm Created a Dark Magical Meal"],
       gameplaySystems: ["Cooking System"],
       enemies: ["Ice Queen"],
-      timelineEvents: ["Lillia Tears Out Recipe Pages"]
+      timelineEvents: ["Lillia Consumes the Dark Magical Meal", "Lillia Tears Out Recipe Pages"]
     }
   }),
   entry({
@@ -175,7 +208,13 @@ export const starterEntries: LoreEntry[] = [
     summary:
       "Lel Kai is a character connected to Tales of the Tavern's faery/magical side and appears in plans for Whisker Woods content and marketing scenes.",
     internalLore:
-      "Lel Kai has a human form and is connected to the fairy/faery kingdom side of the world. Later, as Lel Kai is becoming general of the faery army, Tohm conveniently gets them to send boats to rescue the Whisken from Tabby Island during the second exodus. The corruption is severe enough that many boats are dispersed, and the known survivors are the Whisken who reach Whisker Woods. Lel Kai is planned to appear in the Whisker Woods vertical slice and later story progression. In New Year marketing art, Lel Kai appears at the fairy kingdom popping champagne with fairy dust in the sky like fireworks.",
+      "Lel Kai has a human form and is connected to the fairy/faery kingdom side of the world. Later, as Lel Kai is becoming general of the faery army, Tohm conveniently gets them to send boats to rescue the Whisken from Tabby Island during the second exodus. The corruption is severe enough that many boats are dispersed, and the known survivors are the Whisken who reach Whisker Woods. Lel Kai is present at the Living Tavern on the Feast of Full Plates night when Gwen cooks Tohm's Fire Meal. After the feast, Lel Kai remains at the table with Tohm while Gwen serves them and catches up with Lel Kai; this makes Lel Kai one of the earliest witnesses to Gwen's trance after she eats the meal. Lel Kai is planned to appear in the Whisker Woods vertical slice and later story progression. In New Year marketing art, Lel Kai appears at the fairy kingdom popping champagne with fairy dust in the sky like fireworks.",
+    fields: {
+      "Opening Feast Role":
+        "Lel Kai attends the Feast of Full Plates and remains with Tohm after the celebration, witnessing Gwen's first Magical Meal trance.",
+      "Full Story":
+        "Lel Kai is tied to both the faery side of the world and the Whisken rescue history. They help explain how Tohm arranged boats during the second exodus from Tabby Island. In the game-opening arc, Lel Kai attends the Feast of Full Plates at the Living Tavern. After the villagers leave, Lel Kai sits with Tohm while Gwen serves them and catches up. When Gwen takes a bite of the Fire Meal and falls into a trance, Lel Kai becomes one of the first witnesses to the impossible moment."
+    },
     notes: {
       art: "Needs dialogue art planned.",
       gameplay: "",
@@ -194,7 +233,7 @@ export const starterEntries: LoreEntry[] = [
       secrets: [],
       gameplaySystems: [],
       enemies: [],
-      timelineEvents: ["Second Whisken Exodus", "Survivors Reach Whisker Woods"]
+      timelineEvents: ["Second Whisken Exodus", "Survivors Reach Whisker Woods", "Feast of Full Plates Night", "Gwen Wakes in the Snowstorm"]
     }
   }),
   entry({
@@ -314,25 +353,128 @@ export const starterEntries: LoreEntry[] = [
     summary:
       "The Tablemaker is the canonical divine figure of the setting, also called the Master Chef, and most cultures follow the Triadic faith in their own traditions.",
     internalLore:
-      "The Tablemaker is the canonical one God of the world. The Master Chef is another name for him, not a separate being. Most races now worship the Tablemaker and follow the Triadic faith, though each race practices the faith through its own local traditions, foods, feasts, rites, and cultural habits. The core triad is Passion, Taste, and Love. The Whisken people are strongly tied to this faith, and Tohm grew up listening to stories of the Tablemaker before his obsession with magical cooking and the Cat Cauldron took hold.",
+      "The Tablemaker is the canonical one God of the world. The Master Chef is another name for him, not a separate being. Most races now worship the Tablemaker and follow the Triadic faith, though each race practices the faith through its own local traditions, foods, feasts, rites, and cultural habits. Devoted followers are called Tablekeepers. The core triad is Passion, Taste, and Love. True Magical Meals are power given by the Tablemaker, as remembered in Whisken stories of the saints. The Whisken people are strongly tied to this faith, and Tohm grew up listening to stories of the Tablemaker before his obsession with magical cooking and the Cat Cauldron took hold. Gwen is a true Tablekeeper whose habit of cooking in the Tablemaker's name makes the Fire Meal work as a real Magical Meal.",
     fields: {
       Aliases: "The Master Chef",
       "Core Triad": "Passion, Taste, Love",
+      "Follower Name": "Tablekeeper; plural Tablekeepers.",
+      "Magical Meal Source": "True Magical Meals are power given by the Tablemaker.",
       "Cultural Practice":
         "Most races believe in the same God and same faith, but practice it differently through their own traditions.",
+      "Full Story":
+        "The Tablemaker is the canonical divine figure of the world, also called the Master Chef. He is not one god among many competing kitchen spirits. He is the one whose table ended the 300 Year War and whose final meal released Food Essence into the world.\n\nThe faith that grows from him is carried through Passion, Taste, and Love. Most races follow the same faith, but each people practices it through its own traditions. Whisken tell hearth stories and hold feasts. Humans inherit temple language, royal distortions, and domestic prayers. Faeroes and eastern peoples carry their own forms. The shared center is still the Tablemaker.\n\nDevoted followers are called Tablekeepers. Some people are culturally Tablemaker-following because their village, family, or race inherited the faith. Gwen is different. Gwen follows him devotionally. Since childhood she has cooked in his name, saying the dedication almost like an incantation before preparing food.\n\nTrue Magical Meals come from the Tablemaker. The Whisken Saints are remembered for dishes that healed people, lifted people into flight, and made food into a sacred sign. Tohm grows up on those stories, but when he tries to reach the miracle himself, he seeks knowledge, expertise, the Cat Cauldron, and other hidden sources rather than the Tablemaker. That is why his first apparent Magical Meal becomes a Dark Magical Meal.\n\nGwen's Fire Meal becomes the first true Magical Meal of the game because she cooks it in the name of the Tablemaker. Tohm, Gwen, and Lel Kai do not understand that difference at first, which lets the truth remain buried until later revelations.",
       "Canon Note": "Discarded older mythic names are not canon figures."
     },
     connections: {
-      characters: ["Tohm Kyatt"],
+      characters: ["Tohm Kyatt", "Gwen", "The Tablemaker"],
       locations: ["Tabby Island"],
-      recipes: ["Magical Meals"],
+      recipes: ["Magical Meals", "Fire Meal"],
       quests: [],
       items: ["Cat Cauldron", "Recipe Pages", "Tohm's Recipe Book"],
-      factions: ["Whisken People", "Mas'eel Cult"],
-      secrets: [],
+      factions: ["Whisken People", "Mas'eel Cult", "Tablekeepers"],
+      secrets: ["Secret: Gwen's Tablemaker Prayer Made the Meal Work"],
       gameplaySystems: ["Cooking System"],
       enemies: [],
-      timelineEvents: ["Tablemaker Stories Inspire Tohm"]
+      timelineEvents: ["Tablemaker Stories Inspire Tohm", "Gwen Cooks the First True Magical Meal"]
+    }
+  }),
+  entry({
+    title: "Tablekeepers",
+    category: "Story",
+    type: "Faith Term",
+    status: "Canon",
+    spoilerLevel: "Minor Spoiler",
+    tags: ["Tablemaker", "Triadic faith", "followers", "Gwen", "Magical Meals"],
+    summary:
+      "Tablekeepers are devoted followers of the Tablemaker who actively practice his teachings rather than only inheriting the faith culturally.",
+    internalLore:
+      "Many cultures worship the Tablemaker through their own traditions, but Tablekeeper is the name for a devoted follower who personally follows his teaching. Gwen is a true Tablekeeper. Since childhood she has cooked in the name of the Tablemaker, saying the dedication almost like an incantation. This is the hidden difference between Tohm's dark meal and Gwen's true Magical Meal.",
+    fields: {
+      "Singular": "Tablekeeper",
+      "Plural": "Tablekeepers",
+      "Gwen Link": "Gwen is a devoted Tablekeeper, not only culturally Tablemaker-aligned.",
+      "Cooking Practice": "Cooking in the name of the Tablemaker can become a real act of devotion.",
+      "Full Story":
+        "Tablekeeper is the name for a devoted follower of the Tablemaker. It is more personal than simply being born into a culture that honors him. A Tablekeeper actively tries to keep his teaching alive through the table, the meal, hospitality, mercy, discipline, and faithful cooking.\n\nMany cultures follow the Tablemaker in their own ways. The Whisken do it through tavern life, feast days, stories of saints, and food shared during hard times. Gwen does it quietly, without making speeches about herself. Since she was small, every time she was about to cook, she would cook in the name of the Tablemaker.\n\nThat habit matters more than anyone realizes. Tohm writes the Fire Meal after years of fear and shame, but he cannot make it a true Magical Meal by technical skill alone. Gwen's devotion turns the recipe toward its true source. The Tablemaker gives the power, and Gwen becomes the first person in the game to cook a true Magical Meal.\n\nTohm does not know this. Gwen does not know this. Lel Kai does not know this. The player should eventually learn that faith, source, and intention separate Magical Meals from Dark Magical Meals."
+    },
+    connections: {
+      characters: ["Gwen", "The Tablemaker", "Tohm Kyatt"],
+      locations: ["Osul", "Whisken Village"],
+      recipes: ["Magical Meals", "Fire Meal"],
+      quests: ["Feast of Full Plates Opening Night"],
+      items: [],
+      factions: ["Whisken People"],
+      secrets: ["Secret: Gwen's Tablemaker Prayer Made the Meal Work"],
+      gameplaySystems: ["Cooking System"],
+      enemies: [],
+      timelineEvents: ["Gwen Cooks the First True Magical Meal"]
+    }
+  }),
+  entry({
+    title: "True Magical Meals and Dark Magical Meals",
+    category: "Story",
+    type: "Food Magic Lore",
+    status: "Canon",
+    spoilerLevel: "Major Spoiler",
+    tags: ["Magical Meals", "Dark Culinary Arts", "Tablemaker", "Tohm", "Gwen", "Lillia"],
+    summary:
+      "True Magical Meals come from the Tablemaker, while Dark Magical Meals imitate them through a dark source.",
+    internalLore:
+      "The Whisken Saints made Magical Meals by power given to them by the Tablemaker. Tohm seeks the same miracle through expertise, the Cat Cauldron, and secret knowledge, but he does not seek it from the Tablemaker. His first apparent success is therefore a Dark Magical Meal. Lillia eats it and receives dark magic. Gwen later cooks Tohm's Fire Meal in the name of the Tablemaker, and that makes it the first true Magical Meal of the game. Tohm, Gwen, and Lel Kai do not understand this difference at first.",
+    fields: {
+      "True Magical Meal": "Power given by the Tablemaker through faithful cooking.",
+      "Dark Magical Meal": "A meal empowered by a dark substance or source apart from the Tablemaker.",
+      "Tohm's Error": "He thinks Lillia's meal and Gwen's meal are the same type of magic.",
+      "Hidden Difference": "Gwen's devotion changes the meal's source.",
+      "Full Story":
+        "The world remembers Magical Meals through the legends of the Whisken Saints. These saints were followers of the Tablemaker, and their dishes were not merely clever recipes. They were gifts of power given by the Tablemaker. A true Magical Meal could heal, strengthen, lift someone into flight, or reveal that food can carry sacred force.\n\nTohm grows up hearing those stories from his mother. After making everything there was to make and tasting everything there was to taste, he becomes obsessed with finding a flavor unlike anything anyone had ever tasted. Magical Meals seem like the key. If ordinary cooking has no answer left, maybe holy cooking does.\n\nBut Tohm searches in the wrong direction. He grinds, travels, disappears, discovers the Living Tavern, and hunts for the Cat Cauldron. The Cat Cauldron holds the secrets of chefs and culinary abilities from around the world, but it cannot answer his true question: how to make a Magical Meal. Tohm keeps going anyway and eventually creates what he thinks is his first success.\n\nThat meal is not a true Magical Meal. It is a Dark Magical Meal. Tohm sought magic apart from the Tablemaker, so the power came from a dark source. Princess Lillia eats it while sneaking around and receives dark magic. Tohm does not understand the difference.\n\nYears later, after losing the dark magical recipes, Tohm writes the Fire Meal. He is too ashamed and afraid to cook it himself, so he mentors Gwen. Gwen cooks the Fire Meal on the Feast of Full Plates night and, without realizing the importance of the act, cooks it in the name of the Tablemaker. That is why the recipe becomes a true Magical Meal when she makes it."
+    },
+    connections: {
+      characters: ["Gwen", "Tohm Kyatt", "Princess Lillia", "The Tablemaker", "Lel Kai"],
+      locations: ["The Living Tavern", "Faery Realm"],
+      recipes: ["Magical Meals", "Dark Culinary Arts", "Fire Meal"],
+      quests: ["Feast of Full Plates Opening Night", "Recover Recipe Pages"],
+      items: ["Cat Cauldron", "Tohm's Recipe Book", "Recipe Pages"],
+      factions: ["Tablekeepers", "Whisken People", "Mas'eel Cult"],
+      secrets: ["Secret: Tohm Created a Dark Magical Meal", "Secret: Gwen's Tablemaker Prayer Made the Meal Work"],
+      gameplaySystems: ["Cooking System", "Meal Slot Wheel"],
+      enemies: [],
+      timelineEvents: ["Tohm Creates a Dark Magical Meal", "Lillia Consumes the Dark Magical Meal", "Gwen Cooks the First True Magical Meal"]
+    }
+  }),
+  entry({
+    title: "Feast of Full Plates Opening Night",
+    category: "Story",
+    type: "In-Game Story Arc",
+    status: "Canon",
+    spoilerLevel: "Major Spoiler",
+    tags: ["Feast of Full Plates", "Gwen", "Tohm", "Lel Kai", "Fire Meal", "Act 1"],
+    summary:
+      "The opening magical-meal arc where Gwen cooks Tohm's Fire Meal during the Feast of Full Plates and later wakes in a snowstorm.",
+    internalLore:
+      "Tohm asks Gwen to gather all the ingredients and return before the big night: the Feast of Full Plates, a holy celebration attended by Whisken villagers and Lel Kai. Tohm has spent years writing the Fire Meal but is too afraid and ashamed to cook it himself. Gwen cooks it in front of everyone. No magic appears, and Tohm is visibly heartbroken. He recovers, tells everyone to continue celebrating, and Gwen serves food for the night. After the villagers leave, only Tohm and Lel Kai remain. Gwen serves them, catches up with Lel Kai, eats a bite of the Fire Meal, falls into a trance, and wakes in a snowstorm. Stop this arc there for now.",
+    fields: {
+      "Player Order":
+        "Gather ingredients, return to the Living Tavern, cook the Fire Meal, serve the feast, then eat the meal after the celebration.",
+      "Public Knowledge":
+        "Everyone sees the meal appear to fail. Tohm hides his heartbreak and keeps the celebration alive.",
+      "Hidden Truth":
+        "The meal works because Gwen cooked in the name of the Tablemaker.",
+      "Stop Point": "Gwen wakes in a snowstorm.",
+      "Full Story":
+        "The Feast of Full Plates is supposed to be a holy night of shared food, gratitude, and Whisken community. Whisken villagers gather at the Living Tavern, and Lel Kai is there too. Tohm has been preparing for this night for years, though most people do not understand what is truly at stake.\n\nAfter Lillia ate the dark meal and tore pages from Tohm's recipe book, Tohm stopped attempting magical cooking himself. Out of fear, shame, and uncertainty, he began writing a new recipe instead: the Fire Meal. He wanted someone he could teach, mentor, and eventually trust to try it. That person became Gwen.\n\nBefore the feast, Tohm asks Gwen to gather every ingredient and return before the big night. Gwen does the work and cooks the Fire Meal while the villagers and Lel Kai watch in suspense. There is no sign of magic. No miracle appears. Tohm is visibly heartbroken.\n\nTohm recovers himself and joyously tells everyone to continue the celebration. Gwen puts the meal aside, works the tavern, serves food, and keeps the Feast of Full Plates alive. When the night ends, everyone leaves except Tohm and Lel Kai. They sit at the table talking. Gwen serves them and catches up with Lel Kai.\n\nThen Gwen takes a bite of the Fire Meal. Instantly she enters a trance. Her eyes roll back, and she wakes in a snowstorm. Stop this arc there for now.\n\nThe hidden truth is that the meal worked because Gwen cooked it in the name of the Tablemaker. If Tohm had made that exact meal, it would have been a dark meal. Tohm, Gwen, and Lel Kai do not know that yet."
+    },
+    connections: {
+      characters: ["Gwen", "Tohm Kyatt", "Lel Kai", "The Tablemaker"],
+      locations: ["The Living Tavern", "Whisken Village", "Whisker Woods"],
+      recipes: ["Fire Meal", "Magical Meals", "Feast of Full Plates"],
+      quests: ["Opening Grocery Quest"],
+      items: ["Cat Cauldron", "Tohm's Recipe Book"],
+      factions: ["Whisken People", "Tablekeepers"],
+      secrets: ["Secret: Gwen's Tablemaker Prayer Made the Meal Work", "Secret: Tohm Fears Cooking Magical Meals"],
+      gameplaySystems: ["Cooking System", "Meal Slot Wheel"],
+      enemies: [],
+      timelineEvents: ["Feast of Full Plates Night", "Gwen Cooks the First True Magical Meal", "Gwen Wakes in the Snowstorm"]
     }
   }),
   entry({
@@ -627,12 +769,16 @@ export const starterEntries: LoreEntry[] = [
     spoilerLevel: "Major Spoiler",
     tags: ["dark magic", "Lillia", "corruption", "food magic", "bosses"],
     summary:
-      "A corrupted magical cooking practice used by Lillia to infuse food with dark magic.",
+      "A corrupted magical cooking practice born from Tohm's first failed attempt at making a true Magical Meal and later weaponized by Lillia.",
     internalLore:
-      "The Dark Culinary Arts allow food to be infused with corruptive magic. Consumers of these meals can become evil, corrupted, or gain dangerous powers. Lillia uses the magic of the faery realm to mass-produce these corrupted meals and distribute them to individuals who later become bosses.",
+      "The Dark Culinary Arts begin with Tohm's hidden mistake. He thinks he has finally created a Magical Meal, but because he seeks magic apart from the Tablemaker, the dish is actually a Dark Magical Meal. Lillia eats it and receives dark magic. Later, she uses the magic of the faery realm to mass-produce corrupted meals and distribute them to individuals who become bosses. Consumers of these meals can become evil, corrupted, or gain dangerous powers.",
     fields: {
       "Gameplay Purpose":
-        "Explains corrupted bosses, recipe-powered enemies, dark meals, and magical food as both power and danger."
+        "Explains corrupted bosses, recipe-powered enemies, dark meals, and magical food as both power and danger.",
+      "Origin":
+        "Tohm's first apparent Magical Meal was actually a Dark Magical Meal because it was not empowered by the Tablemaker.",
+      "Difference From Magical Meals":
+        "True Magical Meals are power given by the Tablemaker. Dark Magical Meals imitate magical cooking through a dark substance and corruptive power."
     },
     connections: {
       characters: ["Princess Lillia", "Tohm Kyatt"],
@@ -641,10 +787,10 @@ export const starterEntries: LoreEntry[] = [
       quests: ["Recover Recipe Pages"],
       items: ["Recipe Pages"],
       factions: [],
-      secrets: ["Secret: Dark Culinary Arts Can Corrupt Consumers"],
+      secrets: ["Secret: Dark Culinary Arts Can Corrupt Consumers", "Secret: Tohm Created a Dark Magical Meal"],
       gameplaySystems: ["Cooking System"],
       enemies: ["Ice Queen"],
-      timelineEvents: ["Lillia Begins Using Dark Culinary Arts"]
+      timelineEvents: ["Tohm Creates a Dark Magical Meal", "Lillia Consumes the Dark Magical Meal", "Lillia Begins Using Dark Culinary Arts"]
     }
   }),
   entry({
@@ -655,20 +801,30 @@ export const starterEntries: LoreEntry[] = [
     spoilerLevel: "Minor Spoiler",
     tags: ["meals", "powers", "combat", "buffs", "cooking"],
     summary:
-      "Meals that grant Gwen temporary combat powers, stat boosts, ultimate abilities, or special effects.",
+      "True Tablemaker-given meals that can heal, empower, reveal, or grant miraculous abilities when cooked in faithful alignment with the Tablemaker.",
     internalLore:
-      "Players gather ingredients, prepare them, cook meals, and equip meals in a meal slot wheel. Gwen can consume meals mid-battle for temporary powers.",
+      "The Whisken Saints once prepared true Magical Meals through power given by the Tablemaker. Their legendary dishes could heal people, make people fly, and carry sacred culinary power. Tohm spends years trying to recreate this, but his first success is actually a Dark Magical Meal because he seeks magic apart from the Tablemaker. Gwen's Fire Meal works because she cooks it in the name of the Tablemaker, not because Tohm has personally solved the mystery. Players gather ingredients, prepare them, cook meals, and equip meals in a meal slot wheel. Gwen can consume meals mid-battle for temporary powers.",
+    fields: {
+      "True Source":
+        "True Magical Meals are gifts of power from the Tablemaker, not merely technical recipes.",
+      "Saint Tradition":
+        "Whisken legends say the saints prepared meals that healed people and could make people fly.",
+      "Gwen Difference":
+        "Gwen's cooking dedication in the name of the Tablemaker allows Tohm's Fire Meal to become a true Magical Meal.",
+      "Tohm Misunderstanding":
+        "Tohm does not initially understand the difference between Lillia's dark meal and Gwen's true Magical Meal."
+    },
     connections: {
-      characters: ["Gwen", "Tohm Kyatt"],
+      characters: ["Gwen", "Tohm Kyatt", "The Tablemaker", "Princess Lillia"],
       locations: [],
-      recipes: [],
-      quests: ["Recover Recipe Pages"],
-      items: ["Recipe Pages"],
-      factions: [],
-      secrets: [],
+      recipes: ["Fire Meal"],
+      quests: ["Recover Recipe Pages", "Feast of Full Plates Opening Night"],
+      items: ["Recipe Pages", "Tohm's Recipe Book"],
+      factions: ["Tablekeepers", "Whisken People"],
+      secrets: ["Secret: Gwen's Tablemaker Prayer Made the Meal Work", "Secret: Tohm Created a Dark Magical Meal"],
       gameplaySystems: ["Cooking System", "Meal Slot Wheel"],
       enemies: [],
-      timelineEvents: []
+      timelineEvents: ["Tohm Seeks a Flavor Unlike Anything Anyone Had Ever Tasted", "Tohm Creates a Dark Magical Meal", "Gwen Cooks the First True Magical Meal"]
     }
   }),
   entry({
@@ -744,33 +900,43 @@ export const starterEntries: LoreEntry[] = [
     title: "Fire Meal",
     category: "Food & Inventory",
     type: "Magical Meal",
-    status: "Idea",
-    spoilerLevel: "No Spoiler",
-    tags: ["fire", "spicy", "magical meal", "combat"],
+    status: "Canon",
+    spoilerLevel: "Major Spoiler",
+    tags: ["fire", "spicy", "magical meal", "combat", "Feast of Full Plates", "Gwen"],
     summary:
-      "A spicy magical meal that could give Gwen fire-based combat abilities.",
+      "Tohm's first new magical recipe after losing his dark recipes, prepared by Gwen on the Feast of Full Plates night.",
+    internalLore:
+      "After Lillia eats Tohm's Dark Magical Meal and tears pages from his recipe book, Tohm begins writing a new recipe: the Fire Meal. He never attempts to cook a magical meal himself again out of fear and shame. Instead, he teaches Gwen, sends her to gather the ingredients, and asks her to cook it on the Feast of Full Plates night. In front of the villagers, the meal appears to fail. Later, Gwen eats it after serving the feast and wakes in a snowstorm. The meal works because Gwen cooked it in the name of the Tablemaker.",
     fields: {
       "Gameplay Effect":
-        "Could give Gwen fire attacks, burn damage, warmth resistance, or explosive cooking energy."
+        "Could give Gwen fire attacks, burn damage, warmth resistance, or explosive cooking energy.",
+      "Recipe Origin":
+        "Written by Tohm after he loses his dark magical recipes, but never cooked by Tohm himself.",
+      "First True Use":
+        "Gwen cooks it on the Feast of Full Plates night. It works only because she cooks in the name of the Tablemaker.",
+      "Secret":
+        "If Tohm cooked the same recipe, it would be a dark meal.",
+      "Full Story":
+        "The Fire Meal is the recipe Tohm begins writing after the Lillia disaster. He has lost his dark magical recipe pages, he has seen what his first apparent Magical Meal did to Lillia, and he is too afraid and ashamed to attempt magical cooking again.\n\nFor years, Tohm keeps working anyway. He writes the Fire Meal as the next attempt at the miracle his mother once told him about: the Magical Meals of the Whisken Saints. Tohm wants it to become the answer to a flavor unlike anything anyone had ever tasted, but he cannot bring himself to cook it.\n\nThat is why Gwen matters. Tohm teaches her, mentors her, and asks her to gather every ingredient before the Feast of Full Plates. On the holy night, Gwen cooks the Fire Meal while the villagers and Lel Kai watch. No magic appears. Tohm is visibly heartbroken, but he hides it and keeps the celebration alive.\n\nAfter everyone leaves except Tohm and Lel Kai, Gwen takes a bite of the Fire Meal. She enters a trance, her eyes roll back, and she wakes in a snowstorm. The Fire Meal works because Gwen cooked it in the name of the Tablemaker. If Tohm had cooked the same recipe, it would have been a dark meal."
     },
     wiki: {
       itemType: "Magical Meal",
       rarity: "Rare",
       gameplayUse:
         "Fire attacks, burn damage, warmth resistance, or explosive cooking energy.",
-      loreDescription: "A spicy magical meal concept tied to combat powers."
+      loreDescription: "A spicy magical meal concept tied to Gwen's first true Tablemaker-given power."
     },
     connections: {
-      characters: ["Gwen"],
-      locations: [],
+      characters: ["Gwen", "Tohm Kyatt", "Lel Kai", "The Tablemaker"],
+      locations: ["The Living Tavern", "Whisken Village"],
       recipes: ["Magical Meals"],
-      quests: [],
+      quests: ["Feast of Full Plates Opening Night"],
       items: [],
-      factions: [],
-      secrets: [],
+      factions: ["Tablekeepers", "Whisken People"],
+      secrets: ["Secret: Gwen's Tablemaker Prayer Made the Meal Work", "Secret: Tohm Created a Dark Magical Meal"],
       gameplaySystems: ["Cooking System", "Combat System", "Meal Slot Wheel"],
       enemies: [],
-      timelineEvents: []
+      timelineEvents: ["Tohm Writes the Fire Meal", "Feast of Full Plates Night", "Gwen Cooks the First True Magical Meal", "Gwen Wakes in the Snowstorm"]
     }
   }),
   entry({
@@ -1551,29 +1717,32 @@ export const starterEntries: LoreEntry[] = [
     type: "Faction / Culture",
     status: "Canon",
     spoilerLevel: "Minor Spoiler",
-    tags: ["Whisken", "cat people", "culture", "Tabby Island", "Triadic faith"],
+    tags: ["Whisken", "cat people", "culture", "Tabby Island", "Triadic faith", "Whisken Saints"],
     summary:
       "Cat-like people connected to Tabby Island, Whisker Woods, tavern culture, food, hunting, farming, fishing, community, and the Triadic faith.",
     internalLore:
-      "The Whisken people originally lived on Tabby Island. In ancient times, Whisken seekers created the Cat Cauldron while looking for ways to improve food and achieve knowledge of what is untasted. The Cat Cauldron caused Tabby Island to decay, triggering the first exodus. The ancient Whisken locked it away beneath the island, removed it from their history books, stopped talking about it, and eventually forgot it. By the time later Whisken returned to Tabby Island, the first exodus had fallen out of memory. After Tohm Kyatt reactivated the Cat Cauldron and fled with it, the island started decaying again. Before the Whisken understood what was happening, the Mas'eel arrived pretending to be traders, introduced new foods, gained power in the village over years, and began persecuting the Whisken for believing in the Triadic faith taught by the Tablemaker. The Whisken fled again, though to them it felt like the first time. Tohm heard what was happening and got Lel Kai, who was becoming general of the faery army, to send boats. The corruption scattered many boats, and the known survivors became the current Whisken who live in Whisker Woods and Whisken Village.",
+      "The Whisken people originally lived on Tabby Island. In ancient times, Whisken seekers created the Cat Cauldron while looking for ways to improve food and achieve knowledge of what is untasted. The Cat Cauldron caused Tabby Island to decay, triggering the first exodus. The ancient Whisken locked it away beneath the island, removed it from their history books, stopped talking about it, and eventually forgot it. By the time later Whisken returned to Tabby Island, the first exodus had fallen out of memory. After Tohm Kyatt reactivated the Cat Cauldron and fled with it, the island started decaying again. Before the Whisken understood what was happening, the Mas'eel arrived pretending to be traders, introduced new foods, gained power in the village over years, and began persecuting the Whisken for believing in the Triadic faith taught by the Tablemaker. The Whisken fled again, though to them it felt like the first time. Tohm heard what was happening and got Lel Kai, who was becoming general of the faery army, to send boats. The corruption scattered many boats, and the known survivors became the current Whisken who live in Whisker Woods and Whisken Village. Whisken culture remembers saints as Tablekeeper figures who made true Magical Meals through the Tablemaker's power. After Gwen's life, Whisken tradition will venerate her as a saint because she cooks the first true Magical Meal of the game.",
     fields: {
       Faith: "The Whisken follow the Tablemaker and the Triadic faith.",
       "Faith Practice":
         "Like most races, they believe in the same God and faith but practice it through their own traditions.",
       "Known Refugees": "The current Whisken in Whisker Woods / Whisken Village are the known survivors.",
+      "Saint Tradition": "Whisken saints are Tablekeeper figures remembered for true Magical Meals given by the Tablemaker.",
+      "Gwen Future": "Gwen is later venerated as a saint in Whisken tradition after the end of her life.",
       "Canon Name": "Whisken"
     },
     connections: {
-      characters: ["Tohm Kyatt", "Lel Kai"],
+      characters: ["Tohm Kyatt", "Lel Kai", "Gwen", "The Tablemaker"],
       locations: ["Whisker Woods", "Tabby Island", "Whisken Village"],
-      recipes: [],
-      quests: [],
+      recipes: ["Magical Meals", "Festival of Full Plates", "Fire Meal"],
+      quests: ["Feast of Full Plates Opening Night"],
       items: ["Cat Cauldron"],
-      factions: ["Mas'eel Cult"],
+      factions: ["Mas'eel Cult", "Tablekeepers"],
       secrets: [
         "Secret: Tohm Awakened the Cat Cauldron",
         "Secret: Cat Cauldron Beneath Tabby Island",
-        "Secret: Mas'eel Infiltrated Tabby Island"
+        "Secret: Mas'eel Infiltrated Tabby Island",
+        "Secret: Gwen's Tablemaker Prayer Made the Meal Work"
       ],
       gameplaySystems: [],
       enemies: [],
@@ -1583,7 +1752,9 @@ export const starterEntries: LoreEntry[] = [
         "Tohm Awakens the Cat Cauldron",
         "Mas'eel Infiltrate Tabby Island",
         "Second Whisken Exodus",
-        "Survivors Reach Whisker Woods"
+        "Survivors Reach Whisker Woods",
+        "Feast of Full Plates Night",
+        "Gwen Cooks the First True Magical Meal"
       ]
     }
   }),
@@ -1724,26 +1895,27 @@ export const starterEntries: LoreEntry[] = [
     summary:
       "An ancient Whisken cauldron created to improve food and discover what is untasted, later awakened by Tohm and hunted by the Mas'eel Cult.",
     internalLore:
-      "The ancient Whisken created the Cat Cauldron while looking for ways to improve food and achieve knowledge of what is untasted. Its power caused Tabby Island to begin decaying, creating the first exodus. The Whisken locked it away at the bottom of the island, removed it from their history books, and stopped talking about it until it was forgotten. Tohm later discovered the hidden knowledge, returned to Tabby Island, cooked a meal in the Cat Cauldron, and activated it. The cauldron released a large pulse into the earth, causing Tabby Island to decay again and letting the Mas'eel Cult sense its power. Tohm took the Cat Cauldron and fled in the Living Tavern without anyone knowing. Important: Tohm never drinks from the cauldron.",
+      "The ancient Whisken created the Cat Cauldron while looking for ways to improve food and achieve knowledge of what is untasted. Its power caused Tabby Island to begin decaying, creating the first exodus. The Whisken locked it away at the bottom of the island, removed it from their history books, and stopped talking about it until it was forgotten. Tohm later discovered the hidden knowledge, returned to Tabby Island, cooked a meal in the Cat Cauldron, and activated it. The cauldron released a large pulse into the earth, causing Tabby Island to decay again and letting the Mas'eel Cult sense its power. Tohm took the Cat Cauldron and fled in the Living Tavern without anyone knowing. Tohm sought the cauldron because it holds the secrets of chefs and culinary abilities around the world, but even the Cat Cauldron could not tell him how to make a true Magical Meal. Important: Tohm never drinks from the cauldron.",
     wiki: {
       itemType: "Artifact",
       rarity: "Legendary",
       whereToFind: "Originally buried beneath Tabby Island; later taken by Tohm in the Living Tavern.",
       gameplayUse: "Major lore artifact, disaster source, and object hunted by the Mas'eel Cult.",
       loreDescription:
-        "A dangerous ancient Whisken cauldron tied to Tohm's guilt, Tabby Island's decay, and the Mas'eel hunt for magical recipes."
+        "A dangerous ancient Whisken cauldron tied to Tohm's guilt, Tabby Island's decay, the limits of culinary knowledge, and the Mas'eel hunt for magical recipes."
     },
     connections: {
       characters: ["Tohm Kyatt"],
       locations: ["Tabby Island"],
-      recipes: ["Magical Meals"],
+      recipes: ["Magical Meals", "Fire Meal"],
       quests: [],
       items: [],
       factions: ["Whisken People", "Mas'eel Cult"],
       secrets: [
         "Secret: Cat Cauldron Beneath Tabby Island",
         "Secret: Tohm Awakened the Cat Cauldron",
-        "Secret: Tohm Never Drinks From The Cauldron"
+        "Secret: Tohm Never Drinks From The Cauldron",
+        "Secret: Tohm Created a Dark Magical Meal"
       ],
       gameplaySystems: ["Cooking System"],
       enemies: [],
@@ -1752,7 +1924,8 @@ export const starterEntries: LoreEntry[] = [
         "First Whisken Exodus",
         "Cat Cauldron Is Buried and Forgotten",
         "Tohm Awakens the Cat Cauldron",
-        "Mas'eel Sense the Cat Cauldron"
+        "Mas'eel Sense the Cat Cauldron",
+        "Cat Cauldron Cannot Teach Magical Meals"
       ]
     }
   }),
@@ -1796,26 +1969,34 @@ export const starterEntries: LoreEntry[] = [
     spoilerLevel: "Major Spoiler",
     tags: ["artifact", "recipe book", "Tohm", "Lillia", "pages"],
     summary:
-      "Tohm's complex magical recipe book. Lillia tears out several pages from it.",
+      "Tohm's complex magical recipe book, including lost dark magical recipes and the later Fire Meal work that Gwen eventually cooks.",
     internalLore:
-      "The recipes are too complex for even Tohm to fully memorize. Lillia attempts to steal the book but only tears out several pages when Tohm snatches it back. These recipe pages become the basis for boss powers and Gwen's progression.",
+      "The recipes are too complex for even Tohm to fully memorize. After Tohm unknowingly creates a Dark Magical Meal and Lillia eats it, she attempts to steal the book but only tears out several pages when Tohm snatches it back. Those lost pages hold dangerous dark magical recipe knowledge. Tohm later begins writing a new recipe, the Fire Meal, but he never attempts to cook a magical meal again himself out of fear and shame. These recipe pages become the basis for boss powers and Gwen's progression.",
+    fields: {
+      "Dark Recipe Loss":
+        "Lillia tears out pages tied to Tohm's dark magical recipe knowledge after eating the Dark Magical Meal.",
+      "Fire Meal Link":
+        "After losing the pages, Tohm writes the Fire Meal but trains Gwen to cook it instead of attempting it himself.",
+      "Secret":
+        "Tohm believes his failed Lillia meal and Gwen's Fire Meal belong to the same kind of magic, but they do not."
+    },
     wiki: {
       itemType: "Artifact",
       rarity: "Legendary",
       gameplayUse: "Source of recipe pages, boss powers, and Gwen's progression.",
-      loreDescription: "A magical recipe book too complex for even Tohm to fully memorize."
+      loreDescription: "A magical recipe book too complex for even Tohm to fully memorize, marked by dark recipes, torn pages, and the Fire Meal."
     },
     connections: {
       characters: ["Tohm Kyatt", "Princess Lillia", "Gwen"],
       locations: [],
-      recipes: ["Magical Meals", "Dark Culinary Arts"],
+      recipes: ["Magical Meals", "Dark Culinary Arts", "Fire Meal"],
       quests: ["Recover Recipe Pages"],
       items: ["Recipe Pages"],
       factions: [],
-      secrets: ["Secret: Lillia Tore Recipe Pages"],
+      secrets: ["Secret: Lillia Tore Recipe Pages", "Secret: Tohm Created a Dark Magical Meal", "Secret: Tohm Fears Cooking Magical Meals"],
       gameplaySystems: ["Cooking System"],
       enemies: [],
-      timelineEvents: ["Lillia Tears Out Recipe Pages"]
+      timelineEvents: ["Tohm Creates a Dark Magical Meal", "Lillia Consumes the Dark Magical Meal", "Lillia Tears Out Recipe Pages", "Tohm Writes the Fire Meal"]
     }
   }),
   entry({
@@ -1826,14 +2007,22 @@ export const starterEntries: LoreEntry[] = [
     spoilerLevel: "Minor Spoiler",
     tags: ["artifact", "collectible", "recipe pages", "bosses", "progression"],
     summary:
-      "Torn pages from Tohm's recipe book that grant or explain magical powers.",
+      "Torn pages from Tohm's recipe book that preserve dangerous dark magical recipe knowledge and drive Gwen's progression.",
     internalLore:
-      "Gwen retrieves recipe pages by defeating bosses. Each page may unlock a new magical meal, combat power, or progression ability.",
+      "Gwen retrieves recipe pages by defeating bosses. The pages were torn out by Lillia after she ate Tohm's first Dark Magical Meal, so they carry dangerous recipe knowledge tied to dark culinary power, corrupted bosses, and Tohm's shame. Each recovered page may unlock a new magical meal, combat power, progression ability, or clue about the difference between true Magical Meals and Dark Magical Meals.",
+    fields: {
+      "Origin":
+        "Torn from Tohm's Recipe Book during the Lillia incident after she ate the Dark Magical Meal.",
+      "Story Use":
+        "Each page can restore lost knowledge while also revealing why Tohm fears cooking magical meals himself.",
+      "Hidden Question":
+        "Are these pages true Magical Meal notes, dark magical recipes, or Tohm's confused mix of both?"
+    },
     wiki: {
       itemType: "Artifact / Collectible",
       rarity: "Rare",
       gameplayUse: "Unlocks magical meals, combat powers, or progression abilities.",
-      loreDescription: "Torn pages from Tohm's recipe book with dangerous magical knowledge."
+      loreDescription: "Torn pages from Tohm's recipe book with dangerous dark magical knowledge and clues about true Magical Meals."
     },
     connections: {
       characters: ["Gwen", "Princess Lillia", "Tohm Kyatt"],
@@ -1842,10 +2031,10 @@ export const starterEntries: LoreEntry[] = [
       quests: ["Recover Recipe Pages"],
       items: ["Tohm's Recipe Book"],
       factions: [],
-      secrets: ["Secret: Lillia Tore Recipe Pages"],
+      secrets: ["Secret: Lillia Tore Recipe Pages", "Secret: Tohm Created a Dark Magical Meal", "Secret: Tohm Fears Cooking Magical Meals"],
       gameplaySystems: ["Cooking System", "Meal Slot Wheel"],
       enemies: ["Ice Queen", "Magical Boar Boss", "Aquatic Monster Boss"],
-      timelineEvents: ["Lillia Tears Out Recipe Pages"]
+      timelineEvents: ["Lillia Consumes the Dark Magical Meal", "Lillia Tears Out Recipe Pages", "Tohm Writes the Fire Meal"]
     }
   }),
   entry({
@@ -1858,7 +2047,7 @@ export const starterEntries: LoreEntry[] = [
     summary:
       "A living tavern with chicken legs that becomes Tohm's home/workshop.",
     internalLore:
-      "Tohm discovers or partners with a living tavern with chicken legs in a distant barren land or during his post-disaster journey. During the Lillia incident, the tavern suddenly stands up, causing Lillia to fall and allowing Tohm to snatch the recipe book back.",
+      "Tohm discovers or partners with a living tavern with chicken legs during the years when he travels the world, disappears for long stretches, and searches for Magical Meal knowledge. It becomes his home, workshop, and eventual escape with the Cat Cauldron. During the Lillia incident, the tavern suddenly stands up, causing Lillia to fall and allowing Tohm to snatch the recipe book back.",
     connections: {
       characters: ["Tohm Kyatt", "Princess Lillia", "Gwen"],
       locations: ["Whisker Woods"],
@@ -1869,7 +2058,7 @@ export const starterEntries: LoreEntry[] = [
       secrets: ["Secret: Lillia Tore Recipe Pages"],
       gameplaySystems: [],
       enemies: [],
-      timelineEvents: ["Lillia Tears Out Recipe Pages"]
+      timelineEvents: ["Tohm Discovers the Living Tavern", "Tohm Flees With the Cat Cauldron", "Lillia Tears Out Recipe Pages"]
     }
   }),
   entry({
@@ -2126,21 +2315,24 @@ export const starterEntries: LoreEntry[] = [
       summary:
         "The Tablemaker is the canonical divine figure of the setting, also called the Master Chef, whose meal ended the 300 Year War.",
       internalLore:
-        "The Tablemaker arrived during the final years of the 300 Year War between Ovenhold and the Faery Realm. He came not as a soldier, king, or mage, but as one who could prepare a table for enemies. His final meal perfectly contained Passion, Taste, and Love. It ended the war, cost him his mortal life, and released Food Essence into the world before his spirit returned to The Everfeast. The Master Chef is another name for him, not a separate being.",
+        "The Tablemaker arrived during the final years of the 300 Year War between Ovenhold and the Faery Realm. He came not as a soldier, king, or mage, but as one who could prepare a table for enemies. His final meal perfectly contained Passion, Taste, and Love. It ended the war, cost him his mortal life, and released Food Essence into the world before his spirit returned to The Everfeast. The Master Chef is another name for him, not a separate being. True Magical Meals are gifts of his power, not merely recipes. Gwen's Fire Meal works because she cooks in his name as a devoted Tablekeeper.",
       fields: {
         seedBatch: "lore-expansion-2026-05-11",
         Aliases: "The Master Chef",
+        "Follower Name": "Tablekeeper; plural Tablekeepers.",
         "Sacred Principles": "Passion, Taste, Love",
         "Sacred Realm": "The Everfeast",
-        "World Impact": "Ended the 300 Year War and made magical cooking sacred."
+        "World Impact": "Ended the 300 Year War and made magical cooking sacred.",
+        "Magical Meal Source": "True Magical Meals are power given by the Tablemaker."
       },
       connections: {
-        characters: ["Tohm Kyatt"],
+        characters: ["Tohm Kyatt", "Gwen"],
         locations: ["Ovenhold", "Faery Realm", "The Everfeast"],
-        recipes: ["Festival of Full Plates"],
-        factions: ["Whisken People", "Mas'eel Cult"],
+        recipes: ["Festival of Full Plates", "Magical Meals", "Fire Meal"],
+        factions: ["Whisken People", "Mas'eel Cult", "Tablekeepers"],
         items: ["Food Essence"],
-        timelineEvents: ["The Tablemaker's Arrival", "The Meal That Ended the War"]
+        secrets: ["Secret: Gwen's Tablemaker Prayer Made the Meal Work"],
+        timelineEvents: ["The Tablemaker's Arrival", "The Meal That Ended the War", "Gwen Cooks the First True Magical Meal"]
       }
     },
     {
@@ -2151,23 +2343,24 @@ export const starterEntries: LoreEntry[] = [
       spoilerLevel: "Major Spoiler",
       tags: ["sentient cauldron", "Cat Cauldron", "cooking station", "Whisken", "Tohm"],
       summary:
-        "The Cat Cauldron is a sentient cooking station and character tied to broth, meal finalization, Whisken history, and Tohm's hidden disaster.",
+        "The Cat Cauldron is a sentient cooking station and character tied to broth, meal finalization, Whisken history, and Tohm's hidden disaster, but even it does not know how to make a true Magical Meal.",
       internalLore:
-        "The Cat Cauldron should be tracked as both an artifact and a character. In gameplay terms, it is the sentient cauldron used for broth bases, simmered meals, and certain final meal steps. In lore, ancient Whisken created it while seeking better food and the knowledge of what is untasted. Its awakening caused pulses of decay on Tabby Island and drew the Mas'eel Cult's attention after Tohm cooked in it.",
+        "The Cat Cauldron should be tracked as both an artifact and a character. In gameplay terms, it is the sentient cauldron used for broth bases, simmered meals, and certain final meal steps. In lore, ancient Whisken created it while seeking better food and the knowledge of what is untasted. Its awakening caused pulses of decay on Tabby Island and drew the Mas'eel Cult's attention after Tohm cooked in it. The cauldron holds the secrets of chefs and culinary abilities around the world, which is why Tohm seeks it. But even with all that knowledge, it cannot answer his true question: how to make a true Magical Meal.",
       fields: {
         seedBatch: "lore-expansion-2026-05-11",
         "Gameplay Role": "Cooking station for broths, meal finalization, and magical recipe moments.",
         "Character Role": "Sentient artifact companion / dangerous lore witness.",
-        "Canon Link": "Same entity as the Cat Cauldron artifact entry."
+        "Canon Link": "Same entity as the Cat Cauldron artifact entry.",
+        "Knowledge Limit": "It does not know how to make a true Magical Meal."
       },
       connections: {
         characters: ["Tohm Kyatt", "Gwen"],
         locations: ["Tabby Island", "The Living Tavern"],
-        recipes: ["Cat Cauldron Broth Base", "Magical Meals"],
+        recipes: ["Cat Cauldron Broth Base", "Magical Meals", "Fire Meal"],
         factions: ["Whisken People", "Mas'eel Cult"],
         items: ["Cat Cauldron"],
-        secrets: ["Secret: Cat Cauldron Beneath Tabby Island", "Secret: Tohm Awakened the Cat Cauldron"],
-        timelineEvents: ["Ancient Whisken Create the Cat Cauldron", "Tohm Awakens the Cat Cauldron"]
+        secrets: ["Secret: Cat Cauldron Beneath Tabby Island", "Secret: Tohm Awakened the Cat Cauldron", "Secret: Tohm Created a Dark Magical Meal"],
+        timelineEvents: ["Ancient Whisken Create the Cat Cauldron", "Tohm Awakens the Cat Cauldron", "Cat Cauldron Cannot Teach Magical Meals"]
       }
     },
     {
@@ -2303,18 +2496,20 @@ export const starterEntries: LoreEntry[] = [
       summary:
         "Food Essence is the sacred culinary force released into the world by the Tablemaker after the meal that ended the 300 Year War.",
       internalLore:
-        "Food Essence is not a normal ingredient. It is the spiritual and magical foundation that makes meals sacred and allows culinary magic to matter. It entered the world after the Tablemaker's final meal and is tied to Passion, Taste, and Love. Dark Culinary Arts and Mas'eel FEAST doctrine are corruptions or distortions of what Food Essence is meant to be.",
+        "Food Essence is not a normal ingredient. It is the spiritual and magical foundation that makes meals sacred and allows culinary magic to matter. It entered the world after the Tablemaker's final meal and is tied to Passion, Taste, and Love. True Magical Meals are Food Essence rightly given by the Tablemaker through faithful cooking. Dark Culinary Arts, Dark Magical Meals, and Mas'eel FEAST doctrine are corruptions or distortions of what Food Essence is meant to be. Gwen's Fire Meal works because she cooks in the name of the Tablemaker, while Tohm's earlier Lillia meal becomes dark because he seeks magic apart from the Tablemaker.",
       fields: {
         seedBatch: "lore-expansion-2026-05-11",
         "Not A Pantry Ingredient": "Track as a magic system, not a cookable item.",
         "Core Principles": "Passion, Taste, Love",
-        "Corrupted By": "Dark Culinary Arts, Mas'eel FEAST doctrine"
+        "True Magical Meal Use": "Given by the Tablemaker through faithful cooking.",
+        "Corrupted By": "Dark Culinary Arts, Dark Magical Meals, Mas'eel FEAST doctrine"
       },
       connections: {
-        characters: ["The Tablemaker", "Tohm Kyatt", "Princess Lillia"],
+        characters: ["The Tablemaker", "Tohm Kyatt", "Princess Lillia", "Gwen"],
         locations: ["The Everfeast"],
-        recipes: ["Magical Meals", "Festival of Full Plates"],
+        recipes: ["Magical Meals", "Fire Meal", "Festival of Full Plates", "Dark Culinary Arts"],
         factions: ["Mas'eel Cult"],
+        secrets: ["Secret: Tohm Created a Dark Magical Meal", "Secret: Gwen's Tablemaker Prayer Made the Meal Work"],
         gameplaySystems: ["Cooking System", "Slime Flavor / Element System"]
       }
     },
@@ -2322,25 +2517,30 @@ export const starterEntries: LoreEntry[] = [
       title: "Whisken Saints",
       category: "Story",
       type: "Religious / Cultural Lore",
-      status: "Needs Rewrite",
+      status: "Canon",
       spoilerLevel: "Minor Spoiler",
-      tags: ["Whisken", "saints", "Tablemaker", "Triadic faith", "culture"],
+      tags: ["Whisken", "saints", "Tablemaker", "Triadic faith", "culture", "Magical Meals"],
       summary:
-        "A Whisken cultural thread about holy figures and old teachers who helped shape the people into a hearth-centered culture.",
+        "Whisken holy figures and Tablekeeper teachers remembered for preparing true Magical Meals through power given by the Tablemaker.",
       internalLore:
-        "The Whisken Saints material should be organized as cultural lore rather than treated as a separate religion. It frames older Whisken history as a movement from tooth, instinct, hunger, and isolation toward hearth, table, mercy, and shared food. It should harmonize with the wider Tablemaker faith and the Three Pillars of Love, Passion, and Taste.",
+        "The Whisken Saints are not a separate religion. They are remembered inside the Tablemaker faith as Whisken Tablekeepers whose cooking embodied Passion, Taste, and Love. Tohm's mother told him stories of saints and followers who could prepare Magical Meals that healed people, made people fly, and revealed that food could carry the Tablemaker's power. Those stories become one of the sparks of Tohm's obsession. Gwen will eventually be venerated as a saint in Whisken tradition and beyond after the end of her life, because her Fire Meal is the first true Magical Meal of the game.",
       fields: {
         seedBatch: "lore-expansion-2026-05-11",
-        "Needs Rewrite": "Keep the useful cultural shape, but reconcile it with current Cat Cauldron and Tablemaker canon.",
+        "Canon Role": "Whisken Tablekeepers remembered as saints under the Tablemaker faith.",
+        "Magical Meal Tradition": "Legends say their dishes healed people, lifted people into flight, and carried the Tablemaker's power.",
         "Culture Use": "Stories told around tavern fires, harvests, and feast days.",
-        "Faith Link": "Triadic faith under the Tablemaker."
+        "Faith Link": "Triadic faith under the Tablemaker.",
+        "Gwen Future": "Gwen is later venerated as a saint after her life because she cooks the first true Magical Meal of the game.",
+        "Full Story":
+          "Whisken Saints are the holy teachers and Tablekeepers of Whisken memory. They belong under the Tablemaker faith, not outside it. Their stories move Whisken culture away from hunger, isolation, and instinct toward hearth, table, mercy, shared food, and faithful cooking.\n\nTohm hears these stories from his mother when he is young. She tells him about the Tablemaker's followers and the Magical Meals they could prepare. The legends say those dishes could heal people, make people fly, and reveal food as a carrier of sacred power. Tohm remembers those stories after he has made everything to make and tasted everything to taste.\n\nFor Tohm, the saints become a clue. If anyone ever reached a flavor unlike anything anyone had ever tasted, perhaps it was through Magical Meals. But Tohm follows the clue through expertise, secret knowledge, the Living Tavern, and the Cat Cauldron rather than through the Tablemaker. That is why his first apparent success becomes dark.\n\nGwen stands as the hidden answer to the saints' tradition. She is a Tablekeeper who cooks in the Tablemaker's name. When she makes the Fire Meal, the Tablemaker gives the power. After the end of her life, Whisken tradition and other Tablemaker-following peoples will venerate Gwen as a saint."
       },
       connections: {
-        characters: ["The Tablemaker", "Lady Kiko"],
+        characters: ["The Tablemaker", "Lady Kiko", "Tohm Kyatt", "Gwen"],
         locations: ["Tabby Island", "Whisken Village"],
-        recipes: ["Festival of Full Plates", "Healthy Ale"],
-        factions: ["Whisken People"],
-        timelineEvents: ["Tablemaker Stories Inspire Tohm"]
+        recipes: ["Festival of Full Plates", "Healthy Ale", "Magical Meals", "Fire Meal"],
+        factions: ["Whisken People", "Tablekeepers"],
+        secrets: ["Secret: Gwen's Tablemaker Prayer Made the Meal Work", "Secret: Tohm Created a Dark Magical Meal"],
+        timelineEvents: ["Tablemaker Stories Inspire Tohm", "Tohm Seeks a Flavor Unlike Anything Anyone Had Ever Tasted", "Gwen Cooks the First True Magical Meal"]
       }
     },
     {
@@ -2448,21 +2648,26 @@ export const starterEntries: LoreEntry[] = [
       spoilerLevel: "No Spoiler",
       tags: ["Whisken", "festival", "feast", "Triadic faith", "community"],
       summary:
-        "A yearly Whisken feast celebrating balance, gratitude, remembrance, and the promise that no plate should go empty.",
+        "A holy Whisken feast celebrating balance, gratitude, remembrance, and the promise that no plate should go empty.",
       internalLore:
-        "The Festival of Full Plates is a Whisken celebration of balance, gratitude, remembrance, and shared food. It ties the village's tavern culture to the Tablemaker's Triadic faith. This should stay distinct from the Mas'eel corruption of FEAST: the festival fills plates to share, while FEAST hoards and consumes.",
+        "The Festival of Full Plates, also called the Feast of Full Plates in village speech, is a Whisken holy celebration of balance, gratitude, remembrance, and shared food. It ties the village's tavern culture to the Tablemaker's Triadic faith. On the opening night of the game, Whisken villagers and Lel Kai gather at the Living Tavern for this feast while Gwen prepares Tohm's Fire Meal. This should stay distinct from the Mas'eel corruption of FEAST: the festival fills plates to share, while FEAST hoards and consumes.",
       fields: {
         seedBatch: "lore-expansion-2026-05-11",
+        Alias: "Feast of Full Plates",
         pantryMealGroup: "tavern-meals",
         ingredientsRequired: "Whisken Hearth Stew, Healthy Ale, Potato, Turnip, Specialty Herbs",
-        "Faith Meaning": "Shared abundance under Passion, Taste, and Love."
+        "Faith Meaning": "Shared abundance under Passion, Taste, and Love.",
+        "Opening Night Use": "Gwen cooks the Fire Meal during this feast before the public miracle appears to fail."
       },
       connections: {
-        characters: ["Lady Kiko", "Mona the Orchardist", "Momon", "Kap"],
-        locations: ["Whisken Village"],
-        factions: ["Whisken People"],
-        recipes: ["Whisken Hearth Stew", "Healthy Ale"],
-        items: ["Potato", "Turnip", "Specialty Herbs"]
+        characters: ["Lady Kiko", "Mona the Orchardist", "Momon", "Kap", "Gwen", "Tohm Kyatt", "Lel Kai"],
+        locations: ["Whisken Village", "The Living Tavern"],
+        factions: ["Whisken People", "Tablekeepers"],
+        recipes: ["Whisken Hearth Stew", "Healthy Ale", "Fire Meal", "Magical Meals"],
+        items: ["Potato", "Turnip", "Specialty Herbs"],
+        quests: ["Feast of Full Plates Opening Night"],
+        secrets: ["Secret: Gwen's Tablemaker Prayer Made the Meal Work"],
+        timelineEvents: ["Feast of Full Plates Night", "Gwen Cooks the First True Magical Meal", "Gwen Wakes in the Snowstorm"]
       }
     },
     {
@@ -2718,7 +2923,9 @@ export const starterEntries: LoreEntry[] = [
     ["Cat Cauldron Is Buried and Forgotten", "Ancient Whisken Era", "The ancient Whisken lock the Cat Cauldron at the bottom of Tabby Island, remove it from history books, and stop speaking of it until it is forgotten."],
     ["Tablemaker Stories Inspire Tohm", "Tohm's Childhood Era", "Stories of the Tablemaker, also called the Master Chef, are told to young Tohm and seed his obsession with sacred meals and untasted food."],
     ["Tohm Grows Up on Tabby Island", "Tabby Island Era", "Tohm lives among the Whisken people on Tabby Island."],
-    ["Tohm Becomes Obsessed with Magical Food", "Tohm's Obsession Era", "Because he has sweet taste buds and has tasted every normal food, Tohm becomes obsessed with tasting magical food."],
+    ["Tohm Seeks a Flavor Unlike Anything Anyone Had Ever Tasted", "Tohm's Obsession Era", "After making everything to make and tasting everything to taste, Tohm becomes obsessed with finding a flavor unlike anything anyone had ever tasted."],
+    ["Tohm Becomes Obsessed with Magical Food", "Tohm's Obsession Era", "Stories of Whisken Saints and Magical Meals convince Tohm that sacred cooking might be the key to the impossible flavor."],
+    ["Tohm Discovers the Living Tavern", "Tohm's Obsession Era", "During years of grinding, travel, disappearance, and secret study, Tohm discovers the Living Tavern that later becomes his home and escape."],
     ["Tohm Awakens the Cat Cauldron", "Tabby Island Disaster", "Tohm discovers the forgotten Cat Cauldron, cooks a meal in it, releases a pulse into the earth, and begins Tabby Island's second decay."],
     ["Mas'eel Sense the Cat Cauldron", "Tabby Island Disaster", "The pulse from the awakened Cat Cauldron lets the Mas'eel Cult sense its power and know it was on Tabby Island."],
     ["Tohm Flees With the Cat Cauldron", "Tabby Island Disaster", "Tohm takes the Cat Cauldron and flees in the Living Tavern without anyone knowing."],
@@ -2730,11 +2937,17 @@ export const starterEntries: LoreEntry[] = [
     ["Faeries Refuse to Help", "Royal Contest / Dragon Knife Era", "The faeries refuse to give humans magic because they fear humans would dominate the world."],
     ["King Takes the Dragon Knife", "Royal Contest / Dragon Knife Era", "The king wages war against the dwarves and takes the magical dragon knife."],
     ["Tohm Gains Access to Dragon Knife", "Royal Contest / Dragon Knife Era", "Tohm gains access to the royal family's spoils / dragon knife through a food contest or royal arrangement."],
-    ["Lillia Consumes the Unstable Magical Dish", "Lillia Incident", "Tohm creates an unstable magical dish. Lillia consumes it and gains dangerous powers."],
+    ["Cat Cauldron Cannot Teach Magical Meals", "Lillia Incident", "Even with the Cat Cauldron's knowledge of chefs and culinary abilities around the world, it cannot tell Tohm how to make a true Magical Meal."],
+    ["Tohm Creates a Dark Magical Meal", "Lillia Incident", "Tohm believes he has finally created a Magical Meal, but because he sought magic apart from the Tablemaker, the dish is actually a Dark Magical Meal."],
+    ["Lillia Consumes the Dark Magical Meal", "Lillia Incident", "Princess Lillia sneaks around on the night of Tohm's apparent success, eats the Dark Magical Meal, and receives dark magic."],
     ["Lillia Tears Out Recipe Pages", "Lillia Incident", "Lillia attempts to take Tohm's recipe book, but Tohm snatches it back after the living chicken tavern stands up. Lillia tears out several pages."],
     ["Tohm Flees", "Lillia Incident", "Guards approach and Tohm is forced to flee."],
+    ["Tohm Writes the Fire Meal", "After Lillia Incident", "After losing the dark magical recipes, Tohm writes the Fire Meal but never attempts to cook a magical meal himself again out of fear and shame."],
     ["Lillia Begins Using Dark Culinary Arts", "Game Begins", "Lillia uses torn recipe pages and magic to create corrupted meals and empower others."],
     ["Gwen Is Recruited", "Game Begins", "Gwen is recruited by Tohm and becomes involved in recovering the recipe pages."],
+    ["Feast of Full Plates Night", "Game Begins", "Gwen gathers ingredients and cooks Tohm's Fire Meal during the holy Feast of Full Plates while the Whisken villagers and Lel Kai watch."],
+    ["Gwen Cooks the First True Magical Meal", "Game Begins", "The Fire Meal works because Gwen cooked it in the name of the Tablemaker, making it the first true Magical Meal of the game."],
+    ["Gwen Wakes in the Snowstorm", "Game Begins", "After the feast, Gwen eats a bite of the Fire Meal, enters a trance, and wakes in a snowstorm."],
     ["Kap's Pond Is Corrupted", "Act 1", "Gwen encounters corruption spreading through Whisker Woods when Kap is attacked near the pond."]
   ].map(([title, era, summary]) =>
     entry({
@@ -2746,7 +2959,10 @@ export const starterEntries: LoreEntry[] = [
         title.includes("Cat Cauldron") ||
         title.includes("Tabby") ||
         title.includes("Lillia") ||
-        title.includes("Dragon Knife")
+        title.includes("Dragon Knife") ||
+        title.includes("Dark Magical") ||
+        title.includes("First True Magical") ||
+        title.includes("Snowstorm")
           ? "Major Spoiler"
           : "Minor Spoiler",
       tags: ["timeline", era],
@@ -2813,6 +3029,33 @@ export const starterEntries: LoreEntry[] = [
       suspectedBy: [],
       unknownTo: ["Gwen", "Public"],
       playerKnowledge: "Eventually revealed.",
+      spoilerLevel: "Major Spoiler"
+    },
+    {
+      title: "Secret: Tohm Created a Dark Magical Meal",
+      fact: "Tohm believes he created a Magical Meal, but his first success was actually a Dark Magical Meal because he sought magic apart from the Tablemaker. Lillia ate it and received dark magic.",
+      knownBy: [],
+      suspectedBy: [],
+      unknownTo: ["Tohm Kyatt", "Gwen", "Lel Kai", "Princess Lillia", "Whisken Village", "Public"],
+      playerKnowledge: "Hidden until the story reveals the difference between true Magical Meals and Dark Magical Meals.",
+      spoilerLevel: "Major Spoiler"
+    },
+    {
+      title: "Secret: Gwen's Tablemaker Prayer Made the Meal Work",
+      fact: "Gwen's Fire Meal becomes a true Magical Meal because she cooks it in the name of the Tablemaker. If Tohm had cooked the same recipe, it would have been a dark meal.",
+      knownBy: ["The Tablemaker"],
+      suspectedBy: [],
+      unknownTo: ["Gwen", "Tohm Kyatt", "Lel Kai", "Princess Lillia", "Whisken Village", "Public"],
+      playerKnowledge: "Revealed later after the opening snowstorm arc begins.",
+      spoilerLevel: "Major Spoiler"
+    },
+    {
+      title: "Secret: Tohm Fears Cooking Magical Meals",
+      fact: "After Lillia's dark meal disaster, Tohm never attempts to cook a magical meal again out of fear and shame. He writes the Fire Meal and mentors Gwen to try it instead.",
+      knownBy: ["Tohm Kyatt"],
+      suspectedBy: [],
+      unknownTo: ["Gwen", "Lel Kai", "Whisken Village", "Public"],
+      playerKnowledge: "Foreshadowed through Tohm's behavior, then confirmed later.",
       spoilerLevel: "Major Spoiler"
     },
     {
@@ -3381,7 +3624,7 @@ const starterBestiaryCategoryVaults: BestiaryCategoryArtVault[] = Array.from(
 ).map((category) => createBestiaryCategoryArtVaultRecord(category, starterBestiary));
 
 export const createStarterDatabase = (): LoreDatabase => ({
-  schemaVersion: 2,
+  schemaVersion: 3,
   entries: starterEntries.map((item) => JSON.parse(JSON.stringify(item)) as LoreEntry),
   bestiary: starterBestiary.map((item) => JSON.parse(JSON.stringify(item)) as BestiaryCreature),
   bestiaryCategoryVaults: starterBestiaryCategoryVaults.map((item) => JSON.parse(JSON.stringify(item)) as BestiaryCategoryArtVault),

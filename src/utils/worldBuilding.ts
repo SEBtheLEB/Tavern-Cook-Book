@@ -278,6 +278,7 @@ export const createStarterWorldBuilding = (
   const gwen = characterByTitle("Gwen");
   const tohm = characterByTitle("Tohm Kyatt");
   const lillia = characterByTitle("Princess Lillia");
+  const lelKai = characterByTitle("Lel Kai");
   const tablemaker = characterByTitle("The Tablemaker");
   const catCauldronCharacter = characterByTitle("The Cat Cauldron");
   const muramar = characterByTitle("Mur'amar");
@@ -338,38 +339,51 @@ export const createStarterWorldBuilding = (
   seedEntry("cultures", "Whisken People", "Culture / People", "Cat-like people connected to Tabby Island, Whisker Woods, tavern culture, food, gathering, community, and the Triadic faith.", ["Whisken", "Tabby Island", "Whisker Woods", "Triadic Faith"], {
     overview: "A people who originally lived on Tabby Island, forgot their first exodus, and later fled again after the Cat Cauldron's second decay and Mas'eel persecution.",
     dailyLife: "Food, hunting, farming, fishing, gathering, taverns, and community survival are central to the culture.",
-    beliefsCustoms: "The Whisken follow the Tablemaker and the Triadic faith, practicing it through their own food, feasts, tavern life, and community traditions.",
-    exodusHistory: "Ancient Whisken buried the Cat Cauldron and erased it from history after the first decay. Modern Whisken fled Tabby Island again after Tohm awakened it and the Mas'eel infiltrated the village."
+    beliefsCustoms: "The Whisken follow the Tablemaker and the Triadic faith through their own food, feasts, tavern life, Whisken Saint stories, and community traditions.",
+    exodusHistory: "Ancient Whisken buried the Cat Cauldron and erased it from history after the first decay. Modern Whisken fled Tabby Island again after Tohm awakened it and the Mas'eel infiltrated the village.",
+    saintTradition: "Whisken Saints are Tablekeeper figures remembered for true Magical Meals. Gwen will later be venerated as one after her life."
   }, [related("character", tohm?.id, "Tohm is a Whisken chef with a hidden past.")]);
-  seedEntry("cultures", "Whisken Saints", "Cultural Faith Thread", "A review slot for Whisken holy stories and teachers, harmonized under the Tablemaker and the Triadic faith.", ["Whisken", "Saints", "Tablemaker", "Needs Rewrite"], {
-    overview: "A cultural layer for Whisken stories about old teachers, feast days, mercy, tavern life, and shared food.",
-    dailyLife: "These stories can appear in harvest customs, village proverbs, tavern wall art, and the Festival of Full Plates.",
-    beliefsCustoms: "The useful thread is the movement from hunger and isolation toward hearth, table, mercy, and community under Passion, Taste, and Love.",
-    relationships: "This must not become a separate contradictory religion. It should support the wider Tablemaker faith practiced through Whisken traditions."
+  seedEntry("cultures", "Whisken Saints", "Cultural Faith Thread", "Whisken Tablekeepers remembered for true Magical Meals given by the Tablemaker.", ["Whisken", "Saints", "Tablemaker", "Magical Meals"], {
+    overview: "Holy Whisken teachers and Tablekeepers remembered inside the Tablemaker faith, not a separate religion.",
+    dailyLife: "Their stories appear in harvest customs, village proverbs, tavern wall art, and the Festival of Full Plates.",
+    beliefsCustoms: "The saints' meals could heal people, lift people into flight, and show the Tablemaker's power through food.",
+    relationships: "Tohm's mother tells these stories to him. Gwen eventually fulfills this tradition by cooking the first true Magical Meal of the game."
   }, [
     related("character", tablemaker?.id, "The Whisken saints thread sits under the Tablemaker faith."),
-    related("character", ladyKiko?.id, "Lady Kiko can embody this tradition in village life.")
+    related("character", ladyKiko?.id, "Lady Kiko can embody this tradition in village life."),
+    related("character", gwen?.id, "Gwen is later venerated as a saint in Whisken tradition.")
   ]);
   seedEntry("factions", "Human Kingdom", "Kingdom", "The royal human kingdom connected to Lillia, the Dragon Knife war, and fears around humans gaining magic.", ["Human Kingdom", "Royal Family", "Lillia", "Dragon Knife"], {
     overview: "Kingdom ruled by Lillia's parents. Their desire to give Lillia magic leads to war with the dwarves.",
     beliefsGoals: "The royal family wants magical access for Lillia despite warnings from faeries and dwarves.",
     storyRole: "Political engine behind the Dragon Knife incident and Lillia's magical transformation."
   }, [related("character", lillia?.id, "Princess Lillia is the center of the kingdom's magic crisis.")]);
-  seedEntry("magicSystems", "Dark Culinary Arts", "Corrupted Food Magic", "A dangerous practice used by Lillia to infuse food with corruptive magic.", ["Dark Culinary Arts", "Corruption", "Food Magic", "Lillia"], {
-    overview: "Corrupted culinary magic that can turn meals into sources of power, evil, or boss transformations.",
-    rules: "Food can be infused with dark magic; consumers may gain powers or become corrupted. Faery ambient magic helps mass-produce it.",
+  seedEntry("magicSystems", "Dark Culinary Arts", "Corrupted Food Magic", "A dangerous practice born from Tohm's first failed Magical Meal attempt and later weaponized by Lillia.", ["Dark Culinary Arts", "Dark Magical Meals", "Corruption", "Food Magic", "Lillia"], {
+    overview: "Corrupted culinary magic that imitates true Magical Meals through a dark source rather than the Tablemaker.",
+    rules: "Tohm's first apparent Magical Meal was actually a Dark Magical Meal because he sought magic apart from the Tablemaker. Lillia ate it, received dark magic, and later learned to corrupt food at scale. Consumers may gain powers or become corrupted. Faery ambient magic helps mass-produce it.",
     visualEffects: "Dark glowing ingredients, corrupted meal auras, unstable magic, and theatrical food-based powers.",
     storyFunction: "Explains corrupted bosses, recipe-powered enemies, and magical food as both power and danger."
   }, [related("character", lillia?.id, "Lillia spreads corrupted meals through this magic.")]);
-  seedEntry("magicSystems", "Food Essence", "Sacred Culinary Magic", "The spiritual and magical force released into the world by the Tablemaker after the meal that ended the 300 Year War.", ["Food Essence", "Tablemaker", "Passion", "Taste", "Love"], {
-    overview: "Food Essence is the sacred foundation that lets meals carry healing, memory, culture, magic, and danger.",
-    rules: "Healthy Food Essence is aligned with Passion, Taste, and Love. Dark Culinary Arts and Mas'eel FEAST doctrine distort it toward control, hunger, and corruption.",
+  seedEntry("magicSystems", "Food Essence", "Sacred Culinary Magic", "The spiritual and magical force released into the world by the Tablemaker after the meal that ended the 300 Year War.", ["Food Essence", "Tablemaker", "Passion", "Taste", "Love", "Magical Meals"], {
+    overview: "Food Essence is the sacred foundation that lets meals carry healing, memory, culture, magic, danger, and true Magical Meal power.",
+    rules: "Healthy Food Essence is aligned with Passion, Taste, and Love. True Magical Meals are Tablemaker-given expressions of it. Dark Culinary Arts, Dark Magical Meals, and Mas'eel FEAST doctrine distort it toward control, hunger, and corruption.",
     visualEffects: "Warm steam, golden motes, meal-memory glows, and three-dot Triadic symbolism when expressed cleanly.",
     gameplayFunction: "Frames why cooking can heal, empower, reveal, corrupt, and solve story problems.",
-    storyFunction: "Connects the Tablemaker, Tohm's obsession, Lillia's corrupted meals, and the Mas'eel distortion."
+    storyFunction: "Connects the Tablemaker, Tohm's obsession, Gwen's Fire Meal, Lillia's corrupted meals, and the Mas'eel distortion."
   }, [
     related("character", tablemaker?.id, "The Tablemaker released Food Essence into the world."),
-    related("character", tohm?.id, "Tohm's obsession grows around sacred food and ultimate taste.")
+    related("character", tohm?.id, "Tohm's obsession grows around sacred food and ultimate taste."),
+    related("character", gwen?.id, "Gwen's Fire Meal works through the Tablemaker's power.")
+  ]);
+  seedEntry("magicSystems", "Magical Meals", "Sacred Food Magic", "True Tablemaker-given meals that can heal, empower, reveal, or grant miraculous abilities.", ["Magical Meals", "Tablemaker", "Gwen", "Whisken Saints", "Fire Meal"], {
+    overview: "True Magical Meals are not simply recipes. They are meals empowered by the Tablemaker through faithful cooking.",
+    rules: "Whisken Saints made true Magical Meals through the Tablemaker. Tohm's technical search produces a Dark Magical Meal, while Gwen's Fire Meal becomes true because she cooks in the Tablemaker's name.",
+    visualEffects: "Warm sacred steam, clean fire, three-dot Triadic glows, meal memories, and miracle effects that feel different from Lillia's dark magic.",
+    storyFunction: "Creates the central twist between Tohm's failed dark meal and Gwen's true Fire Meal."
+  }, [
+    related("character", gwen?.id, "Gwen cooks the first true Magical Meal of the game."),
+    related("character", tohm?.id, "Tohm spends his life trying to discover how to make one."),
+    related("character", tablemaker?.id, "True Magical Meals come from the Tablemaker.")
   ]);
   seedEntry("factions", "Mas'eel Cult", "Cult", "A cult that corrupts the Triadic faith into FEAST and hunts the Cat Cauldron and Tohm's magical recipes.", ["Mas'eel", "FEAST", "Triadic Faith", "Cat Cauldron", "Princess Lillia"], {
     overview: "The Mas'eel oppose the Tablemaker's triad of Passion, Taste, and Love by corrupting it into FEAST.",
@@ -388,20 +402,39 @@ export const createStarterWorldBuilding = (
   ]);
   seedEntry("items", "Cat Cauldron", "Artifact", "An ancient Whisken cauldron created to improve food and reveal what is untasted, later awakened by Tohm and hunted by the Mas'eel.", ["Cat Cauldron", "Tabby Island", "Tohm Kyatt", "Whisken", "Mas'eel", "Major Spoiler"], {
     overview: "An ancient Whisken artifact that caused Tabby Island to decay once in antiquity and again after Tohm activated it.",
-    powersUses: "Created to improve food and reach the knowledge of what is untasted. When activated, it can send a pulse into the earth strong enough to decay land and draw the Mas'eel's attention.",
+    powersUses: "Created to improve food and reach the knowledge of what is untasted. It holds secrets of chefs and culinary abilities around the world, but it cannot teach Tohm how to make a true Magical Meal. When activated, it can send a pulse into the earth strong enough to decay land and draw the Mas'eel's attention.",
     history: "The ancient Whisken buried it beneath Tabby Island and erased it from history. Tohm later discovered it, cooked in it, awakened it, and fled with it in the Living Tavern."
   }, [related("character", tohm?.id, "Tohm awakened the cauldron and secretly took it.")]);
   seedEntry("myths", "The Tablemaker and Triadic Faith", "World Faith", "The Tablemaker is the canonical divine figure, also called the Master Chef, and most cultures follow the Triadic faith in their own ways.", ["Tablemaker", "Master Chef", "Triadic Faith", "Passion", "Taste", "Love"], {
     overview: "Most races worship the Tablemaker and follow the same Triadic faith, while practicing it through their own traditions.",
-    fullStory: "The Master Chef is another name for the Tablemaker, not a separate being. The faith's central triad is Passion, Taste, and Love.",
-    meaning: "This faith shapes Whisken culture, Tohm's childhood stories, and the Mas'eel Cult's opposition."
-  }, [related("character", tohm?.id, "Stories of the Tablemaker seed Tohm's obsession with sacred meals and untasted food.")]);
-  seedEntry("foodAndRecipes", "Festival of Full Plates", "Whisken Feast", "A yearly Whisken feast celebrating balance, gratitude, remembrance, and the promise that no plate should go empty.", ["Whisken", "Festival", "Triadic Faith", "Full Plates"], {
-    overview: "A Whisken feast and village tradition tied to shared abundance under the Tablemaker faith.",
+    fullStory: "The Master Chef is another name for the Tablemaker, not a separate being. The faith's central triad is Passion, Taste, and Love. Devoted followers are called Tablekeepers.",
+    meaning: "This faith shapes Whisken culture, Tohm's childhood stories, Gwen's hidden difference, and the Mas'eel Cult's opposition.",
+    magicalMeals: "True Magical Meals are Tablemaker-given. Tohm's first apparent success is dark because he seeks power apart from the Tablemaker, while Gwen's Fire Meal works because she cooks in his name."
+  }, [
+    related("character", tohm?.id, "Stories of the Tablemaker seed Tohm's obsession with sacred meals and untasted food."),
+    related("character", gwen?.id, "Gwen is a devoted Tablekeeper whose cooking prayer matters.")
+  ]);
+  seedEntry("foodAndRecipes", "Festival of Full Plates", "Whisken Feast", "A holy Whisken feast celebrating balance, gratitude, remembrance, and the promise that no plate should go empty.", ["Whisken", "Festival", "Feast of Full Plates", "Triadic Faith", "Full Plates"], {
+    overview: "A Whisken holy feast and village tradition tied to shared abundance under the Tablemaker faith. In village speech it is also called the Feast of Full Plates.",
     culinaryUse: "Built around Hearth Stew, Healthy Ale, roots, herbs, gathered produce, and everyone being fed.",
-    gameplayUse: "Potential village event, reputation moment, recipe set, and cultural tutorial.",
-    magicalEffect: "Can quietly express healthy Food Essence through Passion, Taste, and Love without becoming a combat spell."
-  }, [related("character", ladyKiko?.id, "Lady Kiko can guide or protect this tradition.")]);
+    gameplayUse: "Opening feast event, reputation moment, recipe set, cultural tutorial, and setup for Gwen cooking the Fire Meal.",
+    magicalEffect: "Can quietly express healthy Food Essence through Passion, Taste, and Love without becoming a combat spell.",
+    openingNight: "Whisken villagers and Lel Kai attend while Gwen cooks Tohm's Fire Meal. The public miracle appears to fail before the meal works later."
+  }, [
+    related("character", ladyKiko?.id, "Lady Kiko can guide or protect this tradition."),
+    related("character", gwen?.id, "Gwen cooks the Fire Meal on this night."),
+    related("character", lelKai?.id, "Lel Kai attends the feast and witnesses Gwen's trance.")
+  ]);
+  seedEntry("foodAndRecipes", "Fire Meal", "Magical Meal", "Tohm's first new recipe after losing his dark magical recipes, cooked by Gwen during the Feast of Full Plates.", ["Fire Meal", "Magical Meals", "Gwen", "Tohm Kyatt", "Feast of Full Plates", "Major Spoiler"], {
+    overview: "A spicy magical meal recipe that can give Gwen fire attacks, burn damage, warmth resistance, or explosive cooking energy.",
+    culinaryUse: "Tohm asks Gwen to gather the ingredients before the big night. Ingredient details can be expanded in The Pantry as the recipe design develops.",
+    gameplayUse: "Opening magical meal, combat-power unlock, snowstorm arc trigger, and central faith/source reveal.",
+    magicalEffect: "Works as a true Magical Meal only when Gwen cooks it in the name of the Tablemaker. If Tohm cooked the same recipe, it would be dark."
+  }, [
+    related("character", gwen?.id, "Gwen cooks the Fire Meal and enters the snowstorm trance."),
+    related("character", tohm?.id, "Tohm writes it but fears cooking it himself."),
+    related("character", tablemaker?.id, "The Tablemaker gives the true Magical Meal power.")
+  ]);
   seedEntry("foodAndRecipes", "Healthy Ale", "Ale / Tonic", "Oswin's famous Whisken ale; villagers rely on it even though the name is mostly optimistic.", ["Oswin", "Ale", "Whisken", "Brewing"], {
     overview: "A village drink and recipe slot in The Pantry.",
     culinaryUse: "Whisken Root Ferment, Moonlit Dew, and Specialty Herbs make it feel medicinal, odd, and tavern-ready.",
@@ -464,15 +497,16 @@ export const createStarterWorldBuilding = (
     relationships: "Speaks with Gwen, moves among villagers as if he belongs, and connects to Princess Lillia's broader villain network.",
     automaticLinks: "Mas'eel Cult, Mas'eel False Traders, Whisken Village, Lillia's Camp, Cat Cauldron."
   }, [related("character", muramar?.id, "Main database character entry.")]);
-  seedEntry("characterLinks", "The Cat Cauldron", "Character Link", "A sentient artifact-character whose everyday cooking role hides catastrophic history.", ["Cat Cauldron", "Sentient Artifact", "Tohm", "Gwen"], {
+  seedEntry("characterLinks", "The Cat Cauldron", "Character Link", "A sentient artifact-character whose everyday cooking role hides catastrophic history and a limit around true Magical Meals.", ["Cat Cauldron", "Sentient Artifact", "Tohm", "Gwen", "Magical Meals"], {
     worldRole: "Cooking station, character, lore witness, and hunted artifact.",
     relationships: "Created by ancient Whisken, awakened by Tohm, used by Gwen, and sought by the Mas'eel.",
-    automaticLinks: "Cat Cauldron, Tabby Island, Cat Cauldron Broth Base, Mas'eel Cult, Tohm Kyatt."
+    automaticLinks: "Cat Cauldron, Tabby Island, Cat Cauldron Broth Base, Mas'eel Cult, Tohm Kyatt, Magical Meals.",
+    knowledgeLimit: "It holds culinary secrets from around the world, but cannot teach Tohm how to make a true Magical Meal."
   }, [related("character", catCauldronCharacter?.id, "Character-style entry for the sentient cauldron.")]);
-  seedEntry("characterLinks", "The Tablemaker", "Character Link", "The divine figure also called the Master Chef, source of the Tablemaker faith and Food Essence.", ["Tablemaker", "Master Chef", "Triadic Faith"], {
+  seedEntry("characterLinks", "The Tablemaker", "Character Link", "The divine figure also called the Master Chef, source of the Tablemaker faith, Food Essence, and true Magical Meals.", ["Tablemaker", "Master Chef", "Triadic Faith", "Magical Meals"], {
     worldRole: "Sacred figure whose meal ended the 300 Year War and shaped most cultures' faith.",
-    relationships: "Inspires Tohm's childhood stories and opposes the Mas'eel distortion of FEAST.",
-    automaticLinks: "The Everfeast, Food Essence, Ovenhold, Faery Realm, Whisken People, Mas'eel Cult."
+    relationships: "Inspires Tohm's childhood stories, empowers true Magical Meals, and opposes the Mas'eel distortion of FEAST.",
+    automaticLinks: "The Everfeast, Food Essence, Ovenhold, Faery Realm, Whisken People, Mas'eel Cult, Tablekeepers, Magical Meals."
   }, [related("character", tablemaker?.id, "Main database character entry.")]);
   seedEntry("quests", "Lel Kai's Rescue Fleet", "Backstory Event / Rescue Quest", "Tohm asks Lel Kai to send boats to rescue the Whisken from Tabby Island during the second exodus.", ["Lel Kai", "Rescue", "Whisken", "Tabby Island"], {
     overview: "Rescue-fleet event explaining how the known Whisken survivors reached Whisker Woods.",
@@ -486,18 +520,58 @@ export const createStarterWorldBuilding = (
     majorBeats: "The player realizes that food was not just flavor here. It was the method of takeover.",
     rewardsConsequences: "Unlocks Mas'eel truth, Dark Culinary Arts context, and Tabby Island history."
   }, [related("character", muramar?.id, "Mur'amar is a key face for this investigation.")]);
+  seedEntry("quests", "Feast of Full Plates Opening Night", "Opening Story Arc", "Gwen gathers ingredients, cooks the Fire Meal at the holy feast, serves the village, and wakes in a snowstorm.", ["Gwen", "Tohm Kyatt", "Fire Meal", "Feast of Full Plates", "Game Begins"], {
+    overview: "Opening arc where Tohm's years of Fire Meal work meet Gwen's Tablekeeper devotion.",
+    objectives: "Gather Fire Meal ingredients, return before the Feast of Full Plates, cook the meal, help serve the feast, then eat the meal after the villagers leave.",
+    majorBeats: "The meal appears to fail in front of everyone. Tohm hides heartbreak. Gwen later eats a bite, enters a trance, and wakes in a snowstorm.",
+    rewardsConsequences: "Starts the true Magical Meal arc and hides the central twist that Gwen's Tablemaker prayer is why the meal works."
+  }, [
+    related("character", gwen?.id, "Gwen performs the cooking that starts the game arc."),
+    related("character", tohm?.id, "Tohm writes the Fire Meal but does not cook it himself."),
+    related("character", lelKai?.id, "Lel Kai attends and witnesses the aftermath.")
+  ]);
   seedEntry("timeline", "Ancient Cat Cauldron Disaster", "Ancient Timeline Event", "Ancient Whisken create the Cat Cauldron, trigger Tabby Island decay, flee, bury it, and erase it from history.", ["Cat Cauldron", "First Exodus", "Whisken", "Tabby Island"], {
     event: "Ancient Whisken seek better food and knowledge of what is untasted; the Cat Cauldron's power damages Tabby Island.",
     causes: "Good hunger for food knowledge mixed with unsafe magical invention.",
     consequences: "First exodus, Cat Cauldron buried beneath the island, records removed, and the event eventually forgotten.",
     involved: "Ancient Whisken, Tabby Island, Cat Cauldron, Tablemaker faith."
   }, [related("character", catCauldronCharacter?.id, "Sentient artifact tied to this ancient disaster.")]);
+  seedEntry("timeline", "Tohm Seeks a Flavor Unlike Anything Anyone Had Ever Tasted", "Tohm's Obsession Timeline Event", "Tohm's life is driven by the need to find a flavor unlike anything anyone had ever tasted.", ["Tohm Kyatt", "Magical Meals", "Whisken Saints"], {
+    event: "After making everything there was to make and tasting everything there was to taste, Tohm reflects on the Tablemaker stories his mother told him.",
+    causes: "Sweet taste buds, total culinary boredom, and stories of saints making Magical Meals.",
+    consequences: "Tohm begins years of travel, secret study, and obsession that lead him to the Living Tavern and Cat Cauldron.",
+    involved: "Tohm Kyatt, Whisken Saints, Tablemaker stories."
+  }, [related("character", tohm?.id, "This is Tohm's core drive.")]);
+  seedEntry("timeline", "Tohm Discovers the Living Tavern", "Tohm's Obsession Timeline Event", "Tohm discovers the Living Tavern during his long search for Magical Meal knowledge.", ["Tohm Kyatt", "Living Tavern", "Magical Meals"], {
+    event: "During years of grinding, travel, disappearance, and secret culinary work, Tohm discovers the Living Tavern.",
+    causes: "His search for a way to make Magical Meals and taste the impossible flavor.",
+    consequences: "The Living Tavern becomes Tohm's home, workshop, and eventual escape route with the Cat Cauldron.",
+    involved: "Tohm Kyatt, Living Tavern, Cat Cauldron."
+  }, [related("character", tohm?.id, "The Living Tavern becomes Tohm's mobile workshop.")]);
   seedEntry("timeline", "Tohm Awakens the Cat Cauldron", "Backstory Timeline Event", "Tohm discovers the forgotten Cat Cauldron, cooks in it, releases a pulse into the earth, and secretly flees with it.", ["Tohm Kyatt", "Cat Cauldron", "Mas'eel", "Major Spoiler"], {
     event: "Tohm cooks a meal in the Cat Cauldron and activates it.",
     causes: "Tohm's obsession with magical food, the Tablemaker stories, and the knowledge of what is untasted.",
     consequences: "Tabby Island begins dying again, the Mas'eel sense the cauldron, and Tohm flees with it in the Living Tavern.",
     involved: "Tohm Kyatt, Cat Cauldron, Tabby Island, Mas'eel Cult."
   }, [related("character", tohm?.id, "Tohm is the one who awakens the cauldron.")]);
+  seedEntry("timeline", "Cat Cauldron Cannot Teach Magical Meals", "Lillia Incident Timeline Event", "The Cat Cauldron knows culinary secrets from around the world, but cannot answer how to make a true Magical Meal.", ["Cat Cauldron", "Tohm Kyatt", "Magical Meals", "Major Spoiler"], {
+    event: "Tohm asks the Cat Cauldron's knowledge to solve true Magical Meals and finds that even it does not know.",
+    causes: "The Cat Cauldron holds chef knowledge and culinary abilities, not the Tablemaker's gift.",
+    consequences: "Tohm keeps experimenting from his own expertise and unknowingly moves toward a Dark Magical Meal.",
+    involved: "Tohm Kyatt, Cat Cauldron, Magical Meals."
+  }, [related("character", tohm?.id, "Tohm keeps going after the cauldron fails to answer him.")]);
+  seedEntry("timeline", "Tohm Creates a Dark Magical Meal", "Lillia Incident Timeline Event", "Tohm believes he has created a Magical Meal, but it is actually a Dark Magical Meal.", ["Tohm Kyatt", "Dark Magical Meals", "Lillia", "Major Spoiler"], {
+    event: "After long experimentation, Tohm creates what he thinks is a Magical Meal.",
+    causes: "Tohm seeks magic through expertise and the Cat Cauldron rather than through the Tablemaker.",
+    consequences: "The meal's power comes from a dark source, setting up Lillia's transformation.",
+    involved: "Tohm Kyatt, Cat Cauldron, Dark Culinary Arts, Princess Lillia."
+  }, [related("character", tohm?.id, "Tohm is responsible but does not understand what he made.")]);
+  seedEntry("timeline", "Lillia Consumes the Dark Magical Meal", "Lillia Incident Timeline Event", "Princess Lillia sneaks around, eats Tohm's Dark Magical Meal, and receives dark magic.", ["Lillia", "Dark Magical Meals", "Tohm Kyatt", "Major Spoiler"], {
+    event: "Lillia eats the meal Tohm thinks is his first Magical Meal.",
+    causes: "Lillia is sneaking around on the night of Tohm's apparent success.",
+    consequences: "Lillia gains dark magic, later tears pages from Tohm's recipe book, and begins the Dark Culinary Arts threat.",
+    involved: "Princess Lillia, Tohm Kyatt, Tohm's Recipe Book."
+  }, [related("character", lillia?.id, "This is the secret origin of Lillia's dark magic.")]);
   seedEntry("timeline", "Mas'eel Infiltrate Tabby Island", "Backstory Timeline Event", "Mas'eel cultists arrive as false traders, introduce new foods, gain power, and persecute the Whisken faith.", ["Mas'eel", "False Traders", "Whisken", "FEAST"], {
     event: "The Mas'eel trading front enters Tabby Island after sensing the Cat Cauldron pulse.",
     causes: "They know the Cat Cauldron was on Tabby Island and want Tohm's recipes.",
@@ -510,6 +584,30 @@ export const createStarterWorldBuilding = (
     consequences: "Known survivors settle in Whisker Woods and Whisken Village; scattered boats and missing survivors remain open story hooks.",
     involved: "Tohm Kyatt, Lel Kai, Whisken People, Tabby Island, Whisker Woods."
   }, [related("character", tohm?.id, "Tohm initiates the rescue after hiding his own earlier role.")]);
+  seedEntry("timeline", "Tohm Writes the Fire Meal", "After Lillia Timeline Event", "Tohm writes the Fire Meal after losing his dark magical recipes, but refuses to cook it himself.", ["Tohm Kyatt", "Fire Meal", "Magical Meals", "Major Spoiler"], {
+    event: "Tohm begins a new recipe after Lillia tears out pages from his recipe book.",
+    causes: "Fear, shame, and the need to keep seeking a Magical Meal without repeating the disaster himself.",
+    consequences: "Tohm mentors Gwen and eventually asks her to cook the Fire Meal during the Feast of Full Plates.",
+    involved: "Tohm Kyatt, Gwen, Fire Meal, Tohm's Recipe Book."
+  }, [related("character", tohm?.id, "Tohm writes the recipe but will not cook it himself.")]);
+  seedEntry("timeline", "Feast of Full Plates Night", "Game Begins Timeline Event", "Gwen cooks Tohm's Fire Meal during the holy Feast of Full Plates while the village watches.", ["Gwen", "Feast of Full Plates", "Fire Meal", "Game Begins"], {
+    event: "Gwen gathers ingredients and cooks the Fire Meal during the Feast of Full Plates.",
+    causes: "Tohm has written the Fire Meal for years and asks Gwen to be the one to try it.",
+    consequences: "The meal appears to fail publicly, Tohm hides heartbreak, and Gwen serves the feast.",
+    involved: "Gwen, Tohm Kyatt, Lel Kai, Whisken villagers, Fire Meal."
+  }, [related("character", gwen?.id, "Gwen cooks during the opening feast.")]);
+  seedEntry("timeline", "Gwen Cooks the First True Magical Meal", "Game Begins Timeline Event", "Gwen's Fire Meal becomes the first true Magical Meal of the game because she cooks in the Tablemaker's name.", ["Gwen", "Tablemaker", "Magical Meals", "Major Spoiler"], {
+    event: "Gwen's cooking prayer directs the Fire Meal toward the Tablemaker.",
+    causes: "Gwen is a devoted Tablekeeper who has cooked in the Tablemaker's name since childhood.",
+    consequences: "The Fire Meal becomes true rather than dark, though Tohm, Gwen, and Lel Kai do not know why.",
+    involved: "Gwen, The Tablemaker, Tohm Kyatt, Fire Meal."
+  }, [related("character", gwen?.id, "Gwen's devotion is the hidden difference.")]);
+  seedEntry("timeline", "Gwen Wakes in the Snowstorm", "Game Begins Timeline Event", "After the feast, Gwen eats the Fire Meal, enters a trance, and wakes in a snowstorm.", ["Gwen", "Fire Meal", "Snowstorm", "Game Begins", "Major Spoiler"], {
+    event: "Gwen takes a bite of the Fire Meal after the villagers leave.",
+    causes: "The meal's true Magical Meal power activates after Gwen eats it.",
+    consequences: "Gwen enters a trance and wakes in a snowstorm. Stop this arc there for now.",
+    involved: "Gwen, Tohm Kyatt, Lel Kai, Fire Meal."
+  }, [related("character", gwen?.id, "This is Gwen's first Magical Meal aftermath.")]);
   seedEntry("rules", "Tohm Never Drinks From The Cauldron", "Canon Rule", "A hard canon fact for contradiction detection: Tohm never drinks from the cauldron.", ["Canon Rule", "Tohm Kyatt", "Cat Cauldron"], {
     rule: "Tohm never drinks from the cauldron. Any lore implying that he does should be rewritten.",
     affectedEntries: "Tohm Kyatt, Cat Cauldron, Tabby Island disaster, Tablemaker faith, magical cooking backstory."
@@ -521,11 +619,18 @@ export const createStarterWorldBuilding = (
   });
   seedEntry("glossary", "Recipe Pages", "Glossary Term", "Torn pages from Tohm's recipe book that unlock or explain dangerous magical powers.", ["Recipe Pages", "Tohm Kyatt", "Lillia", "Gwen"], {
     definition: "Torn pages from Tohm's magical recipe book.",
-    longExplanation: "Lillia tears out several pages after Tohm snatches the recipe book back. Gwen retrieves recipe pages from bosses to unlock powers and restore lost culinary knowledge."
+    longExplanation: "Lillia tears out several pages after eating Tohm's Dark Magical Meal and after Tohm snatches the recipe book back. Gwen retrieves recipe pages from bosses to unlock powers, restore lost culinary knowledge, and eventually expose the difference between true Magical Meals and Dark Magical Meals."
   }, [
     related("character", gwen?.id, "Gwen recovers recipe pages through the main quest."),
     related("character", tohm?.id, "The pages came from Tohm's recipe book."),
     related("character", lillia?.id, "Lillia tore the pages out.")
+  ]);
+  seedEntry("glossary", "Tablekeepers", "Glossary Term", "Devoted followers of the Tablemaker who actively keep his teaching through food, mercy, and faithful cooking.", ["Tablekeeper", "Tablemaker", "Gwen", "Magical Meals"], {
+    definition: "A Tablekeeper is a devoted follower of the Tablemaker. Plural: Tablekeepers.",
+    longExplanation: "Many cultures honor the Tablemaker culturally, but a Tablekeeper personally follows his teaching. Gwen is a true Tablekeeper because she cooks in the Tablemaker's name. That devotion makes the Fire Meal a true Magical Meal."
+  }, [
+    related("character", gwen?.id, "Gwen is the key Tablekeeper in the opening magical meal reveal."),
+    related("character", tablemaker?.id, "The Tablemaker is the source of the faith.")
   ]);
 
   return data;

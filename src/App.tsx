@@ -453,6 +453,21 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  const openWorldBuildingEntry = (category: WorldBuildingFocusTarget["category"], entryId: string) => {
+    setDetailReturnTarget(null);
+    setSelectedEntry(null);
+    setSelectedReferenceKeyword("");
+    setKeywordPopup("");
+    setArtVaultDashboardOpen(false);
+    setFavoritesOpen(false);
+    setQuestDashboardOpen(false);
+    setProfileOpen(false);
+    setSelectedBestiaryCreatureId("");
+    setWorldBuildingFocus({ category, entryId, nonce: Date.now() });
+    setActiveView("world");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const navigate = (view: ActiveView) => {
     setDetailReturnTarget(null);
     setSelectedEntry(null);
@@ -869,10 +884,12 @@ export default function App() {
 
               {activeView === "story" && (
                 <StoryPage
-                  entries={viewEntries}
+                  entries={database.entries}
+                  worldBuilding={database.worldBuilding}
                   readOnly={readOnly}
                   onNavigate={navigate}
                   onOpenEntry={openEntry}
+                  onOpenWorldEntry={openWorldBuildingEntry}
                   isFavorite={isEntryFavorite}
                   onToggleFavorite={(entry) => toggleFavoriteById("entry", entry.id)}
                 />

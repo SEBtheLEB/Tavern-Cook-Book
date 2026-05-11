@@ -24,8 +24,9 @@ export const DATABASE_KEY = "tavern-cook-book:data";
 export const THEME_KEY = "tavern-cook-book:theme";
 const LEGACY_MODE_KEY = "tavern-cook-book:mode";
 
-export const currentSchemaVersion = 2;
+export const currentSchemaVersion = 3;
 const loreExpansionSchemaVersion = 2;
+const magicalMealCanonSchemaVersion = 3;
 
 const loreExpansionEntryTitles = new Set([
   "Gwen",
@@ -119,6 +120,73 @@ const loreExpansionWorldTitles = new Set([
   "Tohm Never Drinks From The Cauldron"
 ]);
 
+const magicalMealCanonEntryTitles = new Set([
+  "Gwen",
+  "Tohm Kyatt",
+  "Princess Lillia",
+  "Lel Kai",
+  "Whisken People",
+  "Dark Culinary Arts",
+  "Magical Meals",
+  "Fire Meal",
+  "The Tablemaker and Triadic Faith",
+  "Tablekeepers",
+  "True Magical Meals and Dark Magical Meals",
+  "Feast of Full Plates Opening Night",
+  "The Tablemaker",
+  "The Cat Cauldron",
+  "Cat Cauldron",
+  "Food Essence",
+  "Whisken Saints",
+  "Festival of Full Plates",
+  "Tohm's Recipe Book",
+  "Recipe Pages",
+  "Living Chicken Tavern",
+  "Tohm Seeks a Flavor Unlike Anything Anyone Had Ever Tasted",
+  "Tohm Becomes Obsessed with Magical Food",
+  "Tohm Discovers the Living Tavern",
+  "Cat Cauldron Cannot Teach Magical Meals",
+  "Tohm Creates a Dark Magical Meal",
+  "Lillia Consumes the Dark Magical Meal",
+  "Tohm Writes the Fire Meal",
+  "Feast of Full Plates Night",
+  "Gwen Cooks the First True Magical Meal",
+  "Gwen Wakes in the Snowstorm",
+  "Secret: Tohm Created a Dark Magical Meal",
+  "Secret: Gwen's Tablemaker Prayer Made the Meal Work",
+  "Secret: Tohm Fears Cooking Magical Meals"
+]);
+
+const magicalMealCanonWorldTitles = new Set([
+  "Whisken People",
+  "Whisken Saints",
+  "Dark Culinary Arts",
+  "Food Essence",
+  "Magical Meals",
+  "Cat Cauldron",
+  "The Tablemaker and Triadic Faith",
+  "Festival of Full Plates",
+  "Fire Meal",
+  "The Cat Cauldron",
+  "The Tablemaker",
+  "Feast of Full Plates Opening Night",
+  "Tohm Seeks a Flavor Unlike Anything Anyone Had Ever Tasted",
+  "Tohm Discovers the Living Tavern",
+  "Cat Cauldron Cannot Teach Magical Meals",
+  "Tohm Creates a Dark Magical Meal",
+  "Lillia Consumes the Dark Magical Meal",
+  "Tohm Writes the Fire Meal",
+  "Feast of Full Plates Night",
+  "Gwen Cooks the First True Magical Meal",
+  "Gwen Wakes in the Snowstorm",
+  "Recipe Pages",
+  "Tablekeepers"
+]);
+
+const magicalMealCanonObsoleteEntryTitles = new Set([
+  "Lillia Consumes the Unstable Magical Dish"
+]);
+
 export const migrateDatabase = (value: unknown): LoreDatabase => {
   const starter = createStarterDatabase();
   if (!value || typeof value !== "object") {
@@ -127,6 +195,7 @@ export const migrateDatabase = (value: unknown): LoreDatabase => {
 
   const incoming = value as Partial<LoreDatabase>;
   const needsLoreExpansion = Number(incoming.schemaVersion || 0) < loreExpansionSchemaVersion;
+  const needsMagicalMealCanon = Number(incoming.schemaVersion || 0) < magicalMealCanonSchemaVersion;
   let entries = Array.isArray(incoming.entries)
     ? repairScribeFoodEntries(incoming.entries.map((item) => normalizeEntry(item as Partial<LoreEntry>)))
     : starter.entries;
@@ -147,6 +216,11 @@ export const migrateDatabase = (value: unknown): LoreDatabase => {
     bestiary = mergeLoreExpansionCreatures(bestiary, starter.bestiary);
     bestiaryCategoryVaults = mergeLoreExpansionCategoryVaults(bestiaryCategoryVaults, starter.bestiaryCategoryVaults || [], bestiary);
     worldBuilding = mergeLoreExpansionWorldBuilding(worldBuilding, starter.worldBuilding);
+  }
+
+  if (needsMagicalMealCanon) {
+    entries = mergeMagicalMealCanonEntries(entries, starter.entries);
+    worldBuilding = mergeMagicalMealCanonWorldBuilding(worldBuilding, starter.worldBuilding);
   }
 
   return {
@@ -189,6 +263,25 @@ const mergeLoreExpansionEntries = (currentEntries: LoreEntry[], starterEntries: 
   const next = [...currentEntries];
   starterEntries
     .filter((entry) => loreExpansionEntryTitles.has(entry.title) || entry.fields?.seedBatch === "lore-expansion-2026-05-11")
+    .forEach((starterEntry) => {
+      const index = next.findIndex((entry) => normalizeEntryTitle(entry.title) === normalizeEntryTitle(starterEntry.title));
+      if (index < 0) {
+        next.push(cloneJson(starterEntry));
+        return;
+      }
+
+      next[index] = preserveEntryUserAssets(next[index], starterEntry);
+    });
+
+  return repairScribeFoodEntries(next.map((entry) => normalizeEntry(entry)));
+};
+
+const mergeMagicalMealCanonEntries = (currentEntries: LoreEntry[], starterEntries: LoreEntry[]) => {
+  const next = currentEntries.filter(
+    (entry) => !magicalMealCanonObsoleteEntryTitles.has(entry.title)
+  );
+  starterEntries
+    .filter((entry) => magicalMealCanonEntryTitles.has(entry.title))
     .forEach((starterEntry) => {
       const index = next.findIndex((entry) => normalizeEntryTitle(entry.title) === normalizeEntryTitle(starterEntry.title));
       if (index < 0) {
@@ -309,6 +402,26 @@ const mergeLoreExpansionWorldBuilding = (currentWorld: WorldBuildingData, starte
   (Object.keys(starterWorld) as WorldBuildingCategoryId[]).forEach((categoryId) => {
     starterWorld[categoryId]
       .filter((entry) => loreExpansionWorldTitles.has(entry.title))
+      .forEach((starterEntry) => {
+        const index = next[categoryId].findIndex((entry) => normalizeEntryTitle(entry.title) === normalizeEntryTitle(starterEntry.title));
+        if (index < 0) {
+          next[categoryId].push(cloneJson(starterEntry));
+          return;
+        }
+
+        next[categoryId][index] = preserveWorldEntryUserAssets(next[categoryId][index], starterEntry);
+      });
+  });
+
+  return normalizeWorldBuilding(next);
+};
+
+const mergeMagicalMealCanonWorldBuilding = (currentWorld: WorldBuildingData, starterWorld: WorldBuildingData): WorldBuildingData => {
+  const next = normalizeWorldBuilding(currentWorld);
+  (Object.keys(starterWorld) as WorldBuildingCategoryId[]).forEach((categoryId) => {
+    next[categoryId] = next[categoryId].filter((entry) => !magicalMealCanonObsoleteEntryTitles.has(entry.title));
+    starterWorld[categoryId]
+      .filter((entry) => magicalMealCanonWorldTitles.has(entry.title))
       .forEach((starterEntry) => {
         const index = next[categoryId].findIndex((entry) => normalizeEntryTitle(entry.title) === normalizeEntryTitle(starterEntry.title));
         if (index < 0) {
