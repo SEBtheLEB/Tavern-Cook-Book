@@ -14,6 +14,7 @@ import {
   buildManualPrompt,
   callAssistant,
   parseAssistantPatch,
+  prepareAssistantPatchForCommand,
   undoLastAiChange
 } from "../utils/assistant";
 import { SCRIBE_TARGET_HELPERS, type ScribeTargetHelper } from "../utils/scribeCommands";
@@ -219,7 +220,7 @@ export function AssistantPanel({
 
   const loadManualPatch = () => {
     try {
-      const parsed = parseAssistantPatch(manualPatch);
+      const parsed = prepareAssistantPatchForCommand(database, parseAssistantPatch(manualPatch), command);
       setPatch(parsed);
       setSelected(parsed.changes.map((_, index) => index));
       setLastSummary(parsed.summary);
@@ -253,7 +254,7 @@ export function AssistantPanel({
 
   const applyManualPatch = () => {
     try {
-      const parsed = parseAssistantPatch(manualPatch);
+      const parsed = prepareAssistantPatchForCommand(database, parseAssistantPatch(manualPatch), command);
       const indexes = parsed.changes.map((_, index) => index);
       setPatch(parsed);
       setSelected(indexes);
@@ -293,13 +294,27 @@ export function AssistantPanel({
   };
 
   const applyScribeHelper = (helper: ScribeTargetHelper) => {
-    const helperPrefix = helper.group === "target" ? "[Scribe Target:" : "[Scribe Mode:";
-    const remainingLines = command
-      .split(/\r?\n/)
-      .filter((line) => !line.trim().startsWith(helperPrefix));
-    const body = remainingLines.join("\n").trimStart();
-    setCommand(body ? `${helper.insertText}\n${body}` : `${helper.insertText}\n`);
-    setMessage(`${helper.label} helper added.`);
+    const lines = command.split(/\r?\n/);
+    const directiveLines = lines
+      .map((line) => line.trim())
+      .filter((line) => line.startsWith("[Scribe Target:") || line.startsWith("[Scribe Mode:"));
+    const body = lines
+      .filter((line) => {
+        const trimmed = line.trim();
+        return !trimmed.startsWith("[Scribe Target:") && !trimmed.startsWith("[Scribe Mode:");
+      })
+      .join("\n")
+      .trimStart();
+    const active = directiveLines.includes(helper.insertText);
+    const nextDirectives = active
+      ? directiveLines.filter((line) => line !== helper.insertText)
+      : helper.group === "mode"
+        ? [...directiveLines.filter((line) => !line.startsWith("[Scribe Mode:")), helper.insertText]
+        : [...directiveLines, helper.insertText];
+    const uniqueDirectives = nextDirectives.filter((line, index, list) => list.indexOf(line) === index);
+    const nextCommand = [...uniqueDirectives, body].filter(Boolean).join("\n");
+    setCommand(nextCommand ? `${nextCommand}${body ? "" : "\n"}` : "");
+    setMessage(`${helper.label} helper ${active ? "removed" : "added"}.`);
     window.setTimeout(() => commandInputRef.current?.focus(), 0);
   };
 

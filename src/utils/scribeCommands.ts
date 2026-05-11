@@ -26,7 +26,7 @@ export const SCRIBE_TARGET_HELPERS: ScribeTargetHelper[] = [
     insertText: "[Scribe Target: Meals / Recipes only]",
     description: "Only recipe and meal entries in Food & Inventory.",
     scribeGuidance:
-      "If the command contains [Scribe Target: Meals / Recipes only], only change Food & Inventory entries whose type is recipe, meal, food magic, consumable, ale, tonic, broth, or similar. For new entries, use entry.category \"Food & Inventory\" and entry.type \"Recipe / Meal\"."
+      "If the command contains [Scribe Target: Meals / Recipes only], the hard destination is the Pantry's Meals & Recipes tab. Update an existing same-title Food & Inventory entry from entryIndex first; only add a new entry if no same-title recipe or meal exists. New recipe/meal entries must use entry.category \"Food & Inventory\", an entry.type containing Recipe, Meal, Broth, Ale, Tonic, Consumable, or Food Magic, and fields.pantryMealGroup plus fields.ingredientsRequired when ingredients are known. Never create a Story entry for a meal or recipe."
   },
   {
     id: "target-pantry",
@@ -35,7 +35,7 @@ export const SCRIBE_TARGET_HELPERS: ScribeTargetHelper[] = [
     insertText: "[Scribe Target: Pantry / Ingredients only]",
     description: "Only ingredients, drops, prep variants, and pantry entries.",
     scribeGuidance:
-      "If the command contains [Scribe Target: Pantry / Ingredients only], only change Food & Inventory entries whose type is ingredient, drop, prepared ingredient, substitute, or pantry item. For new entries, use entry.category \"Food & Inventory\" and entry.type \"Ingredient\" unless the user names a more specific pantry type."
+      "If the command contains [Scribe Target: Pantry / Ingredients only], the hard destination is the Pantry ingredient tab. Only change Food & Inventory entries whose type is ingredient, drop, prepared ingredient, substitute, or pantry item. For new entries, use entry.category \"Food & Inventory\", entry.type \"Ingredient\" unless the user names a more specific pantry type, and fields.pantryCategory. If this target is selected together with Meals / Recipes, create or update the recipe in Meals / Recipes and create/update separate concrete ingredient entries for its named ingredients."
   },
   {
     id: "target-items",
@@ -111,6 +111,11 @@ export const SCRIBE_TARGET_HELPERS: ScribeTargetHelper[] = [
   }
 ];
 
+export const getSelectedScribeHelpers = (command: string) =>
+  SCRIBE_TARGET_HELPERS.filter((helper) => command.includes(helper.insertText)).map(
+    ({ id, label, group, insertText, description }) => ({ id, label, group, insertText, description })
+  );
+
 export const compactScribeTargetHelpers = () =>
   SCRIBE_TARGET_HELPERS.map(({ label, group, insertText, description }) => ({
     label,
@@ -121,4 +126,4 @@ export const compactScribeTargetHelpers = () =>
 
 export const scribeTargetHelperGuidance = SCRIBE_TARGET_HELPERS.map((item) =>
   `- ${item.insertText}: ${item.scribeGuidance}`
-).join("\n");
+).join("\n") + "\n- If multiple [Scribe Target: ...] directives are present, treat them as multiple destinations. Produce separate actions for each destination instead of picking one. Do not copy target directives, app routing instructions, or phrases like \"in the Pantry section\" into entry descriptions; routing belongs in category, type, fields, and actions.";

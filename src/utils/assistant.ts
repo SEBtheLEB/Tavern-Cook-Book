@@ -13,7 +13,7 @@ import type {
 } from "../types";
 import { cloneDatabase, normalizeEntry, nowIso, slugify } from "./entries";
 import { createBestiaryCategoryArtVaultRecord, normalizeBestiaryCategoryArtVault, normalizeBestiaryCreature } from "./bestiary";
-import { compactScribeTargetHelpers, scribeTargetHelperGuidance } from "./scribeCommands";
+import { compactScribeTargetHelpers, getSelectedScribeHelpers, scribeTargetHelperGuidance } from "./scribeCommands";
 import { createEmptyWorldBuilding, createWorldBuildingEntry, worldBuildingCategoryIds } from "./worldBuilding";
 
 const assistantJsonInstructions = `Return only structured JSON in this exact shape:
@@ -98,7 +98,7 @@ const assistantJsonInstructions = `Return only structured JSON in this exact sha
   "warnings": []
 }
 Rules: only change app database content such as text, fields, tags, bestiary stats/drops/lore, world-building fields, and art slot labels. Never propose code, layout, CSS, API keys, images, Drive file deletion, or development changes. Prefer precise updates across every related place that should reflect the user's instruction. Include warnings when canon or naming decisions are uncertain.
-Rules continued: every requested clause must produce a matching change or a warning. If the user asks to change an existing character, faction, culture, location, quest, story, item, recipe, or marketing page, use action "setData" with target "entry" and the id from entryIndex/relevantEntries. Do not use targets like "character", "faction", or "culture"; those are stored as entries. World Building modules are separate from lore entries: if a matching concept exists in worldIndex/relevantWorldEntries, also update it with setData target "worldEntry". If both an entry and worldEntry exist for the same concept, update both. If the user asks to remove/delete/archive a Bestiary creature, return removeCreature using the id from bestiaryIndex/relevantCreatures; do not return only archive for that request. Include archiveContent on removeCreature only when the user wants a note kept. If the user changes a character's age, update existing age text and add or update fields.Age. If the user declares a relationship between an existing character and an existing people/culture/faction, update both related existing entries when possible, update the matching worldEntry fields, and add the character to relatedEntries when the current worldEntry has relationship data.
+Rules continued: every requested clause must produce a matching change or a warning. If the user asks to change an existing character, faction, culture, location, quest, story, item, recipe, or marketing page, use action "setData" with target "entry" and the id from entryIndex/relevantEntries. Do not use targets like "character", "faction", or "culture"; those are stored as entries. Before adding a normal lore entry, scan entryIndex for an exact or near-exact title match and update that existing entry instead of creating a duplicate. World Building modules are separate from lore entries: if a matching concept exists in worldIndex/relevantWorldEntries, also update it with setData target "worldEntry". If both an entry and worldEntry exist for the same concept, update both. If the user asks to remove/delete/archive a Bestiary creature, return removeCreature using the id from bestiaryIndex/relevantCreatures; do not return only archive for that request. Include archiveContent on removeCreature only when the user wants a note kept. If the user changes a character's age, update existing age text and add or update fields.Age. If the user declares a relationship between an existing character and an existing people/culture/faction, update both related existing entries when possible, update the matching worldEntry fields, and add the character to relatedEntries when the current worldEntry has relationship data. Do not copy the user's command, Scribe target directives, or UI routing phrases into summaries/descriptions/internal lore. For meals and recipes, put routing data in category, type, fields.pantryMealGroup, fields.ingredientsRequired, and wiki ingredients instead of prose like "belongs in the Pantry section".
 Known Scribe target helper directives:
 ${scribeTargetHelperGuidance}`;
 
@@ -131,7 +131,7 @@ export const callAssistant = async (
   if (!response.ok || !payload.patch) {
     throw new Error(payload.error || "Assistant call failed.");
   }
-  return payload.patch;
+  return prepareAssistantPatchForCommand(database, payload.patch, command);
 };
 
 export const prepareAssistantRequestDatabase = (database: LoreDatabase): LoreDatabase => {
@@ -152,6 +152,33 @@ export const parseAssistantPatch = (raw: string): AssistantPatch => {
     summary: parsed.summary || "Assistant patch",
     changes: parsed.changes,
     warnings: Array.isArray(parsed.warnings) ? parsed.warnings : []
+  };
+};
+
+export const prepareAssistantPatchForCommand = (
+  database: LoreDatabase,
+  patch: AssistantPatch,
+  command: string
+): AssistantPatch => {
+  const helpers = getSelectedScribeHelpers(command);
+  const hasMealsTarget = helpers.some((helper) => helper.id === "target-recipes");
+  const hasPantryTarget = helpers.some((helper) => helper.id === "target-pantry");
+  const changes = patch.changes.map((change): AssistantAction => {
+    if (change.action !== "add") return change;
+    return {
+      ...change,
+      entry: normalizeScribeAddedEntry(change.entry, {
+        forceRecipe: hasMealsTarget && !hasPantryTarget,
+        forceIngredient: hasPantryTarget && !hasMealsTarget
+      })
+    };
+  });
+
+  return {
+    ...patch,
+    changes: hasMealsTarget && hasPantryTarget
+      ? addMissingPantryIngredientsForRecipes(database, changes)
+      : changes
   };
 };
 
@@ -240,6 +267,353 @@ const safeSetDeepValue = (target: Record<string, unknown>, path: string, value: 
   setDeepValue(target, path, value);
   return true;
 };
+
+const recipeTypePattern = /recipe|meal|broth|tonic|ale|consumable|food magic/i;
+const ingredientTypePattern = /ingredient|drop|substitute|gel|essence|produce|meat|spice/i;
+
+const normalizeScribeAddedEntry = (
+  entry: Partial<LoreEntry>,
+  options: { forceRecipe?: boolean; forceIngredient?: boolean } = {}
+): Partial<LoreEntry> => {
+  const cleaned = cleanScribeGeneratedEntry(entry);
+  const recipeLike = options.forceRecipe || looksLikeRecipeEntry(cleaned);
+  const ingredientLike = !recipeLike && (options.forceIngredient || looksLikeIngredientEntry(cleaned));
+
+  if (recipeLike) return normalizeScribeRecipeEntry(cleaned);
+  if (ingredientLike) return normalizeScribeIngredientEntry(cleaned);
+  return cleaned;
+};
+
+const cleanScribeGeneratedEntry = (entry: Partial<LoreEntry>): Partial<LoreEntry> => ({
+  ...entry,
+  summary: cleanScribeGeneratedText(entry.summary),
+  publicDescription: cleanScribeGeneratedText(entry.publicDescription),
+  internalLore: cleanScribeGeneratedText(entry.internalLore),
+  fields: cleanScribeGeneratedRecord(entry.fields),
+  wiki: entry.wiki ? cleanScribeGeneratedRecord(entry.wiki as unknown as Record<string, unknown>) as unknown as LoreEntry["wiki"] : entry.wiki,
+  notes: entry.notes ? cleanScribeGeneratedRecord(entry.notes as unknown as Record<string, unknown>) as unknown as LoreEntry["notes"] : entry.notes
+});
+
+const cleanScribeGeneratedRecord = (record: Record<string, unknown> | undefined) => {
+  if (!record) return record;
+  return Object.fromEntries(
+    Object.entries(record).map(([key, value]) => [
+      key,
+      typeof value === "string" ? cleanScribeGeneratedText(value) : value
+    ])
+  );
+};
+
+const cleanScribeGeneratedText = (value: unknown) => {
+  if (typeof value !== "string") return value as string | undefined;
+  return value
+    .split(/\r?\n/)
+    .filter((line) => !line.trim().startsWith("[Scribe Target:") && !line.trim().startsWith("[Scribe Mode:"))
+    .join("\n")
+    .replace(/\s+in the pantry'?s?\s+Meals\s*\/\s*Recipes section/gi, "")
+    .replace(/\s+in the Meals\s*\/\s*Recipes section/gi, "")
+    .replace(/\s+in the Pantry ingredient tab/gi, "")
+    .replace(/\bIt belongs under the [^.]+?\.\s*/gi, "")
+    .replace(/\bThis was added because the user asked[^.]*\.\s*/gi, "")
+    .replace(/\bThe command asked[^.]*\.\s*/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+};
+
+const looksLikeRecipeEntry = (entry: Partial<LoreEntry>) => {
+  const title = String(entry.title || "");
+  const type = String(entry.type || "");
+  const tags = (entry.tags || []).join(" ");
+  const hasRecipeFields = Boolean(
+    entry.fields?.ingredientsRequired ||
+    entry.fields?.Ingredients ||
+    entry.fields?.cookingMethod ||
+    entry.wiki?.ingredientsRequired
+  );
+  const typeLooksRecipe = recipeTypePattern.test(type) && !/system|wheel/i.test(type);
+  const titleLooksRecipe = /\b(recipe|meal|broth|tonic|ale|consumable)\b/i.test(title) && !/\b(system|wheel|slot)\b/i.test(title);
+  const tagLooksRecipe = recipeTypePattern.test(tags);
+  return hasRecipeFields || typeLooksRecipe || titleLooksRecipe || tagLooksRecipe;
+};
+
+const looksLikeIngredientEntry = (entry: Partial<LoreEntry>) => {
+  const haystack = [
+    entry.title,
+    entry.category,
+    entry.type,
+    entry.summary,
+    entry.publicDescription,
+    entry.internalLore,
+    (entry.tags || []).join(" "),
+    entry.fields && JSON.stringify(entry.fields),
+    entry.wiki && JSON.stringify(entry.wiki)
+  ].join(" ");
+  return ingredientTypePattern.test(haystack) && !/system|recipe system|meal system/i.test(String(entry.type || ""));
+};
+
+const normalizeScribeRecipeEntry = (entry: Partial<LoreEntry>): Partial<LoreEntry> => {
+  const fields = { ...(entry.fields || {}) };
+  const wiki = { ...(entry.wiki || {}) };
+  const type = recipeTypePattern.test(String(entry.type || "")) ? String(entry.type) : inferRecipeEntryType(entry);
+  const ingredientsRequired = stringFromFirst([
+    fields.ingredientsRequired,
+    fields.Ingredients,
+    fields.ingredients,
+    wiki.ingredientsRequired
+  ]);
+  const gameplayEffect = stringFromFirst([
+    fields.gameplayEffect,
+    fields["Gameplay Effect"],
+    fields.magicalEffect,
+    fields.gameplayUse,
+    wiki.gameplayUse
+  ]);
+  const pantryMealGroup = stringFromFirst([fields.pantryMealGroup]) || inferPantryMealGroup(entry);
+
+  return {
+    ...entry,
+    category: "Food & Inventory",
+    type,
+    tags: uniqueStrings([
+      ...(entry.tags || []),
+      type,
+      pantryMealGroupToTitle(pantryMealGroup),
+      "recipe"
+    ]),
+    fields: {
+      ...fields,
+      pantryMealGroup,
+      ...(ingredientsRequired ? { ingredientsRequired } : {}),
+      ...(gameplayEffect ? { gameplayEffect } : {})
+    },
+    wiki: {
+      ...wiki,
+      itemType: wiki.itemType || type,
+      ...(ingredientsRequired ? { ingredientsRequired } : {}),
+      ...(gameplayEffect ? { gameplayUse: wiki.gameplayUse || gameplayEffect } : {})
+    },
+    connections: mergeEntryConnections(entry.connections, {
+      recipes: pantryMealGroup === "magical-meals" ? ["Magical Meals"] : [],
+      gameplaySystems: pantryMealGroup === "magical-meals"
+        ? ["Cooking System", "Combat System", "Meal Slot Wheel"]
+        : ["Cooking System"]
+    })
+  };
+};
+
+const normalizeScribeIngredientEntry = (entry: Partial<LoreEntry>): Partial<LoreEntry> => {
+  const fields = { ...(entry.fields || {}) };
+  const wiki = { ...(entry.wiki || {}) };
+  const pantryCategory = stringFromFirst([fields.pantryCategory, wiki.itemType, entry.type]) || "Ingredient";
+
+  return {
+    ...entry,
+    category: "Food & Inventory",
+    type: ingredientTypePattern.test(String(entry.type || "")) ? entry.type : "Ingredient",
+    tags: uniqueStrings([...(entry.tags || []), "ingredient", pantryCategory]),
+    fields: {
+      ...fields,
+      pantryCategory,
+      rarity: fields.rarity || entry.status || "Idea",
+      gameplayUse: fields.gameplayUse || entry.internalLore || entry.summary || ""
+    },
+    wiki: {
+      ...wiki,
+      itemType: wiki.itemType || pantryCategory,
+      loreDescription: wiki.loreDescription || entry.summary || "",
+      gameplayUse: wiki.gameplayUse || entry.internalLore || ""
+    }
+  };
+};
+
+const inferRecipeEntryType = (entry: Partial<LoreEntry>) => {
+  const value = compactUnknown(entry, 2000).toLowerCase();
+  if (/magical ale|magic ale|buff ale|ability ale|tonic|elixir/.test(value)) return "Magical Ale";
+  if (/\bale\b|drink|beverage|brew/.test(value)) return "Ale / Tonic";
+  if (/broth|stock|base|component|sauce|prep|reduction/.test(value)) return "Recipe Component";
+  if (/magic|magical|power|buff|ability|combat|spell|dark culinary|fire|ice|lightning|earth/.test(value)) return "Magical Meal";
+  return "Meal / Recipe";
+};
+
+const inferPantryMealGroup = (entry: Partial<LoreEntry>) => {
+  const value = compactUnknown(entry, 2000).toLowerCase();
+  if (/broth|stock|base|component|sauce|prep|reduction/.test(value)) return "components";
+  if (/magical ale|magic ale|buff ale|ability ale|tonic|elixir/.test(value)) return "magical-ales";
+  if (/\bale\b|drink|beverage|brew/.test(value)) return "ales";
+  if (/snack|quick bite|travel bite|stamina|small bite/.test(value)) return "snacks";
+  if (/magic|magical|power|buff|ability|combat|spell|dark culinary|fire|ice|lightning|earth/.test(value)) return "magical-meals";
+  return "tavern-meals";
+};
+
+const pantryMealGroupToTitle = (group: string) => {
+  if (group === "magical-meals") return "Magical Meal";
+  if (group === "magical-ales") return "Magical Ale";
+  if (group === "ales") return "Ale";
+  if (group === "snacks") return "Snack";
+  if (group === "components") return "Recipe Component";
+  return "Tavern Meal";
+};
+
+const addMissingPantryIngredientsForRecipes = (
+  database: LoreDatabase,
+  changes: AssistantAction[]
+): AssistantAction[] => {
+  const existingNames = new Set(database.entries.map((entry) => normalizeLooseName(entry.title)));
+  changes.forEach((change) => {
+    if (change.action === "add" && change.entry.title) {
+      existingNames.add(normalizeLooseName(change.entry.title));
+    }
+  });
+
+  const additions: AssistantAction[] = [];
+  const addIngredient = (label: string, recipeTitle: string) => {
+    const name = label.trim();
+    const normalized = normalizeLooseName(name);
+    if (!normalized || existingNames.has(normalized) || shouldSkipGeneratedIngredient(name)) return;
+    existingNames.add(normalized);
+    additions.push({
+      action: "add",
+      entry: normalizeScribeIngredientEntry({
+        title: name,
+        status: "Idea",
+        spoilerLevel: "No Spoiler",
+        summary: `${name} is an ingredient required by ${recipeTitle}.`,
+        fields: {
+          pantryCategory: inferIngredientPantryCategory(name),
+          usedInRecipes: recipeTitle
+        },
+        wiki: {
+          itemType: inferIngredientPantryCategory(name),
+          usedInRecipes: recipeTitle
+        },
+        connections: {
+          characters: [],
+          locations: [],
+          recipes: [recipeTitle],
+          quests: [],
+          items: [],
+          factions: [],
+          secrets: [],
+          gameplaySystems: ["Cooking System"],
+          enemies: [],
+          timelineEvents: []
+        }
+      })
+    });
+  };
+
+  changes.forEach((change) => {
+    if (change.action === "add" && looksLikeRecipeEntry(change.entry)) {
+      parseIngredientRequirementsFromEntry(change.entry).forEach((label) => addIngredient(label, change.entry.title || "new recipe"));
+    }
+    if (change.action === "setData" && /ingredientsrequired|ingredients/i.test(change.path)) {
+      const entry = change.id ? database.entries.find((candidate) => candidate.id === change.id) : null;
+      if (entry && looksLikeRecipeEntry(entry)) {
+        splitIngredientList(String(change.newValue || "")).forEach((label) => addIngredient(label, entry.title));
+      }
+    }
+  });
+
+  return [...changes, ...additions];
+};
+
+const parseIngredientRequirementsFromEntry = (entry: Partial<LoreEntry>) =>
+  splitIngredientList(stringFromFirst([
+    entry.fields?.ingredientsRequired,
+    entry.fields?.Ingredients,
+    entry.fields?.ingredients,
+    entry.wiki?.ingredientsRequired
+  ]));
+
+const splitIngredientList = (value: string) =>
+  value
+    .split(/[,;/]|\band\b/gi)
+    .map((item) => item.replace(/\([^)]*\)/g, "").replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+
+const shouldSkipGeneratedIngredient = (name: string) =>
+  /^any\b/i.test(name) || /unknown|tbd|none|optional/i.test(name);
+
+const inferIngredientPantryCategory = (name: string) => {
+  const value = name.toLowerCase();
+  if (/slime|gel|essence/.test(value)) return "Slime Drop";
+  if (/meat|cray|prawn|boar|husk|protein/.test(value)) return "Meat / Creature Drop";
+  if (/potato|turnip|boga|herb|vegetable|veggie|root|fruit|berry/.test(value)) return "Produce";
+  if (/spice|salt|pepper|rock|mineral|stone/.test(value)) return "Spice / Mineral";
+  if (/corrupt|dark|magic|fire|ice|lightning|earth/.test(value)) return "Magical Ingredient";
+  return "Ingredient";
+};
+
+const findExistingEntryByTitle = (database: LoreDatabase, title: string) => {
+  const normalized = normalizeLooseName(title);
+  if (!normalized) return null;
+  return database.entries.find((entry) => normalizeLooseName(entry.title) === normalized) || null;
+};
+
+const mergeScribeEntryIntoExisting = (existing: LoreEntry, incoming: LoreEntry) =>
+  normalizeEntry({
+    ...existing,
+    category: incoming.category || existing.category,
+    type: incoming.type || existing.type,
+    status: incoming.status || existing.status,
+    spoilerLevel: incoming.spoilerLevel || existing.spoilerLevel,
+    tags: uniqueStrings([...existing.tags, ...incoming.tags]),
+    summary: incoming.summary || existing.summary,
+    publicDescription: incoming.publicDescription || existing.publicDescription,
+    internalLore: incoming.internalLore || existing.internalLore,
+    fields: mergeNonEmptyRecords(existing.fields, incoming.fields),
+    connections: mergeEntryConnections(existing.connections, incoming.connections),
+    notes: mergeNonEmptyRecords(existing.notes as unknown as Record<string, unknown>, incoming.notes as unknown as Record<string, unknown>) as unknown as LoreEntry["notes"],
+    wiki: mergeNonEmptyRecords(existing.wiki as unknown as Record<string, unknown> || {}, incoming.wiki as unknown as Record<string, unknown> || {}) as unknown as LoreEntry["wiki"],
+    media: existing.media,
+    artGallery: existing.artGallery,
+    artVault: existing.artVault,
+    characterArtBoard: existing.characterArtBoard,
+    characterRelationships: existing.characterRelationships,
+    driveFolderId: existing.driveFolderId,
+    driveFolderLink: existing.driveFolderLink,
+    createdAt: existing.createdAt,
+    updatedAt: nowIso()
+  });
+
+const mergeNonEmptyRecords = <T extends Record<string, unknown>>(base: T, patch: Record<string, unknown> | undefined): T => ({
+  ...base,
+  ...Object.fromEntries(Object.entries(patch || {}).filter(([, value]) => value != null && value !== "" && (!Array.isArray(value) || value.length > 0)))
+}) as T;
+
+const mergeEntryConnections = (
+  base: Partial<LoreEntry["connections"]> | undefined,
+  patch: Partial<LoreEntry["connections"]> | undefined
+): LoreEntry["connections"] => {
+  const keys: Array<keyof LoreEntry["connections"]> = [
+    "characters",
+    "locations",
+    "recipes",
+    "quests",
+    "items",
+    "factions",
+    "secrets",
+    "gameplaySystems",
+    "enemies",
+    "timelineEvents"
+  ];
+  return Object.fromEntries(
+    keys.map((key) => [key, uniqueStrings([...stringArray(base?.[key]), ...stringArray(patch?.[key])])])
+  ) as unknown as LoreEntry["connections"];
+};
+
+const stringFromFirst = (values: unknown[]) =>
+  values.map((value) => String(value || "").trim()).find(Boolean) || "";
+
+const stringArray = (value: unknown) =>
+  Array.isArray(value)
+    ? value.map((item) => String(item || "").trim()).filter(Boolean)
+    : typeof value === "string"
+      ? value.split(",").map((item) => item.trim()).filter(Boolean)
+      : [];
+
+const uniqueStrings = (values: string[]) =>
+  values.map((value) => String(value || "").trim()).filter((value, index, list) => Boolean(value) && list.indexOf(value) === index);
 
 const setDatabaseValue = (
   database: LoreDatabase,
@@ -573,16 +947,26 @@ const applyAction = (database: LoreDatabase, action: AssistantAction): LoreDatab
   }
 
   if (action.action === "add") {
+    const preparedEntry = normalizeScribeAddedEntry(action.entry);
     const newEntry = normalizeEntry({
-      id: action.entry.id || `${slugify(action.entry.title || "assistant-entry")}-${Date.now()}`,
-      category: action.entry.category || "Story",
-      type: action.entry.type || "Lore Entry",
-      status: action.entry.status || "Idea",
-      spoilerLevel: action.entry.spoilerLevel || "No Spoiler",
+      id: preparedEntry.id || `${slugify(preparedEntry.title || "assistant-entry")}-${Date.now()}`,
+      category: preparedEntry.category || "Story",
+      type: preparedEntry.type || "Lore Entry",
+      status: preparedEntry.status || "Idea",
+      spoilerLevel: preparedEntry.spoilerLevel || "No Spoiler",
       createdAt: nowIso(),
       updatedAt: nowIso(),
-      ...action.entry
+      ...preparedEntry
     });
+    const existing = findExistingEntryByTitle(database, newEntry.title);
+    if (existing) {
+      return {
+        ...database,
+        entries: database.entries.map((entry) =>
+          entry.id === existing.id ? mergeScribeEntryIntoExisting(entry, newEntry) : entry
+        )
+      };
+    }
     return {
       ...database,
       entries: [newEntry, ...database.entries]
@@ -793,11 +1177,12 @@ const buildCompactLoreContext = (database: LoreDatabase, command: string) => {
     studio: database.branding.studioName,
     game: "Tales of the Tavern",
     scribeTargetHelpers: compactScribeTargetHelpers(),
+    activeScribeHelpers: getSelectedScribeHelpers(command),
     totalEntries: database.entries.length,
     totalBestiaryCreatures: (database.bestiary || []).length,
     totalWorldEntries: worldBuildingCategoryIds.reduce((count, category) => count + (database.worldBuilding?.[category] || []).length, 0),
     contextPolicy:
-      "This compact context removes media payloads. Tavern Scribe can only return app-data changes: text, fields, tags, bestiary stats/drops/lore, world-building fields, lore entries, creatures, world entries, bestiary creature remove actions, entry remove actions, and art slot add/remove actions. It cannot change code, UI layout, images, Drive files, API keys, secrets, or development settings. Use scribeTargetHelpers and any [Scribe Target: ...] or [Scribe Mode: ...] directives in the user command to constrain scope and action type. For exact whole-database replacements, return renameReference instead of many update actions. Characters, factions, cultures, locations, quests, items, recipes, story pages, and marketing pages from entryIndex are entries; update them with setData target entry. World Building modules from worldIndex are separate records; when the same concept appears in entryIndex and worldIndex, update both records. For removing Bestiary creatures, return removeCreature with the creature id from bestiaryIndex. For removing normal lore entries, return removeEntry with the entry id from entryIndex. Every requested clause must be represented by at least one change or warning.",
+      "This compact context removes media payloads. Tavern Scribe can only return app-data changes: text, fields, tags, bestiary stats/drops/lore, world-building fields, lore entries, creatures, world entries, bestiary creature remove actions, entry remove actions, and art slot add/remove actions. It cannot change code, UI layout, images, Drive files, API keys, secrets, or development settings. Use activeScribeHelpers plus any [Scribe Target: ...] or [Scribe Mode: ...] directives in the user command as hard routing constraints. If multiple target helpers are active, satisfy each selected destination with separate correctly shaped actions. For exact whole-database replacements, return renameReference instead of many update actions. Characters, factions, cultures, locations, quests, items, recipes, story pages, and marketing pages from entryIndex are entries; update them with setData target entry. Before adding, scan entryIndex for same-title entries and update existing records instead of duplicating. Meals and recipes must be Food & Inventory entries, never Story entries. World Building modules from worldIndex are separate records; when the same concept appears in entryIndex and worldIndex, update both records. For removing Bestiary creatures, return removeCreature with the creature id from bestiaryIndex. For removing normal lore entries, return removeEntry with the entry id from entryIndex. Every requested clause must be represented by at least one change or warning. Do not copy target directives or UI routing instructions into lore descriptions.",
     entryIndex: database.entries.map((entry) => compactEntry(entry, "index")),
     relevantEntries: relevantEntries.length
       ? relevantEntries
