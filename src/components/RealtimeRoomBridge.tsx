@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo } from "react";
 import { LiveObject, type JsonObject } from "@liveblocks/client";
 import { LiveblocksProvider, RoomProvider, useMutation, useOthers, useStatus, useStorage, useUpdateMyPresence } from "@liveblocks/react";
 import type { ActiveView, GoogleAccountUser, LoreDatabase, LoreEntry } from "../types";
@@ -38,6 +38,8 @@ interface RealtimeLiveUser {
 interface RealtimeRoomBridgeProps {
   currentUser: GoogleAccountUser | null;
   database: LoreDatabase;
+  canonicalDatabase: LoreDatabase;
+  canonicalReady: boolean;
   activeView: ActiveView;
   selectedEntry: LoreEntry | null;
   selectedBestiaryCreatureId: string;
@@ -52,6 +54,8 @@ interface RealtimeRoomBridgeProps {
 export function RealtimeRoomBridge({
   currentUser,
   database,
+  canonicalDatabase,
+  canonicalReady,
   activeView,
   selectedEntry,
   selectedBestiaryCreatureId,
@@ -62,14 +66,14 @@ export function RealtimeRoomBridge({
   onUsersChange,
   onStatusChange
 }: RealtimeRoomBridgeProps) {
-  const shouldConnect = TAVERN_REALTIME_ENABLED && enabled && Boolean(currentUser);
+  const shouldConnect = TAVERN_REALTIME_ENABLED && enabled && canonicalReady && Boolean(currentUser);
   const initialStorage = useMemo(
     () => ({
       database: new LiveObject<{ value: JsonObject }>({
-        value: sanitizeDatabaseForPersistence(database) as unknown as JsonObject
+        value: sanitizeDatabaseForPersistence(canonicalDatabase) as unknown as JsonObject
       })
     }),
-    []
+    [canonicalDatabase]
   );
 
   if (!shouldConnect || !currentUser) {
@@ -147,12 +151,11 @@ function RealtimeBridgeInner({
   onPresenceUpdaterReady,
   onUsersChange,
   onStatusChange
-}: Omit<RealtimeRoomBridgeProps, "enabled" | "currentUser"> & { currentUser: GoogleAccountUser }) {
+}: Omit<RealtimeRoomBridgeProps, "enabled" | "currentUser" | "canonicalDatabase" | "canonicalReady"> & { currentUser: GoogleAccountUser }) {
   const liveDatabase = useStorage((root) => root.database?.value);
   const updateMyPresence = useUpdateMyPresence();
   const status = useStatus();
   const others = useOthers((users) => users.map((user) => realtimeUserSummary(user as unknown as RealtimeLiveUser)));
-  const canonicalizedRoomRef = useRef(false);
   const publishDatabase = useMutation(
     ({ storage }, previousDatabase: LoreDatabase, nextDatabase: LoreDatabase) => {
       const holder = storage.get("database");
@@ -162,14 +165,6 @@ function RealtimeBridgeInner({
     },
     []
   );
-  const replaceDatabase = useMutation(
-    ({ storage }, nextDatabase: LoreDatabase) => {
-      const holder = storage.get("database");
-      holder.set("value", sanitizeDatabaseForPersistence(nextDatabase) as unknown as JsonObject);
-    },
-    []
-  );
-
   useEffect(() => {
     onPublisherReady(publishDatabase);
     return () => onPublisherReady(null);
@@ -207,16 +202,9 @@ function RealtimeBridgeInner({
     if (!normalized) return;
     const liveHash = databaseSyncHash(normalized);
     const localHash = databaseSyncHash(database);
-    if (!canonicalizedRoomRef.current) {
-      canonicalizedRoomRef.current = true;
-      if (currentUser.role === "admin" && liveHash !== localHash) {
-        replaceDatabase(database);
-        return;
-      }
-    }
     if (liveHash === localHash) return;
     onDatabaseFromRoom(normalized);
-  }, [currentUser.role, database, liveDatabase, onDatabaseFromRoom, replaceDatabase]);
+  }, [database, liveDatabase, onDatabaseFromRoom]);
 
   return null;
 }

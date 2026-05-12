@@ -186,6 +186,7 @@ const EXPLICIT_REMOVALS_KEY = "tavern-cook-book:explicit-removals";
 const LIVE_TEAM_SYNC = true;
 const LIVE_SYNC_AUTOSAVE_DELAY_MS = 2500;
 const LIVE_SYNC_POLL_MS = 5000;
+const REALTIME_BACKUP_SAVE_DELAY_MS = 10_000;
 
 function buildWorkshopProgress(database: LoreDatabase, currentUser: GoogleAccountUser) {
   const totalEntries = database.entries.length + database.bestiary.length;
@@ -235,6 +236,7 @@ export default function App() {
   const [favorites, setFavorites] = useState(() => loadFavorites());
   const [currentUser, setCurrentUser] = useState<GoogleAccountUser | null>(() => loadGoogleAccount());
   const [publishedDatabase, setPublishedDatabase] = useState<LoreDatabase>(() => createStarterDatabase());
+  const [publishedReady, setPublishedReady] = useState(false);
   const [appSyncSettings, setAppSyncSettings] = useState(() => loadAppSyncSettings());
   const [cloudSync, setCloudSync] = useState<CloudSyncUiState>({
     phase: "idle",
@@ -257,6 +259,7 @@ export default function App() {
   const realtimeBaseDatabaseRef = useRef(database);
   const realtimeLastPublishedHashRef = useRef(databaseSyncHash(database));
   const realtimePublishTimerRef = useRef<number | null>(null);
+  const realtimeBackupSaveTimerRef = useRef<number | null>(null);
   const realtimePublisherRef = useRef<RealtimePublisher | null>(null);
   const realtimePresenceUpdaterRef = useRef<RealtimePresenceUpdater | null>(null);
   const realtimeRemoteLoadRef = useRef(false);
@@ -318,6 +321,62 @@ export default function App() {
       }
     };
   }, [database, hostedViewer, readOnly, realtimeActive]);
+
+  useEffect(() => {
+    if (!realtimeActive || readOnly || hostedViewer || realtimeRemoteLoadRef.current || !currentUser) return;
+    const nextHash = databaseSyncHash(database);
+    if (nextHash === lastPublishedHashRef.current) return;
+
+    if (realtimeBackupSaveTimerRef.current) {
+      window.clearTimeout(realtimeBackupSaveTimerRef.current);
+    }
+
+    realtimeBackupSaveTimerRef.current = window.setTimeout(() => {
+      void savePublishedDatabase(currentUser.email, database)
+        .then((result) => {
+          if (!result.ok || !result.envelope?.payload.database) {
+            setCloudSync((current) => ({
+              ...current,
+              phase: result.error?.includes("sign-in token") ? "needsAuth" : "offline",
+              message: result.error || "Realtime edit is live, but the shared backup could not save yet.",
+              configured: result.configured
+            }));
+            return;
+          }
+
+          const savedDatabase = result.envelope.payload.database;
+          const savedHash = databaseSyncHash(savedDatabase);
+          setPublishedDatabase(savedDatabase);
+          setPublishedReady(true);
+          lastPublishedDatabaseRef.current = savedDatabase;
+          lastPublishedHashRef.current = savedHash;
+          lastDraftHashRef.current = savedHash;
+          lastDraftUpdatedAtRef.current = result.envelope.updatedAt;
+          savePublishedSyncState(savedDatabase, result.envelope.updatedAt);
+          setCloudSync({
+            phase: "saved",
+            message: "Realtime edit shared and backed up for the team.",
+            lastSavedAt: result.envelope.updatedAt,
+            configured: true
+          });
+        })
+        .catch((error) => {
+          setCloudSync((current) => ({
+            ...current,
+            phase: "offline",
+            message: error instanceof Error ? error.message : "Realtime edit is live, but the shared backup could not save yet.",
+            configured: true
+          }));
+        });
+    }, REALTIME_BACKUP_SAVE_DELAY_MS);
+
+    return () => {
+      if (realtimeBackupSaveTimerRef.current) {
+        window.clearTimeout(realtimeBackupSaveTimerRef.current);
+        realtimeBackupSaveTimerRef.current = null;
+      }
+    };
+  }, [database, currentUser?.email, hostedViewer, readOnly, realtimeActive]);
 
   useEffect(() => {
     if (!currentUser || hostedViewer) return;
@@ -384,6 +443,7 @@ export default function App() {
           const savedHash = databaseSyncHash(savedDatabase);
           if (LIVE_TEAM_SYNC) {
             setPublishedDatabase(savedDatabase);
+            setPublishedReady(true);
             lastPublishedDatabaseRef.current = savedDatabase;
             lastPublishedHashRef.current = savedHash;
             savePublishedSyncState(savedDatabase, result.envelope.updatedAt);
@@ -492,6 +552,7 @@ export default function App() {
               remoteLoadRef.current = false;
             }, 0);
             setPublishedDatabase(remotePublished);
+            setPublishedReady(true);
             lastPublishedHashRef.current = remotePublishedHash;
             lastPublishedDatabaseRef.current = remotePublished;
             lastDraftHashRef.current = remotePublishedHash;
@@ -512,6 +573,7 @@ export default function App() {
             : mergeIncomingTeamDatabase(database, previousPublishedDatabase, remotePublished, explicitRemovalSet);
           const mergedHash = databaseSyncHash(merge.database);
           setPublishedDatabase(remotePublished);
+          setPublishedReady(true);
           lastPublishedHashRef.current = remotePublishedHash;
           lastPublishedDatabaseRef.current = remotePublished;
 
@@ -624,6 +686,7 @@ export default function App() {
     const localDatabase = database;
 
     const loadRemoteState = async () => {
+      setPublishedReady(false);
       setCloudSync((current) => ({
         ...current,
         phase: "loading",
@@ -640,6 +703,7 @@ export default function App() {
           lastSavedAt: "",
           configured: false
         });
+        setPublishedReady(false);
         return;
       }
 
@@ -661,13 +725,15 @@ export default function App() {
         }
       }
 
-      const remotePublished = publishedResult.ok && publishedResult.envelope?.payload.database
+      const fetchedPublished = publishedResult.ok && publishedResult.envelope?.payload.database
         ? publishedResult.envelope.payload.database
         : createStarterDatabase();
       const publishedEnvelope = publishedResult.ok ? publishedResult.envelope : null;
+      const remotePublished = publishedEnvelope ? fetchedPublished : localDatabase;
       const draftEnvelope = !LIVE_TEAM_SYNC && canEdit && draftResult?.ok ? draftResult.envelope : null;
       const remotePublishedHash = databaseSyncHash(remotePublished);
       setPublishedDatabase(remotePublished);
+      setPublishedReady(true);
       lastPublishedHashRef.current = remotePublishedHash;
       lastPublishedDatabaseRef.current = remotePublished;
       if (publishedEnvelope) {
@@ -726,6 +792,7 @@ export default function App() {
 
     loadRemoteState().catch((error) => {
       if (cancelled) return;
+      setPublishedReady(false);
       setCloudSync({
         phase: "offline",
         message: error instanceof Error ? error.message : "Cloud sync could not load.",
@@ -818,6 +885,12 @@ export default function App() {
       configured: current.configured
     }));
   }, []);
+
+  useEffect(() => {
+    if (publishedReady) return;
+    setRealtimeReady(false);
+    setRealtimeUsers([]);
+  }, [publishedReady]);
 
   const handleRealtimePresenceUpdaterReady = useCallback((updater: RealtimePresenceUpdater | null) => {
     realtimePresenceUpdaterRef.current = updater;
@@ -926,6 +999,7 @@ export default function App() {
       }
 
       setPublishedDatabase(result.envelope.payload.database);
+      setPublishedReady(true);
       lastPublishedDatabaseRef.current = result.envelope.payload.database;
       lastPublishedHashRef.current = databaseSyncHash(result.envelope.payload.database);
       savePublishedSyncState(result.envelope.payload.database, result.envelope.updatedAt);
@@ -989,6 +1063,7 @@ export default function App() {
       }, 0);
 
       setPublishedDatabase(remotePublished);
+      setPublishedReady(true);
       lastPublishedDatabaseRef.current = remotePublished;
       lastPublishedHashRef.current = remoteHash;
       lastDraftHashRef.current = remoteHash;
@@ -1587,6 +1662,8 @@ export default function App() {
       <RealtimeRoomBridge
         currentUser={currentUser}
         database={database}
+        canonicalDatabase={publishedDatabase}
+        canonicalReady={publishedReady}
         activeView={activeView}
         selectedEntry={selectedEntry}
         selectedBestiaryCreatureId={selectedBestiaryCreatureId}
