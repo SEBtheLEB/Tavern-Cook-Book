@@ -12,10 +12,16 @@
     "dev:server": "node --experimental-strip-types server/index.ts",
     "build": "tsc && vite build --configLoader native",
     "build:viewer": "tsc && vite build --configLoader native",
+    "desktop:build": "tauri build",
+    "desktop:dev": "tauri dev",
     "preview": "vite preview --host 127.0.0.1",
+    "tauri": "tauri",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@tauri-apps/api": "^2.11.0",
+    "@tauri-apps/plugin-deep-link": "^2.4.9",
+    "@tauri-apps/plugin-opener": "^2.5.4",
     "@vitejs/plugin-react": "^5.0.0",
     "concurrently": "^9.1.2",
     "dotenv": "^16.4.7",
@@ -25,6 +31,7 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2.11.1",
     "@types/express": "^5.0.0",
     "@types/node": "^22.10.2",
     "@types/react": "^19.0.2",

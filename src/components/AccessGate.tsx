@@ -9,6 +9,13 @@ import {
   saveAccessGoogleClientId,
   saveGoogleAccount
 } from "../utils/accessControl";
+import {
+  isDesktopBrowserAuthRequest,
+  isTauriDesktopShell,
+  listenForDesktopAuthCredential,
+  openDesktopSignInInSystemBrowser,
+  redirectDesktopBrowserCredential
+} from "../utils/desktopShell";
 import { BrandImageEditor } from "./BrandImageEditor";
 import { Icon } from "./Icon";
 
@@ -24,14 +31,42 @@ export function AccessGate({
   onBrandingLogoChange
 }: AccessGateProps) {
   const buttonRef = useRef<HTMLDivElement | null>(null);
-  const missingClientIdOnLoad = !getAccessGoogleClientId();
-  const [message, setMessage] = useState(missingClientIdOnLoad ? "" : "Loading Google Sign-In...");
+  const desktopShell = isTauriDesktopShell();
+  const desktopBrowserAuthMode = isDesktopBrowserAuthRequest();
+  const desktopExternalSignIn = desktopShell && !desktopBrowserAuthMode;
+  const missingClientIdOnLoad = !desktopExternalSignIn && !getAccessGoogleClientId();
+  const [message, setMessage] = useState(
+    desktopExternalSignIn
+      ? "Sign in through your browser. This window will unlock when Google sends you back here."
+      : missingClientIdOnLoad
+        ? ""
+        : "Loading Google Sign-In..."
+  );
   const [deniedUser, setDeniedUser] = useState<GoogleAccountUser | null>(null);
   const [clientIdDraft, setClientIdDraft] = useState("");
   const [needsClientIdSetup, setNeedsClientIdSetup] = useState(missingClientIdOnLoad);
+  const [openingDesktopBrowser, setOpeningDesktopBrowser] = useState(false);
+
+  const completeCredentialSignIn = (credential: string) => {
+    const user = decodeGoogleCredential(credential);
+    if (!isApprovedGoogleUser(user.email)) {
+      clearGoogleAccount();
+      setDeniedUser(user);
+      setMessage("");
+      return;
+    }
+
+    if (desktopBrowserAuthMode && redirectDesktopBrowserCredential(credential)) {
+      setMessage("Returning to the desktop app...");
+      return;
+    }
+
+    saveGoogleAccount(user);
+    onSignIn(user);
+  };
 
   useEffect(() => {
-    if (deniedUser || needsClientIdSetup) return;
+    if (deniedUser || needsClientIdSetup || desktopExternalSignIn) return;
     let cancelled = false;
     const button = buttonRef.current;
     if (!button) return;
@@ -39,15 +74,7 @@ export function AccessGate({
     renderGoogleSignInButton(button, (response) => {
       try {
         if (!response.credential) throw new Error("Google sign-in did not return a credential.");
-        const user = decodeGoogleCredential(response.credential);
-        if (!isApprovedGoogleUser(user.email)) {
-          clearGoogleAccount();
-          setDeniedUser(user);
-          setMessage("");
-          return;
-        }
-        saveGoogleAccount(user);
-        onSignIn(user);
+        completeCredentialSignIn(response.credential);
       } catch (error) {
         setMessage(error instanceof Error ? error.message : "Google Sign-In failed. Try again.");
       }
@@ -65,7 +92,36 @@ export function AccessGate({
     return () => {
       cancelled = true;
     };
-  }, [deniedUser, needsClientIdSetup, onSignIn]);
+  }, [deniedUser, desktopExternalSignIn, needsClientIdSetup, onSignIn]);
+
+  useEffect(() => {
+    if (!desktopExternalSignIn || deniedUser) return;
+    let disposed = false;
+    let cleanup = () => {};
+
+    setMessage("Sign in through your browser. This window will unlock when Google sends you back here.");
+    void listenForDesktopAuthCredential(
+      (credential) => {
+        try {
+          completeCredentialSignIn(credential);
+        } catch (error) {
+          setMessage(error instanceof Error ? error.message : "Desktop sign-in failed. Try again.");
+        }
+      },
+      (errorMessage) => setMessage(errorMessage)
+    ).then((unlisten) => {
+      if (disposed) {
+        unlisten();
+        return;
+      }
+      cleanup = unlisten;
+    });
+
+    return () => {
+      disposed = true;
+      cleanup();
+    };
+  }, [deniedUser, desktopExternalSignIn, onSignIn]);
 
   if (deniedUser) {
     return (
@@ -116,7 +172,35 @@ export function AccessGate({
         <p className="access-eyebrow">Team Launcher</p>
         <h1 className="font-display">STL Productionz</h1>
         <p>Sign in with Google to open your production workspace.</p>
-        {needsClientIdSetup ? (
+        {desktopExternalSignIn ? (
+          <div className="access-desktop-auth">
+            <button
+              className="button-frame access-button"
+              disabled={openingDesktopBrowser}
+              onClick={async () => {
+                setOpeningDesktopBrowser(true);
+                try {
+                  const openedInSystemBrowser = await openDesktopSignInInSystemBrowser();
+                  setMessage(
+                    openedInSystemBrowser
+                      ? "Finish Google sign-in in your browser. You will be returned here automatically."
+                      : "Your browser should be open. Finish Google sign-in there, then return to this app."
+                  );
+                } catch (error) {
+                  setMessage(error instanceof Error ? error.message : "Could not open Google sign-in in your browser.");
+                } finally {
+                  setOpeningDesktopBrowser(false);
+                }
+              }}
+            >
+              <Icon name="ExternalLink" className="h-4 w-4" />
+              {openingDesktopBrowser ? "Opening Browser..." : "Sign in with Google in Browser"}
+            </button>
+            <small>
+              Google opens outside the desktop app, then sends you back here when sign-in is complete.
+            </small>
+          </div>
+        ) : needsClientIdSetup ? (
           <form
             className="access-client-setup"
             onSubmit={(event) => {

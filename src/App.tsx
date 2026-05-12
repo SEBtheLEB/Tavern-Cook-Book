@@ -63,6 +63,7 @@ import {
   roleCanAccessSettings,
   roleCanEdit
 } from "./utils/accessControl";
+import { isDesktopBrowserAuthRequest } from "./utils/desktopShell";
 import { isFavorite as favoriteIncludes, loadFavorites, saveFavorites, toggleFavorite } from "./utils/favorites";
 import {
   type AssignmentRecord,
@@ -796,8 +797,9 @@ export default function App() {
     return () => window.removeEventListener("tavern:open-sprite-animator", openSpriteAnimator);
   }, []);
   const themeClassName = theme === "dream" ? "theme-dream" : "theme-light";
+  const desktopBrowserAuthMode = isDesktopBrowserAuthRequest();
 
-  if (!currentUser) {
+  if (!currentUser || desktopBrowserAuthMode) {
     return (
       <div className={themeClassName}>
         <AccessGate

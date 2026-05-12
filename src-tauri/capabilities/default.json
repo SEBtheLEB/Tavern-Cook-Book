@@ -1,0 +1,17 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main-capability",
+  "description": "Allows the STL Productionz launcher web app to open browser sign-in and receive its desktop auth return link.",
+  "windows": ["main"],
+  "remote": {
+    "urls": [
+      "https://the-tavern-cook-book.vercel.app/**",
+      "http://127.0.0.1:5173/**"
+    ]
+  },
+  "permissions": [
+    "core:event:default",
+    "deep-link:default",
+    "opener:default"
+  ]
+}

@@ -11542,6 +11542,23 @@ button,
   justify-content: center;
 }
 
+.access-desktop-auth {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.access-desktop-auth small {
+  display: block;
+  color: rgba(56, 35, 19, 0.7);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.theme-dream .access-desktop-auth small {
+  color: rgba(255, 244, 214, 0.68);
+}
+
 .access-client-setup {
   display: grid;
   gap: 0.85rem;
