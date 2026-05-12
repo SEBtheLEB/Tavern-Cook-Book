@@ -31,6 +31,13 @@ export interface CloudSyncHealth {
   error?: string;
 }
 
+export const PUBLISHED_SYNC_STATE_KEY = "tavern-cook-book:published-sync-state";
+
+export interface PublishedSyncState {
+  hash: string;
+  updatedAt: string;
+}
+
 export async function fetchCloudHealth(): Promise<CloudSyncHealth> {
   try {
     const response = await fetch("/api/sync?scope=health", { cache: "no-store" });
@@ -90,6 +97,27 @@ export async function saveRemoteAppSettings(email: string, settings: AppSyncSett
 
 export function databaseSyncHash(database: LoreDatabase) {
   return JSON.stringify(sanitizeDatabaseForPersistence(database));
+}
+
+export function loadPublishedSyncState(): PublishedSyncState {
+  try {
+    const raw = localStorage.getItem(PUBLISHED_SYNC_STATE_KEY);
+    if (!raw) return { hash: "", updatedAt: "" };
+    const parsed = JSON.parse(raw) as Partial<PublishedSyncState>;
+    return {
+      hash: typeof parsed.hash === "string" ? parsed.hash : "",
+      updatedAt: typeof parsed.updatedAt === "string" ? parsed.updatedAt : ""
+    };
+  } catch {
+    return { hash: "", updatedAt: "" };
+  }
+}
+
+export function savePublishedSyncState(database: LoreDatabase, updatedAt: string) {
+  localStorage.setItem(PUBLISHED_SYNC_STATE_KEY, JSON.stringify({
+    hash: databaseSyncHash(database),
+    updatedAt
+  }));
 }
 
 export function newerEnvelope<T>(left: CloudSyncEnvelope<T> | null, right: CloudSyncEnvelope<T> | null) {

@@ -71,8 +71,9 @@ import {
   fetchPublishedDatabase,
   fetchRemoteAppSettings,
   fetchUserDraft,
-  newerEnvelope,
+  loadPublishedSyncState,
   savePublishedDatabase,
+  savePublishedSyncState,
   saveRemoteAppSettings,
   saveUserDraft
 } from "./utils/cloudSync";
@@ -295,6 +296,9 @@ export default function App() {
           if (!result.ok || !result.envelope?.payload.database) return;
           const remoteUpdatedAt = result.envelope.updatedAt;
           if (!remoteUpdatedAt || remoteUpdatedAt <= lastDraftUpdatedAtRef.current) return;
+          const remoteHash = databaseSyncHash(result.envelope.payload.database);
+          const publishedState = loadPublishedSyncState();
+          if (remoteHash === lastPublishedHashRef.current || remoteHash === publishedState.hash) return;
           const localHash = databaseSyncHash(database);
           if (localHash !== lastDraftHashRef.current) {
             setCloudSync((current) => ({
@@ -310,7 +314,7 @@ export default function App() {
           window.setTimeout(() => {
             remoteLoadRef.current = false;
           }, 0);
-          lastDraftHashRef.current = databaseSyncHash(result.envelope.payload.database);
+          lastDraftHashRef.current = remoteHash;
           lastDraftUpdatedAtRef.current = remoteUpdatedAt;
           setCloudSync({
             phase: "saved",
@@ -321,6 +325,58 @@ export default function App() {
         })
         .catch(() => {});
     }, 30_000);
+
+    return () => window.clearInterval(interval);
+  }, [currentUser?.email, database, readOnly, hostedViewer]);
+
+  useEffect(() => {
+    if (!currentUser || hostedViewer) return;
+    const interval = window.setInterval(() => {
+      void fetchPublishedDatabase()
+        .then((result) => {
+          if (!result.ok || !result.envelope?.payload.database) return;
+          const remotePublished = result.envelope.payload.database;
+          const remotePublishedHash = databaseSyncHash(remotePublished);
+          if (remotePublishedHash === lastPublishedHashRef.current) return;
+
+          const previousPublishedHash = lastPublishedHashRef.current;
+          const localHash = databaseSyncHash(database);
+          const storedPublishedState = loadPublishedSyncState();
+          setPublishedDatabase(remotePublished);
+          lastPublishedHashRef.current = remotePublishedHash;
+
+          const canApplyPublished =
+            readOnly ||
+            !previousPublishedHash ||
+            localHash === previousPublishedHash ||
+            localHash === storedPublishedState.hash;
+
+          if (!canApplyPublished) {
+            setCloudSync((current) => ({
+              ...current,
+              message: "A new team push is available. Finish your private draft, then reload to pull it in."
+            }));
+            return;
+          }
+
+          remoteLoadRef.current = true;
+          setDatabase(remotePublished);
+          saveDatabase(remotePublished);
+          window.setTimeout(() => {
+            remoteLoadRef.current = false;
+          }, 0);
+          savePublishedSyncState(remotePublished, result.envelope.updatedAt);
+          lastDraftHashRef.current = remotePublishedHash;
+          lastDraftUpdatedAtRef.current = latestSyncDate(lastDraftUpdatedAtRef.current, result.envelope.updatedAt);
+          setCloudSync({
+            phase: "saved",
+            message: "Loaded the latest team push.",
+            lastSavedAt: result.envelope.updatedAt,
+            configured: true
+          });
+        })
+        .catch(() => {});
+    }, 15_000);
 
     return () => window.clearInterval(interval);
   }, [currentUser?.email, database, readOnly, hostedViewer]);
@@ -423,13 +479,29 @@ export default function App() {
       const remotePublished = publishedResult.ok && publishedResult.envelope?.payload.database
         ? publishedResult.envelope.payload.database
         : createStarterDatabase();
+      const publishedEnvelope = publishedResult.ok ? publishedResult.envelope : null;
+      const draftEnvelope = canEdit && draftResult?.ok ? draftResult.envelope : null;
+      const storedPublishedState = loadPublishedSyncState();
+      const remotePublishedHash = databaseSyncHash(remotePublished);
       setPublishedDatabase(remotePublished);
-      lastPublishedHashRef.current = databaseSyncHash(remotePublished);
+      lastPublishedHashRef.current = remotePublishedHash;
+      if (publishedEnvelope) {
+        savePublishedSyncState(remotePublished, publishedEnvelope.updatedAt);
+      }
 
-      const chosenEnvelope = newerEnvelope(
-        canEdit && draftResult?.ok ? draftResult.envelope : null,
-        publishedResult.ok ? publishedResult.envelope : null
+      const draftDatabase = draftEnvelope?.payload.database || null;
+      const draftHash = draftDatabase ? databaseSyncHash(draftDatabase) : "";
+      const draftHasPrivateWork = Boolean(
+        draftDatabase &&
+        draftHash !== remotePublishedHash &&
+        draftHash !== storedPublishedState.hash
       );
+      const draftIsNewerThanPublished = isNewerSyncDate(draftEnvelope?.updatedAt, publishedEnvelope?.updatedAt);
+      const chosenEnvelope = !publishedEnvelope && draftEnvelope
+        ? draftEnvelope
+        : draftHasPrivateWork && draftIsNewerThanPublished
+          ? draftEnvelope
+          : publishedEnvelope;
       const chosenDatabase = chosenEnvelope?.payload.database || localDatabase;
       const chosenHash = databaseSyncHash(chosenDatabase);
 
@@ -441,7 +513,7 @@ export default function App() {
       }, 0);
 
       lastDraftHashRef.current = chosenHash;
-      lastDraftUpdatedAtRef.current = chosenEnvelope?.updatedAt || "";
+      lastDraftUpdatedAtRef.current = latestSyncDate(chosenEnvelope?.updatedAt || "", draftEnvelope?.updatedAt || "");
       setCloudSync({
         phase: chosenEnvelope ? "saved" : "idle",
         message: chosenEnvelope
@@ -597,6 +669,7 @@ export default function App() {
 
       setPublishedDatabase(result.envelope.payload.database);
       lastPublishedHashRef.current = databaseSyncHash(result.envelope.payload.database);
+      savePublishedSyncState(result.envelope.payload.database, result.envelope.updatedAt);
       setPushReviewOpen(false);
       setPushMessage("");
       setCloudSync({
@@ -1455,6 +1528,18 @@ function expandHiddenViewIds(hiddenViewIds: ActiveView[]) {
     expanded.add("enemies");
   }
   return [...expanded];
+}
+
+function isNewerSyncDate(left = "", right = "") {
+  if (!left) return false;
+  if (!right) return true;
+  return new Date(left).getTime() > new Date(right).getTime();
+}
+
+function latestSyncDate(left = "", right = "") {
+  if (!left) return right;
+  if (!right) return left;
+  return new Date(left).getTime() >= new Date(right).getTime() ? left : right;
 }
 
 function KeywordReferencePopup({
