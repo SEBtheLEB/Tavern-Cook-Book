@@ -49,5 +49,4 @@ jobs:
           name: stl-productionz-launcher-windows
           path: |
             src-tauri/target/release/bundle/nsis/*setup*.exe
-            src-tauri/target/release/bundle/msi/*.msi
           if-no-files-found: error

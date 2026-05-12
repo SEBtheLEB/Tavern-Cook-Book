@@ -30,7 +30,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis", "msi"],
+    "targets": ["nsis"],
     "publisher": "STL Productionz",
     "category": "Productivity",
     "shortDescription": "STL Productionz app launcher",
