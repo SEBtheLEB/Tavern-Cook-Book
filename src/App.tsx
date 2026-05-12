@@ -254,6 +254,9 @@ export default function App() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [storageWarning, setStorageWarning] = useState("");
   const databaseRef = useRef(database);
+  const realtimeBaseDatabaseRef = useRef(database);
+  const realtimeLastPublishedHashRef = useRef(databaseSyncHash(database));
+  const realtimePublishTimerRef = useRef<number | null>(null);
   const realtimePublisherRef = useRef<RealtimePublisher | null>(null);
   const realtimePresenceUpdaterRef = useRef<RealtimePresenceUpdater | null>(null);
   const realtimeRemoteLoadRef = useRef(false);
@@ -279,19 +282,42 @@ export default function App() {
 
     databaseRef.current = next;
     setLocalDatabase(next);
-    if (
-      options.source !== "remote" &&
-      !readOnly &&
-      !hostedViewer &&
-      !realtimeRemoteLoadRef.current &&
-      realtimePublisherRef.current
-    ) {
-      realtimePublisherRef.current(previous, next);
-    }
+    if (options.source === "remote") return;
   }, [hostedViewer, readOnly]);
   useEffect(() => {
     databaseRef.current = database;
   }, [database]);
+
+  useEffect(() => {
+    if (!realtimeActive || readOnly || hostedViewer || realtimeRemoteLoadRef.current) return;
+    const publisher = realtimePublisherRef.current;
+    if (!publisher) return;
+    const nextHash = databaseSyncHash(database);
+    if (nextHash === realtimeLastPublishedHashRef.current) return;
+
+    if (realtimePublishTimerRef.current) {
+      window.clearTimeout(realtimePublishTimerRef.current);
+    }
+
+    realtimePublishTimerRef.current = window.setTimeout(() => {
+      publisher(realtimeBaseDatabaseRef.current, database);
+      realtimeBaseDatabaseRef.current = database;
+      realtimeLastPublishedHashRef.current = nextHash;
+      setCloudSync((current) => ({
+        ...current,
+        phase: "saved",
+        message: "Realtime edit shared with the team.",
+        configured: true
+      }));
+    }, 450);
+
+    return () => {
+      if (realtimePublishTimerRef.current) {
+        window.clearTimeout(realtimePublishTimerRef.current);
+        realtimePublishTimerRef.current = null;
+      }
+    };
+  }, [database, hostedViewer, readOnly, realtimeActive]);
 
   useEffect(() => {
     if (!currentUser || hostedViewer) return;
@@ -766,7 +792,10 @@ export default function App() {
     window.setTimeout(() => {
       realtimeRemoteLoadRef.current = false;
     }, 0);
-    lastDraftHashRef.current = databaseSyncHash(nextDatabase);
+    const nextHash = databaseSyncHash(nextDatabase);
+    lastDraftHashRef.current = nextHash;
+    realtimeBaseDatabaseRef.current = nextDatabase;
+    realtimeLastPublishedHashRef.current = nextHash;
     setCloudSync((current) => ({
       ...current,
       phase: "saved",
@@ -778,6 +807,10 @@ export default function App() {
   const handleRealtimePublisherReady = useCallback((publisher: RealtimePublisher | null) => {
     realtimePublisherRef.current = publisher;
     setRealtimeReady(Boolean(publisher));
+    if (publisher) {
+      realtimeBaseDatabaseRef.current = databaseRef.current;
+      realtimeLastPublishedHashRef.current = databaseSyncHash(databaseRef.current);
+    }
     setCloudSync((current) => ({
       ...current,
       phase: publisher ? "saved" : current.phase,

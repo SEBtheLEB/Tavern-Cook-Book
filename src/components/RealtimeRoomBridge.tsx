@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { LiveObject, type JsonObject } from "@liveblocks/client";
 import { LiveblocksProvider, RoomProvider, useMutation, useOthers, useStatus, useStorage, useUpdateMyPresence } from "@liveblocks/react";
 import type { ActiveView, GoogleAccountUser, LoreDatabase, LoreEntry } from "../types";
@@ -152,12 +152,20 @@ function RealtimeBridgeInner({
   const updateMyPresence = useUpdateMyPresence();
   const status = useStatus();
   const others = useOthers((users) => users.map((user) => realtimeUserSummary(user as unknown as RealtimeLiveUser)));
+  const canonicalizedRoomRef = useRef(false);
   const publishDatabase = useMutation(
     ({ storage }, previousDatabase: LoreDatabase, nextDatabase: LoreDatabase) => {
       const holder = storage.get("database");
       const remoteDatabase = normalizeRealtimeDatabase(holder.get("value")) || previousDatabase;
       const mergedDatabase = mergeDatabaseChange(previousDatabase, nextDatabase, remoteDatabase);
       holder.set("value", sanitizeDatabaseForPersistence(mergedDatabase) as unknown as JsonObject);
+    },
+    []
+  );
+  const replaceDatabase = useMutation(
+    ({ storage }, nextDatabase: LoreDatabase) => {
+      const holder = storage.get("database");
+      holder.set("value", sanitizeDatabaseForPersistence(nextDatabase) as unknown as JsonObject);
     },
     []
   );
@@ -197,9 +205,18 @@ function RealtimeBridgeInner({
   useEffect(() => {
     const normalized = normalizeRealtimeDatabase(liveDatabase);
     if (!normalized) return;
-    if (databaseSyncHash(normalized) === databaseSyncHash(database)) return;
+    const liveHash = databaseSyncHash(normalized);
+    const localHash = databaseSyncHash(database);
+    if (!canonicalizedRoomRef.current) {
+      canonicalizedRoomRef.current = true;
+      if (currentUser.role === "admin" && liveHash !== localHash) {
+        replaceDatabase(database);
+        return;
+      }
+    }
+    if (liveHash === localHash) return;
     onDatabaseFromRoom(normalized);
-  }, [database, liveDatabase, onDatabaseFromRoom]);
+  }, [currentUser.role, database, liveDatabase, onDatabaseFromRoom, replaceDatabase]);
 
   return null;
 }
