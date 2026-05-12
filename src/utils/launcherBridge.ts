@@ -14,16 +14,36 @@ interface LauncherSessionPayload {
   googleCredential?: string;
 }
 
+interface LauncherProgressRequestPayload {
+  type?: string;
+  appId?: string;
+}
+
+interface LauncherProgressPayload {
+  percent: number;
+  label: string;
+  completed?: number;
+  total?: number;
+  source: string;
+}
+
 const WORKSHOP_SESSION_TYPE = "stl-workshop-session";
 const WORKSHOP_SESSION_REQUEST_TYPE = "stl-workshop-session-request";
+const WORKSHOP_PROGRESS_TYPE = "stl-workshop-progress";
+const WORKSHOP_PROGRESS_REQUEST_TYPE = "stl-workshop-progress-request";
 const COOKBOOK_APP_ID = "tavern-cook-book";
 
 export function requestLauncherSession() {
-  if (window.parent === window) return;
-  window.parent.postMessage({
+  const request = {
     type: WORKSHOP_SESSION_REQUEST_TYPE,
     appId: COOKBOOK_APP_ID
-  }, "*");
+  };
+  if (window.parent !== window) {
+    window.parent.postMessage(request, "*");
+  }
+  if (window.opener && window.opener !== window) {
+    window.opener.postMessage(request, "*");
+  }
 }
 
 export function listenForLauncherSession(onSession: (user: GoogleAccountUser) => void) {
@@ -43,6 +63,24 @@ export function listenForLauncherSession(onSession: (user: GoogleAccountUser) =>
 
   window.addEventListener("message", handler);
   requestLauncherSession();
+  return () => window.removeEventListener("message", handler);
+}
+
+export function listenForLauncherProgressRequests(getProgress: () => LauncherProgressPayload) {
+  const handler = (event: MessageEvent) => {
+    if (!isAllowedLauncherOrigin(event.origin)) return;
+    const payload = event.data as LauncherProgressRequestPayload;
+    if (!payload || payload.type !== WORKSHOP_PROGRESS_REQUEST_TYPE) return;
+    if (payload.appId && payload.appId !== COOKBOOK_APP_ID && payload.appId !== "tales-codex") return;
+    const source = event.source as Window | null;
+    source?.postMessage({
+      type: WORKSHOP_PROGRESS_TYPE,
+      appId: COOKBOOK_APP_ID,
+      progress: getProgress()
+    }, event.origin || "*");
+  };
+
+  window.addEventListener("message", handler);
   return () => window.removeEventListener("message", handler);
 }
 

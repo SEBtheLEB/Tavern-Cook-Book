@@ -30,6 +30,7 @@ const DEFAULT_REPO = "SEBtheLEB/Tavern-Cook-Book";
 const DEFAULT_BRANCH = "main";
 const SYNC_ROOT = "sync/tavern-cook-book";
 const GOOGLE_TOKENINFO_URL = "https://oauth2.googleapis.com/tokeninfo";
+const MAIN_ADMIN_EMAIL = "stlprodz1101@gmail.com";
 
 export function getSyncHealth() {
   return {
@@ -97,6 +98,10 @@ async function handleGet(scope: SyncScope, url: URL, signedInEmail: string): Pro
 
 async function handlePost(scope: SyncScope, body: unknown, signedInEmail: string): Promise<SyncResult> {
   if (scope === "health") return json(405, { error: "Health is read-only." });
+  if (scope === "settings" && signedInEmail !== MAIN_ADMIN_EMAIL) {
+    return json(403, { error: "Only the STL Productionz admin can save team settings." });
+  }
+
   const payload = readPayload(body);
   const requestedEmail = normalizeEmail(readBodyEmail(body) || signedInEmail);
 
