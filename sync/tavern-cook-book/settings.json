@@ -1,12 +1,14 @@
 {
-  "updatedAt": "2026-05-12T05:48:21.684Z",
+  "updatedAt": "2026-05-12T05:48:26.364Z",
   "updatedBy": "stlprodz1101@gmail.com",
   "payload": {
     "visibility": {
       "hiddenForMembers": [
         "storyJourney",
         "quests",
-        "gameplay"
+        "gameplay",
+        "marketing",
+        "archive"
       ]
     },
     "accessUsers": [
