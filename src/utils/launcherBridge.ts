@@ -90,11 +90,12 @@ function normalizeLauncherUser(
 ): GoogleAccountUser | null {
   const email = String(credentialUser?.email || user?.email || "").trim().toLowerCase();
   if (!email || !email.includes("@")) return null;
+  const launcherRole = roleFromLauncher(user?.role, user?.permissions, credentialUser?.role);
   return {
     name: String(credentialUser?.name || user?.name || email),
     email,
     picture: String(credentialUser?.picture || user?.picture || ""),
-    role: credentialUser?.role || roleFromLauncher(user?.role, user?.permissions)
+    role: launcherRole
   };
 }
 
@@ -106,7 +107,7 @@ function decodeLauncherCredential(credential: string) {
   }
 }
 
-function roleFromLauncher(role: string | undefined, permissions: string[] | undefined): AccessRole {
+function roleFromLauncher(role: string | undefined, permissions: string[] | undefined, fallback: AccessRole = "viewer"): AccessRole {
   const normalizedRole = String(role || "").toLowerCase();
   const normalizedPermissions = (permissions || []).map((permission) => permission.toLowerCase());
   if (normalizedRole.includes("admin") || normalizedPermissions.includes("admin")) return "admin";
@@ -119,7 +120,8 @@ function roleFromLauncher(role: string | undefined, permissions: string[] | unde
   ) {
     return "editor";
   }
-  return "viewer";
+  if (normalizedRole.includes("viewer")) return "viewer";
+  return fallback;
 }
 
 function isAllowedLauncherOrigin(origin: string) {

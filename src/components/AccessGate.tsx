@@ -4,12 +4,14 @@ import {
   clearGoogleAccount,
   decodeGoogleCredential,
   getAccessGoogleClientId,
-  isApprovedGoogleUser,
+  getGoogleUserAccess,
   renderGoogleSignInButton,
   saveGoogleCredential,
   saveAccessGoogleClientId,
-  saveGoogleAccount
+  saveGoogleAccount,
+  saveAccessUsers
 } from "../utils/accessControl";
+import { fetchRemoteAppSettings } from "../utils/cloudSync";
 import {
   isDesktopBrowserAuthRequest,
   isTauriDesktopShell,
@@ -48,9 +50,15 @@ export function AccessGate({
   const [needsClientIdSetup, setNeedsClientIdSetup] = useState(missingClientIdOnLoad);
   const [openingDesktopBrowser, setOpeningDesktopBrowser] = useState(false);
 
-  const completeCredentialSignIn = (credential: string) => {
+  const completeCredentialSignIn = async (credential: string) => {
     const user = decodeGoogleCredential(credential);
-    if (!isApprovedGoogleUser(user.email)) {
+    saveGoogleCredential(credential);
+    const remoteSettings = await fetchRemoteAppSettings();
+    if (remoteSettings.ok && remoteSettings.envelope?.payload?.accessUsers) {
+      saveAccessUsers(remoteSettings.envelope.payload.accessUsers);
+    }
+    const access = getGoogleUserAccess(user.email);
+    if (!access) {
       clearGoogleAccount();
       setDeniedUser(user);
       setMessage("");
@@ -62,9 +70,9 @@ export function AccessGate({
       return;
     }
 
-    saveGoogleCredential(credential);
-    saveGoogleAccount(user);
-    onSignIn(user);
+    const approvedUser = { ...user, role: access.role };
+    saveGoogleAccount(approvedUser);
+    onSignIn(approvedUser);
   };
 
   useEffect(() => {
@@ -76,7 +84,9 @@ export function AccessGate({
     renderGoogleSignInButton(button, (response) => {
       try {
         if (!response.credential) throw new Error("Google sign-in did not return a credential.");
-        completeCredentialSignIn(response.credential);
+        void completeCredentialSignIn(response.credential).catch((error) => {
+          setMessage(error instanceof Error ? error.message : "Google Sign-In failed. Try again.");
+        });
       } catch (error) {
         setMessage(error instanceof Error ? error.message : "Google Sign-In failed. Try again.");
       }
@@ -105,7 +115,9 @@ export function AccessGate({
     void listenForDesktopAuthCredential(
       (credential) => {
         try {
-          completeCredentialSignIn(credential);
+          void completeCredentialSignIn(credential).catch((error) => {
+            setMessage(error instanceof Error ? error.message : "Desktop sign-in failed. Try again.");
+          });
         } catch (error) {
           setMessage(error instanceof Error ? error.message : "Desktop sign-in failed. Try again.");
         }
