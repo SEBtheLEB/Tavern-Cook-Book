@@ -610,8 +610,36 @@ export type AssistantAction =
       content: string;
     };
 
+export interface AssistantPlanStep {
+  title: string;
+  target: string;
+  intent: string;
+  allowedActions: string[];
+  expectedResult: string;
+}
+
+export interface AssistantPlanTarget {
+  kind: AssistantChangedTargetKind | string;
+  id?: string;
+  title: string;
+  location: string;
+  reason: string;
+}
+
+export interface AssistantPlan {
+  intent: string;
+  scope: string;
+  targetModules: AssistantPlanTarget[];
+  steps: AssistantPlanStep[];
+  checks: string[];
+  needsClarification?: boolean;
+  clarificationQuestion?: string;
+  riskLevel?: "low" | "medium" | "high" | string;
+}
+
 export interface AssistantPatch {
   summary: string;
+  plan?: AssistantPlan;
   changes: AssistantAction[];
   warnings: string[];
 }

@@ -18,6 +18,15 @@ import {
   undoLastAiChange
 } from "../utils/assistant";
 import { SCRIBE_TARGET_HELPERS, type ScribeTargetHelper } from "../utils/scribeCommands";
+import {
+  addScribeMemoryRule,
+  loadScribeHistory,
+  loadScribeMemoryRules,
+  recordScribeHistory,
+  removeScribeMemoryRule,
+  type ScribeHistoryItem,
+  type ScribeMemoryRule
+} from "../utils/scribeMemory";
 import { categoryConfig, worldBuildingCategoryIds } from "../utils/worldBuilding";
 import { CustomSelect } from "./CustomSelect";
 import { Icon } from "./Icon";
@@ -88,10 +97,13 @@ export function AssistantPanel({
   const [manualPatch, setManualPatch] = useState("");
   const [manualOpen, setManualOpen] = useState(false);
   const [targetMenuOpen, setTargetMenuOpen] = useState(false);
-  const [createBackup, setCreateBackup] = useState(true);
   const [message, setMessage] = useState("");
   const [lastSummary, setLastSummary] = useState("");
+  const [previewReport, setPreviewReport] = useState<ScribeChangeReportItem[]>([]);
   const [changeReport, setChangeReport] = useState<ScribeChangeReportItem[]>([]);
+  const [memoryRules, setMemoryRules] = useState<ScribeMemoryRule[]>(() => loadScribeMemoryRules());
+  const [memoryDraft, setMemoryDraft] = useState("");
+  const [history, setHistory] = useState<ScribeHistoryItem[]>(() => loadScribeHistory());
   const [scribePosition, setScribePosition] = useState(getDefaultScribePosition);
   const [dragging, setDragging] = useState(false);
   const scribeWindowRef = useRef<HTMLElement | null>(null);
@@ -166,9 +178,14 @@ export function AssistantPanel({
   };
 
   const buildPrompt = () => {
-    const prompt = buildManualPrompt(database, command, mode);
+    const prompt = buildManualPrompt(database, command, mode, memoryRules);
     setManualPrompt(prompt);
     return prompt;
+  };
+
+  const previewPatch = (parsedPatch: AssistantPatch, indexes: number[]) => {
+    const previewDatabase = applyAssistantPatch(database, parsedPatch, indexes, false);
+    setPreviewReport(buildChangeReport(database, previewDatabase, parsedPatch, indexes));
   };
 
   const applyPatchWithReport = (
@@ -180,7 +197,20 @@ export function AssistantPanel({
     const before = database;
     const next = applyAssistantPatch(before, parsedPatch, indexes, shouldBackup);
     onDatabaseChange(next);
-    setChangeReport(buildChangeReport(before, next, parsedPatch, indexes));
+    const report = buildChangeReport(before, next, parsedPatch, indexes);
+    setChangeReport(report);
+    setPreviewReport([]);
+    setPatch(null);
+    setSelected([]);
+    if (shouldBackup) {
+      setHistory(recordScribeHistory({
+        command,
+        summary: parsedPatch.summary,
+        changeCount: indexes.length,
+        targetTitles: report.map((item) => item.title).slice(0, 12),
+        backupId: next.lastAiBackupId
+      }));
+    }
     setLastSummary(parsedPatch.summary);
     setMessage(appliedMessage);
   };
@@ -193,22 +223,21 @@ export function AssistantPanel({
     setLoading(true);
     setMessage("");
     setLastSummary("");
+    setChangeReport([]);
+    setPreviewReport([]);
     try {
-      const result = await callAssistant(database, command, mode);
+      const result = await callAssistant(database, command, mode, memoryRules);
       setPatch(result);
       const indexes = result.changes.map((_, index) => index);
       setSelected(indexes);
+      previewPatch(result, indexes);
       if (!result.changes.length) {
         setChangeReport([]);
         setMessage(result.summary || "Tavern Scribe did not find any changes to apply.");
         return;
       }
-      applyPatchWithReport(
-        result,
-        indexes,
-        true,
-        `Scribed ${result.changes.length} ${result.changes.length === 1 ? "change" : "changes"} into the Cook Book. A backup was created.`
-      );
+      setLastSummary(result.summary);
+      setMessage(`Plan ready with ${result.changes.length} proposed ${result.changes.length === 1 ? "change" : "changes"}. Review the preview, then apply.`);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Assistant call failed.";
       setMessage(`${errorMessage} You can use Manual ChatGPT Mode below to copy/paste without API billing.`);
@@ -222,7 +251,9 @@ export function AssistantPanel({
     try {
       const parsed = prepareAssistantPatchForCommand(database, parseAssistantPatch(manualPatch), command);
       setPatch(parsed);
-      setSelected(parsed.changes.map((_, index) => index));
+      const indexes = parsed.changes.map((_, index) => index);
+      setSelected(indexes);
+      previewPatch(parsed, indexes);
       setLastSummary(parsed.summary);
       setMessage(
         parsed.changes.length
@@ -258,6 +289,7 @@ export function AssistantPanel({
       const indexes = parsed.changes.map((_, index) => index);
       setPatch(parsed);
       setSelected(indexes);
+      previewPatch(parsed, indexes);
       if (!parsed.changes.length) {
         setChangeReport([]);
         setMessage(parsed.summary || "The pasted response did not include changes to apply.");
@@ -276,10 +308,12 @@ export function AssistantPanel({
 
   const applySelected = () => {
     if (!patch) return;
-    const next = applyAssistantPatch(database, patch, selected, createBackup);
-    onDatabaseChange(next);
-    setChangeReport(buildChangeReport(database, next, patch, selected));
-    setMessage(`Applied ${selected.length} selected changes.`);
+    applyPatchWithReport(
+      patch,
+      selected,
+      true,
+      `Applied ${selected.length} selected ${selected.length === 1 ? "change" : "changes"}. A restore point was created.`
+    );
   };
 
   const undo = () => {
@@ -290,7 +324,39 @@ export function AssistantPanel({
     }
     onDatabaseChange(next);
     setChangeReport([]);
+    setPreviewReport([]);
     setMessage("Last AI change was undone.");
+  };
+
+  const toggleSelectedChange = (index: number) => {
+    const next = selected.includes(index)
+      ? selected.filter((item) => item !== index)
+      : [...selected, index].sort((left, right) => left - right);
+    setSelected(next);
+    if (patch) previewPatch(patch, next);
+  };
+
+  const selectAllChanges = () => {
+    if (!patch) return;
+    const indexes = patch.changes.map((_, index) => index);
+    setSelected(indexes);
+    previewPatch(patch, indexes);
+  };
+
+  const clearSelectedChanges = () => {
+    setSelected([]);
+    setPreviewReport([]);
+  };
+
+  const saveMemoryRule = () => {
+    const next = addScribeMemoryRule(memoryDraft);
+    setMemoryRules(next);
+    setMemoryDraft("");
+    setMessage("Scribe memory updated.");
+  };
+
+  const removeMemoryRule = (id: string) => {
+    setMemoryRules(removeScribeMemoryRule(id));
   };
 
   const applyScribeHelper = (helper: ScribeTargetHelper) => {
@@ -549,6 +615,87 @@ export function AssistantPanel({
               </div>
             )}
 
+            {patch?.plan ? (
+              <section className="tavern-scribe-plan" aria-label="Scribe plan">
+                <div className="tavern-scribe-section-head">
+                  <span>Plan</span>
+                  <strong>{patch.plan.riskLevel || "low"} risk</strong>
+                </div>
+                <h3>{patch.plan.intent}</h3>
+                <p>{patch.plan.scope}</p>
+                {patch.plan.needsClarification && patch.plan.clarificationQuestion ? (
+                  <div className="tavern-scribe-clarification">
+                    <Icon name="ShieldAlert" className="h-4 w-4" />
+                    {patch.plan.clarificationQuestion}
+                  </div>
+                ) : null}
+                {patch.plan.targetModules.length ? (
+                  <div className="tavern-scribe-plan-targets">
+                    {patch.plan.targetModules.map((target, index) => (
+                      <span key={`${target.kind}-${target.id || target.title}-${index}`}>
+                        {target.location}: {target.title}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+                <ol className="tavern-scribe-plan-steps">
+                  {patch.plan.steps.map((step, index) => (
+                    <li key={`${step.title}-${index}`}>
+                      <strong>{step.title}</strong>
+                      <span>{step.target}</span>
+                      <p>{step.expectedResult || step.intent}</p>
+                    </li>
+                  ))}
+                </ol>
+              </section>
+            ) : null}
+
+            {patch?.changes.length ? (
+              <section className="tavern-scribe-preview" aria-label="Scribe preview">
+                <div className="tavern-scribe-section-head">
+                  <span>Preview</span>
+                  <strong>{selected.length}/{patch.changes.length}</strong>
+                </div>
+                <div className="tavern-scribe-preview-actions">
+                  <button className="rounded border px-3 py-2 text-sm" style={{ borderColor: "var(--panel-border)" }} onClick={selectAllChanges}>
+                    Select All
+                  </button>
+                  <button className="rounded border px-3 py-2 text-sm" style={{ borderColor: "var(--panel-border)" }} onClick={clearSelectedChanges}>
+                    Clear
+                  </button>
+                </div>
+                <div className="tavern-scribe-preview-list">
+                  {patch.changes.map((change, index) => (
+                    <article className={`tavern-scribe-preview-card ${selectedSet.has(index) ? "selected" : ""}`} key={`${change.action}-${index}`}>
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={selectedSet.has(index)}
+                          onChange={() => toggleSelectedChange(index)}
+                        />
+                        <span>
+                          <strong>{describeChange(change)}</strong>
+                          <small>{change.action}</small>
+                        </span>
+                      </label>
+                      <ChangeDetails change={change} />
+                    </article>
+                  ))}
+                </div>
+                {previewReport.length ? (
+                  <div className="tavern-scribe-preview-targets">
+                    {previewReport.map((item) => (
+                      <span key={item.key}>{item.subtitle}: {item.title}</span>
+                    ))}
+                  </div>
+                ) : null}
+                <button className="button-frame tavern-scribe-it-button" onClick={applySelected} disabled={!selected.length}>
+                  <Icon name="Save" className="h-4 w-4" />
+                  Apply Selected Changes
+                </button>
+              </section>
+            ) : null}
+
             {changeReport.length ? (
               <section className="tavern-scribe-change-report" aria-label="Scribe changed modules">
                 <div className="tavern-scribe-change-report-head">
@@ -591,6 +738,56 @@ export function AssistantPanel({
                 Undo Last Scribe Change
               </button>
             </div>
+
+            <details className="tavern-scribe-memory">
+              <summary>
+                <span>Scribe Memory</span>
+                <Icon name="ChevronDown" className="h-4 w-4" />
+              </summary>
+              <div className="tavern-scribe-memory-body">
+                <label className="tavern-scribe-command-box">
+                  <span>Teach a rule</span>
+                  <textarea
+                    className="field tavern-scribe-memory-input"
+                    value={memoryDraft}
+                    onChange={(event) => setMemoryDraft(event.target.value)}
+                    placeholder="Example: Fire Meal recipes always go in The Pantry, and ingredients become separate pantry entries."
+                  />
+                </label>
+                <button className="button-frame inline-flex items-center gap-2 rounded px-3 py-2 text-sm" onClick={saveMemoryRule} disabled={!memoryDraft.trim()}>
+                  <Icon name="Save" className="h-4 w-4" />
+                  Save Rule
+                </button>
+                {memoryRules.length ? (
+                  <div className="tavern-scribe-memory-list">
+                    {memoryRules.map((rule) => (
+                      <article key={rule.id}>
+                        <p>{rule.text}</p>
+                        <button onClick={() => removeMemoryRule(rule.id)}>Remove</button>
+                      </article>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            </details>
+
+            {history.length ? (
+              <section className="tavern-scribe-history" aria-label="Scribe history">
+                <div className="tavern-scribe-section-head">
+                  <span>History</span>
+                  <strong>{history.length}</strong>
+                </div>
+                <div className="tavern-scribe-history-list">
+                  {history.slice(0, 6).map((item) => (
+                    <article key={item.id}>
+                      <strong>{item.summary}</strong>
+                      <span>{new Date(item.createdAt).toLocaleString()}</span>
+                      <p>{item.changeCount} {item.changeCount === 1 ? "change" : "changes"}{item.targetTitles.length ? `: ${item.targetTitles.join(", ")}` : ""}</p>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            ) : null}
           </div>
         </aside>
       )}

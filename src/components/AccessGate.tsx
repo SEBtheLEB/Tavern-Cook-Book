@@ -9,18 +9,26 @@ import {
   saveAccessGoogleClientId,
   saveGoogleAccount
 } from "../utils/accessControl";
+import { BrandImageEditor } from "./BrandImageEditor";
 import { Icon } from "./Icon";
 
 interface AccessGateProps {
   onSignIn: (user: GoogleAccountUser) => void;
+  brandingLogoImage?: string;
+  onBrandingLogoChange?: (logoImage: string) => void;
 }
 
-export function AccessGate({ onSignIn }: AccessGateProps) {
+export function AccessGate({
+  onSignIn,
+  brandingLogoImage = "",
+  onBrandingLogoChange
+}: AccessGateProps) {
   const buttonRef = useRef<HTMLDivElement | null>(null);
-  const [message, setMessage] = useState("Loading Google Sign-In...");
+  const missingClientIdOnLoad = !getAccessGoogleClientId();
+  const [message, setMessage] = useState(missingClientIdOnLoad ? "" : "Loading Google Sign-In...");
   const [deniedUser, setDeniedUser] = useState<GoogleAccountUser | null>(null);
   const [clientIdDraft, setClientIdDraft] = useState("");
-  const [needsClientIdSetup, setNeedsClientIdSetup] = useState(() => !getAccessGoogleClientId());
+  const [needsClientIdSetup, setNeedsClientIdSetup] = useState(missingClientIdOnLoad);
 
   useEffect(() => {
     if (deniedUser || needsClientIdSetup) return;
@@ -63,12 +71,16 @@ export function AccessGate({ onSignIn }: AccessGateProps) {
     return (
       <main className="access-gate">
         <section className="access-card access-denied-card">
-          <div className="access-card-icon denied">
-            <Icon name="ShieldAlert" className="h-8 w-8" />
+          <div className={`access-card-icon denied ${brandingLogoImage ? "has-image" : ""}`}>
+            {brandingLogoImage ? (
+              <img src={brandingLogoImage} alt="STL Productionz" />
+            ) : (
+              <Icon name="ShieldAlert" className="h-8 w-8" />
+            )}
           </div>
           <p className="access-eyebrow">Access Denied</p>
-          <h1 className="font-display">The Tavern Cook Book</h1>
-          <p>You do not have access to this Cook Book. Please contact Sebastien to be added.</p>
+          <h1 className="font-display">STL Productionz</h1>
+          <p>You do not have access to this launcher. Please contact Sebastien to be added.</p>
           <div className="access-user-preview">
             {deniedUser.picture ? <img src={deniedUser.picture} alt="" /> : <Icon name="UserRound" className="h-5 w-5" />}
             <div>
@@ -94,12 +106,16 @@ export function AccessGate({ onSignIn }: AccessGateProps) {
   return (
     <main className="access-gate">
       <section className="access-card">
-        <div className="access-card-icon">
-          <Icon name="BookOpen" className="h-8 w-8" />
+        <div className={`access-card-icon ${brandingLogoImage ? "has-image" : ""}`}>
+          {brandingLogoImage ? (
+            <img src={brandingLogoImage} alt="STL Productionz" />
+          ) : (
+            <Icon name="Sparkles" className="h-8 w-8" />
+          )}
         </div>
-        <p className="access-eyebrow">STL Productionz</p>
-        <h1 className="font-display">The Tavern Cook Book</h1>
-        <p>Sign in with an approved Google account to open the Tales of the Tavern lore bible.</p>
+        <p className="access-eyebrow">Team Launcher</p>
+        <h1 className="font-display">STL Productionz</h1>
+        <p>Sign in with Google to open your production workspace.</p>
         {needsClientIdSetup ? (
           <form
             className="access-client-setup"
@@ -135,6 +151,13 @@ export function AccessGate({ onSignIn }: AccessGateProps) {
           <div ref={buttonRef} className="access-google-button" />
         )}
         {message && <span className="access-message">{message}</span>}
+        {onBrandingLogoChange && (
+          <BrandImageEditor
+            compact
+            logoImage={brandingLogoImage}
+            onLogoChange={onBrandingLogoChange}
+          />
+        )}
       </section>
     </main>
   );

@@ -2,6 +2,7 @@ import type {
   AssistantAction,
   AssistantMode,
   AssistantPatch,
+  AssistantPlan,
   ArtVaultSection,
   ArtVaultSlot,
   BestiaryCategoryArtVault,
@@ -14,11 +15,38 @@ import type {
 import { cloneDatabase, normalizeEntry, nowIso, slugify } from "./entries";
 import { createBestiaryCategoryArtVaultRecord, normalizeBestiaryCategoryArtVault, normalizeBestiaryCreature } from "./bestiary";
 import { compactScribeTargetHelpers, getSelectedScribeHelpers, scribeTargetHelperGuidance } from "./scribeCommands";
+import type { ScribeMemoryRule } from "./scribeMemory";
 import { createEmptyWorldBuilding, createWorldBuildingEntry, worldBuildingCategoryIds } from "./worldBuilding";
 
 const assistantJsonInstructions = `Return only structured JSON in this exact shape:
 {
   "summary": "Short explanation of proposed changes",
+  "plan": {
+    "intent": "What the user asked Scribe to accomplish",
+    "scope": "Where Scribe will and will not act",
+    "targetModules": [
+      {
+        "kind": "entry",
+        "id": "entry-id",
+        "title": "Gwen",
+        "location": "Characters",
+        "reason": "Why this module needs an edit"
+      }
+    ],
+    "steps": [
+      {
+        "title": "Update Gwen's age",
+        "target": "Characters / Gwen",
+        "intent": "Change existing age facts without changing layout",
+        "allowedActions": ["setData"],
+        "expectedResult": "Gwen reads as 27 everywhere relevant"
+      }
+    ],
+    "checks": ["Recipes are stored in Food & Inventory", "No code/layout/secret changes"],
+    "needsClarification": false,
+    "clarificationQuestion": "",
+    "riskLevel": "low"
+  },
   "changes": [
     {
       "action": "setData",
@@ -118,34 +146,96 @@ const assistantJsonInstructions = `Return only structured JSON in this exact sha
   ],
   "warnings": []
 }
-Rules: only change app database content such as text, fields, tags, bestiary stats/drops/lore, world-building fields, art vault categories, and art slot labels. Never propose code, layout, CSS, API keys, images, Drive file deletion, or development changes. Prefer precise updates across every related place that should reflect the user's instruction. Include warnings when canon or naming decisions are uncertain.
+Rules: plan first, then provide changes. The plan must explain intent, target modules, review steps, and validation checks. Only change app database content such as text, fields, tags, bestiary stats/drops/lore, world-building fields, art vault categories, and art slot labels. Never propose code, layout, CSS, API keys, images, Drive file deletion, or development changes. Prefer precise updates across every related place that should reflect the user's instruction. Include warnings when canon or naming decisions are uncertain.
 Rules continued: every requested clause must produce a matching change or a warning. If the user asks to change an existing character, faction, culture, location, quest, story, item, recipe, or marketing page, use action "setData" with target "entry" and the id from entryIndex/relevantEntries. Do not use targets like "character", "faction", or "culture"; those are stored as entries. Before adding a normal lore entry, scan entryIndex for an exact or near-exact title match and update that existing entry instead of creating a duplicate. The Pantry is a top-level app tab; its underlying stored entry.category is "Food & Inventory". Food, menu items, ingredients, meals, recipes, drinks, ales, tonics, cooking inventory, and culinary magic belong in The Pantry, not Story, unless the user explicitly asks for story lore about food culture. For Art Vault and Art Binder requests, use artSlotIndex and the art actions; target one named subject only unless the user explicitly asks for all visible/all subjects/all creatures. Creature Art Binder categories should be creature-specific and should not receive character-only Dialogue Sprites or Gwen weapon slots unless explicitly requested. World Building modules are separate from lore entries: if a matching concept exists in worldIndex/relevantWorldEntries, also update it with setData target "worldEntry". If both an entry and worldEntry exist for the same concept, update both. If the user asks to remove/delete/archive a Bestiary creature, return removeCreature using the id from bestiaryIndex/relevantCreatures; do not return only archive for that request. Include archiveContent on removeCreature only when the user wants a note kept. If the user changes a character's age, update existing age text and add or update fields.Age. If the user declares a relationship between an existing character and an existing people/culture/faction, update both related existing entries when possible, update the matching worldEntry fields, and add the character to relatedEntries when the current worldEntry has relationship data. Do not copy the user's command, Scribe target directives, or UI routing phrases into summaries/descriptions/internal lore. For meals and recipes, put routing data in category, type, fields.pantryMealGroup, fields.ingredientsRequired, and wiki ingredients instead of prose like "belongs in The Pantry section".
 Known Scribe target helper directives:
 ${scribeTargetHelperGuidance}`;
 
+const scribeAppMap = [
+  {
+    area: "Characters",
+    storedAs: "entries where category is Characters",
+    allowedActions: ["setData target entry", "add entry", "removeEntry", "entry art slot actions"],
+    routing: "Character facts, biographies, ages, relationships, full stories, profile fields, and character art slots."
+  },
+  {
+    area: "The Pantry",
+    storedAs: "entries where category is Food & Inventory",
+    allowedActions: ["setData target entry", "add entry", "removeEntry"],
+    routing:
+      "Food, menu items, ingredients, meals, recipes, drinks, ales, tonics, cooking inventory, and culinary magic. Recipes use fields.pantryMealGroup and fields.ingredientsRequired."
+  },
+  {
+    area: "Bestiary",
+    storedAs: "bestiary creatures and bestiary category art vaults",
+    allowedActions: ["setData target creature", "addCreature", "removeCreature", "creature art slot/category actions"],
+    routing: "Creatures, enemies, wildlife, bosses, creature drops, creature lore, habitats, and creature-specific art slots."
+  },
+  {
+    area: "World Building",
+    storedAs: "worldBuilding category arrays",
+    allowedActions: ["setData target worldEntry", "addWorldEntry"],
+    routing: "Locations, cultures, factions, timeline/history, myths, rules, magic systems, food culture, mysteries, glossary, and world modules."
+  },
+  {
+    area: "Story Library",
+    storedAs: "entries where category is Story plus linked world entries",
+    allowedActions: ["setData target entry", "add entry", "removeEntry", "setData target worldEntry"],
+    routing: "Narrative lore, in-game story, timeline beats, secrets, factions, and player-facing story modules."
+  },
+  {
+    area: "Art Vault / Art Binder",
+    storedAs: "artVault sections and slots on entries, creatures, and bestiary category vaults",
+    allowedActions: ["addArtCategory", "renameArtCategory", "removeArtCategory", "addArtSlot", "renameArtSlot", "removeArtSlot"],
+    routing: "Only local production organization: categories, slots, labels, requirement types, and notes. No image or Drive file deletion."
+  },
+  {
+    area: "Archive",
+    storedAs: "entries where category is Archive",
+    allowedActions: ["archive", "removeEntry with archiveContent", "removeCreature with archiveContent"],
+    routing: "Old canon, removed notes, and optional removal records."
+  }
+];
+
+const scribeValidationRules = [
+  "Scribe may only change app data, never layout, CSS, code, API keys, secrets, image files, or Drive files.",
+  "Food and recipes go to The Pantry, stored as Food & Inventory entries.",
+  "Ingredients should be separate Food & Inventory entries when a recipe names concrete ingredient requirements.",
+  "Characters, factions, cultures, locations, quests, story pages, items, recipes, and marketing pages are normal entries.",
+  "World Building modules are separate records; matching concepts in entries and worldBuilding should both be updated when relevant.",
+  "Bestiary creature removal must use removeCreature, not archive alone.",
+  "Art Binder and Art Vault commands should use art category/slot actions and target one named subject unless the user asks for all.",
+  "When target helper buttons are selected, those directives are hard routing constraints.",
+  "Every clause in the user's command needs a matching change or warning."
+];
+
 export const buildManualPrompt = (
   database: LoreDatabase,
   command: string,
-  mode: AssistantMode
+  mode: AssistantMode,
+  memoryRules: ScribeMemoryRule[] = []
 ) => `You are helping organize The Tavern Cook Book, the local-first lore bible for Tales of the Tavern by STL Productionz.
 
 Mode: ${mode}
 User command: ${command}
+Permanent Scribe memory rules:
+${memoryRules.length ? memoryRules.map((rule) => `- ${rule.text}`).join("\n") : "- No user-taught rules yet."}
 
 ${assistantJsonInstructions}
 
 Compact lore context JSON:
-${JSON.stringify(buildCompactLoreContext(database, command), null, 2)}`;
+${JSON.stringify(buildCompactLoreContext(database, command, memoryRules), null, 2)}`;
 
 export const callAssistant = async (
   database: LoreDatabase,
   command: string,
-  mode: AssistantMode
+  mode: AssistantMode,
+  memoryRules: ScribeMemoryRule[] = []
 ): Promise<AssistantPatch> => {
   const response = await fetch("/api/assistant", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ database: prepareAssistantRequestDatabase(database), command, mode })
+    body: JSON.stringify({ database: prepareAssistantRequestDatabase(database), command, mode, memoryRules })
   });
 
   const payload = (await response.json()) as { patch?: AssistantPatch; error?: string };
@@ -171,6 +261,7 @@ export const parseAssistantPatch = (raw: string): AssistantPatch => {
 
   return {
     summary: parsed.summary || "Assistant patch",
+    plan: normalizeAssistantPlan(parsed.plan),
     changes: parsed.changes,
     warnings: Array.isArray(parsed.warnings) ? parsed.warnings : []
   };
@@ -185,6 +276,7 @@ export const prepareAssistantPatchForCommand = (
   const hasThePantryTarget = helpers.some((helper) => helper.id === "target-the-pantry");
   const hasMealsTarget = helpers.some((helper) => helper.id === "target-recipes");
   const hasPantryTarget = helpers.some((helper) => helper.id === "target-pantry");
+  const warnings = [...(patch.warnings || [])];
   const changes = patch.changes.map((change): AssistantAction => {
     if (change.action !== "add") return change;
     return {
@@ -196,12 +288,317 @@ export const prepareAssistantPatchForCommand = (
     };
   });
 
+  const preparedChanges = hasThePantryTarget || (hasMealsTarget && hasPantryTarget)
+    ? addMissingPantryIngredientsForRecipes(database, changes)
+    : changes;
+  const validation = validateAssistantChanges(database, preparedChanges, command);
+
   return {
     ...patch,
-    changes: hasThePantryTarget || (hasMealsTarget && hasPantryTarget)
-      ? addMissingPantryIngredientsForRecipes(database, changes)
-      : changes
+    plan: normalizeAssistantPlan(patch.plan) || buildFallbackAssistantPlan(database, command, validation.changes),
+    changes: validation.changes,
+    warnings: uniqueStrings([...warnings, ...validation.warnings])
   };
+};
+
+const normalizeAssistantPlan = (value: unknown): AssistantPlan | undefined => {
+  if (!value || typeof value !== "object") return undefined;
+  const plan = value as Partial<AssistantPlan>;
+  return {
+    intent: String(plan.intent || "").trim() || "Review requested Cook Book changes",
+    scope: String(plan.scope || "").trim() || "App data only",
+    targetModules: Array.isArray(plan.targetModules)
+      ? plan.targetModules.map((target) => ({
+          kind: String(target.kind || "entry"),
+          id: target.id ? String(target.id) : undefined,
+          title: String(target.title || "Cook Book Data"),
+          location: String(target.location || "Unknown"),
+          reason: String(target.reason || "Selected by Tavern Scribe")
+        })).slice(0, 16)
+      : [],
+    steps: Array.isArray(plan.steps)
+      ? plan.steps.map((step) => ({
+          title: String(step.title || "Review change"),
+          target: String(step.target || "Cook Book Data"),
+          intent: String(step.intent || "Apply app-data update"),
+          allowedActions: Array.isArray(step.allowedActions) ? step.allowedActions.map(String) : [],
+          expectedResult: String(step.expectedResult || "")
+        })).slice(0, 12)
+      : [],
+    checks: Array.isArray(plan.checks) ? plan.checks.map(String).filter(Boolean).slice(0, 12) : [],
+    needsClarification: Boolean(plan.needsClarification),
+    clarificationQuestion: String(plan.clarificationQuestion || ""),
+    riskLevel: String(plan.riskLevel || "low")
+  };
+};
+
+const validateAssistantChanges = (
+  database: LoreDatabase,
+  changes: AssistantAction[],
+  command: string
+): { changes: AssistantAction[]; warnings: string[] } => {
+  const helpers = getSelectedScribeHelpers(command);
+  const activeTargets = helpers.filter((helper) => helper.group === "target").map((helper) => helper.id);
+  const warnings: string[] = [];
+  const safeChanges = changes.filter((change) => {
+    if ((change.action === "setData" && !canSetDataPath(change.path)) || (change.action === "update" && !canSetDataPath(change.field))) {
+      warnings.push(`Skipped unsafe Scribe change to ${change.action === "setData" ? change.path : change.field}.`);
+      return false;
+    }
+
+    if (activeTargets.length && !changeMatchesAnyTarget(database, change, activeTargets)) {
+      warnings.push(`Skipped ${describeAssistantActionForWarning(change)} because it did not match the selected Scribe target.`);
+      return false;
+    }
+
+    if (change.action === "add" && String(change.entry.category || "").toLowerCase() === "story" && looksLikeRecipeEntry(change.entry)) {
+      change.entry = normalizeScribeRecipeEntry(change.entry);
+      warnings.push(`${change.entry.title || "A recipe"} was routed to The Pantry instead of Story.`);
+    }
+
+    if (change.action === "archive" && /remove|delete/i.test(command) && /bestiary|creature|monster|enemy/i.test(command)) {
+      warnings.push("Bestiary removals need removeCreature. Archive-only removal notes are kept as notes, not creature deletion.");
+    }
+
+    return true;
+  });
+
+  if (!safeChanges.length && changes.length) {
+    warnings.push("No changes passed Scribe validation. Try selecting the right target or making the command more specific.");
+  }
+
+  return { changes: safeChanges, warnings };
+};
+
+const buildFallbackAssistantPlan = (
+  database: LoreDatabase,
+  command: string,
+  changes: AssistantAction[]
+): AssistantPlan => {
+  const targets = summarizeAssistantTargets(database, changes);
+  return {
+    intent: command.trim() || "Review Cook Book data",
+    scope: "App data only. No code, layout, image files, Drive files, keys, or secrets.",
+    targetModules: targets,
+    steps: targets.length
+      ? targets.map((target) => ({
+          title: `Update ${target.title}`,
+          target: target.location,
+          intent: target.reason,
+          allowedActions: ["setData", "add", "remove", "art slot/category actions"],
+          expectedResult: "Preview this module before applying."
+        }))
+      : [{
+          title: "Review request",
+          target: "Cook Book Data",
+          intent: "No concrete target found yet",
+          allowedActions: [],
+          expectedResult: "Scribe should warn or ask for clarification."
+        }],
+    checks: scribeValidationRules.slice(0, 6),
+    needsClarification: !changes.length,
+    clarificationQuestion: !changes.length ? "Which exact module should Tavern Scribe change?" : "",
+    riskLevel: changes.length > 8 ? "medium" : "low"
+  };
+};
+
+const summarizeAssistantTargets = (database: LoreDatabase, changes: AssistantAction[]) => {
+  const targets = new Map<string, AssistantPlan["targetModules"][number]>();
+  changes.forEach((change) => {
+    const target = targetForAction(database, change);
+    targets.set(`${target.kind}:${target.id || target.title}:${target.location}`, target);
+  });
+  return [...targets.values()].slice(0, 16);
+};
+
+const targetForAction = (database: LoreDatabase, change: AssistantAction): AssistantPlan["targetModules"][number] => {
+  if (change.action === "renameReference") {
+    return {
+      kind: "all",
+      title: "Whole Cook Book",
+      location: "Global text references",
+      reason: `Rename ${change.oldName} to ${change.newName}`
+    };
+  }
+
+  if (change.action === "setData" || change.action === "update") {
+    const id = String(change.id || "");
+    const entry = database.entries.find((item) => item.id === id);
+    if (entry) {
+      return {
+        kind: "entry",
+        id,
+        title: entry.title,
+        location: entry.category === "Food & Inventory" ? "The Pantry" : entry.category,
+        reason: `Update ${change.action === "setData" ? change.path : change.field}`
+      };
+    }
+    const creature = (database.bestiary || []).find((item) => item.id === id);
+    if (creature) {
+      return {
+        kind: "creature",
+        id,
+        title: creature.name,
+        location: "Bestiary",
+        reason: `Update ${change.action === "setData" ? change.path : change.field}`
+      };
+    }
+    const worldEntry = findWorldEntryForTarget(database, id, change.action === "setData" ? change.category : undefined);
+    if (worldEntry) {
+      return {
+        kind: "worldEntry",
+        id,
+        title: worldEntry.entry.title,
+        location: `World Building / ${worldEntry.category}`,
+        reason: `Update ${change.action === "setData" ? change.path : change.field}`
+      };
+    }
+  }
+
+  if (change.action === "add") {
+    return {
+      kind: "entry",
+      title: change.entry.title || "New Entry",
+      location: change.entry.category === "Food & Inventory" ? "The Pantry" : change.entry.category || "Story",
+      reason: "Create a new lore entry"
+    };
+  }
+
+  if (change.action === "removeEntry") {
+    return {
+      kind: "entry",
+      id: change.id,
+      title: change.title || change.id || "Entry",
+      location: "Entry removal",
+      reason: "Remove an existing lore entry"
+    };
+  }
+
+  if (change.action === "addCreature" || change.action === "removeCreature") {
+    return {
+      kind: "creature",
+      id: change.action === "removeCreature" ? change.id : change.creature.id,
+      title: change.action === "removeCreature" ? change.name || change.id || "Creature" : change.creature.name || "New Creature",
+      location: "Bestiary",
+      reason: change.action === "removeCreature" ? "Remove creature" : "Create creature"
+    };
+  }
+
+  if (change.action === "addWorldEntry") {
+    return {
+      kind: "worldEntry",
+      id: change.entry.id,
+      title: change.entry.title || "New World Entry",
+      location: `World Building / ${change.category}`,
+      reason: "Create world-building module"
+    };
+  }
+
+  if (isArtAction(change)) {
+    return {
+      kind: change.target,
+      id: change.id,
+      title: change.categoryName || change.id || "Art Module",
+      location: change.target === "bestiaryCategory" ? "Bestiary Category Art" : "Art Vault / Art Binder",
+      reason: describeAssistantActionForWarning(change)
+    };
+  }
+
+  if (change.action === "archive") {
+    return {
+      kind: "entry",
+      title: change.title || "Archive",
+      location: "Archive",
+      reason: "Create archive note"
+    };
+  }
+
+  return {
+    kind: "entry",
+    title: "Cook Book Data",
+    location: "App data",
+    reason: describeAssistantActionForWarning(change)
+  };
+};
+
+const findWorldEntryForTarget = (database: LoreDatabase, id: string, category?: string) => {
+  const categories = validWorldCategory(category) ? [category as WorldBuildingCategoryId] : worldBuildingCategoryIds;
+  for (const categoryId of categories) {
+    const entry = (database.worldBuilding?.[categoryId] || []).find((item) => item.id === id);
+    if (entry) return { category: categoryId, entry };
+  }
+  return null;
+};
+
+const changeMatchesAnyTarget = (database: LoreDatabase, change: AssistantAction, activeTargets: string[]) =>
+  activeTargets.some((targetId) => changeMatchesTarget(database, change, targetId));
+
+const changeMatchesTarget = (database: LoreDatabase, change: AssistantAction, targetId: string) => {
+  if (targetId === "target-art-vault" || targetId === "target-art-binder") return isArtAction(change);
+  if (targetId === "target-archive") return change.action === "archive" || Boolean("archiveContent" in change && change.archiveContent);
+  if (targetId === "target-bestiary") {
+    return change.action === "addCreature" ||
+      change.action === "removeCreature" ||
+      (change.action === "setData" && resolveSetDataTarget(database, change) === "creature") ||
+      (isArtAction(change) && (change.target === "creature" || change.target === "bestiaryCategory"));
+  }
+  if (targetId === "target-world") {
+    return change.action === "addWorldEntry" || (change.action === "setData" && resolveSetDataTarget(database, change) === "worldEntry");
+  }
+  if (targetId === "target-characters") return changeTargetsEntryCategory(database, change, "Characters");
+  if (targetId === "target-quests") return changeTargetsEntryCategory(database, change, "Quests");
+  if (targetId === "target-story") return changeTargetsEntryCategory(database, change, "Story");
+  if (targetId === "target-marketing") return changeTargetsEntryCategory(database, change, "Marketing");
+  if (targetId === "target-the-pantry" || targetId === "target-recipes" || targetId === "target-pantry" || targetId === "target-items") {
+    return changeTargetsEntryCategory(database, change, "Food & Inventory");
+  }
+  return true;
+};
+
+const changeTargetsEntryCategory = (database: LoreDatabase, change: AssistantAction, category: string) => {
+  if (change.action === "add") return String(change.entry.category || category).toLowerCase() === category.toLowerCase();
+  if (change.action === "removeEntry") {
+    const entry = findEntryToRemove(database, change.id, change.title);
+    return !entry || entry.category.toLowerCase() === category.toLowerCase();
+  }
+  if (change.action === "update") {
+    const entry = database.entries.find((item) => item.id === change.id);
+    return Boolean(entry && entry.category.toLowerCase() === category.toLowerCase());
+  }
+  if (change.action === "setData") {
+    const target = resolveSetDataTarget(database, change);
+    if (target !== "entry" || !change.id) return false;
+    const entry = database.entries.find((item) => item.id === change.id);
+    return Boolean(entry && entry.category.toLowerCase() === category.toLowerCase());
+  }
+  if (isArtAction(change) && change.target === "entry" && change.id) {
+    const entry = database.entries.find((item) => item.id === change.id);
+    return Boolean(entry && entry.category.toLowerCase() === category.toLowerCase());
+  }
+  return false;
+};
+
+const isArtAction = (change: AssistantAction): change is Extract<AssistantAction, {
+  action: "addArtSlot" | "renameArtSlot" | "removeArtSlot" | "addArtCategory" | "renameArtCategory" | "removeArtCategory";
+}> =>
+  change.action === "addArtSlot" ||
+  change.action === "renameArtSlot" ||
+  change.action === "removeArtSlot" ||
+  change.action === "addArtCategory" ||
+  change.action === "renameArtCategory" ||
+  change.action === "removeArtCategory";
+
+const describeAssistantActionForWarning = (change: AssistantAction) => {
+  if (change.action === "setData") return `update ${change.path}`;
+  if (change.action === "update") return `update ${change.field}`;
+  if (change.action === "add") return `add ${change.entry.title || "entry"}`;
+  if (change.action === "addCreature") return `add creature ${change.creature.name || ""}`.trim();
+  if (change.action === "removeCreature") return `remove creature ${change.name || change.id || ""}`.trim();
+  if (change.action === "addWorldEntry") return `add world entry ${change.entry.title || ""}`.trim();
+  if (isArtAction(change)) return `${change.action} ${"label" in change ? change.label || "" : "sectionTitle" in change ? change.sectionTitle || "" : ""}`.trim();
+  if (change.action === "renameReference") return `rename ${change.oldName}`;
+  if (change.action === "removeEntry") return `remove entry ${change.title || change.id || ""}`.trim();
+  return `archive ${change.title}`;
 };
 
 const extractJsonPayload = (raw: string) => {
@@ -1336,7 +1733,11 @@ export const undoLastAiChange = (database: LoreDatabase): LoreDatabase | null =>
   };
 };
 
-const buildCompactLoreContext = (database: LoreDatabase, command: string) => {
+const buildCompactLoreContext = (
+  database: LoreDatabase,
+  command: string,
+  memoryRules: ScribeMemoryRule[] = []
+) => {
   const scored = database.entries
     .map((entry) => ({ entry, score: scoreEntry(entry, command) }))
     .sort((a, b) => b.score - a.score);
@@ -1349,6 +1750,9 @@ const buildCompactLoreContext = (database: LoreDatabase, command: string) => {
     app: "The Tavern Cook Book",
     studio: database.branding.studioName,
     game: "Tales of the Tavern",
+    appMap: scribeAppMap,
+    validationRules: scribeValidationRules,
+    permanentScribeMemory: memoryRules.map((rule) => rule.text),
     scribeTargetHelpers: compactScribeTargetHelpers(),
     activeScribeHelpers: getSelectedScribeHelpers(command),
     totalEntries: database.entries.length,
@@ -1364,6 +1768,7 @@ const buildCompactLoreContext = (database: LoreDatabase, command: string) => {
     relevantCreatures: relevantCreatures(database, command),
     worldIndex: compactWorldEntries(database, command, "index"),
     relevantWorldEntries: compactWorldEntries(database, command, "full").slice(0, 18),
+    relationshipGraph: buildScribeRelationshipGraph(database, command),
     artCategoryIndex: compactArtCategoryIndex(database).slice(0, 120),
     artSlotIndex: compactArtSlotIndex(database).slice(0, 120)
   };
@@ -1458,6 +1863,50 @@ const compactWorldEntries = (database: LoreDatabase, command: string, depth: "in
     }));
 };
 
+const buildScribeRelationshipGraph = (database: LoreDatabase, command: string) => {
+  const terms = commandTerms(command);
+  const nameMatchesCommand = (name: string) => {
+    const normalized = normalizeLooseName(name);
+    return terms.some((term) => normalized.includes(term) || term.includes(normalized));
+  };
+  const relevantEntries = database.entries
+    .filter((entry) => nameMatchesCommand(entry.title) || scoreEntry(entry, command) > 0)
+    .slice(0, 16);
+  const relevantWorld = worldBuildingCategoryIds.flatMap((category) =>
+    (database.worldBuilding?.[category] || [])
+      .filter((entry) => nameMatchesCommand(entry.title) || scoreUnknown(entry, command, entry.title) > 0)
+      .map((entry) => ({ category, entry }))
+  ).slice(0, 16);
+
+  return {
+    entryLinks: relevantEntries.map((entry) => ({
+      id: entry.id,
+      title: entry.title,
+      category: entry.category,
+      linkedCharacters: entry.connections.characters.slice(0, 8),
+      linkedLocations: entry.connections.locations.slice(0, 8),
+      linkedRecipes: entry.connections.recipes.slice(0, 8),
+      linkedQuests: entry.connections.quests.slice(0, 8),
+      linkedItems: entry.connections.items.slice(0, 8),
+      linkedFactions: entry.connections.factions.slice(0, 8),
+      timelineEvents: entry.connections.timelineEvents.slice(0, 8)
+    })),
+    worldLinks: relevantWorld.map(({ category, entry }) => ({
+      id: entry.id,
+      title: entry.title,
+      category,
+      relatedEntries: entry.relatedEntries.slice(0, 10).map((related) => ({
+        type: related.type,
+        targetId: related.targetId,
+        targetCategory: related.targetCategory,
+        note: related.note
+      }))
+    })),
+    instruction:
+      "Use this relationship graph to update connected profiles, world modules, story modules, pantry records, and bestiary records when the user's fact logically affects more than one place."
+  };
+};
+
 const compactArtSlotIndex = (database: LoreDatabase) => {
   const entrySlots = database.entries.flatMap((entry) =>
     (entry.artVault?.sections || []).flatMap((section) =>
@@ -1534,10 +1983,7 @@ const compactArtCategoryIndex = (database: LoreDatabase) => {
 };
 
 const scoreEntry = (entry: LoreEntry, command: string) => {
-  const terms = command
-    .toLowerCase()
-    .split(/[^a-z0-9']+/)
-    .filter((term) => term.length > 2 && !stopWords.has(term));
+  const terms = commandTerms(command);
   const haystack = compactUnknown(
     {
       title: entry.title,
@@ -1567,10 +2013,7 @@ const scoreEntry = (entry: LoreEntry, command: string) => {
 };
 
 const scoreUnknown = (value: unknown, command: string, title = "") => {
-  const terms = command
-    .toLowerCase()
-    .split(/[^a-z0-9']+/)
-    .filter((term) => term.length > 2 && !stopWords.has(term));
+  const terms = commandTerms(command);
   const haystack = compactUnknown(value, 12000).toLowerCase();
   let score = 0;
   for (const term of terms) {
@@ -1578,6 +2021,12 @@ const scoreUnknown = (value: unknown, command: string, title = "") => {
   }
   return score;
 };
+
+const commandTerms = (command: string) =>
+  command
+    .toLowerCase()
+    .split(/[^a-z0-9']+/)
+    .filter((term) => term.length > 2 && !stopWords.has(term));
 
 const compactUnknown = (value: unknown, maxLength: number) =>
   truncate(JSON.stringify(stripMedia(value)), maxLength);

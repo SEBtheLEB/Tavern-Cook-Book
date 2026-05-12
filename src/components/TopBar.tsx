@@ -20,6 +20,7 @@ interface TopBarProps {
   onOpenArtVaultDashboard?: () => void;
   onOpenFavorites?: () => void;
   onOpenMobileNav: () => void;
+  onOpenLauncher?: () => void;
   readOnly?: boolean;
   favoritesCount?: number;
   favoritesOpen?: boolean;
@@ -38,6 +39,7 @@ export function TopBar({
   onOpenArtVaultDashboard,
   onOpenFavorites,
   onOpenMobileNav,
+  onOpenLauncher,
   readOnly = false,
   favoritesCount = 0,
   favoritesOpen = false,
@@ -64,6 +66,17 @@ export function TopBar({
       >
         <Icon name="PanelLeft" className="h-5 w-5" />
       </button>
+
+      {onOpenLauncher && (
+        <button
+          className="tab-frame inline-flex items-center gap-2 rounded px-3 py-2 text-sm"
+          onClick={onOpenLauncher}
+          title="Back to launcher"
+        >
+          <Icon name="Home" className="h-4 w-4" />
+          <span className="hidden xl:inline">Launcher</span>
+        </button>
+      )}
 
       <div className="min-w-0 flex-1">
         <p className="text-xs uppercase tracking-[0.18em]" style={{ color: "var(--muted-ink)" }}>

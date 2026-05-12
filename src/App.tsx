@@ -39,6 +39,7 @@ import { EntryGrid } from "./components/EntryGrid";
 import { EntryModal } from "./components/EntryModal";
 import { FavoritesPage } from "./components/FavoritesPage";
 import { HubPage } from "./components/HubPage";
+import { LauncherPage } from "./components/LauncherPage";
 import { PantryPage } from "./components/PantryPage";
 import { ProfilePage } from "./components/ProfilePage";
 import { QuestDashboard } from "./components/QuestDashboard";
@@ -123,6 +124,8 @@ const extraViews: ViewConfig[] = [
 ];
 
 const allViews = [...mainNavigation, ...extraViews];
+const LAUNCHER_ACTIVE_APP_KEY = "stl-productionz:active-launcher-app";
+type LauncherAppId = "tavern-cook-book";
 
 interface DetailReturnTarget {
   activeView: ActiveView;
@@ -169,6 +172,7 @@ export default function App() {
   const [questCategories, setQuestCategories] = useState(() => getQuestCategories());
   const [favorites, setFavorites] = useState(() => loadFavorites());
   const [currentUser, setCurrentUser] = useState<GoogleAccountUser | null>(() => loadGoogleAccount());
+  const [activeLauncherApp, setActiveLauncherApp] = useState<LauncherAppId | null>(() => loadActiveLauncherApp());
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [storageWarning, setStorageWarning] = useState("");
@@ -209,8 +213,24 @@ export default function App() {
   }, [questCategories]);
 
   useEffect(() => {
+    if (!currentUser) {
+      document.title = "STL Productionz";
+      return;
+    }
+    if (!activeLauncherApp) {
+      document.title = "STL Productionz Launcher";
+      return;
+    }
     document.title = readOnly ? "The Tavern Cook Book - Live View" : "The Tavern Cook Book";
-  }, [readOnly]);
+  }, [activeLauncherApp, currentUser, readOnly]);
+
+  useEffect(() => {
+    if (!currentUser) {
+      saveActiveLauncherApp(null);
+      return;
+    }
+    saveActiveLauncherApp(activeLauncherApp);
+  }, [activeLauncherApp, currentUser]);
 
   useEffect(() => {
     if (!readOnly || !artVaultDashboardOpen) return;
@@ -698,10 +718,44 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  const openLauncher = () => {
+    setActiveLauncherApp(null);
+    setMobileNavOpen(false);
+    setTavernScribeOpen(false);
+    setDetailReturnTarget(null);
+    setSelectedEntry(null);
+    setSelectedReferenceKeyword("");
+    setKeywordPopup("");
+    setArtVaultDashboardOpen(false);
+    setArtBinderFilter(null);
+    setFavoritesOpen(false);
+    setQuestDashboardOpen(false);
+    setProfileOpen(false);
+    setSelectedBestiaryCreatureId("");
+    setFocusedAssignment(null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const updateBrandingLogo = (logoImage: string) => {
+    if (forcedReadOnly) return;
+    const next = {
+      ...database,
+      branding: {
+        ...database.branding,
+        logoImage
+      }
+    };
+    setDatabase(next);
+    const result = saveDatabase(next);
+    setStorageWarning(result.ok ? "" : result.message || "The app could not save this change.");
+  };
+
   const signOut = () => {
     clearGoogleAccount();
     disableGoogleAutoSelect();
+    saveActiveLauncherApp(null);
     setCurrentUser(null);
+    setActiveLauncherApp(null);
     setSelectedEntry(null);
     setSelectedReferenceKeyword("");
     setKeywordPopup("");
@@ -746,7 +800,28 @@ export default function App() {
   if (!currentUser) {
     return (
       <div className={themeClassName}>
-        <AccessGate onSignIn={setCurrentUser} />
+        <AccessGate
+          onSignIn={setCurrentUser}
+          brandingLogoImage={database.branding.logoImage}
+          onBrandingLogoChange={!forcedReadOnly ? updateBrandingLogo : undefined}
+        />
+      </div>
+    );
+  }
+
+  if (!activeLauncherApp) {
+    return (
+      <div className={themeClassName}>
+        <LauncherPage
+          database={database}
+          currentUser={currentUser}
+          theme={theme}
+          canEditBranding={!forcedReadOnly && roleCanEdit(currentRole)}
+          onThemeChange={setTheme}
+          onOpenTavernCookBook={() => setActiveLauncherApp("tavern-cook-book")}
+          onSignOut={signOut}
+          onLogoChange={updateBrandingLogo}
+        />
       </div>
     );
   }
@@ -799,6 +874,7 @@ export default function App() {
             } : undefined}
             onOpenFavorites={openFavorites}
             onOpenMobileNav={() => setMobileNavOpen(true)}
+            onOpenLauncher={openLauncher}
             readOnly={readOnly}
             favoritesCount={favorites.length}
             favoritesOpen={favoritesOpen}
@@ -1211,6 +1287,28 @@ function categoryToView(category: string): ActiveView {
 function normalizeArtBinderKind(value: string): ArtBinderKind {
   if (value === "character" || value === "bestiary" || value === "environment") return value;
   return "all";
+}
+
+function loadActiveLauncherApp(): LauncherAppId | null {
+  try {
+    return sessionStorage.getItem(LAUNCHER_ACTIVE_APP_KEY) === "tavern-cook-book"
+      ? "tavern-cook-book"
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveActiveLauncherApp(appId: LauncherAppId | null) {
+  try {
+    if (appId) {
+      sessionStorage.setItem(LAUNCHER_ACTIVE_APP_KEY, appId);
+      return;
+    }
+    sessionStorage.removeItem(LAUNCHER_ACTIVE_APP_KEY);
+  } catch {
+    // The launcher can still work without remembering the last opened app.
+  }
 }
 
 function scrollToAssignmentModule(moduleId: string) {
