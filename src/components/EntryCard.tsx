@@ -5,6 +5,7 @@ import { richTextToPlainText } from "../utils/richText";
 import { AdjustableImage } from "./AdjustableImage";
 import { FavoriteButton } from "./FavoriteButton";
 import { Icon } from "./Icon";
+import { useRealtimeCollaboration } from "./RealtimeCollaborationContext";
 
 interface EntryCardProps {
   entry: LoreEntry;
@@ -31,6 +32,9 @@ export function EntryCard({ entry, readOnly = false, onOpen, onSaveEntry, isFavo
   const iconSlot = entry.media.iconImage ? "iconImage" : "mainImage";
   const iconImage = entry.media[iconSlot];
   const summary = richTextToPlainText(entry.summary || entry.internalLore || "No summary yet.");
+  const realtime = useRealtimeCollaboration();
+  const realtimeTarget = { type: "entry" as const, id: entry.id, label: entry.title, module: entry.category };
+  const hoveringUsers = realtime.usersHoveringTarget(realtimeTarget);
   const saveImageFit = (slot: EntryImageSlot, next: { imageUrl: string; imageFit: ImageFitSettings }) => {
     if (!onSaveEntry) return;
     onSaveEntry({
@@ -51,12 +55,15 @@ export function EntryCard({ entry, readOnly = false, onOpen, onSaveEntry, isFavo
     <article
       role="button"
       tabIndex={0}
-      className="lore-card-frame group flex h-full min-h-[230px] flex-col rounded p-4 text-left transition hover:-translate-y-0.5 hover:shadow-glow"
+      className={`lore-card-frame realtime-hover-surface group flex h-full min-h-[230px] flex-col rounded p-4 text-left transition hover:-translate-y-0.5 hover:shadow-glow ${hoveringUsers.length ? "realtime-hover-active" : ""}`}
       onClick={() => onOpen(entry)}
+      onMouseEnter={() => realtime.setHoverTarget(realtimeTarget)}
+      onMouseLeave={() => realtime.setHoverTarget(null)}
       onKeyDown={(event) => {
         if (event.key === "Enter") onOpen(entry);
       }}
     >
+      {hoveringUsers.length > 0 && <RealtimeHoverBadge users={hoveringUsers.map((user) => user.name)} />}
       <div className="flex items-start gap-3">
         <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded border" style={{ borderColor: "var(--card-border)", background: "var(--field-bg)" }}>
           {iconImage ? (
@@ -118,5 +125,13 @@ export function EntryCard({ entry, readOnly = false, onOpen, onSaveEntry, isFavo
         </div>
       </div>
     </article>
+  );
+}
+
+function RealtimeHoverBadge({ users }: { users: string[] }) {
+  return (
+    <span className="realtime-hover-badge">
+      {users.length === 1 ? `${users[0]} is here` : `${users.length} people here`}
+    </span>
   );
 }

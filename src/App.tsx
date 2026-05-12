@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState } from "react";
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   ActiveView,
   AssistantChangedTarget,
@@ -55,6 +55,8 @@ import { SyncPublishModal } from "./components/SyncPublishModal";
 import { TimelineView } from "./components/TimelineView";
 import { TopBar } from "./components/TopBar";
 import { WorldBuildingPage } from "./components/WorldBuildingPage";
+import { RealtimeCollaborationContext, realtimeTargetKey } from "./components/RealtimeCollaborationContext";
+import { RealtimeRoomBridge, type RealtimePresenceUpdater, type RealtimePublisher } from "./components/RealtimeRoomBridge";
 import { buildLoreKeywords, LoreKeywordProvider } from "./components/LoreKeywordText";
 import { buildArtVaultDashboardStats } from "./utils/artVaultDashboard";
 import {
@@ -81,13 +83,14 @@ import {
 } from "./utils/cloudSync";
 import { isDesktopBrowserAuthRequest } from "./utils/desktopShell";
 import { isFavorite as favoriteIncludes, loadFavorites, saveFavorites, toggleFavorite } from "./utils/favorites";
-import { listenForLauncherSession } from "./utils/launcherBridge";
+import { listenForLauncherProgressRequests, listenForLauncherSession } from "./utils/launcherBridge";
 import {
   applySelectedPublishChanges,
   buildPublishChanges,
   type PublishChange,
   type PublishChangeKind
 } from "./utils/publishDiff";
+import type { RealtimeTarget, RealtimeUserSummary } from "./utils/realtimeCollaboration";
 import {
   type AssignmentRecord,
   getAssignments,
@@ -184,11 +187,26 @@ const LIVE_TEAM_SYNC = true;
 const LIVE_SYNC_AUTOSAVE_DELAY_MS = 2500;
 const LIVE_SYNC_POLL_MS = 5000;
 
+function buildWorkshopProgress(database: LoreDatabase, currentUser: GoogleAccountUser) {
+  const totalEntries = database.entries.length + database.bestiary.length;
+  const completedEntries =
+    database.entries.filter((entry) => ["Canon", "Soft Canon", "Playtest Scope"].includes(entry.status)).length +
+    database.bestiary.length;
+  const total = Math.max(totalEntries, 1);
+  return {
+    percent: Math.round((completedEntries / total) * 100),
+    label: currentUser.role === "admin" ? "Team cook book completion" : "Your cook book workspace",
+    completed: completedEntries,
+    total,
+    source: currentUser.role === "admin" ? "Tavern Cook Book team sync" : currentUser.email
+  };
+}
+
 export default function App() {
   const hostedViewer = import.meta.env.VITE_READONLY_VIEWER === "true";
   const forcedReadOnly =
     hostedViewer || new URLSearchParams(window.location.search).get("readonly") === "1";
-  const [database, setDatabase] = useState<LoreDatabase>(() =>
+  const [database, setLocalDatabase] = useState<LoreDatabase>(() =>
     hostedViewer ? createStarterDatabase() : loadDatabase()
   );
   const [theme, setTheme] = useState<ThemeMode>(() => loadTheme());
@@ -229,9 +247,16 @@ export default function App() {
   const [pullingLatest, setPullingLatest] = useState(false);
   const [syncConflictReview, setSyncConflictReview] = useState<SyncConflictReview | null>(null);
   const [explicitRemovalIds, setExplicitRemovalIds] = useState<string[]>(() => loadExplicitRemovalIds());
+  const [realtimeUsers, setRealtimeUsers] = useState<RealtimeUserSummary[]>([]);
+  const [realtimeStatus, setRealtimeStatus] = useState("initial");
+  const [realtimeReady, setRealtimeReady] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [storageWarning, setStorageWarning] = useState("");
+  const databaseRef = useRef(database);
+  const realtimePublisherRef = useRef<RealtimePublisher | null>(null);
+  const realtimePresenceUpdaterRef = useRef<RealtimePresenceUpdater | null>(null);
+  const realtimeRemoteLoadRef = useRef(false);
   const remoteLoadRef = useRef(false);
   const lastDraftHashRef = useRef("");
   const lastPublishedHashRef = useRef("");
@@ -242,6 +267,43 @@ export default function App() {
   const canEdit = roleCanEdit(currentRole);
   const canAccessSettings = roleCanAccessSettings(currentRole);
   const readOnly = forcedReadOnly || !canEdit;
+  const realtimeActive = Boolean(currentUser && !hostedViewer && realtimeReady);
+  const setDatabase = useCallback((
+    nextValue: LoreDatabase | ((current: LoreDatabase) => LoreDatabase),
+    options: { source?: "local" | "remote" } = {}
+  ) => {
+    const previous = databaseRef.current;
+    const next = typeof nextValue === "function"
+      ? (nextValue as (current: LoreDatabase) => LoreDatabase)(previous)
+      : nextValue;
+
+    databaseRef.current = next;
+    setLocalDatabase(next);
+    if (
+      options.source !== "remote" &&
+      !readOnly &&
+      !hostedViewer &&
+      !realtimeRemoteLoadRef.current &&
+      realtimePublisherRef.current
+    ) {
+      realtimePublisherRef.current(previous, next);
+    }
+  }, [hostedViewer, readOnly]);
+  useEffect(() => {
+    databaseRef.current = database;
+  }, [database]);
+
+  useEffect(() => {
+    if (!currentUser || hostedViewer) return;
+    if (realtimeStatus === "disconnected" || realtimeStatus === "failed") {
+      setCloudSync((current) => ({
+        ...current,
+        phase: "offline",
+        message: "Realtime collaboration is not connected. Add LIVEBLOCKS_SECRET_KEY in Vercel to enable instant team editing.",
+        configured: current.configured
+      }));
+    }
+  }, [currentUser, hostedViewer, realtimeStatus]);
   const hiddenViewIds = useMemo(
     () => canAccessSettings ? [] : expandHiddenViewIds(appSyncSettings.visibility.hiddenForMembers),
     [appSyncSettings.visibility.hiddenForMembers, canAccessSettings]
@@ -265,6 +327,7 @@ export default function App() {
   }, [database, readOnly]);
 
   useEffect(() => {
+    if (realtimeActive) return;
     if (!currentUser || readOnly || hostedViewer || remoteLoadRef.current) return;
     const nextHash = databaseSyncHash(database);
     if (nextHash === lastDraftHashRef.current) return;
@@ -319,7 +382,7 @@ export default function App() {
     }, LIVE_SYNC_AUTOSAVE_DELAY_MS);
 
     return () => window.clearTimeout(timer);
-  }, [database, currentUser?.email, readOnly, hostedViewer]);
+  }, [database, currentUser?.email, readOnly, hostedViewer, realtimeActive]);
 
   useEffect(() => {
     saveTheme(theme);
@@ -355,7 +418,7 @@ export default function App() {
           }
 
           remoteLoadRef.current = true;
-          setDatabase(result.envelope.payload.database);
+          setDatabase(result.envelope.payload.database, { source: "remote" });
           saveDatabase(result.envelope.payload.database);
           window.setTimeout(() => {
             remoteLoadRef.current = false;
@@ -376,6 +439,7 @@ export default function App() {
   }, [currentUser?.email, database, readOnly, hostedViewer]);
 
   useEffect(() => {
+    if (realtimeActive) return;
     if (!currentUser || hostedViewer) return;
     const interval = window.setInterval(() => {
       void fetchPublishedDatabase()
@@ -396,7 +460,7 @@ export default function App() {
             }
 
             remoteLoadRef.current = true;
-            setDatabase(remotePublished);
+            setDatabase(remotePublished, { source: "remote" });
             saveDatabase(remotePublished);
             window.setTimeout(() => {
               remoteLoadRef.current = false;
@@ -426,7 +490,7 @@ export default function App() {
           lastPublishedDatabaseRef.current = remotePublished;
 
           remoteLoadRef.current = true;
-          setDatabase(merge.database);
+          setDatabase(merge.database, { source: "remote" });
           saveDatabase(merge.database);
           window.setTimeout(() => {
             remoteLoadRef.current = false;
@@ -465,7 +529,7 @@ export default function App() {
     }, LIVE_TEAM_SYNC ? LIVE_SYNC_POLL_MS : 15_000);
 
     return () => window.clearInterval(interval);
-  }, [currentUser?.email, database, readOnly, hostedViewer, explicitRemovalSet]);
+  }, [currentUser?.email, database, readOnly, hostedViewer, explicitRemovalSet, realtimeActive]);
 
   useEffect(() => {
     saveAssignments(assignments);
@@ -522,6 +586,11 @@ export default function App() {
       });
     });
   }, [hostedViewer]);
+
+  useEffect(() => {
+    if (!currentUser || hostedViewer) return;
+    return listenForLauncherProgressRequests(() => buildWorkshopProgress(database, currentUser));
+  }, [currentUser, database, hostedViewer]);
 
   useEffect(() => {
     if (!currentUser || hostedViewer) return;
@@ -590,7 +659,7 @@ export default function App() {
       const chosenHash = databaseSyncHash(chosenDatabase);
 
       remoteLoadRef.current = true;
-      setDatabase(chosenDatabase);
+      setDatabase(chosenDatabase, { source: "remote" });
       saveDatabase(chosenDatabase);
       window.setTimeout(() => {
         remoteLoadRef.current = false;
@@ -665,8 +734,8 @@ export default function App() {
         if (!response.ok) throw new Error("No hosted lore data found.");
         return response.json();
       })
-      .then((payload) => setDatabase(migrateDatabase(payload)))
-      .catch(() => setDatabase(createStarterDatabase()));
+      .then((payload) => setDatabase(migrateDatabase(payload), { source: "remote" }))
+      .catch(() => setDatabase(createStarterDatabase(), { source: "remote" }));
   }, [hostedViewer]);
 
   useEffect(() => {
@@ -679,7 +748,7 @@ export default function App() {
     if (hostedViewer) return;
     const handleStorage = (event: StorageEvent) => {
       if (event.key === DATABASE_KEY) {
-        setDatabase(loadDatabase());
+        setDatabase(loadDatabase(), { source: "remote" });
       }
       if (event.key === THEME_KEY) {
         setTheme(loadTheme());
@@ -689,6 +758,53 @@ export default function App() {
     window.addEventListener("storage", handleStorage);
     return () => window.removeEventListener("storage", handleStorage);
   }, [hostedViewer]);
+
+  const handleRealtimeDatabase = useCallback((nextDatabase: LoreDatabase) => {
+    realtimeRemoteLoadRef.current = true;
+    setDatabase(nextDatabase, { source: "remote" });
+    saveDatabase(nextDatabase);
+    window.setTimeout(() => {
+      realtimeRemoteLoadRef.current = false;
+    }, 0);
+    lastDraftHashRef.current = databaseSyncHash(nextDatabase);
+    setCloudSync((current) => ({
+      ...current,
+      phase: "saved",
+      message: "Live team update received.",
+      configured: true
+    }));
+  }, [setDatabase]);
+
+  const handleRealtimePublisherReady = useCallback((publisher: RealtimePublisher | null) => {
+    realtimePublisherRef.current = publisher;
+    setRealtimeReady(Boolean(publisher));
+    setCloudSync((current) => ({
+      ...current,
+      phase: publisher ? "saved" : current.phase,
+      message: publisher ? "Realtime collaboration is live." : current.message,
+      configured: current.configured
+    }));
+  }, []);
+
+  const handleRealtimePresenceUpdaterReady = useCallback((updater: RealtimePresenceUpdater | null) => {
+    realtimePresenceUpdaterRef.current = updater;
+  }, []);
+
+  const setRealtimeHoverTarget = useCallback((target: RealtimeTarget | null) => {
+    realtimePresenceUpdaterRef.current?.({ hovering: target });
+  }, []);
+
+  const usersHoveringTarget = useCallback((target: RealtimeTarget) => {
+    const key = realtimeTargetKey(target);
+    return realtimeUsers.filter((user) => user.hovering && realtimeTargetKey(user.hovering) === key);
+  }, [realtimeUsers]);
+
+  const realtimeContextValue = useMemo(() => ({
+    enabled: realtimeReady,
+    users: realtimeUsers,
+    setHoverTarget: setRealtimeHoverTarget,
+    usersHoveringTarget
+  }), [realtimeReady, realtimeUsers, setRealtimeHoverTarget, usersHoveringTarget]);
 
   const activeConfig = allViews.find((view) => view.id === activeView) || mainNavigation[0];
   const selectedCharacterEntry = selectedEntry && isCharacterEntry(selectedEntry) ? selectedEntry : null;
@@ -833,7 +949,7 @@ export default function App() {
       const remotePublished = result.envelope.payload.database;
       const remoteHash = databaseSyncHash(remotePublished);
       remoteLoadRef.current = true;
-      setDatabase(remotePublished);
+      setDatabase(remotePublished, { source: "remote" });
       saveDatabase(remotePublished);
       window.setTimeout(() => {
         remoteLoadRef.current = false;
@@ -909,7 +1025,7 @@ export default function App() {
     );
     const nextHash = databaseSyncHash(nextDatabase);
     remoteLoadRef.current = true;
-    setDatabase(nextDatabase);
+    setDatabase(nextDatabase, { source: "remote" });
     saveDatabase(nextDatabase);
     window.setTimeout(() => {
       remoteLoadRef.current = false;
@@ -1434,6 +1550,20 @@ export default function App() {
   return (
     <div className={themeClassName}>
       <LoreKeywordProvider keywords={loreKeywords} onKeywordClick={openKeywordReference}>
+      <RealtimeCollaborationContext.Provider value={realtimeContextValue}>
+      <RealtimeRoomBridge
+        currentUser={currentUser}
+        database={database}
+        activeView={activeView}
+        selectedEntry={selectedEntry}
+        selectedBestiaryCreatureId={selectedBestiaryCreatureId}
+        enabled={!readOnly || currentRole === "viewer"}
+        onDatabaseFromRoom={handleRealtimeDatabase}
+        onPublisherReady={handleRealtimePublisherReady}
+        onPresenceUpdaterReady={handleRealtimePresenceUpdaterReady}
+        onUsersChange={setRealtimeUsers}
+        onStatusChange={setRealtimeStatus}
+      />
       <div className="app-shell flex min-h-screen">
         <Sidebar
           database={database}
@@ -1456,6 +1586,8 @@ export default function App() {
           hiddenViewIds={hiddenViewIds}
           syncLabel={cloudSync.message}
           syncWorking={cloudSync.phase === "publishing" || cloudSync.phase === "saving" || cloudSync.phase === "loading"}
+          liveUsers={realtimeUsers}
+          liveStatus={realtimeStatus}
         />
 
         <main className="min-w-0 flex-1">
@@ -1747,6 +1879,7 @@ export default function App() {
           />
         )}
       </div>
+      </RealtimeCollaborationContext.Provider>
       </LoreKeywordProvider>
     </div>
   );

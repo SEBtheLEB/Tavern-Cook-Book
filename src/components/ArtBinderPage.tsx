@@ -15,6 +15,7 @@ import { loadSpriteSheetAssets } from "../utils/spriteSheets";
 import { CustomSelect } from "./CustomSelect";
 import { Icon } from "./Icon";
 import { ImageManagerModal, type ImageManagerSlotDraft } from "./ImageManagerModal";
+import { useRealtimeCollaboration } from "./RealtimeCollaborationContext";
 import { SpriteAnimation } from "./SpriteAnimation";
 import { useAssignments } from "./AssignmentSystem";
 
@@ -514,10 +515,18 @@ function ArtBinderCard({
   onOpenSubject: (subject: ArtBinderSubject) => void;
 }) {
   const module = artBinderSlotModule(card);
+  const realtime = useRealtimeCollaboration();
+  const realtimeTarget = {
+    type: "art-slot" as const,
+    id: module.moduleId,
+    label: module.moduleTitle,
+    module: "Art Binder"
+  };
+  const hoveringUsers = realtime.usersHoveringTarget(realtimeTarget);
 
   return (
     <article
-      className={`art-binder-card ${artBinderStatusClass(card.slot)} ${readOnly ? "" : "is-clickable"} ${assignMode ? "assignable-module" : ""} ${selected ? "assignment-selected" : ""} ${focused ? "assignment-focus" : ""}`}
+      className={`art-binder-card realtime-hover-surface ${artBinderStatusClass(card.slot)} ${readOnly ? "" : "is-clickable"} ${assignMode ? "assignable-module" : ""} ${selected ? "assignment-selected" : ""} ${focused ? "assignment-focus" : ""} ${hoveringUsers.length ? "realtime-hover-active" : ""}`}
       role={readOnly ? undefined : "button"}
       tabIndex={readOnly ? undefined : 0}
       title={readOnly ? undefined : assignMode ? "Select this slot for assignment" : "Open upload, import, download, and image adjustment tools"}
@@ -525,6 +534,8 @@ function ArtBinderCard({
       data-module-title={module.moduleTitle}
       data-module-type={module.moduleType}
       onClick={() => onActivate(card)}
+      onMouseEnter={() => realtime.setHoverTarget(realtimeTarget)}
+      onMouseLeave={() => realtime.setHoverTarget(null)}
       onKeyDown={(event) => {
         if (readOnly) return;
         if (event.key === "Enter" || event.key === " ") {
@@ -533,6 +544,11 @@ function ArtBinderCard({
         }
       }}
     >
+      {hoveringUsers.length > 0 && (
+        <span className="realtime-hover-badge">
+          {hoveringUsers.length === 1 ? `${hoveringUsers[0].name} is here` : `${hoveringUsers.length} people here`}
+        </span>
+      )}
       {assignMode && !readOnly && (
         <span className={`art-binder-select-corner ${selected ? "active" : ""}`}>
           <Icon name={selected ? "Check" : "Clipboard"} className="h-4 w-4" />

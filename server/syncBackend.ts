@@ -120,7 +120,7 @@ async function handlePost(scope: SyncScope, body: unknown, signedInEmail: string
   });
 }
 
-async function verifyGoogleCredential(headers: IncomingHttpHeaders): Promise<
+export async function verifyGoogleCredential(headers: IncomingHttpHeaders): Promise<
   | { ok: true; email: string }
   | { ok: false; status: number; error: string }
 > {

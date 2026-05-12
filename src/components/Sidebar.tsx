@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { DragEvent, MouseEvent } from "react";
 import type { ActiveView, GoogleAccountUser, LoreDatabase, ViewConfig } from "../types";
 import { mainNavigation } from "../data/navigation";
+import type { RealtimeUserSummary } from "../utils/realtimeCollaboration";
 import { Icon } from "./Icon";
 
 interface SidebarProps {
@@ -25,6 +26,8 @@ interface SidebarProps {
   hiddenViewIds?: ActiveView[];
   syncLabel?: string;
   syncWorking?: boolean;
+  liveUsers?: RealtimeUserSummary[];
+  liveStatus?: string;
 }
 
 type SidebarLayoutNode =
@@ -57,7 +60,9 @@ export function Sidebar({
   canAccessSettings = false,
   hiddenViewIds = [],
   syncLabel = "",
-  syncWorking = false
+  syncWorking = false,
+  liveUsers = [],
+  liveStatus = "initial"
 }: SidebarProps) {
   const hiddenViewSet = useMemo(() => new Set(hiddenViewIds), [hiddenViewIds]);
   const navigation = mainNavigation.filter((item) => {
@@ -70,12 +75,37 @@ export function Sidebar({
   const [editingSidebar, setEditingSidebar] = useState(false);
   const [storageWarningOpen, setStorageWarningOpen] = useState(false);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [liveRosterOpen, setLiveRosterOpen] = useState(false);
   const [dragging, setDragging] = useState<DragPayload | null>(null);
   const [sidebarTooltip, setSidebarTooltip] = useState<{ label: string; x: number; y: number } | null>(null);
   const navigationById = useMemo(
     () => new Map(navigation.map((item) => [item.id, item] as const)),
     [navigation]
   );
+  const launchedFromWorkshop = useMemo(
+    () => new URLSearchParams(window.location.search).get("launcher") === "stl-workshop",
+    []
+  );
+  const returnToWorkshop = () => {
+    if (window.opener && !window.opener.closed) {
+      window.opener.focus();
+      window.close();
+      return;
+    }
+    window.location.href = "https://stl-workshop.vercel.app";
+  };
+  const liveRosterUsers: RealtimeUserSummary[] = [
+    ...(currentUser ? [{
+      connectionId: -1,
+      name: currentUser.name,
+      email: currentUser.email,
+      picture: currentUser.picture || "",
+      role: currentUser.role,
+      location: { view: activeView, label: "Here" },
+      hovering: null
+    } satisfies RealtimeUserSummary] : []),
+    ...liveUsers
+  ];
   const normalizedLayout = useMemo(
     () => normalizeSidebarLayout(layout, allNavIds),
     [layout, allNavIds]
@@ -426,6 +456,52 @@ export function Sidebar({
                 {!collapsed && <span>Live Sync</span>}
               </div>
             )}
+            {liveRosterUsers.length > 0 && (
+              <div className={`sidebar-live-roster ${collapsed ? "collapsed" : ""}`}>
+                <button
+                  className="sidebar-live-roster-button"
+                  onClick={() => setLiveRosterOpen((value) => !value)}
+                  title={collapsed ? "People in the Cook Book" : `${liveRosterUsers.length} in the Cook Book`}
+                  aria-label="People in the Cook Book"
+                  aria-expanded={liveRosterOpen}
+                  onMouseEnter={(event) => showCollapsedTooltip(`${liveRosterUsers.length} in the Cook Book`, event)}
+                  onMouseMove={moveCollapsedTooltip}
+                  onMouseLeave={hideCollapsedTooltip}
+                >
+                  <span className="sidebar-live-roster-stack">
+                    {liveRosterUsers.slice(0, 4).map((user) => (
+                      <span key={`${user.connectionId}-${user.email || user.name}`} className="sidebar-live-avatar">
+                        {user.picture ? <img src={user.picture} alt="" /> : user.name.slice(0, 1).toUpperCase()}
+                      </span>
+                    ))}
+                  </span>
+                  {!collapsed && <strong>{liveRosterUsers.length}</strong>}
+                </button>
+                {liveRosterOpen && (
+                  <div className="sidebar-live-roster-menu">
+                    <div className="sidebar-live-roster-header">
+                      <strong>In Right Now</strong>
+                      <span>{liveStatus === "connected" ? "Realtime" : "Live room"}</span>
+                    </div>
+                    {liveRosterUsers.map((user) => (
+                      <div key={`${user.connectionId}-${user.email || user.name}`} className="sidebar-live-roster-row">
+                        <span className="sidebar-live-avatar large">
+                          {user.picture ? <img src={user.picture} alt="" /> : user.name.slice(0, 1).toUpperCase()}
+                        </span>
+                        <span>
+                          <strong>{user.name}</strong>
+                          <small>
+                            {user.hovering?.label
+                              ? `Hovering ${user.hovering.label}`
+                              : user.location?.label || "In the Cook Book"}
+                          </small>
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             <div className={`sidebar-account-card ${collapsed ? "collapsed" : ""}`}>
               <button
                 className="sidebar-account-main"
@@ -472,6 +548,18 @@ export function Sidebar({
                   >
                     <Icon name="UserRound" className="h-4 w-4" />
                     <span>Profile</span>
+                  </button>
+                )}
+                {launchedFromWorkshop && (
+                  <button
+                    className="sidebar-account-menu-action"
+                    onClick={() => {
+                      setAccountMenuOpen(false);
+                      returnToWorkshop();
+                    }}
+                  >
+                    <Icon name="ExternalLink" className="h-4 w-4" />
+                    <span>Back to STL Workshop</span>
                   </button>
                 )}
                 {onOpenTavernScribe && !readOnly && (

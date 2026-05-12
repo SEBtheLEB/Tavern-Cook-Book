@@ -5,6 +5,7 @@ import { richTextToPlainText } from "../utils/richText";
 import { AssignableModule } from "./AssignmentSystem";
 import { FavoriteButton } from "./FavoriteButton";
 import { Icon } from "./Icon";
+import { useRealtimeCollaboration } from "./RealtimeCollaborationContext";
 
 interface CharacterRosterProps {
   entries: LoreEntry[];
@@ -18,6 +19,7 @@ interface CharacterRosterProps {
 type CharacterImageSlot = "iconImage" | "mainImage" | "characterPortrait" | "characterHoverImage" | "ingameSpriteImage" | "dialogueSpriteImage";
 
 export function CharacterRoster({ entries, onOpenEntry, isFavorite, onToggleFavorite }: CharacterRosterProps) {
+  const realtime = useRealtimeCollaboration();
   if (!entries.length) {
     return (
       <div className="soft-panel rounded p-8 text-center">
@@ -44,6 +46,8 @@ export function CharacterRoster({ entries, onOpenEntry, isFavorite, onToggleFavo
         const description = richTextToPlainText(
           entry.publicDescription || entry.summary || entry.internalLore || "Open this character to add a description."
         );
+        const realtimeTarget = { type: "character" as const, id: entry.id, label: entry.title, module: "Characters" };
+        const hoveringUsers = realtime.usersHoveringTarget(realtimeTarget);
 
         return (
           <AssignableModule
@@ -53,14 +57,21 @@ export function CharacterRoster({ entries, onOpenEntry, isFavorite, onToggleFavo
             module={characterTileAssignment(entry)}
           >
             <article
-              className="character-grid-tile group"
+              className={`character-grid-tile realtime-hover-surface group ${hoveringUsers.length ? "realtime-hover-active" : ""}`}
               role="button"
               tabIndex={0}
               onClick={() => onOpenEntry(entry)}
+              onMouseEnter={() => realtime.setHoverTarget(realtimeTarget)}
+              onMouseLeave={() => realtime.setHoverTarget(null)}
               onKeyDown={(event) => {
                 if (event.key === "Enter") onOpenEntry(entry);
               }}
             >
+              {hoveringUsers.length > 0 && (
+                <span className="realtime-hover-badge">
+                  {hoveringUsers.length === 1 ? `${hoveringUsers[0].name} is here` : `${hoveringUsers.length} people here`}
+                </span>
+              )}
               {onToggleFavorite && (
                 <FavoriteButton
                   active={Boolean(isFavorite?.(entry))}

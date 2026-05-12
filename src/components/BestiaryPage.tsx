@@ -50,6 +50,7 @@ import { FavoriteButton } from "./FavoriteButton";
 import { ImageAdjustModal } from "./ImageAdjustModal";
 import { ImageManagerModal, type ImageManagerSlotDraft } from "./ImageManagerModal";
 import { Icon } from "./Icon";
+import { useRealtimeCollaboration } from "./RealtimeCollaborationContext";
 import { StoryReaderModal, type StoryReaderSection, type StoryReaderStep } from "./StoryReaderModal";
 
 interface BestiaryPageProps {
@@ -894,6 +895,9 @@ function CreatureCard({
   const typeTag = creatureArchiveTypeTag(creature);
   const region = creatureRegion(creature);
   const temperament = creatureTemperament(creature);
+  const realtime = useRealtimeCollaboration();
+  const realtimeTarget = { type: "creature" as const, id: creature.id, label: creature.name, module: "Bestiary" };
+  const hoveringUsers = realtime.usersHoveringTarget(realtimeTarget);
   return (
     <AssignableModule
       as="div"
@@ -901,14 +905,21 @@ function CreatureCard({
       module={bestiaryAssignmentModule(creature, "overview", `${creature.name} Bestiary Entry`)}
     >
       <article
-        className={`bestiary-card ${selected ? "selected" : ""}`}
+        className={`bestiary-card realtime-hover-surface ${selected ? "selected" : ""} ${hoveringUsers.length ? "realtime-hover-active" : ""}`}
         role="button"
         tabIndex={0}
         onClick={onClick}
+        onMouseEnter={() => realtime.setHoverTarget(realtimeTarget)}
+        onMouseLeave={() => realtime.setHoverTarget(null)}
         onKeyDown={(event) => {
           if (event.key === "Enter") onClick();
         }}
       >
+        {hoveringUsers.length > 0 && (
+          <span className="realtime-hover-badge">
+            {hoveringUsers.length === 1 ? `${hoveringUsers[0].name} is here` : `${hoveringUsers.length} people here`}
+          </span>
+        )}
         {onToggleFavorite && (
           <FavoriteButton active={isFavorite} label={creature.name} onToggle={onToggleFavorite} className="bestiary-card-favorite" />
         )}
