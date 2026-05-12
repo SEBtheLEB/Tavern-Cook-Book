@@ -15,7 +15,6 @@ interface SidebarProps {
   readOnly?: boolean;
   storageWarning?: string;
   currentUser?: GoogleAccountUser | null;
-  onSignOut?: () => void;
   onOpenProfile?: () => void;
   onOpenTavernScribe?: () => void;
   onOpenQuestDashboard?: () => void;
@@ -49,7 +48,6 @@ export function Sidebar({
   readOnly = false,
   storageWarning = "",
   currentUser = null,
-  onSignOut,
   onOpenProfile,
   onOpenTavernScribe,
   onOpenQuestDashboard,
@@ -484,18 +482,6 @@ export function Sidebar({
                   >
                     <Icon name="Clipboard" className="h-4 w-4" />
                     <span>Personal Quest Dashboard</span>
-                  </button>
-                )}
-                {onSignOut && (
-                  <button
-                    className="sidebar-account-menu-action"
-                    onClick={() => {
-                      setAccountMenuOpen(false);
-                      onSignOut();
-                    }}
-                  >
-                    <Icon name="X" className="h-4 w-4" />
-                    <span>Sign Out</span>
                   </button>
                 )}
               </div>

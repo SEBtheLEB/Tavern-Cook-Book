@@ -213,7 +213,6 @@ export default function App() {
   const [questCategories, setQuestCategories] = useState(() => getQuestCategories());
   const [favorites, setFavorites] = useState(() => loadFavorites());
   const [currentUser, setCurrentUser] = useState<GoogleAccountUser | null>(() => loadGoogleAccount());
-  const [showCookBookStart, setShowCookBookStart] = useState(true);
   const [publishedDatabase, setPublishedDatabase] = useState<LoreDatabase>(() => createStarterDatabase());
   const [appSyncSettings, setAppSyncSettings] = useState(() => loadAppSyncSettings());
   const [cloudSync, setCloudSync] = useState<CloudSyncUiState>({
@@ -461,14 +460,9 @@ export default function App() {
   }, [currentUser, readOnly]);
 
   useEffect(() => {
-    if (!currentUser) setShowCookBookStart(true);
-  }, [currentUser]);
-
-  useEffect(() => {
     if (currentUser || hostedViewer) return;
     return listenForLauncherSession((launcherUser) => {
       setCurrentUser(launcherUser);
-      setShowCookBookStart(true);
     });
   }, [currentUser, hostedViewer]);
 
@@ -1303,7 +1297,6 @@ export default function App() {
     clearGoogleAccount();
     disableGoogleAutoSelect();
     setCurrentUser(null);
-    setShowCookBookStart(true);
     setSelectedEntry(null);
     setSelectedReferenceKeyword("");
     setKeywordPopup("");
@@ -1371,21 +1364,6 @@ export default function App() {
     );
   }
 
-  if (showCookBookStart) {
-    return (
-      <div className={themeClassName}>
-        <CookBookStartScreen
-          logoImage={database.branding.logoImage}
-          onOpen={() => {
-            setShowCookBookStart(false);
-            setActiveView("dashboard");
-            window.scrollTo({ top: 0 });
-          }}
-        />
-      </div>
-    );
-  }
-
   return (
     <div className={themeClassName}>
       <LoreKeywordProvider keywords={loreKeywords} onKeywordClick={openKeywordReference}>
@@ -1401,7 +1379,6 @@ export default function App() {
           readOnly={readOnly}
           storageWarning={storageWarning}
           currentUser={currentUser}
-          onSignOut={signOut}
           onOpenProfile={openProfile}
           onOpenTavernScribe={() => setTavernScribeOpen(true)}
           onOpenQuestDashboard={openQuestDashboard}
@@ -2339,21 +2316,6 @@ function scrollToAssignmentModule(moduleId: string) {
   element.scrollIntoView({ behavior: "smooth", block: "center" });
   element.classList.add("assignment-open-flash");
   window.setTimeout(() => element.classList.remove("assignment-open-flash"), 1800);
-}
-
-function CookBookStartScreen({ logoImage, onOpen }: { logoImage?: string; onOpen: () => void }) {
-  return (
-    <button className="cookbook-start-screen" onClick={onOpen} type="button">
-      <span className="cookbook-start-glow" aria-hidden="true" />
-      <span className="cookbook-start-content">
-        <span className={`cookbook-start-logo ${logoImage ? "has-image" : ""}`}>
-          {logoImage ? <img src={logoImage} alt="" /> : <span>STL</span>}
-        </span>
-        <span className="cookbook-start-kicker">The Tavern Cook Book</span>
-        <span className="cookbook-start-title">Click Anywhere to Open Cook Book</span>
-      </span>
-    </button>
-  );
 }
 
 

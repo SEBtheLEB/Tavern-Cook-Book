@@ -90,6 +90,15 @@ export function TopBar({
         </button>
       </div>
 
+      <button
+        className="tab-frame top-refresh-button inline-flex items-center gap-2 rounded px-3 py-2 text-sm"
+        onClick={() => window.location.reload()}
+        title="Refresh Cook Book"
+      >
+        <Icon name="RefreshCw" className="h-4 w-4" />
+        <span className="hidden sm:inline">Refresh</span>
+      </button>
+
       {!readOnly && (
         <>
           {artVaultProgress && onOpenArtVaultDashboard && (
