@@ -1,7 +1,7 @@
 import type { IncomingHttpHeaders } from "node:http";
 import { Liveblocks } from "@liveblocks/node";
 import type { AccessRole } from "../src/types";
-import { verifyGoogleCredential } from "./syncBackend";
+import { verifyGoogleCredential } from "./syncBackend.js";
 
 interface LiveblocksAuthRequest {
   method: string;
