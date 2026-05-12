@@ -205,12 +205,14 @@ export default function App() {
   });
   const [pushReviewOpen, setPushReviewOpen] = useState(false);
   const [pushMessage, setPushMessage] = useState("");
+  const [pullingLatest, setPullingLatest] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [storageWarning, setStorageWarning] = useState("");
   const remoteLoadRef = useRef(false);
   const lastDraftHashRef = useRef("");
   const lastPublishedHashRef = useRef("");
+  const lastPublishedDatabaseRef = useRef<LoreDatabase>(createStarterDatabase());
   const lastDraftUpdatedAtRef = useRef("");
   const syncSettingsSaveTimerRef = useRef<number | null>(null);
   const currentRole = currentUser?.role || "viewer";
@@ -340,10 +342,12 @@ export default function App() {
           if (remotePublishedHash === lastPublishedHashRef.current) return;
 
           const previousPublishedHash = lastPublishedHashRef.current;
+          const previousPublishedDatabase = lastPublishedDatabaseRef.current;
           const localHash = databaseSyncHash(database);
           const storedPublishedState = loadPublishedSyncState();
           setPublishedDatabase(remotePublished);
           lastPublishedHashRef.current = remotePublishedHash;
+          lastPublishedDatabaseRef.current = remotePublished;
 
           const canApplyPublished =
             readOnly ||
@@ -352,9 +356,45 @@ export default function App() {
             localHash === storedPublishedState.hash;
 
           if (!canApplyPublished) {
+            const teamChanges = buildPublishChanges(remotePublished, previousPublishedDatabase);
+            if (teamChanges.length) {
+              const mergedDatabase = applySelectedPublishChanges(
+                remotePublished,
+                database,
+                teamChanges.map((change) => change.id)
+              );
+              const mergedHash = databaseSyncHash(mergedDatabase);
+              remoteLoadRef.current = true;
+              setDatabase(mergedDatabase);
+              saveDatabase(mergedDatabase);
+              window.setTimeout(() => {
+                remoteLoadRef.current = false;
+              }, 0);
+              savePublishedSyncState(remotePublished, result.envelope.updatedAt);
+              lastDraftHashRef.current = mergedHash;
+              lastDraftUpdatedAtRef.current = latestSyncDate(lastDraftUpdatedAtRef.current, result.envelope.updatedAt);
+              setCloudSync({
+                phase: "saved",
+                message: `Merged ${teamChanges.length} latest team ${teamChanges.length === 1 ? "change" : "changes"} into your private draft.`,
+                lastSavedAt: result.envelope.updatedAt,
+                configured: true
+              });
+              if (!readOnly && currentUser) {
+                void saveUserDraft(currentUser.email, mergedDatabase)
+                  .then((draftResult) => {
+                    if (!draftResult.ok || !draftResult.envelope?.payload.database) return;
+                    lastDraftHashRef.current = databaseSyncHash(draftResult.envelope.payload.database);
+                    lastDraftUpdatedAtRef.current = latestSyncDate(lastDraftUpdatedAtRef.current, draftResult.envelope.updatedAt);
+                  })
+                  .catch(() => {});
+              }
+              return;
+            }
+
+            savePublishedSyncState(remotePublished, result.envelope.updatedAt);
             setCloudSync((current) => ({
               ...current,
-              message: "A new team push is available. Finish your private draft, then reload to pull it in."
+              message: "A new team push is available. Open Push, then Pull Latest Team Version to replace this private draft."
             }));
             return;
           }
@@ -485,6 +525,7 @@ export default function App() {
       const remotePublishedHash = databaseSyncHash(remotePublished);
       setPublishedDatabase(remotePublished);
       lastPublishedHashRef.current = remotePublishedHash;
+      lastPublishedDatabaseRef.current = remotePublished;
       if (publishedEnvelope) {
         savePublishedSyncState(remotePublished, publishedEnvelope.updatedAt);
       }
@@ -502,7 +543,14 @@ export default function App() {
         : draftHasPrivateWork && draftIsNewerThanPublished
           ? draftEnvelope
           : publishedEnvelope;
-      const chosenDatabase = chosenEnvelope?.payload.database || localDatabase;
+      let chosenDatabase = chosenEnvelope?.payload.database || localDatabase;
+      const privateDraftWasChosen = Boolean(chosenEnvelope === draftEnvelope && publishedEnvelope);
+      let filledMissingTeamModules = false;
+      if (privateDraftWasChosen) {
+        const mergedDatabase = mergeMissingPublishedRecords(chosenDatabase, remotePublished);
+        filledMissingTeamModules = databaseSyncHash(mergedDatabase) !== databaseSyncHash(chosenDatabase);
+        chosenDatabase = mergedDatabase;
+      }
       const chosenHash = databaseSyncHash(chosenDatabase);
 
       remoteLoadRef.current = true;
@@ -516,9 +564,13 @@ export default function App() {
       lastDraftUpdatedAtRef.current = latestSyncDate(chosenEnvelope?.updatedAt || "", draftEnvelope?.updatedAt || "");
       setCloudSync({
         phase: chosenEnvelope ? "saved" : "idle",
-        message: chosenEnvelope
-          ? `Loaded cloud data saved ${new Date(chosenEnvelope.updatedAt).toLocaleString()}.`
-          : "Cloud sync is ready. Your next edit will autosave.",
+        message: filledMissingTeamModules
+          ? "Loaded your private draft and added missing team-published modules. Use Pull Latest Team Version to discard the private draft."
+          : privateDraftWasChosen
+            ? "Loaded your private draft. Use Push to review it or Pull Latest Team Version to replace it with the team copy."
+            : chosenEnvelope
+              ? `Loaded cloud data saved ${new Date(chosenEnvelope.updatedAt).toLocaleString()}.`
+              : "Cloud sync is ready. Your next edit will autosave.",
         lastSavedAt: chosenEnvelope?.updatedAt || "",
         configured: true
       });
@@ -668,6 +720,7 @@ export default function App() {
       }
 
       setPublishedDatabase(result.envelope.payload.database);
+      lastPublishedDatabaseRef.current = result.envelope.payload.database;
       lastPublishedHashRef.current = databaseSyncHash(result.envelope.payload.database);
       savePublishedSyncState(result.envelope.payload.database, result.envelope.updatedAt);
       setPushReviewOpen(false);
@@ -687,6 +740,91 @@ export default function App() {
         lastSavedAt: cloudSync.lastSavedAt,
         configured: true
       });
+    }
+  };
+
+  const pullLatestTeamVersion = async () => {
+    if (!currentUser) return;
+    const confirmed = window.confirm(
+      "Pull the latest team version? This replaces this account's private draft in this browser with the live team copy. Anything not pushed from this account will be discarded."
+    );
+    if (!confirmed) return;
+
+    setPullingLatest(true);
+    setPushMessage("Pulling the latest team version...");
+    setCloudSync((current) => ({
+      ...current,
+      phase: "loading",
+      message: "Pulling the latest team version..."
+    }));
+
+    try {
+      const result = await fetchPublishedDatabase();
+      if (!result.ok || !result.envelope?.payload.database) {
+        const errorMessage = result.error || "No published team version is available yet.";
+        setPushMessage(errorMessage);
+        setCloudSync({
+          phase: "offline",
+          message: errorMessage,
+          lastSavedAt: cloudSync.lastSavedAt,
+          configured: result.configured
+        });
+        return;
+      }
+
+      const remotePublished = result.envelope.payload.database;
+      const remoteHash = databaseSyncHash(remotePublished);
+      remoteLoadRef.current = true;
+      setDatabase(remotePublished);
+      saveDatabase(remotePublished);
+      window.setTimeout(() => {
+        remoteLoadRef.current = false;
+      }, 0);
+
+      setPublishedDatabase(remotePublished);
+      lastPublishedDatabaseRef.current = remotePublished;
+      lastPublishedHashRef.current = remoteHash;
+      lastDraftHashRef.current = remoteHash;
+      lastDraftUpdatedAtRef.current = result.envelope.updatedAt;
+      savePublishedSyncState(remotePublished, result.envelope.updatedAt);
+
+      const draftResult = readOnly ? null : await saveUserDraft(currentUser.email, remotePublished);
+      if (draftResult && (!draftResult.ok || !draftResult.envelope?.payload.database)) {
+        const warning = draftResult.error || "Pulled locally, but the account draft could not be reset.";
+        setPushMessage(warning);
+        setCloudSync({
+          phase: "offline",
+          message: warning,
+          lastSavedAt: result.envelope.updatedAt,
+          configured: draftResult.configured
+        });
+        return;
+      }
+
+      if (draftResult?.envelope?.payload.database) {
+        lastDraftHashRef.current = databaseSyncHash(draftResult.envelope.payload.database);
+        lastDraftUpdatedAtRef.current = draftResult.envelope.updatedAt;
+      }
+
+      setPushReviewOpen(false);
+      setPushMessage("");
+      setCloudSync({
+        phase: "saved",
+        message: "Pulled the latest team version.",
+        lastSavedAt: draftResult?.envelope?.updatedAt || result.envelope.updatedAt,
+        configured: true
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Could not pull the latest team version.";
+      setPushMessage(errorMessage);
+      setCloudSync({
+        phase: "offline",
+        message: errorMessage,
+        lastSavedAt: cloudSync.lastSavedAt,
+        configured: true
+      });
+    } finally {
+      setPullingLatest(false);
     }
   };
 
@@ -1222,7 +1360,7 @@ export default function App() {
           canAccessSettings={canAccessSettings}
           hiddenViewIds={hiddenViewIds}
           syncLabel={cloudSync.message}
-          syncWorking={cloudSync.phase === "saving" || cloudSync.phase === "publishing" || cloudSync.phase === "loading"}
+          syncWorking={cloudSync.phase === "publishing"}
         />
 
         <main className="min-w-0 flex-1">
@@ -1471,9 +1609,11 @@ export default function App() {
           <SyncPublishModal
             changes={publishChanges}
             publishing={cloudSync.phase === "publishing"}
+            pulling={pullingLatest}
             message={pushMessage || cloudSync.message}
             onClose={() => setPushReviewOpen(false)}
             onPublish={publishSelectedChanges}
+            onPullLatest={pullLatestTeamVersion}
           />
         )}
 
@@ -1540,6 +1680,40 @@ function latestSyncDate(left = "", right = "") {
   if (!left) return right;
   if (!right) return left;
   return new Date(left).getTime() >= new Date(right).getTime() ? left : right;
+}
+
+function mergeMissingPublishedRecords(localDatabase: LoreDatabase, publishedDatabase: LoreDatabase) {
+  const worldBuilding = { ...localDatabase.worldBuilding };
+  const worldCategories = new Set([
+    ...Object.keys(localDatabase.worldBuilding || {}),
+    ...Object.keys(publishedDatabase.worldBuilding || {})
+  ]);
+
+  worldCategories.forEach((category) => {
+    const key = category as keyof LoreDatabase["worldBuilding"];
+    worldBuilding[key] = prependMissingById(
+      worldBuilding[key] || [],
+      publishedDatabase.worldBuilding?.[key] || []
+    ) as LoreDatabase["worldBuilding"][typeof key];
+  });
+
+  return migrateDatabase({
+    ...localDatabase,
+    entries: prependMissingById(localDatabase.entries || [], publishedDatabase.entries || []),
+    bestiary: prependMissingById(localDatabase.bestiary || [], publishedDatabase.bestiary || []),
+    bestiaryCategoryVaults: prependMissingById(
+      localDatabase.bestiaryCategoryVaults || [],
+      publishedDatabase.bestiaryCategoryVaults || []
+    ),
+    worldBuilding,
+    branding: localDatabase.branding?.studioName ? localDatabase.branding : publishedDatabase.branding
+  });
+}
+
+function prependMissingById<T extends { id: string }>(current: T[], published: T[]) {
+  const currentIds = new Set(current.map((item) => item.id));
+  const missing = published.filter((item) => !currentIds.has(item.id));
+  return missing.length ? [...missing, ...current] : current;
 }
 
 function KeywordReferencePopup({

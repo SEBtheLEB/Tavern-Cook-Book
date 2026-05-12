@@ -5,9 +5,11 @@ import { Icon } from "./Icon";
 interface SyncPublishModalProps {
   changes: PublishChange[];
   publishing: boolean;
+  pulling: boolean;
   message: string;
   onClose: () => void;
   onPublish: (selectedChangeIds: string[]) => void;
+  onPullLatest: () => void;
 }
 
 const actionLabels: Record<PublishChange["action"], string> = {
@@ -19,9 +21,11 @@ const actionLabels: Record<PublishChange["action"], string> = {
 export function SyncPublishModal({
   changes,
   publishing,
+  pulling,
   message,
   onClose,
-  onPublish
+  onPublish,
+  onPullLatest
 }: SyncPublishModalProps) {
   const defaultSelected = useMemo(
     () => changes.filter((change) => change.defaultSelected).map((change) => change.id),
@@ -61,8 +65,12 @@ export function SyncPublishModal({
         <div className="sync-publish-toolbar">
           <span>{changes.length} module changes found</span>
           <div>
-            <button onClick={selectRecommended} disabled={publishing}>Recommended</button>
-            <button onClick={selectAll} disabled={publishing}>Select All</button>
+            <button onClick={selectRecommended} disabled={publishing || pulling}>Recommended</button>
+            <button onClick={selectAll} disabled={publishing || pulling}>Select All</button>
+            <button className="sync-publish-pull-button" onClick={onPullLatest} disabled={publishing || pulling}>
+              <Icon name="Download" className="h-4 w-4" />
+              {pulling ? "Pulling..." : "Pull Latest Team Version"}
+            </button>
           </div>
         </div>
 
@@ -73,7 +81,7 @@ export function SyncPublishModal({
                 <input
                   type="checkbox"
                   checked={selected.has(change.id)}
-                  disabled={publishing}
+                  disabled={publishing || pulling}
                   onChange={() => toggleChange(change.id)}
                 />
                 <span className={`sync-publish-action ${change.action}`}>{actionLabels[change.action]}</span>
@@ -95,12 +103,12 @@ export function SyncPublishModal({
         {message && <div className="sync-publish-message">{message}</div>}
 
         <footer>
-          <button className="tab-frame rounded px-4 py-2" onClick={onClose} disabled={publishing}>
+          <button className="tab-frame rounded px-4 py-2" onClick={onClose} disabled={publishing || pulling}>
             Cancel
           </button>
           <button
             className="button-frame inline-flex items-center gap-2 rounded px-4 py-2"
-            disabled={publishing || !selectedIds.length}
+            disabled={publishing || pulling || !selectedIds.length}
             onClick={() => onPublish(selectedIds)}
           >
             <Icon name="UploadCloud" className="h-4 w-4" />

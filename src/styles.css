@@ -19129,16 +19129,32 @@ iframe[src*="accounts.google.com"] {
 
 .sync-publish-toolbar div {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
 }
 
 .sync-publish-toolbar button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   border: 1px solid var(--panel-border);
   border-radius: 999px;
   background: var(--field-bg);
   color: var(--app-ink);
   cursor: pointer;
   padding: 0.45rem 0.75rem;
+}
+
+.sync-publish-toolbar button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.sync-publish-pull-button {
+  border-color: color-mix(in srgb, #49d8b5 58%, var(--panel-border)) !important;
+  background: color-mix(in srgb, #49d8b5 18%, var(--field-bg)) !important;
+  color: color-mix(in srgb, #07372f 70%, var(--app-ink)) !important;
+  font-weight: 900;
 }
 
 .sync-publish-list {
