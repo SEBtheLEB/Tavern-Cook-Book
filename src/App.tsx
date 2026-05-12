@@ -22,6 +22,7 @@ import {
   loadDatabase,
   loadTheme,
   migrateDatabase,
+  sanitizeDatabaseForPersistence,
   saveDatabase,
   saveTheme
 } from "./utils/storage";
@@ -39,6 +40,7 @@ import { EntryGrid } from "./components/EntryGrid";
 import { EntryModal } from "./components/EntryModal";
 import { FavoritesPage } from "./components/FavoritesPage";
 import { HubPage } from "./components/HubPage";
+import { Icon } from "./components/Icon";
 import { PantryPage } from "./components/PantryPage";
 import { ProfilePage } from "./components/ProfilePage";
 import { QuestDashboard } from "./components/QuestDashboard";
@@ -80,7 +82,12 @@ import {
 import { isDesktopBrowserAuthRequest } from "./utils/desktopShell";
 import { isFavorite as favoriteIncludes, loadFavorites, saveFavorites, toggleFavorite } from "./utils/favorites";
 import { listenForLauncherSession } from "./utils/launcherBridge";
-import { applySelectedPublishChanges, buildPublishChanges } from "./utils/publishDiff";
+import {
+  applySelectedPublishChanges,
+  buildPublishChanges,
+  type PublishChange,
+  type PublishChangeKind
+} from "./utils/publishDiff";
 import {
   type AssignmentRecord,
   getAssignments,
@@ -162,6 +169,18 @@ interface CloudSyncUiState {
   configured: boolean;
 }
 
+interface IncomingSyncConflict extends Pick<PublishChange, "kind" | "title" | "moduleLabel" | "summary" | "entryId" | "creatureId" | "vaultId" | "worldCategory" | "worldEntryId"> {
+  id: string;
+}
+
+interface SyncConflictReview {
+  conflicts: IncomingSyncConflict[];
+  teamDatabase: LoreDatabase;
+  teamUpdatedAt: string;
+}
+
+const EXPLICIT_REMOVALS_KEY = "tavern-cook-book:explicit-removals";
+
 export default function App() {
   const hostedViewer = import.meta.env.VITE_READONLY_VIEWER === "true";
   const forcedReadOnly =
@@ -206,6 +225,8 @@ export default function App() {
   const [pushReviewOpen, setPushReviewOpen] = useState(false);
   const [pushMessage, setPushMessage] = useState("");
   const [pullingLatest, setPullingLatest] = useState(false);
+  const [syncConflictReview, setSyncConflictReview] = useState<SyncConflictReview | null>(null);
+  const [explicitRemovalIds, setExplicitRemovalIds] = useState<string[]>(() => loadExplicitRemovalIds());
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [storageWarning, setStorageWarning] = useState("");
@@ -223,9 +244,12 @@ export default function App() {
     () => canAccessSettings ? [] : expandHiddenViewIds(appSyncSettings.visibility.hiddenForMembers),
     [appSyncSettings.visibility.hiddenForMembers, canAccessSettings]
   );
+  const explicitRemovalSet = useMemo(() => new Set(explicitRemovalIds), [explicitRemovalIds]);
   const publishChanges = useMemo(
-    () => buildPublishChanges(database, publishedDatabase),
-    [database, publishedDatabase]
+    () => buildPublishChanges(database, publishedDatabase).filter((change) =>
+      change.action !== "removed" || explicitRemovalSet.has(change.id)
+    ),
+    [database, publishedDatabase, explicitRemovalSet]
   );
   const pendingPublishCount = publishChanges.length;
 
@@ -291,6 +315,10 @@ export default function App() {
   }, [favorites]);
 
   useEffect(() => {
+    saveExplicitRemovalIds(explicitRemovalIds);
+  }, [explicitRemovalIds]);
+
+  useEffect(() => {
     if (!currentUser || readOnly || hostedViewer) return;
     const interval = window.setInterval(() => {
       void fetchUserDraft(currentUser.email)
@@ -341,85 +369,56 @@ export default function App() {
           const remotePublishedHash = databaseSyncHash(remotePublished);
           if (remotePublishedHash === lastPublishedHashRef.current) return;
 
-          const previousPublishedHash = lastPublishedHashRef.current;
           const previousPublishedDatabase = lastPublishedDatabaseRef.current;
-          const localHash = databaseSyncHash(database);
-          const storedPublishedState = loadPublishedSyncState();
+          const merge = readOnly
+            ? { database: remotePublished, conflicts: [], appliedCount: 0, changed: true }
+            : mergeIncomingTeamDatabase(database, previousPublishedDatabase, remotePublished, explicitRemovalSet);
+          const mergedHash = databaseSyncHash(merge.database);
           setPublishedDatabase(remotePublished);
           lastPublishedHashRef.current = remotePublishedHash;
           lastPublishedDatabaseRef.current = remotePublished;
 
-          const canApplyPublished =
-            readOnly ||
-            !previousPublishedHash ||
-            localHash === previousPublishedHash ||
-            localHash === storedPublishedState.hash;
-
-          if (!canApplyPublished) {
-            const teamChanges = buildPublishChanges(remotePublished, previousPublishedDatabase);
-            if (teamChanges.length) {
-              const mergedDatabase = applySelectedPublishChanges(
-                remotePublished,
-                database,
-                teamChanges.map((change) => change.id)
-              );
-              const mergedHash = databaseSyncHash(mergedDatabase);
-              remoteLoadRef.current = true;
-              setDatabase(mergedDatabase);
-              saveDatabase(mergedDatabase);
-              window.setTimeout(() => {
-                remoteLoadRef.current = false;
-              }, 0);
-              savePublishedSyncState(remotePublished, result.envelope.updatedAt);
-              lastDraftHashRef.current = mergedHash;
-              lastDraftUpdatedAtRef.current = latestSyncDate(lastDraftUpdatedAtRef.current, result.envelope.updatedAt);
-              setCloudSync({
-                phase: "saved",
-                message: `Merged ${teamChanges.length} latest team ${teamChanges.length === 1 ? "change" : "changes"} into your private draft.`,
-                lastSavedAt: result.envelope.updatedAt,
-                configured: true
-              });
-              if (!readOnly && currentUser) {
-                void saveUserDraft(currentUser.email, mergedDatabase)
-                  .then((draftResult) => {
-                    if (!draftResult.ok || !draftResult.envelope?.payload.database) return;
-                    lastDraftHashRef.current = databaseSyncHash(draftResult.envelope.payload.database);
-                    lastDraftUpdatedAtRef.current = latestSyncDate(lastDraftUpdatedAtRef.current, draftResult.envelope.updatedAt);
-                  })
-                  .catch(() => {});
-              }
-              return;
-            }
-
-            savePublishedSyncState(remotePublished, result.envelope.updatedAt);
-            setCloudSync((current) => ({
-              ...current,
-              message: "A new team push is available. Open Push, then Pull Latest Team Version to replace this private draft."
-            }));
-            return;
-          }
-
           remoteLoadRef.current = true;
-          setDatabase(remotePublished);
-          saveDatabase(remotePublished);
+          setDatabase(merge.database);
+          saveDatabase(merge.database);
           window.setTimeout(() => {
             remoteLoadRef.current = false;
           }, 0);
           savePublishedSyncState(remotePublished, result.envelope.updatedAt);
-          lastDraftHashRef.current = remotePublishedHash;
+          lastDraftHashRef.current = mergedHash;
           lastDraftUpdatedAtRef.current = latestSyncDate(lastDraftUpdatedAtRef.current, result.envelope.updatedAt);
+          if (merge.conflicts.length) {
+            setSyncConflictReview({
+              conflicts: merge.conflicts,
+              teamDatabase: remotePublished,
+              teamUpdatedAt: result.envelope.updatedAt
+            });
+          }
           setCloudSync({
             phase: "saved",
-            message: "Loaded the latest team push.",
+            message: merge.conflicts.length
+              ? `Loaded team changes, but ${merge.conflicts.length} overlap ${merge.conflicts.length === 1 ? "needs" : "need"} your choice.`
+              : merge.appliedCount
+                ? `Loaded ${merge.appliedCount} latest team ${merge.appliedCount === 1 ? "change" : "changes"}.`
+                : "Loaded the latest team push.",
             lastSavedAt: result.envelope.updatedAt,
             configured: true
           });
+          if (!readOnly && currentUser) {
+            void saveUserDraft(currentUser.email, merge.database)
+              .then((draftResult) => {
+                if (!draftResult.ok || !draftResult.envelope?.payload.database) return;
+                lastDraftHashRef.current = databaseSyncHash(draftResult.envelope.payload.database);
+                lastDraftUpdatedAtRef.current = latestSyncDate(lastDraftUpdatedAtRef.current, draftResult.envelope.updatedAt);
+              })
+              .catch(() => {});
+          }
         })
         .catch(() => {});
     }, 15_000);
 
     return () => window.clearInterval(interval);
-  }, [currentUser?.email, database, readOnly, hostedViewer]);
+  }, [currentUser?.email, database, readOnly, hostedViewer, explicitRemovalSet]);
 
   useEffect(() => {
     saveAssignments(assignments);
@@ -521,7 +520,6 @@ export default function App() {
         : createStarterDatabase();
       const publishedEnvelope = publishedResult.ok ? publishedResult.envelope : null;
       const draftEnvelope = canEdit && draftResult?.ok ? draftResult.envelope : null;
-      const storedPublishedState = loadPublishedSyncState();
       const remotePublishedHash = databaseSyncHash(remotePublished);
       setPublishedDatabase(remotePublished);
       lastPublishedHashRef.current = remotePublishedHash;
@@ -532,25 +530,10 @@ export default function App() {
 
       const draftDatabase = draftEnvelope?.payload.database || null;
       const draftHash = draftDatabase ? databaseSyncHash(draftDatabase) : "";
-      const draftHasPrivateWork = Boolean(
-        draftDatabase &&
-        draftHash !== remotePublishedHash &&
-        draftHash !== storedPublishedState.hash
-      );
-      const draftIsNewerThanPublished = isNewerSyncDate(draftEnvelope?.updatedAt, publishedEnvelope?.updatedAt);
-      const chosenEnvelope = !publishedEnvelope && draftEnvelope
-        ? draftEnvelope
-        : draftHasPrivateWork && draftIsNewerThanPublished
-          ? draftEnvelope
-          : publishedEnvelope;
-      let chosenDatabase = chosenEnvelope?.payload.database || localDatabase;
-      const privateDraftWasChosen = Boolean(chosenEnvelope === draftEnvelope && publishedEnvelope);
-      let filledMissingTeamModules = false;
-      if (privateDraftWasChosen) {
-        const mergedDatabase = mergeMissingPublishedRecords(chosenDatabase, remotePublished);
-        filledMissingTeamModules = databaseSyncHash(mergedDatabase) !== databaseSyncHash(chosenDatabase);
-        chosenDatabase = mergedDatabase;
-      }
+      const mergedDraft = draftDatabase && publishedEnvelope
+        ? mergeDraftOntoPublished(draftDatabase, remotePublished, explicitRemovalSet)
+        : null;
+      const chosenDatabase = mergedDraft?.database || draftDatabase || (publishedEnvelope ? remotePublished : localDatabase);
       const chosenHash = databaseSyncHash(chosenDatabase);
 
       remoteLoadRef.current = true;
@@ -561,19 +544,28 @@ export default function App() {
       }, 0);
 
       lastDraftHashRef.current = chosenHash;
-      lastDraftUpdatedAtRef.current = latestSyncDate(chosenEnvelope?.updatedAt || "", draftEnvelope?.updatedAt || "");
+      lastDraftUpdatedAtRef.current = latestSyncDate(publishedEnvelope?.updatedAt || "", draftEnvelope?.updatedAt || "");
       setCloudSync({
-        phase: chosenEnvelope ? "saved" : "idle",
-        message: filledMissingTeamModules
-          ? "Loaded your private draft and added missing team-published modules. Use Pull Latest Team Version to discard the private draft."
-          : privateDraftWasChosen
-            ? "Loaded your private draft. Use Push to review it or Pull Latest Team Version to replace it with the team copy."
-            : chosenEnvelope
-              ? `Loaded cloud data saved ${new Date(chosenEnvelope.updatedAt).toLocaleString()}.`
+        phase: publishedEnvelope || draftEnvelope ? "saved" : "idle",
+        message: mergedDraft?.privateCount
+          ? `Loaded the latest team version and kept ${mergedDraft.privateCount} private ${mergedDraft.privateCount === 1 ? "change" : "changes"}.`
+          : publishedEnvelope
+            ? `Loaded latest team version saved ${new Date(publishedEnvelope.updatedAt).toLocaleString()}.`
+            : draftEnvelope
+              ? `Loaded private draft saved ${new Date(draftEnvelope.updatedAt).toLocaleString()}.`
               : "Cloud sync is ready. Your next edit will autosave.",
-        lastSavedAt: chosenEnvelope?.updatedAt || "",
+        lastSavedAt: latestSyncDate(publishedEnvelope?.updatedAt || "", draftEnvelope?.updatedAt || ""),
         configured: true
       });
+      if (canEdit && draftDatabase && chosenHash !== draftHash) {
+        void saveUserDraft(currentUser.email, chosenDatabase)
+          .then((draftResult) => {
+            if (!draftResult.ok || !draftResult.envelope?.payload.database) return;
+            lastDraftHashRef.current = databaseSyncHash(draftResult.envelope.payload.database);
+            lastDraftUpdatedAtRef.current = latestSyncDate(lastDraftUpdatedAtRef.current, draftResult.envelope.updatedAt);
+          })
+          .catch(() => {});
+      }
     };
 
     loadRemoteState().catch((error) => {
@@ -589,7 +581,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [currentUser?.email, hostedViewer]);
+  }, [currentUser?.email, hostedViewer, explicitRemovalSet]);
 
   useEffect(() => {
     if (!readOnly || !artVaultDashboardOpen) return;
@@ -682,6 +674,10 @@ export default function App() {
     setDatabase(next);
   };
 
+  const rememberExplicitRemoval = (changeId: string) => {
+    setExplicitRemovalIds((current) => current.includes(changeId) ? current : [...current, changeId]);
+  };
+
   const openPushReview = () => {
     setPushMessage(
       cloudSync.configured
@@ -723,6 +719,7 @@ export default function App() {
       lastPublishedDatabaseRef.current = result.envelope.payload.database;
       lastPublishedHashRef.current = databaseSyncHash(result.envelope.payload.database);
       savePublishedSyncState(result.envelope.payload.database, result.envelope.updatedAt);
+      setExplicitRemovalIds((current) => current.filter((id) => !selectedChangeIds.includes(id)));
       setPushReviewOpen(false);
       setPushMessage("");
       setCloudSync({
@@ -787,6 +784,7 @@ export default function App() {
       lastDraftHashRef.current = remoteHash;
       lastDraftUpdatedAtRef.current = result.envelope.updatedAt;
       savePublishedSyncState(remotePublished, result.envelope.updatedAt);
+      setExplicitRemovalIds([]);
 
       const draftResult = readOnly ? null : await saveUserDraft(currentUser.email, remotePublished);
       if (draftResult && (!draftResult.ok || !draftResult.envelope?.payload.database)) {
@@ -828,6 +826,57 @@ export default function App() {
     }
   };
 
+  const resolveSyncConflicts = (choice: "team" | "mine") => {
+    if (!syncConflictReview || !currentUser) {
+      setSyncConflictReview(null);
+      return;
+    }
+
+    if (choice === "mine") {
+      setSyncConflictReview(null);
+      setCloudSync((current) => ({
+        ...current,
+        message: "Kept your private versions for the overlapping team changes."
+      }));
+      return;
+    }
+
+    const nextDatabase = applyTeamConflictChoices(
+      database,
+      syncConflictReview.teamDatabase,
+      syncConflictReview.conflicts
+    );
+    const nextHash = databaseSyncHash(nextDatabase);
+    remoteLoadRef.current = true;
+    setDatabase(nextDatabase);
+    saveDatabase(nextDatabase);
+    window.setTimeout(() => {
+      remoteLoadRef.current = false;
+    }, 0);
+    lastDraftHashRef.current = nextHash;
+    lastDraftUpdatedAtRef.current = latestSyncDate(lastDraftUpdatedAtRef.current, syncConflictReview.teamUpdatedAt);
+    setExplicitRemovalIds((current) =>
+      current.filter((id) => !syncConflictReview.conflicts.some((conflict) => conflictToRemovalId(conflict) === id))
+    );
+    setSyncConflictReview(null);
+    setCloudSync({
+      phase: "saved",
+      message: "Used the team version for the overlapping changes.",
+      lastSavedAt: syncConflictReview.teamUpdatedAt,
+      configured: true
+    });
+
+    if (!readOnly) {
+      void saveUserDraft(currentUser.email, nextDatabase)
+        .then((draftResult) => {
+          if (!draftResult.ok || !draftResult.envelope?.payload.database) return;
+          lastDraftHashRef.current = databaseSyncHash(draftResult.envelope.payload.database);
+          lastDraftUpdatedAtRef.current = latestSyncDate(lastDraftUpdatedAtRef.current, draftResult.envelope.updatedAt);
+        })
+        .catch(() => {});
+    }
+  };
+
   const upsertEntry = (entry: LoreEntry, options: { openDetail?: boolean } = {}) => {
     if (readOnly) return;
     const normalized = normalizeEntry({ ...entry, updatedAt: new Date().toISOString() });
@@ -859,6 +908,7 @@ export default function App() {
 
   const deleteEntry = (entry: LoreEntry) => {
     if (readOnly) return;
+    rememberExplicitRemoval(`entry:${entry.id}:removed`);
     setDatabase((current) => ({
       ...current,
       entries: current.entries.filter((item) => item.id !== entry.id)
@@ -1132,6 +1182,7 @@ export default function App() {
 
   const deleteCreature = (creatureId: string) => {
     if (readOnly) return;
+    rememberExplicitRemoval(`creature:${creatureId}:removed`);
     setDatabase((current) => ({
       ...current,
       bestiary: (current.bestiary || []).filter((creature) => creature.id !== creatureId)
@@ -1617,6 +1668,15 @@ export default function App() {
           />
         )}
 
+        {syncConflictReview && (
+          <SyncConflictModal
+            conflicts={syncConflictReview.conflicts}
+            onUseTeam={() => resolveSyncConflicts("team")}
+            onKeepMine={() => resolveSyncConflicts("mine")}
+            onClose={() => setSyncConflictReview(null)}
+          />
+        )}
+
         {selectedEntry && !selectedCharacterEntry && (
           <EntryModal
             entry={selectedEntry}
@@ -1670,50 +1730,442 @@ function expandHiddenViewIds(hiddenViewIds: ActiveView[]) {
   return [...expanded];
 }
 
-function isNewerSyncDate(left = "", right = "") {
-  if (!left) return false;
-  if (!right) return true;
-  return new Date(left).getTime() > new Date(right).getTime();
-}
-
 function latestSyncDate(left = "", right = "") {
   if (!left) return right;
   if (!right) return left;
   return new Date(left).getTime() >= new Date(right).getTime() ? left : right;
 }
 
-function mergeMissingPublishedRecords(localDatabase: LoreDatabase, publishedDatabase: LoreDatabase) {
-  const worldBuilding = { ...localDatabase.worldBuilding };
-  const worldCategories = new Set([
-    ...Object.keys(localDatabase.worldBuilding || {}),
-    ...Object.keys(publishedDatabase.worldBuilding || {})
-  ]);
+function mergeDraftOntoPublished(
+  draftDatabase: LoreDatabase,
+  publishedDatabase: LoreDatabase,
+  explicitRemovalSet: Set<string>
+) {
+  const draft = sanitizeDatabaseForPersistence(draftDatabase);
+  const published = sanitizeDatabaseForPersistence(publishedDatabase);
+  let privateCount = 0;
 
+  const entries = mergeDraftArray(published.entries || [], draft.entries || [], explicitRemovalSet, (id) => removalChangeId("entry", id));
+  const bestiary = mergeDraftArray(published.bestiary || [], draft.bestiary || [], explicitRemovalSet, (id) => removalChangeId("creature", id));
+  const bestiaryCategoryVaults = mergeDraftArray(
+    published.bestiaryCategoryVaults || [],
+    draft.bestiaryCategoryVaults || [],
+    explicitRemovalSet,
+    (id) => removalChangeId("bestiaryCategoryVault", id)
+  );
+  privateCount += entries.privateCount + bestiary.privateCount + bestiaryCategoryVaults.privateCount;
+
+  const worldBuilding = { ...published.worldBuilding };
+  const worldCategories = new Set([
+    ...Object.keys(published.worldBuilding || {}),
+    ...Object.keys(draft.worldBuilding || {})
+  ]);
   worldCategories.forEach((category) => {
     const key = category as keyof LoreDatabase["worldBuilding"];
-    worldBuilding[key] = prependMissingById(
-      worldBuilding[key] || [],
-      publishedDatabase.worldBuilding?.[key] || []
-    ) as LoreDatabase["worldBuilding"][typeof key];
+    const merged = mergeDraftArray(
+      published.worldBuilding?.[key] || [],
+      draft.worldBuilding?.[key] || [],
+      explicitRemovalSet,
+      (id) => removalChangeId("worldEntry", id, String(category))
+    ) as { items: LoreDatabase["worldBuilding"][typeof key]; privateCount: number };
+    worldBuilding[key] = merged.items;
+    privateCount += merged.privateCount;
   });
 
-  return migrateDatabase({
-    ...localDatabase,
-    entries: prependMissingById(localDatabase.entries || [], publishedDatabase.entries || []),
-    bestiary: prependMissingById(localDatabase.bestiary || [], publishedDatabase.bestiary || []),
-    bestiaryCategoryVaults: prependMissingById(
-      localDatabase.bestiaryCategoryVaults || [],
-      publishedDatabase.bestiaryCategoryVaults || []
-    ),
-    worldBuilding,
-    branding: localDatabase.branding?.studioName ? localDatabase.branding : publishedDatabase.branding
-  });
+  return {
+    database: migrateDatabase({
+      ...published,
+      entries: entries.items,
+      bestiary: bestiary.items,
+      bestiaryCategoryVaults: bestiaryCategoryVaults.items,
+      worldBuilding
+    }),
+    privateCount
+  };
 }
 
-function prependMissingById<T extends { id: string }>(current: T[], published: T[]) {
-  const currentIds = new Set(current.map((item) => item.id));
-  const missing = published.filter((item) => !currentIds.has(item.id));
-  return missing.length ? [...missing, ...current] : current;
+function mergeIncomingTeamDatabase(
+  localDatabase: LoreDatabase,
+  previousPublishedDatabase: LoreDatabase,
+  nextPublishedDatabase: LoreDatabase,
+  explicitRemovalSet: Set<string>
+) {
+  const local = sanitizeDatabaseForPersistence(localDatabase);
+  const previous = sanitizeDatabaseForPersistence(previousPublishedDatabase);
+  const next = sanitizeDatabaseForPersistence(nextPublishedDatabase);
+  const conflicts: IncomingSyncConflict[] = [];
+  let appliedCount = 0;
+
+  const entries = mergeIncomingArray(local.entries || [], previous.entries || [], next.entries || [], explicitRemovalSet, entryConflict);
+  const bestiary = mergeIncomingArray(local.bestiary || [], previous.bestiary || [], next.bestiary || [], explicitRemovalSet, creatureConflict);
+  const bestiaryCategoryVaults = mergeIncomingArray(
+    local.bestiaryCategoryVaults || [],
+    previous.bestiaryCategoryVaults || [],
+    next.bestiaryCategoryVaults || [],
+    explicitRemovalSet,
+    vaultConflict
+  );
+  appliedCount += entries.appliedCount + bestiary.appliedCount + bestiaryCategoryVaults.appliedCount;
+  conflicts.push(...entries.conflicts, ...bestiary.conflicts, ...bestiaryCategoryVaults.conflicts);
+
+  const worldBuilding = { ...local.worldBuilding };
+  const worldCategories = new Set([
+    ...Object.keys(local.worldBuilding || {}),
+    ...Object.keys(previous.worldBuilding || {}),
+    ...Object.keys(next.worldBuilding || {})
+  ]);
+  worldCategories.forEach((category) => {
+    const key = category as keyof LoreDatabase["worldBuilding"];
+    const merged = mergeIncomingArray(
+      local.worldBuilding?.[key] || [],
+      previous.worldBuilding?.[key] || [],
+      next.worldBuilding?.[key] || [],
+      explicitRemovalSet,
+      (item) => worldConflict(item, String(category))
+    ) as {
+      items: LoreDatabase["worldBuilding"][typeof key];
+      conflicts: IncomingSyncConflict[];
+      appliedCount: number;
+    };
+    worldBuilding[key] = merged.items;
+    appliedCount += merged.appliedCount;
+    conflicts.push(...merged.conflicts);
+  });
+
+  const brandingChangedByTeam = !sameValue(next.branding, previous.branding);
+  const brandingChangedLocally = !sameValue(local.branding, previous.branding);
+  const branding = brandingChangedByTeam && !brandingChangedLocally ? next.branding : local.branding;
+  if (brandingChangedByTeam && !brandingChangedLocally && !sameValue(local.branding, next.branding)) appliedCount += 1;
+  if (brandingChangedByTeam && brandingChangedLocally && !sameValue(local.branding, next.branding)) {
+    conflicts.push({
+      id: "branding:studio",
+      kind: "branding",
+      title: "STL Productionz Branding",
+      moduleLabel: "Branding",
+      summary: "Both your account and the team version changed the studio branding."
+    });
+  }
+
+  const database = migrateDatabase({
+    ...local,
+    entries: entries.items,
+    bestiary: bestiary.items,
+    bestiaryCategoryVaults: bestiaryCategoryVaults.items,
+    worldBuilding,
+    branding
+  });
+
+  return {
+    database,
+    conflicts,
+    appliedCount,
+    changed: databaseSyncHash(database) !== databaseSyncHash(local)
+  };
+}
+
+function mergeDraftArray<T extends { id: string }>(
+  publishedItems: T[],
+  draftItems: T[],
+  explicitRemovalSet: Set<string>,
+  removalIdFor: (id: string) => string
+) {
+  const draftById = new Map(draftItems.map((item) => [item.id, item] as const));
+  const publishedIds = new Set(publishedItems.map((item) => item.id));
+  const items: T[] = [];
+  let privateCount = 0;
+
+  publishedItems.forEach((publishedItem) => {
+    const draftItem = draftById.get(publishedItem.id);
+    if (explicitRemovalSet.has(removalIdFor(publishedItem.id))) {
+      privateCount += 1;
+      return;
+    }
+    if (draftItem && isDraftItemNewer(draftItem, publishedItem) && !sameValue(draftItem, publishedItem)) {
+      items.push(draftItem);
+      privateCount += 1;
+      return;
+    }
+    items.push(publishedItem);
+  });
+
+  draftItems.forEach((draftItem) => {
+    if (publishedIds.has(draftItem.id)) return;
+    items.unshift(draftItem);
+    privateCount += 1;
+  });
+
+  return { items, privateCount };
+}
+
+function mergeIncomingArray<T extends { id: string }>(
+  localItems: T[],
+  previousItems: T[],
+  nextItems: T[],
+  explicitRemovalSet: Set<string>,
+  describeConflict: (item: T) => IncomingSyncConflict
+) {
+  const localById = new Map(localItems.map((item) => [item.id, item] as const));
+  const previousById = new Map(previousItems.map((item) => [item.id, item] as const));
+  const nextById = new Map(nextItems.map((item) => [item.id, item] as const));
+  const items: T[] = [];
+  const conflicts: IncomingSyncConflict[] = [];
+  const seen = new Set<string>();
+  let appliedCount = 0;
+
+  nextItems.forEach((nextItem) => {
+    const localItem = localById.get(nextItem.id);
+    const previousItem = previousById.get(nextItem.id);
+    const teamChanged = !previousItem || !sameValue(nextItem, previousItem);
+    const localChanged = Boolean(localItem && previousItem && !sameValue(localItem, previousItem));
+    const removalId = removalIdFromConflict(describeConflict(nextItem));
+    seen.add(nextItem.id);
+
+    if (!localItem) {
+      if (explicitRemovalSet.has(removalId) && previousItem) {
+        if (teamChanged) conflicts.push(describeConflict(nextItem));
+        return;
+      }
+      items.push(nextItem);
+      if (teamChanged) appliedCount += 1;
+      return;
+    }
+
+    if (teamChanged && localChanged && !sameValue(localItem, nextItem)) {
+      items.push(localItem);
+      conflicts.push(describeConflict(nextItem));
+      return;
+    }
+
+    if (teamChanged && !sameValue(localItem, nextItem)) {
+      items.push(nextItem);
+      appliedCount += 1;
+      return;
+    }
+
+    items.push(localItem);
+  });
+
+  localItems.forEach((localItem) => {
+    if (seen.has(localItem.id)) return;
+    const previousItem = previousById.get(localItem.id);
+    if (!previousItem) {
+      items.push(localItem);
+      return;
+    }
+    if (!nextById.has(localItem.id) && !sameValue(localItem, previousItem)) {
+      items.push(localItem);
+      conflicts.push(describeConflict(localItem));
+      return;
+    }
+    if (!nextById.has(localItem.id)) appliedCount += 1;
+  });
+
+  return { items, conflicts, appliedCount };
+}
+
+function applyTeamConflictChoices(
+  localDatabase: LoreDatabase,
+  teamDatabase: LoreDatabase,
+  conflicts: IncomingSyncConflict[]
+) {
+  let next = sanitizeDatabaseForPersistence(localDatabase);
+  const team = sanitizeDatabaseForPersistence(teamDatabase);
+  conflicts.forEach((conflict) => {
+    if (conflict.kind === "entry" && conflict.entryId) {
+      next = { ...next, entries: applyTeamArrayChoice(next.entries || [], team.entries || [], conflict.entryId) };
+    }
+    if (conflict.kind === "creature" && conflict.creatureId) {
+      next = { ...next, bestiary: applyTeamArrayChoice(next.bestiary || [], team.bestiary || [], conflict.creatureId) };
+    }
+    if (conflict.kind === "bestiaryCategoryVault" && conflict.vaultId) {
+      next = {
+        ...next,
+        bestiaryCategoryVaults: applyTeamArrayChoice(
+          next.bestiaryCategoryVaults || [],
+          team.bestiaryCategoryVaults || [],
+          conflict.vaultId
+        )
+      };
+    }
+    if (conflict.kind === "worldEntry" && conflict.worldCategory && conflict.worldEntryId) {
+      const category = conflict.worldCategory as keyof LoreDatabase["worldBuilding"];
+      next = {
+        ...next,
+        worldBuilding: {
+          ...next.worldBuilding,
+          [category]: applyTeamArrayChoice(
+            next.worldBuilding?.[category] || [],
+            team.worldBuilding?.[category] || [],
+            conflict.worldEntryId
+          ) as LoreDatabase["worldBuilding"][typeof category]
+        }
+      };
+    }
+    if (conflict.kind === "branding") {
+      next = { ...next, branding: team.branding };
+    }
+  });
+  return migrateDatabase(next);
+}
+
+function applyTeamArrayChoice<T extends { id: string }>(localItems: T[], teamItems: T[], id: string) {
+  const teamItem = teamItems.find((item) => item.id === id);
+  if (!teamItem) return localItems.filter((item) => item.id !== id);
+  return localItems.some((item) => item.id === id)
+    ? localItems.map((item) => item.id === id ? teamItem : item)
+    : [teamItem, ...localItems];
+}
+
+function entryConflict(entry: LoreEntry): IncomingSyncConflict {
+  return {
+    id: `entry:${entry.id}`,
+    kind: "entry",
+    title: entry.title || "Untitled Entry",
+    moduleLabel: entry.category || "Lore Entry",
+    summary: `${entry.category || "Entry"} / ${entry.type || "Module"}`,
+    entryId: entry.id
+  };
+}
+
+function creatureConflict(creature: BestiaryCreature): IncomingSyncConflict {
+  return {
+    id: `creature:${creature.id}`,
+    kind: "creature",
+    title: creature.name || "Untitled Creature",
+    moduleLabel: "Bestiary",
+    summary: `${creature.category || "Creature"} / ${creature.type || "Bestiary"}`,
+    creatureId: creature.id
+  };
+}
+
+function vaultConflict(vault: BestiaryCategoryArtVault): IncomingSyncConflict {
+  return {
+    id: `bestiaryCategoryVault:${vault.id}`,
+    kind: "bestiaryCategoryVault",
+    title: vault.title || vault.categoryName || "Untitled Art Binder",
+    moduleLabel: "Art Binder",
+    summary: `Bestiary art category / ${vault.categoryName || "Category"}`,
+    vaultId: vault.id
+  };
+}
+
+function worldConflict(entry: { id: string; title?: string; type?: string; tags?: string[] }, category: string): IncomingSyncConflict {
+  return {
+    id: `worldEntry:${category}:${entry.id}`,
+    kind: "worldEntry",
+    title: entry.title || "Untitled World Entry",
+    moduleLabel: `World Building / ${category}`,
+    summary: `${entry.type || "World entry"} / ${entry.tags?.slice(0, 3).join(", ") || "No tags"}`,
+    worldCategory: category,
+    worldEntryId: entry.id
+  };
+}
+
+function conflictToRemovalId(conflict: IncomingSyncConflict) {
+  if (conflict.kind === "entry" && conflict.entryId) return removalChangeId("entry", conflict.entryId);
+  if (conflict.kind === "creature" && conflict.creatureId) return removalChangeId("creature", conflict.creatureId);
+  if (conflict.kind === "bestiaryCategoryVault" && conflict.vaultId) return removalChangeId("bestiaryCategoryVault", conflict.vaultId);
+  if (conflict.kind === "worldEntry" && conflict.worldCategory && conflict.worldEntryId) {
+    return removalChangeId("worldEntry", conflict.worldEntryId, String(conflict.worldCategory));
+  }
+  return conflict.id;
+}
+
+function removalIdFromConflict(conflict: IncomingSyncConflict) {
+  return conflictToRemovalId(conflict);
+}
+
+function removalChangeId(kind: PublishChangeKind, id: string, worldCategory = "") {
+  if (kind === "worldEntry") return `worldEntry:${worldCategory}:${id}:removed`;
+  return `${kind}:${id}:removed`;
+}
+
+function isDraftItemNewer(left: unknown, right: unknown) {
+  const leftTime = itemUpdatedTime(left);
+  const rightTime = itemUpdatedTime(right);
+  return Boolean(leftTime && (!rightTime || leftTime > rightTime));
+}
+
+function itemUpdatedTime(value: unknown) {
+  if (!value || typeof value !== "object") return 0;
+  const record = value as { updatedAt?: unknown; lastUpdatedAt?: unknown; dateAdded?: unknown; createdAt?: unknown };
+  const raw = record.updatedAt || record.lastUpdatedAt || record.dateAdded || record.createdAt;
+  if (typeof raw !== "string") return 0;
+  const time = new Date(raw).getTime();
+  return Number.isFinite(time) ? time : 0;
+}
+
+function sameValue(left: unknown, right: unknown) {
+  return stableString(left) === stableString(right);
+}
+
+function stableString(value: unknown) {
+  return JSON.stringify(value);
+}
+
+function loadExplicitRemovalIds() {
+  try {
+    const raw = localStorage.getItem(EXPLICIT_REMOVALS_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveExplicitRemovalIds(ids: string[]) {
+  try {
+    localStorage.setItem(EXPLICIT_REMOVALS_KEY, JSON.stringify([...new Set(ids)]));
+  } catch {
+    // Explicit removals only affect the push review; the app can keep working without this cache.
+  }
+}
+
+function SyncConflictModal({
+  conflicts,
+  onUseTeam,
+  onKeepMine,
+  onClose
+}: {
+  conflicts: IncomingSyncConflict[];
+  onUseTeam: () => void;
+  onKeepMine: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="sync-conflict-backdrop">
+      <section className="sync-conflict-modal" role="dialog" aria-modal="true" aria-labelledby="sync-conflict-title">
+        <header>
+          <div className="sync-conflict-icon">
+            <Icon name="ShieldAlert" className="h-5 w-5" />
+          </div>
+          <div>
+            <p>Team Sync Conflict</p>
+            <h2 id="sync-conflict-title" className="font-display">Choose Which Version Wins</h2>
+          </div>
+          <button className="sync-publish-icon-button" onClick={onClose} title="Review later">
+            <Icon name="X" className="h-5 w-5" />
+          </button>
+        </header>
+        <div className="sync-conflict-body entry-scroll">
+          <p>
+            The latest team push was loaded where it did not overlap. These modules were changed in both places.
+          </p>
+          {conflicts.map((conflict) => (
+            <article key={conflict.id} className="sync-conflict-row">
+              <strong>{conflict.title}</strong>
+              <span>{conflict.moduleLabel}</span>
+              <small>{conflict.summary}</small>
+            </article>
+          ))}
+        </div>
+        <footer>
+          <button className="tab-frame rounded px-4 py-2" onClick={onKeepMine}>Keep My Version</button>
+          <button className="button-frame rounded px-4 py-2" onClick={onUseTeam}>Use Team Version</button>
+        </footer>
+      </section>
+    </div>
+  );
 }
 
 function KeywordReferencePopup({
