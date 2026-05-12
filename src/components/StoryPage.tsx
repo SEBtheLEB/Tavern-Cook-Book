@@ -253,6 +253,23 @@ export function StoryPage({
     }
   }, [activeTimelineId, filteredTimelinePoints]);
 
+  if (fullStoryOpen && selectedEntry) {
+    return (
+      <div className="story-codex-page">
+        <StoryReaderModal
+          title={selectedEntry.title}
+          eyebrow="Story Module Full Reader"
+          activeTab={activeStoryTab}
+          sections={readerSections}
+          fullStory={fullStory}
+          steps={readerSteps}
+          onSetActiveTab={setActiveStoryTab}
+          onClose={() => setFullStoryOpen(false)}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="story-codex-page">
       <section className="story-codex-header">
@@ -420,18 +437,6 @@ export function StoryPage({
                       </StoryDetails>
                     </div>
 
-                    {fullStoryOpen && (
-                      <StoryReaderModal
-                        title={selectedEntry.title}
-                        eyebrow="Story Module Scroll"
-                        activeTab={activeStoryTab}
-                        sections={readerSections}
-                        fullStory={fullStory}
-                        steps={readerSteps}
-                        onSetActiveTab={setActiveStoryTab}
-                        onClose={() => setFullStoryOpen(false)}
-                      />
-                    )}
                   </>
                 )}
               </>

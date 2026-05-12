@@ -349,6 +349,7 @@ export interface BestiaryCreatureLore {
   questConnections: string;
   relatedCreatures: string;
   hiddenNotes: string;
+  fullStory?: string;
 }
 
 export interface BestiaryCreature {

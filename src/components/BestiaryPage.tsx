@@ -50,6 +50,7 @@ import { FavoriteButton } from "./FavoriteButton";
 import { ImageAdjustModal } from "./ImageAdjustModal";
 import { ImageManagerModal, type ImageManagerSlotDraft } from "./ImageManagerModal";
 import { Icon } from "./Icon";
+import { StoryReaderModal, type StoryReaderSection, type StoryReaderStep } from "./StoryReaderModal";
 
 interface BestiaryPageProps {
   creatures: BestiaryCreature[];
@@ -152,6 +153,8 @@ export function BestiaryPage({
   const [artVaultCategoryName, setArtVaultCategoryName] = useState("");
   const [imageAdjustTarget, setImageAdjustTarget] = useState<CreatureImageAdjustTarget | null>(null);
   const [imageManagerOpen, setImageManagerOpen] = useState(false);
+  const [fullStoryOpen, setFullStoryOpen] = useState(false);
+  const [activeStoryTab, setActiveStoryTab] = useState("full");
 
   useEffect(() => {
     if (!normalizedCreatures.length) {
@@ -548,6 +551,32 @@ export function BestiaryPage({
         link: googleDriveFolderLink(getDriveSettings().defaultTalesFolderId.trim()),
         name: "Default Tales Folder"
       };
+  const bestiaryStorySections = displayCreature
+    ? buildBestiaryStoryReaderSections(displayCreature, editing ? (patch) => updateDraft(patch) : undefined)
+    : [];
+  const bestiaryStorySteps = displayCreature ? buildBestiaryStoryReaderSteps(displayCreature) : [];
+  const bestiaryFullStory = displayCreature ? buildBestiaryFullStory(displayCreature, bestiaryStorySections) : "";
+
+  if (fullStoryOpen && displayCreature) {
+    return (
+      <div className="bestiary-page">
+        <StoryReaderModal
+          title={displayCreature.name}
+          eyebrow="Bestiary Full Story"
+          activeTab={activeStoryTab}
+          sections={bestiaryStorySections}
+          fullStory={bestiaryFullStory}
+          fullStoryEditValue={displayCreature.lore.fullStory || bestiaryFullStory}
+          fullStoryPlaceholder="Write the full creature story here: origin, habitat history, culture, rumors, hidden truth, and how this creature matters."
+          steps={bestiaryStorySteps}
+          isEditing={editing}
+          onSetActiveTab={setActiveStoryTab}
+          onFullStoryChange={(fullStory) => updateDraft({ lore: { ...displayCreature.lore, fullStory } })}
+          onClose={() => setFullStoryOpen(false)}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="bestiary-page">
@@ -718,6 +747,10 @@ export function BestiaryPage({
                   previewFrame
                 )
               }
+              onOpenFullStory={() => {
+                setActiveStoryTab("full");
+                setFullStoryOpen(true);
+              }}
               isFavorite={Boolean(isCreatureFavorite?.(displayCreature))}
               onToggleFavorite={() => onToggleCreatureFavorite?.(displayCreature)}
             />
@@ -758,6 +791,85 @@ export function BestiaryPage({
       )}
     </div>
   );
+}
+
+function buildBestiaryStoryReaderSections(
+  creature: BestiaryCreature,
+  onPatch?: (patch: Partial<BestiaryCreature>) => void
+): StoryReaderSection[] {
+  const setLore = (patch: Partial<BestiaryCreatureLore>) => onPatch?.({ lore: { ...creature.lore, ...patch } });
+  return [
+    {
+      key: "overview",
+      title: "Overview",
+      icon: "BookOpen",
+      value: joinStoryParts([creature.description, creature.overview, creature.fieldNotes]) || "No overview added yet.",
+      onChange: onPatch ? (value) => onPatch({ overview: value }) : undefined
+    },
+    {
+      key: "origin",
+      title: "Origin",
+      icon: "GitBranch",
+      value: creature.lore.origin || "No origin notes added yet.",
+      onChange: onPatch ? (origin) => setLore({ origin }) : undefined
+    },
+    {
+      key: "habitat",
+      title: "Habitat",
+      icon: "Map",
+      value: joinStoryParts([
+        `Habitat: ${creature.habitat || "Unknown"}`,
+        creature.habitatInfo.knownLocations,
+        creature.habitatInfo.spawnConditions,
+        creature.habitatInfo.mapNotes
+      ]),
+      onChange: onPatch ? (mapNotes) => onPatch({ habitatInfo: { ...creature.habitatInfo, mapNotes } }) : undefined
+    },
+    {
+      key: "culture",
+      title: "Culture",
+      icon: "Landmark",
+      value: joinStoryParts([creature.lore.culturalMeaning, creature.lore.rumors]) || "No cultural lore added yet.",
+      onChange: onPatch ? (culturalMeaning) => setLore({ culturalMeaning }) : undefined
+    },
+    {
+      key: "story",
+      title: "Story Use",
+      icon: "Compass",
+      value: joinStoryParts([creature.lore.questConnections, creature.gameplayPurpose, creature.lore.relatedCreatures]),
+      onChange: onPatch ? (questConnections) => setLore({ questConnections }) : undefined
+    },
+    {
+      key: "secrets",
+      title: "Secrets",
+      icon: "EyeOff",
+      value: creature.lore.hiddenNotes || "No hidden notes added yet.",
+      onChange: onPatch ? (hiddenNotes) => setLore({ hiddenNotes }) : undefined
+    }
+  ];
+}
+
+function buildBestiaryStoryReaderSteps(creature: BestiaryCreature): StoryReaderStep[] {
+  return [
+    { title: "First Sight", kicker: creature.type, text: creature.description || creature.overview },
+    { title: "Where It Lives", kicker: creature.habitat || "Habitat", text: joinStoryParts([creature.habitatInfo.knownLocations, creature.habitatInfo.spawnConditions, creature.habitatInfo.mapNotes]) },
+    { title: "Origin", kicker: "Lore", text: creature.lore.origin },
+    { title: "Culture and Rumors", kicker: "World", text: joinStoryParts([creature.lore.culturalMeaning, creature.lore.rumors]) },
+    { title: "Game Story Use", kicker: "Player-facing", text: joinStoryParts([creature.lore.questConnections, creature.gameplayPurpose, creature.lore.relatedCreatures]) },
+    { title: "Hidden Truth", kicker: "Spoilers", text: creature.lore.hiddenNotes }
+  ].filter((step) => step.text && step.text.trim());
+}
+
+function buildBestiaryFullStory(creature: BestiaryCreature, sections: StoryReaderSection[]) {
+  if (creature.lore.fullStory?.trim()) return creature.lore.fullStory;
+  return sections
+    .map((section) => section.value && !/^No .* added yet\.$/i.test(section.value) ? `${section.title}\n${section.value}` : "")
+    .filter(Boolean)
+    .join("\n\n") || "No full creature story has been written yet.";
+}
+
+function joinStoryParts(parts: Array<string | undefined>) {
+  return parts.map((part) => String(part || "").trim()).filter(Boolean).join("\n\n");
 }
 
 function CreatureCard({
@@ -858,6 +970,7 @@ function CreatureDetails({
   onOpenImageManager,
   onOpenArtVault,
   onAdjustImage,
+  onOpenFullStory,
   isFavorite,
   onToggleFavorite
 }: {
@@ -881,6 +994,7 @@ function CreatureDetails({
   onOpenImageManager: () => void;
   onOpenArtVault: () => void;
   onAdjustImage: (previewFrame?: ImagePreviewFrame, expandedImage?: boolean) => void;
+  onOpenFullStory: () => void;
   isFavorite: boolean;
   onToggleFavorite?: () => void;
 }) {
@@ -957,6 +1071,10 @@ function CreatureDetails({
           {onToggleFavorite && (
             <FavoriteButton active={isFavorite} label={creature.name} onToggle={onToggleFavorite} />
           )}
+          <button className="button-frame bestiary-action-button" onClick={onOpenFullStory}>
+            <Icon name="ScrollText" className="h-4 w-4" />
+            Full Story
+          </button>
           {!readOnly && (
             editing ? (
               <>

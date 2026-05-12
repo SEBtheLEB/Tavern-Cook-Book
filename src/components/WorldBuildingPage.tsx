@@ -27,6 +27,7 @@ import { DriveImageSourceControls } from "./DriveImageSourceControls";
 import { Icon } from "./Icon";
 import { ImageAdjustModal } from "./ImageAdjustModal";
 import { ImageManagerModal, type ImageManagerSlotDraft } from "./ImageManagerModal";
+import { StoryReaderModal, type StoryReaderSection, type StoryReaderStep } from "./StoryReaderModal";
 
 interface WorldBuildingPageProps {
   worldBuilding: WorldBuildingData;
@@ -126,6 +127,8 @@ export function WorldBuildingPage({
   const [addDraft, setAddDraft] = useState<AddEntryDraft>(() => blankAddEntryDraft("locations"));
   const [isEditing, setIsEditing] = useState(false);
   const [entryDraft, setEntryDraft] = useState<WorldBuildingEntry | null>(null);
+  const [fullStoryOpen, setFullStoryOpen] = useState(false);
+  const [activeStoryTab, setActiveStoryTab] = useState("full");
   const [relatedPicker, setRelatedPicker] = useState<RelatedPickerState>({
     open: false,
     type: "character",
@@ -513,6 +516,37 @@ export function WorldBuildingPage({
     const relatedTargets = activeEntry.relatedEntries
       .map((related) => ({ related, target: resolveRelatedTarget(related, relationTargets) }))
       .filter((item) => item.target);
+    const storySections = buildWorldStoryReaderSections(activeEntry, config.sections);
+    const storySteps = buildWorldStoryReaderSteps(activeEntry, config.sections);
+    const fullStory = buildWorldFullStory(activeEntry, storySections);
+
+    if (fullStoryOpen) {
+      return (
+        <StoryReaderModal
+          title={activeEntry.title}
+          eyebrow="World Building Full Story"
+          activeTab={activeStoryTab}
+          sections={storySections.map((section) => ({
+            ...section,
+            onChange: isEditing && section.key !== "connections" ? (value) => {
+              if (section.key === "summary") {
+                setEntryDraft((current) => current ? { ...current, summary: value } : current);
+                return;
+              }
+              updateDraftField(section.key, value);
+            } : undefined
+          }))}
+          fullStory={fullStory}
+          fullStoryEditValue={activeEntry.fields.fullStory || fullStory}
+          fullStoryPlaceholder="Write the full worldbuilding story here: history, cultural context, secrets, player-facing version, and future use."
+          steps={storySteps}
+          isEditing={isEditing}
+          onSetActiveTab={setActiveStoryTab}
+          onFullStoryChange={(value) => updateDraftField("fullStory", value)}
+          onClose={() => setFullStoryOpen(false)}
+        />
+      );
+    }
 
     return (
       <div className="world-building-page">
@@ -590,6 +624,16 @@ export function WorldBuildingPage({
             )}
           </div>
           <div className="world-building-detail-actions">
+            <button
+              className="button-frame"
+              onClick={() => {
+                setActiveStoryTab("full");
+                setFullStoryOpen(true);
+              }}
+            >
+              <Icon name="ScrollText" className="h-4 w-4" />
+              Full Story
+            </button>
             {!readOnly && !isEditing && (
               <button className="button-frame" onClick={() => setIsEditing(true)}>
                 <Icon name="Edit3" className="h-4 w-4" />
@@ -1081,6 +1125,89 @@ function RelatedEntryCard({
       <p>{related.note}</p>
     </article>
   );
+}
+
+function buildWorldStoryReaderSections(
+  entry: WorldBuildingEntry,
+  configSections: Array<{ id: string; title: string; helper: string; placeholder: string }>
+): StoryReaderSection[] {
+  const configuredSections = configSections.map((section) => ({
+    key: section.id,
+    title: section.title,
+    icon: iconForWorldStorySection(section.id),
+    value: entry.fields[section.id] || "",
+    placeholder: section.placeholder
+  }));
+
+  return [
+    {
+      key: "summary",
+      title: "Summary",
+      icon: "BookOpen",
+      value: entry.summary || "No summary added yet.",
+      placeholder: "A clean quick-read summary."
+    },
+    ...configuredSections,
+    {
+      key: "deepNotes",
+      title: "Deep Notes",
+      icon: "ScrollText",
+      value: entry.fields.deepNotes || "No deep notes yet.",
+      placeholder: "Long-form notes, extra lore, production details, contradictions, and open questions."
+    },
+    {
+      key: "connections",
+      title: "Connections",
+      icon: "Compass",
+      value: formatWorldConnections(entry),
+      placeholder: "Connected entries and why they matter."
+    }
+  ];
+}
+
+function buildWorldStoryReaderSteps(
+  entry: WorldBuildingEntry,
+  configSections: Array<{ id: string; title: string; helper: string; placeholder: string }>
+): StoryReaderStep[] {
+  return [
+    { title: "What It Is", kicker: entry.type, text: entry.summary },
+    ...configSections.map((section) => ({
+      title: section.title,
+      kicker: section.helper,
+      text: entry.fields[section.id] || ""
+    })),
+    { title: "Deep Notes", kicker: "Internal", text: entry.fields.deepNotes || "" },
+    { title: "Connections", kicker: "References", text: formatWorldConnections(entry) }
+  ].filter((step) => step.text && step.text.trim());
+}
+
+function buildWorldFullStory(entry: WorldBuildingEntry, sections: StoryReaderSection[]) {
+  if (entry.fields.fullStory?.trim()) return entry.fields.fullStory;
+  return sections
+    .map((section) => {
+      const value = section.value.trim();
+      if (!value || /^No .* yet\.$/i.test(value) || /^No .* added yet\.$/i.test(value)) return "";
+      return `${section.title}\n${value}`;
+    })
+    .filter(Boolean)
+    .join("\n\n") || "No full worldbuilding story has been written yet.";
+}
+
+function formatWorldConnections(entry: WorldBuildingEntry) {
+  const related = entry.relatedEntries
+    .map((item) => `${item.type}: ${item.targetId}${item.note ? ` - ${item.note}` : ""}`)
+    .join("\n");
+  const tags = entry.tags.length ? `Tags: ${entry.tags.join(", ")}` : "";
+  return [tags, related].filter(Boolean).join("\n\n") || "No connections added yet.";
+}
+
+function iconForWorldStorySection(sectionId: string) {
+  if (/history|timeline|origin/i.test(sectionId)) return "GitBranch";
+  if (/people|culture|belief|relationship/i.test(sectionId)) return "Users";
+  if (/magic|power|rule/i.test(sectionId)) return "Sparkles";
+  if (/visual|image|look/i.test(sectionId)) return "Image";
+  if (/quest|gameplay|story/i.test(sectionId)) return "Compass";
+  return "BookOpen";
 }
 
 function buildRelationTargets({

@@ -1139,6 +1139,25 @@ export function CharacterProfileView({
   }));
   const characterStorySteps = buildCharacterStorySteps(entry, character);
 
+  if (fullStoryOpen) {
+    return (
+      <StoryReaderModal
+        title={entry.title}
+        eyebrow="Character Full Story"
+        activeTab={activeStoryTab}
+        sections={storyReaderSections}
+        fullStory={fullStoryText(entry, character)}
+        fullStoryEditValue={fieldText(entry, ["Full Story", "Longform Story", "Complete Story"]) || fullStoryText(entry, character)}
+        fullStoryPlaceholder="Write the complete in-depth character story here. This can be long-form prose, scene notes, emotional beats, mysteries, spoilers, and future plans."
+        steps={characterStorySteps}
+        isEditing={isEditing}
+        onSetActiveTab={(tab) => setActiveStoryTab(tab as StoryReaderTab)}
+        onFullStoryChange={(value) => onSetField("Full Story", value)}
+        onClose={() => setFullStoryOpen(false)}
+      />
+    );
+  }
+
   return (
     <article className="character-codex-shell">
       <aside className="character-codex-left">
@@ -1401,23 +1420,6 @@ export function CharacterProfileView({
           </CodexCard>
         </section>
       </main>
-
-      {fullStoryOpen && (
-        <StoryReaderModal
-          title={entry.title}
-          eyebrow="Longform Story Scroll"
-          activeTab={activeStoryTab}
-          sections={storyReaderSections}
-          fullStory={fullStoryText(entry, character)}
-          fullStoryEditValue={fieldText(entry, ["Full Story", "Longform Story", "Complete Story"]) || fullStoryText(entry, character)}
-          fullStoryPlaceholder="Write the complete in-depth character story here. This can be long-form prose, scene notes, emotional beats, mysteries, spoilers, and future plans."
-          steps={characterStorySteps}
-          isEditing={isEditing}
-          onSetActiveTab={(tab) => setActiveStoryTab(tab as StoryReaderTab)}
-          onFullStoryChange={(value) => onSetField("Full Story", value)}
-          onClose={() => setFullStoryOpen(false)}
-        />
-      )}
 
       {isEditing && assistantOpen && (
         <CharacterMiniAssistant

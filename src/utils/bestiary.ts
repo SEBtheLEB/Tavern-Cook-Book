@@ -558,7 +558,8 @@ function normalizeLore(value: unknown): BestiaryCreatureLore {
     rumors: text(lore.rumors),
     questConnections: text(lore.questConnections),
     relatedCreatures: text(lore.relatedCreatures),
-    hiddenNotes: text(lore.hiddenNotes)
+    hiddenNotes: text(lore.hiddenNotes),
+    fullStory: text(lore.fullStory)
   };
 }
 
