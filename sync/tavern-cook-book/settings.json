@@ -1,0 +1,21 @@
+{
+  "updatedAt": "2026-05-12T05:04:28.103Z",
+  "updatedBy": "stlprodz1101@gmail.com",
+  "payload": {
+    "visibility": {
+      "hiddenForMembers": []
+    },
+    "accessUsers": [
+      {
+        "email": "stlprodz1101@gmail.com",
+        "role": "admin",
+        "label": "Sebastien / Main Admin"
+      },
+      {
+        "email": "sebastianac1101@gmail.com",
+        "role": "editor",
+        "label": "Sebastien backup"
+      }
+    ]
+  }
+}
