@@ -508,11 +508,20 @@ export default function App() {
   }, [currentUser, readOnly]);
 
   useEffect(() => {
-    if (currentUser || hostedViewer) return;
+    if (hostedViewer) return;
     return listenForLauncherSession((launcherUser) => {
-      setCurrentUser(launcherUser);
+      setCurrentUser((current) => {
+        if (
+          current?.email === launcherUser.email &&
+          current?.role === launcherUser.role &&
+          current?.name === launcherUser.name
+        ) {
+          return current;
+        }
+        return launcherUser;
+      });
     });
-  }, [currentUser, hostedViewer]);
+  }, [hostedViewer]);
 
   useEffect(() => {
     if (!currentUser || hostedViewer) return;

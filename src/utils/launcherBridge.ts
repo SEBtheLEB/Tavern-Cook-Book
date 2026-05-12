@@ -1,5 +1,5 @@
 import type { AccessRole, GoogleAccountUser } from "../types";
-import { saveGoogleAccount, saveGoogleCredential } from "./accessControl";
+import { decodeGoogleCredential, saveGoogleAccount, saveGoogleCredential } from "./accessControl";
 
 interface LauncherSessionPayload {
   type?: string;
@@ -32,7 +32,8 @@ export function listenForLauncherSession(onSession: (user: GoogleAccountUser) =>
     const payload = event.data as LauncherSessionPayload;
     if (!payload || payload.type !== WORKSHOP_SESSION_TYPE) return;
     if (payload.appId && payload.appId !== COOKBOOK_APP_ID && payload.appId !== "tales-codex") return;
-    const user = normalizeLauncherUser(payload.user);
+    const credentialUser = payload.googleCredential ? decodeLauncherCredential(payload.googleCredential) : null;
+    const user = normalizeLauncherUser(payload.user, credentialUser);
     if (!user) return;
 
     if (payload.googleCredential) saveGoogleCredential(payload.googleCredential);
@@ -45,15 +46,26 @@ export function listenForLauncherSession(onSession: (user: GoogleAccountUser) =>
   return () => window.removeEventListener("message", handler);
 }
 
-function normalizeLauncherUser(user: LauncherSessionPayload["user"]): GoogleAccountUser | null {
-  const email = String(user?.email || "").trim().toLowerCase();
+function normalizeLauncherUser(
+  user: LauncherSessionPayload["user"],
+  credentialUser: GoogleAccountUser | null
+): GoogleAccountUser | null {
+  const email = String(credentialUser?.email || user?.email || "").trim().toLowerCase();
   if (!email || !email.includes("@")) return null;
   return {
-    name: String(user?.name || email),
+    name: String(credentialUser?.name || user?.name || email),
     email,
-    picture: String(user?.picture || ""),
-    role: roleFromLauncher(user?.role, user?.permissions)
+    picture: String(credentialUser?.picture || user?.picture || ""),
+    role: credentialUser?.role || roleFromLauncher(user?.role, user?.permissions)
   };
+}
+
+function decodeLauncherCredential(credential: string) {
+  try {
+    return decodeGoogleCredential(credential);
+  } catch {
+    return null;
+  }
 }
 
 function roleFromLauncher(role: string | undefined, permissions: string[] | undefined): AccessRole {
