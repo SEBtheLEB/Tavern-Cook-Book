@@ -96,7 +96,7 @@ export async function saveRemoteAppSettings(email: string, settings: AppSyncSett
 }
 
 export function databaseSyncHash(database: LoreDatabase) {
-  return JSON.stringify(sanitizeDatabaseForPersistence(database));
+  return compactStringHash(JSON.stringify(sanitizeDatabaseForPersistence(database)));
 }
 
 export function loadPublishedSyncState(): PublishedSyncState {
@@ -105,19 +105,51 @@ export function loadPublishedSyncState(): PublishedSyncState {
     if (!raw) return { hash: "", updatedAt: "" };
     const parsed = JSON.parse(raw) as Partial<PublishedSyncState>;
     return {
-      hash: typeof parsed.hash === "string" ? parsed.hash : "",
+      hash: typeof parsed.hash === "string" ? normalizeStoredSyncHash(parsed.hash) : "",
       updatedAt: typeof parsed.updatedAt === "string" ? parsed.updatedAt : ""
     };
   } catch {
+    try {
+      localStorage.removeItem(PUBLISHED_SYNC_STATE_KEY);
+    } catch {
+      // The app can continue without the marker; cloud sync will rebuild it.
+    }
     return { hash: "", updatedAt: "" };
   }
 }
 
 export function savePublishedSyncState(database: LoreDatabase, updatedAt: string) {
-  localStorage.setItem(PUBLISHED_SYNC_STATE_KEY, JSON.stringify({
+  const value = JSON.stringify({
     hash: databaseSyncHash(database),
     updatedAt
-  }));
+  });
+  try {
+    localStorage.setItem(PUBLISHED_SYNC_STATE_KEY, value);
+  } catch {
+    try {
+      localStorage.removeItem(PUBLISHED_SYNC_STATE_KEY);
+      localStorage.setItem(PUBLISHED_SYNC_STATE_KEY, value);
+    } catch {
+      // This marker is an optimization. If storage is full, do not break sync.
+    }
+  }
+}
+
+function normalizeStoredSyncHash(hash: string) {
+  return hash.length > 128 ? compactStringHash(hash) : hash;
+}
+
+function compactStringHash(value: string) {
+  let first = 0xdeadbeef ^ value.length;
+  let second = 0x41c6ce57 ^ value.length;
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    first = Math.imul(first ^ code, 2654435761);
+    second = Math.imul(second ^ code, 1597334677);
+  }
+  first = Math.imul(first ^ (first >>> 16), 2246822507) ^ Math.imul(second ^ (second >>> 13), 3266489909);
+  second = Math.imul(second ^ (second >>> 16), 2246822507) ^ Math.imul(first ^ (first >>> 13), 3266489909);
+  return `${value.length.toString(36)}-${(first >>> 0).toString(36)}${(second >>> 0).toString(36)}`;
 }
 
 export function newerEnvelope<T>(left: CloudSyncEnvelope<T> | null, right: CloudSyncEnvelope<T> | null) {
