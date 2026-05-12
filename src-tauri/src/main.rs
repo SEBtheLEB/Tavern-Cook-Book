@@ -27,5 +27,5 @@ fn main() {
             Ok(())
         })
         .run(tauri::generate_context!())
-        .expect("error while running STL Productionz launcher");
+        .expect("error while running The Tavern Cook Book desktop app");
 }

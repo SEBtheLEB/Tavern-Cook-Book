@@ -39,7 +39,6 @@ import { EntryGrid } from "./components/EntryGrid";
 import { EntryModal } from "./components/EntryModal";
 import { FavoritesPage } from "./components/FavoritesPage";
 import { HubPage } from "./components/HubPage";
-import { LauncherPage } from "./components/LauncherPage";
 import { PantryPage } from "./components/PantryPage";
 import { ProfilePage } from "./components/ProfilePage";
 import { QuestDashboard } from "./components/QuestDashboard";
@@ -125,8 +124,6 @@ const extraViews: ViewConfig[] = [
 ];
 
 const allViews = [...mainNavigation, ...extraViews];
-const LAUNCHER_ACTIVE_APP_KEY = "stl-productionz:active-launcher-app";
-type LauncherAppId = "tavern-cook-book";
 
 interface DetailReturnTarget {
   activeView: ActiveView;
@@ -173,7 +170,7 @@ export default function App() {
   const [questCategories, setQuestCategories] = useState(() => getQuestCategories());
   const [favorites, setFavorites] = useState(() => loadFavorites());
   const [currentUser, setCurrentUser] = useState<GoogleAccountUser | null>(() => loadGoogleAccount());
-  const [activeLauncherApp, setActiveLauncherApp] = useState<LauncherAppId | null>(() => loadActiveLauncherApp());
+  const [showCookBookStart, setShowCookBookStart] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [storageWarning, setStorageWarning] = useState("");
@@ -218,20 +215,12 @@ export default function App() {
       document.title = "STL Productionz";
       return;
     }
-    if (!activeLauncherApp) {
-      document.title = "STL Productionz Launcher";
-      return;
-    }
     document.title = readOnly ? "The Tavern Cook Book - Live View" : "The Tavern Cook Book";
-  }, [activeLauncherApp, currentUser, readOnly]);
+  }, [currentUser, readOnly]);
 
   useEffect(() => {
-    if (!currentUser) {
-      saveActiveLauncherApp(null);
-      return;
-    }
-    saveActiveLauncherApp(activeLauncherApp);
-  }, [activeLauncherApp, currentUser]);
+    if (!currentUser) setShowCookBookStart(true);
+  }, [currentUser]);
 
   useEffect(() => {
     if (!readOnly || !artVaultDashboardOpen) return;
@@ -719,24 +708,6 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const openLauncher = () => {
-    setActiveLauncherApp(null);
-    setMobileNavOpen(false);
-    setTavernScribeOpen(false);
-    setDetailReturnTarget(null);
-    setSelectedEntry(null);
-    setSelectedReferenceKeyword("");
-    setKeywordPopup("");
-    setArtVaultDashboardOpen(false);
-    setArtBinderFilter(null);
-    setFavoritesOpen(false);
-    setQuestDashboardOpen(false);
-    setProfileOpen(false);
-    setSelectedBestiaryCreatureId("");
-    setFocusedAssignment(null);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-
   const updateBrandingLogo = (logoImage: string) => {
     if (forcedReadOnly) return;
     const next = {
@@ -754,9 +725,8 @@ export default function App() {
   const signOut = () => {
     clearGoogleAccount();
     disableGoogleAutoSelect();
-    saveActiveLauncherApp(null);
     setCurrentUser(null);
-    setActiveLauncherApp(null);
+    setShowCookBookStart(true);
     setSelectedEntry(null);
     setSelectedReferenceKeyword("");
     setKeywordPopup("");
@@ -811,18 +781,16 @@ export default function App() {
     );
   }
 
-  if (!activeLauncherApp) {
+  if (showCookBookStart) {
     return (
       <div className={themeClassName}>
-        <LauncherPage
-          database={database}
-          currentUser={currentUser}
-          theme={theme}
-          canEditBranding={!forcedReadOnly && roleCanEdit(currentRole)}
-          onThemeChange={setTheme}
-          onOpenTavernCookBook={() => setActiveLauncherApp("tavern-cook-book")}
-          onSignOut={signOut}
-          onLogoChange={updateBrandingLogo}
+        <CookBookStartScreen
+          logoImage={database.branding.logoImage}
+          onOpen={() => {
+            setShowCookBookStart(false);
+            setActiveView("dashboard");
+            window.scrollTo({ top: 0 });
+          }}
         />
       </div>
     );
@@ -876,7 +844,6 @@ export default function App() {
             } : undefined}
             onOpenFavorites={openFavorites}
             onOpenMobileNav={() => setMobileNavOpen(true)}
-            onOpenLauncher={openLauncher}
             readOnly={readOnly}
             favoritesCount={favorites.length}
             favoritesOpen={favoritesOpen}
@@ -1291,28 +1258,6 @@ function normalizeArtBinderKind(value: string): ArtBinderKind {
   return "all";
 }
 
-function loadActiveLauncherApp(): LauncherAppId | null {
-  try {
-    return sessionStorage.getItem(LAUNCHER_ACTIVE_APP_KEY) === "tavern-cook-book"
-      ? "tavern-cook-book"
-      : null;
-  } catch {
-    return null;
-  }
-}
-
-function saveActiveLauncherApp(appId: LauncherAppId | null) {
-  try {
-    if (appId) {
-      sessionStorage.setItem(LAUNCHER_ACTIVE_APP_KEY, appId);
-      return;
-    }
-    sessionStorage.removeItem(LAUNCHER_ACTIVE_APP_KEY);
-  } catch {
-    // The launcher can still work without remembering the last opened app.
-  }
-}
-
 function scrollToAssignmentModule(moduleId: string) {
   const selector = `[data-module-id="${CSS.escape(moduleId)}"]`;
   const element = document.querySelector(selector);
@@ -1320,6 +1265,21 @@ function scrollToAssignmentModule(moduleId: string) {
   element.scrollIntoView({ behavior: "smooth", block: "center" });
   element.classList.add("assignment-open-flash");
   window.setTimeout(() => element.classList.remove("assignment-open-flash"), 1800);
+}
+
+function CookBookStartScreen({ logoImage, onOpen }: { logoImage?: string; onOpen: () => void }) {
+  return (
+    <button className="cookbook-start-screen" onClick={onOpen} type="button">
+      <span className="cookbook-start-glow" aria-hidden="true" />
+      <span className="cookbook-start-content">
+        <span className={`cookbook-start-logo ${logoImage ? "has-image" : ""}`}>
+          {logoImage ? <img src={logoImage} alt="" /> : <span>STL</span>}
+        </span>
+        <span className="cookbook-start-kicker">The Tavern Cook Book</span>
+        <span className="cookbook-start-title">Click Anywhere to Open Cook Book</span>
+      </span>
+    </button>
+  );
 }
 
 

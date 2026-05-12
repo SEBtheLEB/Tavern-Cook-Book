@@ -1,4 +1,4 @@
-# STL Productionz Desktop App
+# The Tavern Cook Book Desktop App
 
 The desktop app is a Tauri wrapper around the live Vercel app:
 
@@ -12,12 +12,12 @@ Google sign-in should not happen inside the Tauri WebView. In the desktop shell,
 
 Flow:
 
-1. User opens `STL Productionz Launcher`.
+1. User opens `The Tavern Cook Book`.
 2. User clicks `Sign in with Google in Browser`.
 3. Default browser opens the Vercel app in desktop auth mode.
 4. User signs in with Google.
 5. Browser returns to `stl-tavern-cook-book://auth`.
-6. The Tauri app receives the credential and opens the launcher.
+6. The Tauri app receives the credential and opens the Cook Book start screen.
 
 ## Build Locally
 
@@ -47,5 +47,5 @@ The GitHub workflow `.github/workflows/desktop.yml` builds the Windows installer
 Download the artifact named:
 
 ```text
-stl-productionz-launcher-windows
+tavern-cook-book-windows
 ```

@@ -136,7 +136,7 @@ export function AccessGate({
           </div>
           <p className="access-eyebrow">Access Denied</p>
           <h1 className="font-display">STL Productionz</h1>
-          <p>You do not have access to this launcher. Please contact Sebastien to be added.</p>
+          <p>You do not have access to this Cook Book. Please contact Sebastien to be added.</p>
           <div className="access-user-preview">
             {deniedUser.picture ? <img src={deniedUser.picture} alt="" /> : <Icon name="UserRound" className="h-5 w-5" />}
             <div>
@@ -169,9 +169,9 @@ export function AccessGate({
             <Icon name="Sparkles" className="h-8 w-8" />
           )}
         </div>
-        <p className="access-eyebrow">Team Launcher</p>
+        <p className="access-eyebrow">Team Cook Book</p>
         <h1 className="font-display">STL Productionz</h1>
-        <p>Sign in with Google to open your production workspace.</p>
+        <p>Sign in with Google to open The Tavern Cook Book.</p>
         {desktopExternalSignIn ? (
           <div className="access-desktop-auth">
             <button

@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "main-capability",
-  "description": "Allows the STL Productionz launcher web app to open browser sign-in and receive its desktop auth return link.",
+  "description": "Allows The Tavern Cook Book desktop app to open browser sign-in and receive its desktop auth return link.",
   "windows": ["main"],
   "remote": {
     "urls": [

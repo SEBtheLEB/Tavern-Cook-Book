@@ -11761,291 +11761,124 @@ button,
   font-size: 0.82rem;
 }
 
-.launcher-page {
-  min-height: 100vh;
-  background:
-    linear-gradient(135deg, rgba(255, 226, 166, 0.24), transparent 42%),
-    linear-gradient(180deg, rgba(111, 56, 36, 0.08), transparent 38%),
-    var(--app-bg);
-  color: var(--app-ink);
-  padding: clamp(1rem, 3vw, 2.25rem);
-}
-
-.theme-dream .launcher-page {
-  background:
-    linear-gradient(135deg, rgba(216, 168, 93, 0.12), transparent 44%),
-    linear-gradient(180deg, rgba(164, 110, 234, 0.08), transparent 42%),
-    var(--app-bg);
-}
-
-.launcher-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  width: min(1180px, 100%);
-  margin: 0 auto;
-  border: 1px solid var(--card-border);
-  border-radius: 18px;
-  background: var(--panel-bg);
-  box-shadow: var(--panel-shadow);
-  padding: 1rem;
-}
-
-.launcher-brand-lockup {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: 0.9rem;
-}
-
-.launcher-logo {
+.cookbook-start-screen {
+  position: relative;
   display: grid;
-  width: 4.25rem;
-  height: 4.25rem;
-  flex: 0 0 auto;
+  min-height: 100vh;
+  width: 100%;
   place-items: center;
   overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--gold) 70%, transparent);
-  border-radius: 16px;
-  background: color-mix(in srgb, var(--field-bg) 86%, transparent);
-  color: var(--gold);
+  border: 0;
+  background:
+    linear-gradient(145deg, rgba(83, 44, 27, 0.18), transparent 36%),
+    linear-gradient(0deg, rgba(45, 25, 15, 0.16), transparent 42%),
+    var(--app-bg);
+  color: var(--app-ink);
+  cursor: pointer;
+  padding: clamp(1.5rem, 5vw, 4rem);
+  text-align: center;
 }
 
-.launcher-logo.has-image img,
-.launcher-account-avatar img,
-.launcher-app-art img {
+.theme-dream .cookbook-start-screen {
+  background:
+    linear-gradient(145deg, rgba(176, 125, 83, 0.16), transparent 38%),
+    linear-gradient(0deg, rgba(77, 46, 101, 0.13), transparent 42%),
+    var(--app-bg);
+}
+
+.cookbook-start-screen::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(116, 70, 38, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(116, 70, 38, 0.04) 1px, transparent 1px);
+  background-size: 42px 42px;
+  pointer-events: none;
+}
+
+.cookbook-start-glow {
+  position: absolute;
+  inset: auto 8% 0;
+  height: 42%;
+  background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--gold) 18%, transparent));
+  filter: blur(42px);
+  opacity: 0.78;
+  pointer-events: none;
+}
+
+.cookbook-start-content {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: center;
+  gap: 0.9rem;
+  width: min(44rem, 100%);
+  color: var(--app-ink);
+  transition: transform 180ms ease, filter 180ms ease;
+}
+
+.cookbook-start-screen:hover .cookbook-start-content,
+.cookbook-start-screen:focus-visible .cookbook-start-content {
+  transform: translateY(-3px);
+  filter: brightness(1.03);
+}
+
+.cookbook-start-screen:focus-visible {
+  outline: 4px solid color-mix(in srgb, var(--gold) 60%, transparent);
+  outline-offset: -10px;
+}
+
+.cookbook-start-logo {
+  display: grid;
+  width: clamp(7rem, 24vw, 13rem);
+  aspect-ratio: 1;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--gold) 58%, transparent);
+  border-radius: 22px;
+  background: color-mix(in srgb, var(--field-bg) 84%, transparent);
+  box-shadow: 0 24px 60px rgba(49, 31, 18, 0.24);
+  color: var(--gold);
+  font-size: clamp(2rem, 8vw, 4rem);
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+.cookbook-start-logo.has-image {
+  background: color-mix(in srgb, var(--field-bg) 40%, transparent);
+}
+
+.cookbook-start-logo img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.launcher-brand-lockup p,
-.launcher-section-head p,
-.launcher-app-copy p {
-  margin: 0;
+.cookbook-start-kicker {
   color: var(--muted-ink);
-  font-size: 0.75rem;
+  font-size: 0.78rem;
   font-weight: 900;
   letter-spacing: 0.16em;
   text-transform: uppercase;
 }
 
-.launcher-brand-lockup h1,
-.launcher-section-head h2,
-.launcher-app-copy h3 {
-  margin: 0.18rem 0;
-  line-height: 1;
-}
-
-.launcher-brand-lockup h1 {
-  font-size: clamp(2rem, 5vw, 3.25rem);
-}
-
-.launcher-brand-lockup span {
-  display: block;
-  color: var(--muted-ink);
-  font-size: 0.95rem;
-}
-
-.launcher-account-panel {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.65rem;
-}
-
-.launcher-account {
-  display: flex;
-  max-width: 24rem;
-  align-items: center;
-  gap: 0.7rem;
-  border: 1px solid var(--card-border);
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--field-bg) 72%, transparent);
-  padding: 0.6rem 0.75rem;
-}
-
-.launcher-account-avatar {
-  display: grid;
-  width: 2.65rem;
-  height: 2.65rem;
-  flex: 0 0 auto;
-  place-items: center;
-  overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--gold) 58%, transparent);
-  border-radius: 12px;
-  color: var(--gold);
-}
-
-.launcher-account strong,
-.launcher-account span,
-.launcher-account em {
-  display: block;
-}
-
-.launcher-account strong {
+.cookbook-start-title {
   color: var(--app-ink);
-  font-size: 0.9rem;
-  line-height: 1.2;
+  font-family: var(--font-display);
+  font-size: clamp(2.25rem, 8vw, 5.75rem);
+  line-height: 0.95;
+  text-wrap: balance;
 }
 
-.launcher-account span,
-.launcher-account em {
-  color: var(--muted-ink);
-  font-size: 0.75rem;
-  font-style: normal;
-  line-height: 1.25;
-}
-
-.launcher-icon-button,
-.launcher-signout-button {
-  display: inline-flex;
-  min-height: 42px;
-  align-items: center;
-  justify-content: center;
-  gap: 0.45rem;
-  border-radius: 12px;
-  padding: 0.65rem 0.85rem;
-}
-
-.launcher-content {
-  width: min(1180px, 100%);
-  margin: 1rem auto 0;
-}
-
-.launcher-section-head {
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-
-.launcher-section-head h2 {
-  font-size: clamp(1.7rem, 4vw, 2.5rem);
-}
-
-.launcher-section-head > span {
-  border: 1px solid var(--card-border);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--field-bg) 82%, transparent);
-  color: var(--muted-ink);
-  padding: 0.35rem 0.75rem;
-  font-size: 0.8rem;
-  font-weight: 900;
-}
-
-.launcher-content > .brand-image-editor {
-  margin: 0 0 1rem;
-  max-width: 44rem;
-}
-
-.launcher-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
-  gap: 1rem;
-}
-
-.launcher-app-card {
-  display: grid;
-  grid-template-columns: 6.5rem minmax(0, 1fr);
-  gap: 1rem;
-  min-height: 12rem;
-  width: 100%;
-  border: 1px solid var(--card-border);
-  border-radius: 18px;
-  background: var(--card-frame);
-  box-shadow: 0 18px 38px rgba(63, 35, 14, 0.18);
-  color: var(--app-ink);
-  padding: 1rem;
-  text-align: left;
-  transition: transform 150ms ease, border-color 150ms ease, box-shadow 150ms ease, filter 150ms ease;
-}
-
-.launcher-app-card:hover {
-  transform: translateY(-2px);
-  border-color: color-mix(in srgb, var(--gold) 80%, var(--card-border));
-  box-shadow: 0 22px 48px rgba(63, 35, 14, 0.24), 0 0 18px color-mix(in srgb, var(--gold) 16%, transparent);
-  filter: brightness(1.03);
-}
-
-.launcher-app-card:focus-visible {
-  outline: 3px solid color-mix(in srgb, var(--gold) 55%, transparent);
-  outline-offset: 3px;
-}
-
-.launcher-app-art {
-  display: grid;
-  width: 6.5rem;
-  aspect-ratio: 1;
-  place-items: center;
-  overflow: hidden;
-  align-self: start;
-  border: 1px solid color-mix(in srgb, var(--gold) 72%, transparent);
-  border-radius: 16px;
-  background:
-    linear-gradient(145deg, color-mix(in srgb, var(--gold) 16%, transparent), transparent),
-    color-mix(in srgb, var(--field-bg) 88%, transparent);
-  color: var(--gold);
-}
-
-.launcher-app-copy h3 {
-  font-size: clamp(1.65rem, 4vw, 2.25rem);
-}
-
-.launcher-app-copy > span {
-  display: block;
-  max-width: 34rem;
-  color: var(--muted-ink);
-  font-size: 0.95rem;
-  line-height: 1.55;
-}
-
-.launcher-app-stats {
-  grid-column: 1 / -1;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  align-self: end;
-}
-
-.launcher-app-stats span {
-  border: 1px solid color-mix(in srgb, var(--card-border) 76%, transparent);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--field-bg) 72%, transparent);
-  color: var(--muted-ink);
-  padding: 0.35rem 0.65rem;
-  font-size: 0.76rem;
-  font-weight: 900;
-  text-transform: uppercase;
-}
-
-@media (max-width: 780px) {
-  .launcher-header {
-    align-items: stretch;
-    flex-direction: column;
+@media (max-width: 640px) {
+  .cookbook-start-screen {
+    align-items: center;
+    padding: 1.25rem;
   }
 
-  .launcher-account-panel {
-    justify-content: stretch;
-  }
-
-  .launcher-account {
-    flex: 1 1 100%;
-  }
-
-  .launcher-signout-button {
-    flex: 1 1 auto;
-  }
-
-  .launcher-app-card {
-    grid-template-columns: 1fr;
-  }
-
-  .launcher-app-art {
-    width: min(100%, 8rem);
+  .cookbook-start-title {
+    font-size: clamp(2rem, 13vw, 3.7rem);
   }
 }
 

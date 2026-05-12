@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "STL Productionz Launcher",
+  "productName": "The Tavern Cook Book",
   "version": "1.0.0",
   "identifier": "com.stlproductionz.taverncookbook",
   "build": {
@@ -14,7 +14,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "STL Productionz Launcher",
+        "title": "The Tavern Cook Book",
         "url": "https://the-tavern-cook-book.vercel.app",
         "width": 1280,
         "height": 820,
@@ -33,8 +33,8 @@
     "targets": ["nsis"],
     "publisher": "STL Productionz",
     "category": "Productivity",
-    "shortDescription": "STL Productionz app launcher",
-    "longDescription": "Desktop launcher for The Tavern Cook Book and future STL Productionz tools.",
+    "shortDescription": "The Tavern Cook Book desktop app",
+    "longDescription": "Desktop wrapper for The Tavern Cook Book, the Tales of the Tavern lore and production workspace.",
     "windows": {
       "webviewInstallMode": {
         "type": "downloadBootstrapper",
