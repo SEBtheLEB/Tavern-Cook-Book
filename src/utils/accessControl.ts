@@ -19,6 +19,7 @@ export const ACCESS_GOOGLE_OAUTH_CLIENT_ID = (
 ).trim();
 
 export const GOOGLE_ACCOUNT_KEY = "tavernCookbookGoogleAccount";
+export const GOOGLE_CREDENTIAL_KEY = "tavernCookbookGoogleCredential";
 export const ACCESS_USERS_KEY = "tavernCookbookAccessUsers";
 const ROLE_ORDER: Record<AccessRole, number> = { viewer: 0, editor: 1, admin: 2 };
 
@@ -79,6 +80,37 @@ export function saveGoogleAccount(user: GoogleAccountUser) {
   localStorage.setItem(GOOGLE_ACCOUNT_KEY, JSON.stringify(user));
 }
 
+export function saveGoogleCredential(credential: string) {
+  localStorage.setItem(GOOGLE_CREDENTIAL_KEY, credential);
+}
+
+export function loadGoogleCredential() {
+  try {
+    const credential = localStorage.getItem(GOOGLE_CREDENTIAL_KEY) || "";
+    if (!credential) return "";
+    const payload = credential.split(".")[1];
+    if (!payload) {
+      clearGoogleCredential();
+      return "";
+    }
+
+    const decoded = JSON.parse(decodeBase64Url(payload)) as { exp?: unknown };
+    const expiresAt = typeof decoded.exp === "number" ? decoded.exp * 1000 : 0;
+    if (expiresAt && expiresAt < Date.now() + 60_000) {
+      clearGoogleCredential();
+      return "";
+    }
+    return credential;
+  } catch {
+    clearGoogleCredential();
+    return "";
+  }
+}
+
+export function clearGoogleCredential() {
+  localStorage.removeItem(GOOGLE_CREDENTIAL_KEY);
+}
+
 export function loadGoogleAccount(): GoogleAccountUser | null {
   try {
     const raw = localStorage.getItem(GOOGLE_ACCOUNT_KEY);
@@ -104,6 +136,7 @@ export function loadGoogleAccount(): GoogleAccountUser | null {
 
 export function clearGoogleAccount() {
   localStorage.removeItem(GOOGLE_ACCOUNT_KEY);
+  clearGoogleCredential();
 }
 
 export function disableGoogleAutoSelect() {

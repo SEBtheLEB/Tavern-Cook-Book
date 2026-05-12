@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import type {
   ActiveView,
   AssistantChangedTarget,
@@ -49,6 +49,7 @@ import { Sidebar } from "./components/Sidebar";
 import { StoryPage } from "./components/StoryPage";
 import { StoryJourneyPage } from "./components/StoryJourneyPage";
 import { SpriteSheetAnimatorPage } from "./components/SpriteSheetAnimatorPage";
+import { SyncPublishModal } from "./components/SyncPublishModal";
 import { TimelineView } from "./components/TimelineView";
 import { TopBar } from "./components/TopBar";
 import { WorldBuildingPage } from "./components/WorldBuildingPage";
@@ -60,10 +61,25 @@ import {
   getGoogleUserAccess,
   loadGoogleAccount,
   roleCanAccessSettings,
-  roleCanEdit
+  roleCanEdit,
+  saveAccessUsers
 } from "./utils/accessControl";
+import { loadAppSyncSettings, normalizeAppSyncSettings, saveAppSyncSettings } from "./utils/appSettings";
+import {
+  databaseSyncHash,
+  fetchCloudHealth,
+  fetchPublishedDatabase,
+  fetchRemoteAppSettings,
+  fetchUserDraft,
+  newerEnvelope,
+  savePublishedDatabase,
+  saveRemoteAppSettings,
+  saveUserDraft
+} from "./utils/cloudSync";
 import { isDesktopBrowserAuthRequest } from "./utils/desktopShell";
 import { isFavorite as favoriteIncludes, loadFavorites, saveFavorites, toggleFavorite } from "./utils/favorites";
+import { listenForLauncherSession } from "./utils/launcherBridge";
+import { applySelectedPublishChanges, buildPublishChanges } from "./utils/publishDiff";
 import {
   type AssignmentRecord,
   getAssignments,
@@ -138,6 +154,13 @@ interface DetailReturnTarget {
   scrollY: number;
 }
 
+interface CloudSyncUiState {
+  phase: "idle" | "loading" | "saving" | "saved" | "publishing" | "offline" | "needsAuth";
+  message: string;
+  lastSavedAt: string;
+  configured: boolean;
+}
+
 export default function App() {
   const hostedViewer = import.meta.env.VITE_READONLY_VIEWER === "true";
   const forcedReadOnly =
@@ -171,13 +194,37 @@ export default function App() {
   const [favorites, setFavorites] = useState(() => loadFavorites());
   const [currentUser, setCurrentUser] = useState<GoogleAccountUser | null>(() => loadGoogleAccount());
   const [showCookBookStart, setShowCookBookStart] = useState(true);
+  const [publishedDatabase, setPublishedDatabase] = useState<LoreDatabase>(() => createStarterDatabase());
+  const [appSyncSettings, setAppSyncSettings] = useState(() => loadAppSyncSettings());
+  const [cloudSync, setCloudSync] = useState<CloudSyncUiState>({
+    phase: "idle",
+    message: "Cloud sync is waiting for sign-in.",
+    lastSavedAt: "",
+    configured: false
+  });
+  const [pushReviewOpen, setPushReviewOpen] = useState(false);
+  const [pushMessage, setPushMessage] = useState("");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [storageWarning, setStorageWarning] = useState("");
+  const remoteLoadRef = useRef(false);
+  const lastDraftHashRef = useRef("");
+  const lastPublishedHashRef = useRef("");
+  const lastDraftUpdatedAtRef = useRef("");
+  const syncSettingsSaveTimerRef = useRef<number | null>(null);
   const currentRole = currentUser?.role || "viewer";
   const canEdit = roleCanEdit(currentRole);
   const canAccessSettings = roleCanAccessSettings(currentRole);
   const readOnly = forcedReadOnly || !canEdit;
+  const hiddenViewIds = useMemo(
+    () => canAccessSettings ? [] : expandHiddenViewIds(appSyncSettings.visibility.hiddenForMembers),
+    [appSyncSettings.visibility.hiddenForMembers, canAccessSettings]
+  );
+  const publishChanges = useMemo(
+    () => buildPublishChanges(database, publishedDatabase),
+    [database, publishedDatabase]
+  );
+  const pendingPublishCount = publishChanges.length;
 
   useEffect(() => {
     if (!readOnly) {
@@ -187,12 +234,96 @@ export default function App() {
   }, [database, readOnly]);
 
   useEffect(() => {
+    if (!currentUser || readOnly || hostedViewer || remoteLoadRef.current) return;
+    if (cloudSync.phase === "offline" && !cloudSync.configured) return;
+    const nextHash = databaseSyncHash(database);
+    if (nextHash === lastDraftHashRef.current) return;
+
+    setCloudSync((current) => ({
+      ...current,
+      phase: "saving",
+      message: "Autosaving your private draft..."
+    }));
+
+    const timer = window.setTimeout(() => {
+      void saveUserDraft(currentUser.email, database)
+        .then((result) => {
+          if (!result.ok || !result.envelope) {
+            setCloudSync({
+              phase: result.error?.includes("sign-in token") ? "needsAuth" : "offline",
+              message: result.error || "Cloud autosave failed. Local browser save is still active.",
+              lastSavedAt: "",
+              configured: result.configured
+            });
+            return;
+          }
+          lastDraftHashRef.current = databaseSyncHash(result.envelope.payload.database);
+          lastDraftUpdatedAtRef.current = result.envelope.updatedAt;
+          setCloudSync({
+            phase: "saved",
+            message: "Private draft saved to your account.",
+            lastSavedAt: result.envelope.updatedAt,
+            configured: true
+          });
+        })
+        .catch((error) => {
+          setCloudSync({
+            phase: "offline",
+            message: error instanceof Error ? error.message : "Cloud autosave failed. Local browser save is still active.",
+            lastSavedAt: "",
+            configured: true
+          });
+        });
+    }, 3500);
+
+    return () => window.clearTimeout(timer);
+  }, [database, currentUser?.email, readOnly, hostedViewer]);
+
+  useEffect(() => {
     saveTheme(theme);
   }, [theme]);
 
   useEffect(() => {
     saveFavorites(favorites);
   }, [favorites]);
+
+  useEffect(() => {
+    if (!currentUser || readOnly || hostedViewer) return;
+    const interval = window.setInterval(() => {
+      void fetchUserDraft(currentUser.email)
+        .then((result) => {
+          if (!result.ok || !result.envelope?.payload.database) return;
+          const remoteUpdatedAt = result.envelope.updatedAt;
+          if (!remoteUpdatedAt || remoteUpdatedAt <= lastDraftUpdatedAtRef.current) return;
+          const localHash = databaseSyncHash(database);
+          if (localHash !== lastDraftHashRef.current) {
+            setCloudSync((current) => ({
+              ...current,
+              message: "A newer account draft exists on another device. Push or reload when you finish this edit."
+            }));
+            return;
+          }
+
+          remoteLoadRef.current = true;
+          setDatabase(result.envelope.payload.database);
+          saveDatabase(result.envelope.payload.database);
+          window.setTimeout(() => {
+            remoteLoadRef.current = false;
+          }, 0);
+          lastDraftHashRef.current = databaseSyncHash(result.envelope.payload.database);
+          lastDraftUpdatedAtRef.current = remoteUpdatedAt;
+          setCloudSync({
+            phase: "saved",
+            message: "Loaded newer account draft from another device.",
+            lastSavedAt: remoteUpdatedAt,
+            configured: true
+          });
+        })
+        .catch(() => {});
+    }, 30_000);
+
+    return () => window.clearInterval(interval);
+  }, [currentUser?.email, database, readOnly, hostedViewer]);
 
   useEffect(() => {
     saveAssignments(assignments);
@@ -211,6 +342,22 @@ export default function App() {
   }, [questCategories]);
 
   useEffect(() => {
+    saveAppSyncSettings(appSyncSettings);
+    if (!currentUser || !canAccessSettings || hostedViewer) return;
+    if (syncSettingsSaveTimerRef.current) window.clearTimeout(syncSettingsSaveTimerRef.current);
+    syncSettingsSaveTimerRef.current = window.setTimeout(() => {
+      void saveRemoteAppSettings(currentUser.email, appSyncSettings).catch(() => {});
+    }, 2500);
+
+    return () => {
+      if (syncSettingsSaveTimerRef.current) {
+        window.clearTimeout(syncSettingsSaveTimerRef.current);
+        syncSettingsSaveTimerRef.current = null;
+      }
+    };
+  }, [appSyncSettings, currentUser?.email, canAccessSettings, hostedViewer]);
+
+  useEffect(() => {
     if (!currentUser) {
       document.title = "STL Productionz";
       return;
@@ -223,10 +370,115 @@ export default function App() {
   }, [currentUser]);
 
   useEffect(() => {
+    if (currentUser || hostedViewer) return;
+    return listenForLauncherSession((launcherUser) => {
+      setCurrentUser(launcherUser);
+      setShowCookBookStart(true);
+    });
+  }, [currentUser, hostedViewer]);
+
+  useEffect(() => {
+    if (!currentUser || hostedViewer) return;
+    let cancelled = false;
+    const localDatabase = database;
+
+    const loadRemoteState = async () => {
+      setCloudSync((current) => ({
+        ...current,
+        phase: "loading",
+        message: "Checking cloud sync...",
+        configured: current.configured
+      }));
+
+      const health = await fetchCloudHealth();
+      if (cancelled) return;
+      if (!health.configured) {
+        setCloudSync({
+          phase: "offline",
+          message: health.error || "Cloud sync needs TAVERN_SYNC_GITHUB_TOKEN in Vercel.",
+          lastSavedAt: "",
+          configured: false
+        });
+        return;
+      }
+
+      const [settingsResult, publishedResult, draftResult] = await Promise.all([
+        fetchRemoteAppSettings(),
+        fetchPublishedDatabase(),
+        canEdit ? fetchUserDraft(currentUser.email) : Promise.resolve(null)
+      ]);
+      if (cancelled) return;
+
+      if (settingsResult.ok && settingsResult.envelope?.payload) {
+        const remoteSettings = normalizeAppSyncSettings(settingsResult.envelope.payload);
+        saveAppSyncSettings(remoteSettings);
+        saveAccessUsers(remoteSettings.accessUsers);
+        setAppSyncSettings(remoteSettings);
+        const access = remoteSettings.accessUsers.find((user) => user.email === currentUser.email);
+        if (access && access.role !== currentUser.role) {
+          setCurrentUser({ ...currentUser, role: access.role });
+        }
+      }
+
+      const remotePublished = publishedResult.ok && publishedResult.envelope?.payload.database
+        ? publishedResult.envelope.payload.database
+        : createStarterDatabase();
+      setPublishedDatabase(remotePublished);
+      lastPublishedHashRef.current = databaseSyncHash(remotePublished);
+
+      const chosenEnvelope = newerEnvelope(
+        canEdit && draftResult?.ok ? draftResult.envelope : null,
+        publishedResult.ok ? publishedResult.envelope : null
+      );
+      const chosenDatabase = chosenEnvelope?.payload.database || localDatabase;
+      const chosenHash = databaseSyncHash(chosenDatabase);
+
+      remoteLoadRef.current = true;
+      setDatabase(chosenDatabase);
+      saveDatabase(chosenDatabase);
+      window.setTimeout(() => {
+        remoteLoadRef.current = false;
+      }, 0);
+
+      lastDraftHashRef.current = chosenHash;
+      lastDraftUpdatedAtRef.current = chosenEnvelope?.updatedAt || "";
+      setCloudSync({
+        phase: chosenEnvelope ? "saved" : "idle",
+        message: chosenEnvelope
+          ? `Loaded cloud data saved ${new Date(chosenEnvelope.updatedAt).toLocaleString()}.`
+          : "Cloud sync is ready. Your next edit will autosave.",
+        lastSavedAt: chosenEnvelope?.updatedAt || "",
+        configured: true
+      });
+    };
+
+    loadRemoteState().catch((error) => {
+      if (cancelled) return;
+      setCloudSync({
+        phase: "offline",
+        message: error instanceof Error ? error.message : "Cloud sync could not load.",
+        lastSavedAt: "",
+        configured: true
+      });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser?.email, hostedViewer]);
+
+  useEffect(() => {
     if (!readOnly || !artVaultDashboardOpen) return;
     setArtVaultDashboardOpen(false);
     setArtBinderFilter(null);
   }, [readOnly, artVaultDashboardOpen]);
+
+  useEffect(() => {
+    if (canAccessSettings) return;
+    if (hiddenViewIds.includes(activeView)) {
+      setActiveView("dashboard");
+    }
+  }, [activeView, hiddenViewIds, canAccessSettings]);
 
   useEffect(() => {
     if (!hostedViewer) return;
@@ -304,6 +556,65 @@ export default function App() {
   const updateDatabase = (next: LoreDatabase) => {
     if (readOnly) return;
     setDatabase(next);
+  };
+
+  const openPushReview = () => {
+    setPushMessage(
+      cloudSync.configured
+        ? ""
+        : "Cloud sync is not configured yet. Add TAVERN_SYNC_GITHUB_TOKEN in Vercel before pushing globally."
+    );
+    setPushReviewOpen(true);
+  };
+
+  const publishSelectedChanges = async (selectedChangeIds: string[]) => {
+    if (!currentUser || !selectedChangeIds.length) return;
+    setPushMessage("");
+    setCloudSync((current) => ({
+      ...current,
+      phase: "publishing",
+      message: "Pushing selected changes to the team..."
+    }));
+
+    try {
+      const latestPublished = await fetchPublishedDatabase();
+      const basePublished = latestPublished.ok && latestPublished.envelope?.payload.database
+        ? latestPublished.envelope.payload.database
+        : publishedDatabase;
+      const nextPublished = applySelectedPublishChanges(database, basePublished, selectedChangeIds);
+      const result = await savePublishedDatabase(currentUser.email, nextPublished);
+      if (!result.ok || !result.envelope?.payload.database) {
+        const errorMessage = result.error || "Push failed. Nothing was published.";
+        setPushMessage(errorMessage);
+        setCloudSync({
+          phase: "offline",
+          message: errorMessage,
+          lastSavedAt: cloudSync.lastSavedAt,
+          configured: result.configured
+        });
+        return;
+      }
+
+      setPublishedDatabase(result.envelope.payload.database);
+      lastPublishedHashRef.current = databaseSyncHash(result.envelope.payload.database);
+      setPushReviewOpen(false);
+      setPushMessage("");
+      setCloudSync({
+        phase: "saved",
+        message: `Pushed ${selectedChangeIds.length} selected changes for the team.`,
+        lastSavedAt: result.envelope.updatedAt,
+        configured: true
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Push failed. Nothing was published.";
+      setPushMessage(errorMessage);
+      setCloudSync({
+        phase: "offline",
+        message: errorMessage,
+        lastSavedAt: cloudSync.lastSavedAt,
+        configured: true
+      });
+    }
   };
 
   const upsertEntry = (entry: LoreEntry, options: { openDetail?: boolean } = {}) => {
@@ -490,6 +801,10 @@ export default function App() {
     if (view !== "bestiary") setSelectedBestiaryCreatureId("");
     if (view !== "world") setWorldBuildingFocus(null);
     if (!canAccessSettings && view === "settings") {
+      setActiveView("dashboard");
+      return;
+    }
+    if (!canAccessSettings && hiddenViewIds.includes(view)) {
       setActiveView("dashboard");
       return;
     }
@@ -747,6 +1062,19 @@ export default function App() {
     setCurrentUser({ ...currentUser, role: access.role });
   };
 
+  const updateAccessUsersFromSettings = (users: Parameters<typeof saveAccessUsers>[0]) => {
+    saveAccessUsers(users);
+    setAppSyncSettings((current) => normalizeAppSyncSettings({ ...current, accessUsers: users }));
+    refreshCurrentUserAccess();
+  };
+
+  const updateAppSyncSettings = (settings: typeof appSyncSettings) => {
+    const normalized = normalizeAppSyncSettings(settings);
+    saveAccessUsers(normalized.accessUsers);
+    setAppSyncSettings(normalized);
+    refreshCurrentUserAccess();
+  };
+
   useEffect(() => {
     const openSpriteAnimator = () => {
       setDetailReturnTarget(null);
@@ -815,8 +1143,13 @@ export default function App() {
           onOpenProfile={openProfile}
           onOpenTavernScribe={() => setTavernScribeOpen(true)}
           onOpenQuestDashboard={openQuestDashboard}
+          onOpenPushChanges={openPushReview}
           questCount={currentQuestCount}
+          pendingPublishCount={pendingPublishCount}
           canAccessSettings={canAccessSettings}
+          hiddenViewIds={hiddenViewIds}
+          syncLabel={cloudSync.message}
+          syncWorking={cloudSync.phase === "saving" || cloudSync.phase === "publishing" || cloudSync.phase === "loading"}
         />
 
         <main className="min-w-0 flex-1">
@@ -910,7 +1243,7 @@ export default function App() {
           ) : (
             <>
               {activeView === "dashboard" && (
-                <Dashboard database={database} onNavigate={navigate} onOpenEntry={openEntry} />
+                <Dashboard database={database} onNavigate={navigate} onOpenEntry={openEntry} hiddenViewIds={hiddenViewIds} />
               )}
 
               {activeView === "spriteAnimator" && (
@@ -980,7 +1313,9 @@ export default function App() {
                   onDatabaseChange={updateDatabase}
                   onThemeChange={setTheme}
                   currentUser={currentUser}
-                  onAccessUsersChange={refreshCurrentUserAccess}
+                  appSyncSettings={appSyncSettings}
+                  onAccessUsersChange={updateAccessUsersFromSettings}
+                  onAppSyncSettingsChange={updateAppSyncSettings}
                 />
               )}
 
@@ -1059,6 +1394,16 @@ export default function App() {
           />
         )}
 
+        {pushReviewOpen && (
+          <SyncPublishModal
+            changes={publishChanges}
+            publishing={cloudSync.phase === "publishing"}
+            message={pushMessage || cloudSync.message}
+            onClose={() => setPushReviewOpen(false)}
+            onPublish={publishSelectedChanges}
+          />
+        )}
+
         {selectedEntry && !selectedCharacterEntry && (
           <EntryModal
             entry={selectedEntry}
@@ -1092,6 +1437,24 @@ export default function App() {
 
 function isCharacterEntry(entry: LoreEntry) {
   return /character/i.test(entry.category) || /character/i.test(entry.type);
+}
+
+function expandHiddenViewIds(hiddenViewIds: ActiveView[]) {
+  const expanded = new Set<ActiveView>(hiddenViewIds);
+  if (expanded.has("food")) {
+    expanded.add("ingredients");
+    expanded.add("recipes");
+    expanded.add("items");
+  }
+  if (expanded.has("story")) {
+    expanded.add("timeline");
+    expanded.add("secrets");
+    expanded.add("factions");
+  }
+  if (expanded.has("bestiary")) {
+    expanded.add("enemies");
+  }
+  return [...expanded];
 }
 
 function KeywordReferencePopup({

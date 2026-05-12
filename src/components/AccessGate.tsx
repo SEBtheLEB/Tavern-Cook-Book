@@ -6,6 +6,7 @@ import {
   getAccessGoogleClientId,
   isApprovedGoogleUser,
   renderGoogleSignInButton,
+  saveGoogleCredential,
   saveAccessGoogleClientId,
   saveGoogleAccount
 } from "../utils/accessControl";
@@ -61,6 +62,7 @@ export function AccessGate({
       return;
     }
 
+    saveGoogleCredential(credential);
     saveGoogleAccount(user);
     onSignIn(user);
   };

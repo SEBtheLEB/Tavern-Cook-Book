@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
-import type { AccessRole, AccessUserPermission, GoogleAccountUser, LoreDatabase, ThemeMode } from "../types";
+import type { AccessRole, AccessUserPermission, ActiveView, GoogleAccountUser, LoreDatabase, ThemeMode } from "../types";
 import { createStarterDatabase } from "../data/starterData";
+import { mainNavigation } from "../data/navigation";
+import type { AppSyncSettings } from "../utils/appSettings";
+import { getHideableNavigationTabs } from "../utils/appSettings";
 import type { DriveSettings } from "../utils/driveSettings";
 import {
   clearDriveSettings,
@@ -25,7 +28,9 @@ interface SettingsPageProps {
   onDatabaseChange: (database: LoreDatabase) => void;
   onThemeChange: (theme: ThemeMode) => void;
   currentUser: GoogleAccountUser;
-  onAccessUsersChange: () => void;
+  appSyncSettings: AppSyncSettings;
+  onAccessUsersChange: (users: AccessUserPermission[]) => void;
+  onAppSyncSettingsChange: (settings: AppSyncSettings) => void;
 }
 
 interface HealthState {
@@ -41,7 +46,9 @@ export function SettingsPage({
   onDatabaseChange,
   onThemeChange,
   currentUser,
-  onAccessUsersChange
+  appSyncSettings,
+  onAccessUsersChange,
+  onAppSyncSettingsChange
 }: SettingsPageProps) {
   const [message, setMessage] = useState("");
   const [health, setHealth] = useState<HealthState | null>(null);
@@ -51,6 +58,7 @@ export function SettingsPage({
   const [newAccessRole, setNewAccessRole] = useState<AccessRole>("viewer");
   const storageBytes = estimateStorageBytes(database);
   const driveConfigured = isDriveConfigured(driveSettings);
+  const hideableNavigation = mainNavigation.filter((item) => getHideableNavigationTabs().includes(item.id));
 
   useEffect(() => {
     fetch("/api/health")
@@ -251,12 +259,29 @@ export function SettingsPage({
   const saveCurrentAccessUsers = () => {
     try {
       saveAccessUsers(accessUsers);
-      setAccessUsers(loadAccessUsers());
-      onAccessUsersChange();
+      const savedUsers = loadAccessUsers();
+      setAccessUsers(savedUsers);
+      onAccessUsersChange(savedUsers);
+      onAppSyncSettingsChange({
+        ...appSyncSettings,
+        accessUsers: savedUsers
+      });
       setMessage("Team access saved. New sign-ins will use these permissions.");
     } catch {
       setMessage("Could not save team access in this browser.");
     }
+  };
+
+  const toggleHiddenMemberTab = (viewId: ActiveView) => {
+    const hidden = new Set(appSyncSettings.visibility.hiddenForMembers);
+    if (hidden.has(viewId)) hidden.delete(viewId);
+    else hidden.add(viewId);
+    onAppSyncSettingsChange({
+      ...appSyncSettings,
+      visibility: {
+        hiddenForMembers: [...hidden]
+      }
+    });
   };
 
   return (
@@ -321,6 +346,38 @@ export function SettingsPage({
           <p className="mt-3 text-sm" style={{ color: "var(--muted-ink)" }}>
             Large uploaded files may exceed browser storage limits. Video links are best for long clips.
           </p>
+        </div>
+      </section>
+
+      <section className="soft-panel rounded p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="font-display text-2xl">Member Tab Visibility</h3>
+            <p className="mt-1 text-sm" style={{ color: "var(--muted-ink)" }}>
+              Hidden tabs stay available to admins.
+            </p>
+          </div>
+          <span className="rounded border px-3 py-1 text-sm" style={{ borderColor: "var(--card-border)", background: "var(--field-bg)" }}>
+            {appSyncSettings.visibility.hiddenForMembers.length} hidden
+          </span>
+        </div>
+        <div className="settings-visibility-grid mt-4">
+          {hideableNavigation.map((item) => {
+            const hidden = appSyncSettings.visibility.hiddenForMembers.includes(item.id);
+            return (
+              <label key={item.id} className={`settings-visibility-row ${hidden ? "is-hidden" : ""}`}>
+                <input
+                  type="checkbox"
+                  checked={!hidden}
+                  onChange={() => toggleHiddenMemberTab(item.id)}
+                />
+                <span>
+                  <strong>{item.label}</strong>
+                  <em>{hidden ? "Hidden from members" : "Visible to members"}</em>
+                </span>
+              </label>
+            );
+          })}
         </div>
       </section>
 

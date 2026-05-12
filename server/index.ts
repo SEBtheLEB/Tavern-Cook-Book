@@ -1,6 +1,7 @@
 import "dotenv/config";
 import express from "express";
 import { getAssistantHealth, handleAssistantRequest } from "./assistantBackend.ts";
+import { getSyncHealth, handleSyncRequest } from "./syncBackend.ts";
 
 const app = express();
 const port = Number(process.env.PORT || 5174);
@@ -14,6 +15,30 @@ app.get("/api/health", (_request, response) => {
 app.post("/api/assistant", async (request, response) => {
   const result = await handleAssistantRequest(request.body || {});
   response.status(result.status).json(result.body);
+});
+
+app.get("/api/sync", async (request, response) => {
+  const result = await handleSyncRequest({
+    method: "GET",
+    url: request.originalUrl,
+    headers: request.headers,
+    body: {}
+  });
+  response.status(result.status).json(result.body);
+});
+
+app.post("/api/sync", async (request, response) => {
+  const result = await handleSyncRequest({
+    method: "POST",
+    url: request.originalUrl,
+    headers: request.headers,
+    body: request.body || {}
+  });
+  response.status(result.status).json(result.body);
+});
+
+app.get("/api/sync-health", (_request, response) => {
+  response.json(getSyncHealth());
 });
 
 app.listen(port, "127.0.0.1", () => {

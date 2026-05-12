@@ -19,8 +19,13 @@ interface SidebarProps {
   onOpenProfile?: () => void;
   onOpenTavernScribe?: () => void;
   onOpenQuestDashboard?: () => void;
+  onOpenPushChanges?: () => void;
   questCount?: number;
+  pendingPublishCount?: number;
   canAccessSettings?: boolean;
+  hiddenViewIds?: ActiveView[];
+  syncLabel?: string;
+  syncWorking?: boolean;
 }
 
 type SidebarLayoutNode =
@@ -48,12 +53,20 @@ export function Sidebar({
   onOpenProfile,
   onOpenTavernScribe,
   onOpenQuestDashboard,
+  onOpenPushChanges,
   questCount = 0,
-  canAccessSettings = false
+  pendingPublishCount = 0,
+  canAccessSettings = false,
+  hiddenViewIds = [],
+  syncLabel = "",
+  syncWorking = false
 }: SidebarProps) {
-  const navigation = !canAccessSettings
-    ? mainNavigation.filter((item) => item.id !== "settings")
-    : mainNavigation;
+  const hiddenViewSet = useMemo(() => new Set(hiddenViewIds), [hiddenViewIds]);
+  const navigation = mainNavigation.filter((item) => {
+    if (!canAccessSettings && item.id === "settings") return false;
+    if (!canAccessSettings && hiddenViewSet.has(item.id)) return false;
+    return true;
+  });
   const allNavIds = useMemo(() => mainNavigation.map((item) => item.id), []);
   const [layout, setLayout] = useState<SidebarLayoutNode[]>(() => loadSidebarLayout(allNavIds));
   const [editingSidebar, setEditingSidebar] = useState(false);
@@ -384,28 +397,45 @@ export function Sidebar({
 
       <div className="mt-auto border-t border-white/20 p-3">
         {currentUser && (
-          <div className={`sidebar-account-card ${collapsed ? "collapsed" : ""}`}>
-            <button
-              className="sidebar-account-main"
-              onClick={() => setAccountMenuOpen((value) => !value)}
-              title={collapsed ? undefined : `Account: ${currentUser.name}`}
-              aria-label="Open profile menu"
-              aria-expanded={accountMenuOpen}
-              onMouseEnter={(event) => showCollapsedTooltip(`Account: ${currentUser.name}`, event)}
-              onMouseMove={moveCollapsedTooltip}
-              onMouseLeave={hideCollapsedTooltip}
-            >
-              <div className="sidebar-account-avatar">
-                {currentUser.picture ? (
-                  <img src={currentUser.picture} alt="" />
-                ) : (
-                  <Icon name="UserRound" className="h-5 w-5" />
-                )}
-              </div>
-              {questCount > 0 && <span className="sidebar-account-quest-dot">{questCount}</span>}
-            </button>
-            {accountMenuOpen && (
-              <div className="sidebar-account-menu">
+          <div className={`sidebar-bottom-actions ${collapsed ? "collapsed" : ""}`}>
+            {!readOnly && onOpenPushChanges && (
+              <button
+                className={`sidebar-push-button ${pendingPublishCount > 0 ? "has-changes" : ""}`}
+                onClick={onOpenPushChanges}
+                title={collapsed ? "Push changes to team" : syncLabel || "Push changes to team"}
+                aria-label="Push changes to team"
+                disabled={syncWorking}
+                onMouseEnter={(event) => showCollapsedTooltip(syncLabel || "Push changes to team", event)}
+                onMouseMove={moveCollapsedTooltip}
+                onMouseLeave={hideCollapsedTooltip}
+              >
+                <Icon name={syncWorking ? "RefreshCw" : "UploadCloud"} className="h-5 w-5" />
+                {!collapsed && <span>Push</span>}
+                {pendingPublishCount > 0 && <em>{pendingPublishCount}</em>}
+              </button>
+            )}
+            <div className={`sidebar-account-card ${collapsed ? "collapsed" : ""}`}>
+              <button
+                className="sidebar-account-main"
+                onClick={() => setAccountMenuOpen((value) => !value)}
+                title={collapsed ? undefined : `Account: ${currentUser.name}`}
+                aria-label="Open profile menu"
+                aria-expanded={accountMenuOpen}
+                onMouseEnter={(event) => showCollapsedTooltip(`Account: ${currentUser.name}`, event)}
+                onMouseMove={moveCollapsedTooltip}
+                onMouseLeave={hideCollapsedTooltip}
+              >
+                <div className="sidebar-account-avatar">
+                  {currentUser.picture ? (
+                    <img src={currentUser.picture} alt="" />
+                  ) : (
+                    <Icon name="UserRound" className="h-5 w-5" />
+                  )}
+                </div>
+                {questCount > 0 && <span className="sidebar-account-quest-dot">{questCount}</span>}
+              </button>
+              {accountMenuOpen && (
+                <div className="sidebar-account-menu">
                 <div className="sidebar-account-menu-header">
                   <div className="sidebar-account-avatar small">
                     {currentUser.picture ? (
@@ -469,7 +499,8 @@ export function Sidebar({
                   </button>
                 )}
               </div>
-            )}
+              )}
+            </div>
           </div>
         )}
         {storageWarning && (

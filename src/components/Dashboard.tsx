@@ -6,6 +6,7 @@ interface DashboardProps {
   database: LoreDatabase;
   onNavigate: (view: ActiveView) => void;
   onOpenEntry: (entry: LoreEntry) => void;
+  hiddenViewIds?: ActiveView[];
 }
 
 const focusPanels = [
@@ -16,8 +17,9 @@ const focusPanels = [
   "Tohm Kyatt Redemption Arc"
 ];
 
-export function Dashboard({ database, onNavigate, onOpenEntry }: DashboardProps) {
+export function Dashboard({ database, onNavigate, onOpenEntry, hiddenViewIds = [] }: DashboardProps) {
   const entries = database.entries;
+  const hiddenViewSet = new Set(hiddenViewIds);
   const countStatus = (status: string) => entries.filter((entry) => entry.status === status).length;
   const unresolved = entries.filter((entry) => entry.notes.unresolved || entry.status === "Needs Rewrite");
   const recent = [...entries]
@@ -133,7 +135,7 @@ export function Dashboard({ database, onNavigate, onOpenEntry }: DashboardProps)
           </p>
         </div>
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-          {dashboardBoxes.map((box) => (
+          {dashboardBoxes.filter((box) => !hiddenViewSet.has(box.id)).map((box) => (
             <button
               key={`${box.id}-${box.label}`}
               className="dashboard-category-box-frame min-h-[190px] rounded p-5 text-left transition hover:-translate-y-0.5 hover:shadow-glow"
