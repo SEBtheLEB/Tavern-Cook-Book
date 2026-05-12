@@ -18930,6 +18930,37 @@ iframe[src*="accounts.google.com"] {
   font-weight: 900;
 }
 
+.sidebar-live-sync-status {
+  display: inline-flex;
+  min-height: 54px;
+  min-width: 54px;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: 1px solid rgba(153, 255, 226, 0.42);
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at 28% 10%, rgba(99, 230, 190, 0.2), transparent 56%),
+    rgba(0, 0, 0, 0.18);
+  color: #d9fff4;
+  padding: 0.45rem 0.7rem;
+}
+
+.sidebar-live-sync-status.working svg {
+  animation: tavern-sync-spin 0.95s linear infinite;
+}
+
+.sidebar-live-sync-status span {
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+@keyframes tavern-sync-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .sync-publish-backdrop {
   position: fixed;
   inset: 0;

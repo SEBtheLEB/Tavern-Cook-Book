@@ -173,29 +173,47 @@ async function readGitHubJson(path: string): Promise<{ data: unknown; sha: strin
 }
 
 async function writeGitHubJson(path: string, value: unknown, message: string) {
-  const current = await readGitHubRaw(path);
-  const content = `${JSON.stringify(value, null, 2)}\n`;
-  if (current?.content === content) {
-    return { skipped: true, sha: current.sha };
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    const current = await readGitHubRaw(path);
+    const content = `${JSON.stringify(value, null, 2)}\n`;
+    if (current?.content === content) {
+      return { skipped: true, sha: current.sha };
+    }
+
+    const response = await fetch(gitHubContentsUrl(path), {
+      method: "PUT",
+      headers: {
+        ...gitHubHeaders(),
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        message,
+        content: Buffer.from(content, "utf8").toString("base64"),
+        branch: syncBranch(),
+        sha: current?.sha || undefined
+      })
+    });
+
+    if (response.ok) {
+      const result = await response.json() as { content?: { sha?: string } };
+      return { skipped: false, sha: result.content?.sha || "" };
+    }
+
+    if (response.status === 409 && attempt < 3) {
+      await wait(150 * attempt);
+      continue;
+    }
+
+    throw new Error(await gitHubError(response, "Could not write sync file."));
   }
 
-  const response = await fetch(gitHubContentsUrl(path), {
-    method: "PUT",
-    headers: {
-      ...gitHubHeaders(),
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      message,
-      content: Buffer.from(content, "utf8").toString("base64"),
-      branch: syncBranch(),
-      sha: current?.sha || undefined
-    })
-  });
+  throw new Error("Could not write sync file.");
+}
 
-  if (!response.ok) throw new Error(await gitHubError(response, "Could not write sync file."));
-  const result = await response.json() as { content?: { sha?: string } };
-  return { skipped: false, sha: result.content?.sha || "" };
+function wait(ms: number) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
 }
 
 async function readGitHubRaw(path: string): Promise<{ content: string; sha: string } | null> {

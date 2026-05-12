@@ -180,6 +180,9 @@ interface SyncConflictReview {
 }
 
 const EXPLICIT_REMOVALS_KEY = "tavern-cook-book:explicit-removals";
+const LIVE_TEAM_SYNC = true;
+const LIVE_SYNC_AUTOSAVE_DELAY_MS = 2500;
+const LIVE_SYNC_POLL_MS = 5000;
 
 export default function App() {
   const hostedViewer = import.meta.env.VITE_READONLY_VIEWER === "true";
@@ -245,9 +248,11 @@ export default function App() {
   );
   const explicitRemovalSet = useMemo(() => new Set(explicitRemovalIds), [explicitRemovalIds]);
   const publishChanges = useMemo(
-    () => buildPublishChanges(database, publishedDatabase).filter((change) =>
-      change.action !== "removed" || explicitRemovalSet.has(change.id)
-    ),
+    () => LIVE_TEAM_SYNC
+      ? []
+      : buildPublishChanges(database, publishedDatabase).filter((change) =>
+        change.action !== "removed" || explicitRemovalSet.has(change.id)
+      ),
     [database, publishedDatabase, explicitRemovalSet]
   );
   const pendingPublishCount = publishChanges.length;
@@ -261,33 +266,44 @@ export default function App() {
 
   useEffect(() => {
     if (!currentUser || readOnly || hostedViewer || remoteLoadRef.current) return;
-    if (cloudSync.phase === "offline" && !cloudSync.configured) return;
     const nextHash = databaseSyncHash(database);
     if (nextHash === lastDraftHashRef.current) return;
 
     setCloudSync((current) => ({
       ...current,
       phase: "saving",
-      message: "Autosaving your private draft..."
+      message: LIVE_TEAM_SYNC ? "Saving live team changes..." : "Autosaving your private draft..."
     }));
 
     const timer = window.setTimeout(() => {
-      void saveUserDraft(currentUser.email, database)
+      const save = LIVE_TEAM_SYNC
+        ? savePublishedDatabase(currentUser.email, database)
+        : saveUserDraft(currentUser.email, database);
+
+      void save
         .then((result) => {
           if (!result.ok || !result.envelope) {
             setCloudSync({
               phase: result.error?.includes("sign-in token") ? "needsAuth" : "offline",
-              message: result.error || "Cloud autosave failed. Local browser save is still active.",
+              message: result.error || "Live sync failed. Local browser save is still active.",
               lastSavedAt: "",
               configured: result.configured
             });
             return;
           }
-          lastDraftHashRef.current = databaseSyncHash(result.envelope.payload.database);
+          const savedDatabase = result.envelope.payload.database;
+          const savedHash = databaseSyncHash(savedDatabase);
+          if (LIVE_TEAM_SYNC) {
+            setPublishedDatabase(savedDatabase);
+            lastPublishedDatabaseRef.current = savedDatabase;
+            lastPublishedHashRef.current = savedHash;
+            savePublishedSyncState(savedDatabase, result.envelope.updatedAt);
+          }
+          lastDraftHashRef.current = savedHash;
           lastDraftUpdatedAtRef.current = result.envelope.updatedAt;
           setCloudSync({
             phase: "saved",
-            message: "Private draft saved to your account.",
+            message: LIVE_TEAM_SYNC ? "Live team changes saved." : "Private draft saved to your account.",
             lastSavedAt: result.envelope.updatedAt,
             configured: true
           });
@@ -295,12 +311,12 @@ export default function App() {
         .catch((error) => {
           setCloudSync({
             phase: "offline",
-            message: error instanceof Error ? error.message : "Cloud autosave failed. Local browser save is still active.",
+            message: error instanceof Error ? error.message : "Live sync failed. Local browser save is still active.",
             lastSavedAt: "",
             configured: true
           });
         });
-    }, 3500);
+    }, LIVE_SYNC_AUTOSAVE_DELAY_MS);
 
     return () => window.clearTimeout(timer);
   }, [database, currentUser?.email, readOnly, hostedViewer]);
@@ -318,6 +334,7 @@ export default function App() {
   }, [explicitRemovalIds]);
 
   useEffect(() => {
+    if (LIVE_TEAM_SYNC) return;
     if (!currentUser || readOnly || hostedViewer) return;
     const interval = window.setInterval(() => {
       void fetchUserDraft(currentUser.email)
@@ -368,6 +385,37 @@ export default function App() {
           const remotePublishedHash = databaseSyncHash(remotePublished);
           if (remotePublishedHash === lastPublishedHashRef.current) return;
 
+          if (LIVE_TEAM_SYNC) {
+            const localHash = databaseSyncHash(database);
+            if (!readOnly && localHash !== lastDraftHashRef.current) {
+              setCloudSync((current) => ({
+                ...current,
+                message: "New live team changes are waiting while your current edit saves."
+              }));
+              return;
+            }
+
+            remoteLoadRef.current = true;
+            setDatabase(remotePublished);
+            saveDatabase(remotePublished);
+            window.setTimeout(() => {
+              remoteLoadRef.current = false;
+            }, 0);
+            setPublishedDatabase(remotePublished);
+            lastPublishedHashRef.current = remotePublishedHash;
+            lastPublishedDatabaseRef.current = remotePublished;
+            lastDraftHashRef.current = remotePublishedHash;
+            lastDraftUpdatedAtRef.current = result.envelope.updatedAt;
+            savePublishedSyncState(remotePublished, result.envelope.updatedAt);
+            setCloudSync({
+              phase: "saved",
+              message: "Loaded live team changes.",
+              lastSavedAt: result.envelope.updatedAt,
+              configured: true
+            });
+            return;
+          }
+
           const previousPublishedDatabase = lastPublishedDatabaseRef.current;
           const merge = readOnly
             ? { database: remotePublished, conflicts: [], appliedCount: 0, changed: true }
@@ -414,7 +462,7 @@ export default function App() {
           }
         })
         .catch(() => {});
-    }, 15_000);
+    }, LIVE_TEAM_SYNC ? LIVE_SYNC_POLL_MS : 15_000);
 
     return () => window.clearInterval(interval);
   }, [currentUser?.email, database, readOnly, hostedViewer, explicitRemovalSet]);
@@ -494,7 +542,7 @@ export default function App() {
       const [settingsResult, publishedResult, draftResult] = await Promise.all([
         fetchRemoteAppSettings(),
         fetchPublishedDatabase(),
-        canEdit ? fetchUserDraft(currentUser.email) : Promise.resolve(null)
+        !LIVE_TEAM_SYNC && canEdit ? fetchUserDraft(currentUser.email) : Promise.resolve(null)
       ]);
       if (cancelled) return;
 
@@ -513,7 +561,7 @@ export default function App() {
         ? publishedResult.envelope.payload.database
         : createStarterDatabase();
       const publishedEnvelope = publishedResult.ok ? publishedResult.envelope : null;
-      const draftEnvelope = canEdit && draftResult?.ok ? draftResult.envelope : null;
+      const draftEnvelope = !LIVE_TEAM_SYNC && canEdit && draftResult?.ok ? draftResult.envelope : null;
       const remotePublishedHash = databaseSyncHash(remotePublished);
       setPublishedDatabase(remotePublished);
       lastPublishedHashRef.current = remotePublishedHash;
@@ -527,7 +575,9 @@ export default function App() {
       const mergedDraft = draftDatabase && publishedEnvelope
         ? mergeDraftOntoPublished(draftDatabase, remotePublished, explicitRemovalSet)
         : null;
-      const chosenDatabase = mergedDraft?.database || draftDatabase || (publishedEnvelope ? remotePublished : localDatabase);
+      const chosenDatabase = LIVE_TEAM_SYNC
+        ? (publishedEnvelope ? remotePublished : localDatabase)
+        : mergedDraft?.database || draftDatabase || (publishedEnvelope ? remotePublished : localDatabase);
       const chosenHash = databaseSyncHash(chosenDatabase);
 
       remoteLoadRef.current = true;
@@ -538,20 +588,28 @@ export default function App() {
       }, 0);
 
       lastDraftHashRef.current = chosenHash;
-      lastDraftUpdatedAtRef.current = latestSyncDate(publishedEnvelope?.updatedAt || "", draftEnvelope?.updatedAt || "");
+      lastDraftUpdatedAtRef.current = LIVE_TEAM_SYNC
+        ? publishedEnvelope?.updatedAt || ""
+        : latestSyncDate(publishedEnvelope?.updatedAt || "", draftEnvelope?.updatedAt || "");
       setCloudSync({
         phase: publishedEnvelope || draftEnvelope ? "saved" : "idle",
-        message: mergedDraft?.privateCount
+        message: LIVE_TEAM_SYNC
+          ? publishedEnvelope
+            ? `Loaded live team database saved ${new Date(publishedEnvelope.updatedAt).toLocaleString()}.`
+            : "Live sync is ready. Your next edit will save for the team."
+          : mergedDraft?.privateCount
           ? `Loaded the latest team version and kept ${mergedDraft.privateCount} private ${mergedDraft.privateCount === 1 ? "change" : "changes"}.`
           : publishedEnvelope
             ? `Loaded latest team version saved ${new Date(publishedEnvelope.updatedAt).toLocaleString()}.`
             : draftEnvelope
               ? `Loaded private draft saved ${new Date(draftEnvelope.updatedAt).toLocaleString()}.`
               : "Cloud sync is ready. Your next edit will autosave.",
-        lastSavedAt: latestSyncDate(publishedEnvelope?.updatedAt || "", draftEnvelope?.updatedAt || ""),
+        lastSavedAt: LIVE_TEAM_SYNC
+          ? publishedEnvelope?.updatedAt || ""
+          : latestSyncDate(publishedEnvelope?.updatedAt || "", draftEnvelope?.updatedAt || ""),
         configured: true
       });
-      if (canEdit && draftDatabase && chosenHash !== draftHash) {
+      if (!LIVE_TEAM_SYNC && canEdit && draftDatabase && chosenHash !== draftHash) {
         void saveUserDraft(currentUser.email, chosenDatabase)
           .then((draftResult) => {
             if (!draftResult.ok || !draftResult.envelope?.payload.database) return;
@@ -1382,13 +1440,13 @@ export default function App() {
           onOpenProfile={openProfile}
           onOpenTavernScribe={() => setTavernScribeOpen(true)}
           onOpenQuestDashboard={openQuestDashboard}
-          onOpenPushChanges={openPushReview}
+          onOpenPushChanges={LIVE_TEAM_SYNC ? undefined : openPushReview}
           questCount={currentQuestCount}
           pendingPublishCount={pendingPublishCount}
           canAccessSettings={canAccessSettings}
           hiddenViewIds={hiddenViewIds}
           syncLabel={cloudSync.message}
-          syncWorking={cloudSync.phase === "publishing"}
+          syncWorking={cloudSync.phase === "publishing" || cloudSync.phase === "saving" || cloudSync.phase === "loading"}
         />
 
         <main className="min-w-0 flex-1">
@@ -1633,7 +1691,7 @@ export default function App() {
           />
         )}
 
-        {pushReviewOpen && (
+        {!LIVE_TEAM_SYNC && pushReviewOpen && (
           <SyncPublishModal
             changes={publishChanges}
             publishing={cloudSync.phase === "publishing"}

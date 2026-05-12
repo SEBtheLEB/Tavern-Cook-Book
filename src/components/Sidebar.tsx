@@ -412,6 +412,20 @@ export function Sidebar({
                 {pendingPublishCount > 0 && <em>{pendingPublishCount}</em>}
               </button>
             )}
+            {!readOnly && !onOpenPushChanges && (
+              <div
+                className={`sidebar-live-sync-status ${syncWorking ? "working" : ""}`}
+                title={collapsed ? "Live sync is on" : syncLabel || "Live sync is on"}
+                aria-label="Live sync is on"
+                role="status"
+                onMouseEnter={(event) => showCollapsedTooltip(syncLabel || "Live sync is on", event)}
+                onMouseMove={moveCollapsedTooltip}
+                onMouseLeave={hideCollapsedTooltip}
+              >
+                <Icon name={syncWorking ? "RefreshCw" : "Users"} className="h-5 w-5" />
+                {!collapsed && <span>Live Sync</span>}
+              </div>
+            )}
             <div className={`sidebar-account-card ${collapsed ? "collapsed" : ""}`}>
               <button
                 className="sidebar-account-main"
