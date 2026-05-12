@@ -1,9 +1,11 @@
 {
-  "updatedAt": "2026-05-12T05:38:39.996Z",
+  "updatedAt": "2026-05-12T05:47:47.836Z",
   "updatedBy": "stlprodz1101@gmail.com",
   "payload": {
     "visibility": {
-      "hiddenForMembers": []
+      "hiddenForMembers": [
+        "storyJourney"
+      ]
     },
     "accessUsers": [
       {
