@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-05-13T02:19:05.404Z",
+  "updatedAt": "2026-05-13T02:19:04.711Z",
   "updatedBy": "stlprodz1101@gmail.com",
   "payload": {
     "visibility": {
@@ -46,8 +46,7 @@
           "art-vault",
           "story-builder",
           "dialogue-builder",
-          "team-assignments",
-          "world-bible"
+          "team-assignments"
         ],
         "appRoles": {
           "tales-codex": "editor",
@@ -56,8 +55,7 @@
           "art-vault": "editor",
           "story-builder": "editor",
           "dialogue-builder": "editor",
-          "team-assignments": "editor",
-          "world-bible": "editor"
+          "team-assignments": "editor"
         }
       }
     ],
@@ -107,8 +105,7 @@
           "art-vault",
           "story-builder",
           "dialogue-builder",
-          "team-assignments",
-          "world-bible"
+          "team-assignments"
         ],
         "appRoles": {
           "tales-codex": "editor",
@@ -117,8 +114,7 @@
           "art-vault": "editor",
           "story-builder": "editor",
           "dialogue-builder": "editor",
-          "team-assignments": "editor",
-          "world-bible": "editor"
+          "team-assignments": "editor"
         }
       }
     ]
