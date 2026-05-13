@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-05-13T02:19:02.461Z",
+  "updatedAt": "2026-05-13T02:19:03.693Z",
   "updatedBy": "stlprodz1101@gmail.com",
   "payload": {
     "visibility": {
@@ -41,11 +41,17 @@
         "label": "Sebastien backup",
         "appIds": [
           "tales-codex",
-          "vainglorious-hub"
+          "vainglorious-hub",
+          "jesters-grid",
+          "art-vault",
+          "story-builder"
         ],
         "appRoles": {
           "tales-codex": "editor",
-          "vainglorious-hub": "editor"
+          "vainglorious-hub": "editor",
+          "jesters-grid": "editor",
+          "art-vault": "editor",
+          "story-builder": "editor"
         }
       }
     ],
@@ -90,11 +96,17 @@
         "label": "Sebastien backup",
         "appIds": [
           "tales-codex",
-          "vainglorious-hub"
+          "vainglorious-hub",
+          "jesters-grid",
+          "art-vault",
+          "story-builder"
         ],
         "appRoles": {
           "tales-codex": "editor",
-          "vainglorious-hub": "editor"
+          "vainglorious-hub": "editor",
+          "jesters-grid": "editor",
+          "art-vault": "editor",
+          "story-builder": "editor"
         }
       }
     ]
