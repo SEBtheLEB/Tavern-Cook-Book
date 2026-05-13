@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-05-13T02:19:04.711Z",
+  "updatedAt": "2026-05-13T02:19:07.612Z",
   "updatedBy": "stlprodz1101@gmail.com",
   "payload": {
     "visibility": {
@@ -46,7 +46,10 @@
           "art-vault",
           "story-builder",
           "dialogue-builder",
-          "team-assignments"
+          "team-assignments",
+          "world-bible",
+          "marketing-kit",
+          "project-roadmap"
         ],
         "appRoles": {
           "tales-codex": "editor",
@@ -55,7 +58,10 @@
           "art-vault": "editor",
           "story-builder": "editor",
           "dialogue-builder": "editor",
-          "team-assignments": "editor"
+          "team-assignments": "editor",
+          "world-bible": "editor",
+          "marketing-kit": "editor",
+          "project-roadmap": "editor"
         }
       }
     ],
@@ -105,7 +111,10 @@
           "art-vault",
           "story-builder",
           "dialogue-builder",
-          "team-assignments"
+          "team-assignments",
+          "world-bible",
+          "marketing-kit",
+          "project-roadmap"
         ],
         "appRoles": {
           "tales-codex": "editor",
@@ -114,7 +123,10 @@
           "art-vault": "editor",
           "story-builder": "editor",
           "dialogue-builder": "editor",
-          "team-assignments": "editor"
+          "team-assignments": "editor",
+          "world-bible": "editor",
+          "marketing-kit": "editor",
+          "project-roadmap": "editor"
         }
       }
     ]
