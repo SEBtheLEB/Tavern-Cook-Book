@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-05-13T02:19:07.612Z",
+  "updatedAt": "2026-05-13T02:19:07.334Z",
   "updatedBy": "stlprodz1101@gmail.com",
   "payload": {
     "visibility": {
@@ -48,8 +48,7 @@
           "dialogue-builder",
           "team-assignments",
           "world-bible",
-          "marketing-kit",
-          "project-roadmap"
+          "marketing-kit"
         ],
         "appRoles": {
           "tales-codex": "editor",
@@ -60,8 +59,7 @@
           "dialogue-builder": "editor",
           "team-assignments": "editor",
           "world-bible": "editor",
-          "marketing-kit": "editor",
-          "project-roadmap": "editor"
+          "marketing-kit": "editor"
         }
       }
     ],
@@ -113,8 +111,7 @@
           "dialogue-builder",
           "team-assignments",
           "world-bible",
-          "marketing-kit",
-          "project-roadmap"
+          "marketing-kit"
         ],
         "appRoles": {
           "tales-codex": "editor",
@@ -125,8 +122,7 @@
           "dialogue-builder": "editor",
           "team-assignments": "editor",
           "world-bible": "editor",
-          "marketing-kit": "editor",
-          "project-roadmap": "editor"
+          "marketing-kit": "editor"
         }
       }
     ]
