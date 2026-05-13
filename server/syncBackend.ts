@@ -31,6 +31,7 @@ const DEFAULT_BRANCH = "main";
 const SYNC_ROOT = "sync/tavern-cook-book";
 const GOOGLE_TOKENINFO_URL = "https://oauth2.googleapis.com/tokeninfo";
 const MAIN_ADMIN_EMAIL = "stlprodz1101@gmail.com";
+const STL_WORKSHOP_GOOGLE_OAUTH_CLIENT_ID = "55508806253-p292f7oom6s1do0f9er1unfhi0mjjaen.apps.googleusercontent.com";
 
 export function getSyncHealth() {
   return {
@@ -146,8 +147,8 @@ export async function verifyGoogleCredential(headers: IncomingHttpHeaders): Prom
     return { ok: false, status: 401, error: "Google account email is not verified." };
   }
 
-  const expectedClientId = googleOAuthClientId();
-  if (expectedClientId && String(payload.aud || "") !== expectedClientId) {
+  const expectedClientIds = googleOAuthClientIds();
+  if (expectedClientIds.length && !expectedClientIds.includes(String(payload.aud || ""))) {
     return { ok: false, status: 401, error: "Google sign-in token was issued for a different OAuth client." };
   }
 
@@ -318,13 +319,18 @@ function syncBranch() {
   return (process.env.TAVERN_SYNC_GITHUB_BRANCH || DEFAULT_BRANCH).trim();
 }
 
-function googleOAuthClientId() {
-  return (
+function googleOAuthClientIds() {
+  return unique([
     process.env.TAVERN_GOOGLE_OAUTH_CLIENT_ID ||
     process.env.VITE_ACCESS_GOOGLE_OAUTH_CLIENT_ID ||
     process.env.VITE_GOOGLE_OAUTH_CLIENT_ID ||
-    ""
-  ).trim();
+    "",
+    process.env.STL_WORKSHOP_GOOGLE_OAUTH_CLIENT_ID || STL_WORKSHOP_GOOGLE_OAUTH_CLIENT_ID
+  ].flatMap((value) => value.split(","))).map((value) => value.trim()).filter(Boolean);
+}
+
+function unique(values: string[]) {
+  return [...new Set(values)];
 }
 
 function json(status: number, body: unknown): SyncResult {
