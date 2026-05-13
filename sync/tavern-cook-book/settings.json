@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-05-13T02:19:04.414Z",
+  "updatedAt": "2026-05-13T02:19:05.404Z",
   "updatedBy": "stlprodz1101@gmail.com",
   "payload": {
     "visibility": {
@@ -45,7 +45,9 @@
           "jesters-grid",
           "art-vault",
           "story-builder",
-          "dialogue-builder"
+          "dialogue-builder",
+          "team-assignments",
+          "world-bible"
         ],
         "appRoles": {
           "tales-codex": "editor",
@@ -53,7 +55,9 @@
           "jesters-grid": "editor",
           "art-vault": "editor",
           "story-builder": "editor",
-          "dialogue-builder": "editor"
+          "dialogue-builder": "editor",
+          "team-assignments": "editor",
+          "world-bible": "editor"
         }
       }
     ],
@@ -102,7 +106,9 @@
           "jesters-grid",
           "art-vault",
           "story-builder",
-          "dialogue-builder"
+          "dialogue-builder",
+          "team-assignments",
+          "world-bible"
         ],
         "appRoles": {
           "tales-codex": "editor",
@@ -110,7 +116,9 @@
           "jesters-grid": "editor",
           "art-vault": "editor",
           "story-builder": "editor",
-          "dialogue-builder": "editor"
+          "dialogue-builder": "editor",
+          "team-assignments": "editor",
+          "world-bible": "editor"
         }
       }
     ]
