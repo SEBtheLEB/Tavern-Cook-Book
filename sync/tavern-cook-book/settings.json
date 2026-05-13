@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-05-13T02:19:03.693Z",
+  "updatedAt": "2026-05-13T02:19:04.414Z",
   "updatedBy": "stlprodz1101@gmail.com",
   "payload": {
     "visibility": {
@@ -44,14 +44,16 @@
           "vainglorious-hub",
           "jesters-grid",
           "art-vault",
-          "story-builder"
+          "story-builder",
+          "dialogue-builder"
         ],
         "appRoles": {
           "tales-codex": "editor",
           "vainglorious-hub": "editor",
           "jesters-grid": "editor",
           "art-vault": "editor",
-          "story-builder": "editor"
+          "story-builder": "editor",
+          "dialogue-builder": "editor"
         }
       }
     ],
@@ -99,14 +101,16 @@
           "vainglorious-hub",
           "jesters-grid",
           "art-vault",
-          "story-builder"
+          "story-builder",
+          "dialogue-builder"
         ],
         "appRoles": {
           "tales-codex": "editor",
           "vainglorious-hub": "editor",
           "jesters-grid": "editor",
           "art-vault": "editor",
-          "story-builder": "editor"
+          "story-builder": "editor",
+          "dialogue-builder": "editor"
         }
       }
     ]
