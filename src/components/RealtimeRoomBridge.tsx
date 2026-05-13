@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { LiveObject, type JsonObject } from "@liveblocks/client";
 import { LiveblocksProvider, RoomProvider, useMutation, useOthers, useStatus, useStorage, useUpdateMyPresence } from "@liveblocks/react";
 import type { ActiveView, GoogleAccountUser, LoreDatabase, LoreEntry } from "../types";
@@ -161,6 +161,8 @@ function RealtimeBridgeInner({
   const updateMyPresence = useUpdateMyPresence();
   const status = useStatus();
   const others = useOthers((users) => users.map((user) => realtimeUserSummary(user as unknown as RealtimeLiveUser)));
+  const databaseRef = useRef(database);
+  const lastSeenLiveDatabaseHashRef = useRef("");
   const publishDatabase = useMutation(
     ({ storage }, previousDatabase: LoreDatabase, nextDatabase: LoreDatabase) => {
       const holder = storage.get("database");
@@ -177,6 +179,10 @@ function RealtimeBridgeInner({
     },
     []
   );
+  useEffect(() => {
+    databaseRef.current = database;
+  }, [database]);
+
   useEffect(() => {
     onPublisherReady(publishDatabase);
     return () => onPublisherReady(null);
@@ -218,10 +224,12 @@ function RealtimeBridgeInner({
     const normalized = normalizeRealtimeDatabase(liveDatabase);
     if (!normalized) return;
     const liveHash = databaseSyncHash(normalized);
-    const localHash = databaseSyncHash(database);
+    if (liveHash === lastSeenLiveDatabaseHashRef.current) return;
+    lastSeenLiveDatabaseHashRef.current = liveHash;
+    const localHash = databaseSyncHash(databaseRef.current);
     if (liveHash === localHash) return;
     onDatabaseFromRoom(normalized);
-  }, [database, liveDatabase, onDatabaseFromRoom]);
+  }, [liveDatabase, onDatabaseFromRoom]);
 
   return null;
 }

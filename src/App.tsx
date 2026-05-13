@@ -828,13 +828,22 @@ export default function App() {
   }, [hostedViewer]);
 
   const handleRealtimeDatabase = useCallback((nextDatabase: LoreDatabase) => {
+    const localHash = databaseSyncHash(databaseRef.current);
+    const nextHash = databaseSyncHash(nextDatabase);
+    if (!readOnly && localHash !== realtimeLastPublishedHashRef.current && nextHash !== localHash) {
+      setCloudSync((current) => ({
+        ...current,
+        message: "A live team update is waiting while your current edit saves."
+      }));
+      return;
+    }
+
     realtimeRemoteLoadRef.current = true;
     setDatabase(nextDatabase, { source: "remote" });
     saveDatabase(nextDatabase);
     window.setTimeout(() => {
       realtimeRemoteLoadRef.current = false;
     }, 0);
-    const nextHash = databaseSyncHash(nextDatabase);
     lastDraftHashRef.current = nextHash;
     realtimeBaseDatabaseRef.current = nextDatabase;
     realtimeLastPublishedHashRef.current = nextHash;
@@ -844,7 +853,7 @@ export default function App() {
       message: "Live team update received.",
       configured: true
     }));
-  }, [setDatabase]);
+  }, [readOnly, setDatabase]);
 
   const handleRealtimePublisherReady = useCallback((publisher: RealtimePublisher | null) => {
     realtimePublisherRef.current = publisher;
