@@ -21,7 +21,7 @@ interface RequestedUser {
   role?: AccessRole;
 }
 
-const DEFAULT_ROOM = "tavern-cook-book:shared-v2";
+const DEFAULT_ROOM = "tavern-cook-book:live-v1";
 
 export function getLiveblocksHealth() {
   return {

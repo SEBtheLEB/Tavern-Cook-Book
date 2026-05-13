@@ -2,7 +2,7 @@ import type { AccessRole, ActiveView, GoogleAccountUser, LoreDatabase } from "..
 import { databaseSyncHash } from "./cloudSync";
 import { migrateDatabase, sanitizeDatabaseForPersistence } from "./storage";
 
-export const TAVERN_REALTIME_ROOM_ID = import.meta.env.VITE_TAVERN_REALTIME_ROOM_ID || "tavern-cook-book:shared-v2";
+export const TAVERN_REALTIME_ROOM_ID = import.meta.env.VITE_TAVERN_REALTIME_ROOM_ID || "tavern-cook-book:live-v1";
 export const TAVERN_REALTIME_ENABLED = import.meta.env.VITE_TAVERN_REALTIME_DISABLED !== "true";
 
 export interface RealtimeLocation {

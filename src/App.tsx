@@ -192,6 +192,7 @@ const EXPLICIT_REMOVALS_KEY = "tavern-cook-book:explicit-removals";
 const LIVE_TEAM_SYNC = true;
 const LIVE_SYNC_AUTOSAVE_DELAY_MS = 900;
 const LIVE_SYNC_POLL_MS = 1200;
+const LIVE_BACKUP_SAVE_DELAY_MS = 12_000;
 
 function buildWorkshopProgress(database: LoreDatabase, currentUser: GoogleAccountUser) {
   const totalEntries = database.entries.length + database.bestiary.length;
@@ -270,6 +271,8 @@ export default function App() {
   const realtimeBaseDatabaseRef = useRef(database);
   const realtimeLastPublishedHashRef = useRef(databaseSyncHash(database));
   const realtimePublishTimerRef = useRef<number | null>(null);
+  const liveBackupTimerRef = useRef<number | null>(null);
+  const lastLiveBackupHashRef = useRef("");
   const realtimePublisherRef = useRef<RealtimePublisher | null>(null);
   const realtimeResetterRef = useRef<RealtimeDatabaseResetter | null>(null);
   const realtimePresenceUpdaterRef = useRef<RealtimePresenceUpdater | null>(null);
@@ -310,8 +313,67 @@ export default function App() {
         window.clearTimeout(realtimePublishTimerRef.current);
         realtimePublishTimerRef.current = null;
       }
+      if (liveBackupTimerRef.current) {
+        window.clearTimeout(liveBackupTimerRef.current);
+        liveBackupTimerRef.current = null;
+      }
     };
   }, []);
+
+  const scheduleLiveBackup = useCallback((nextHash: string) => {
+    if (!LIVE_TEAM_SYNC || !currentUser || hostedViewer) return;
+    if (nextHash === lastLiveBackupHashRef.current) return;
+    if (liveBackupTimerRef.current) {
+      window.clearTimeout(liveBackupTimerRef.current);
+    }
+
+    liveBackupTimerRef.current = window.setTimeout(() => {
+      liveBackupTimerRef.current = null;
+      const databaseToBackUp = databaseRef.current;
+      const backupHash = databaseSyncHash(databaseToBackUp);
+      if (backupHash === lastLiveBackupHashRef.current) return;
+
+      void savePublishedDatabase(currentUser.email, databaseToBackUp)
+        .then((result) => {
+          const envelope = result.envelope;
+          if (!result.ok || !envelope?.payload.database) {
+            setCloudSync((current) => ({
+              ...current,
+              message: result.error
+                ? `Live editing is working, but the GitHub backup failed: ${result.error}`
+                : "Live editing is working, but the GitHub backup failed.",
+              configured: result.configured
+            }));
+            return;
+          }
+
+          const savedDatabase = envelope.payload.database;
+          const savedHash = databaseSyncHash(savedDatabase);
+          lastLiveBackupHashRef.current = savedHash;
+          setPublishedDatabase(savedDatabase);
+          setPublishedReady(true);
+          lastPublishedDatabaseRef.current = savedDatabase;
+          lastPublishedHashRef.current = savedHash;
+          savePublishedSyncState(savedDatabase, envelope.updatedAt);
+          setCloudSync((current) => ({
+            ...current,
+            phase: "saved",
+            message: "Live team changes shared and backed up.",
+            lastSavedAt: envelope.updatedAt,
+            configured: true
+          }));
+        })
+        .catch((error) => {
+          setCloudSync((current) => ({
+            ...current,
+            message: error instanceof Error
+              ? `Live editing is working, but the GitHub backup failed: ${error.message}`
+              : "Live editing is working, but the GitHub backup failed.",
+            configured: true
+          }));
+        });
+    }, LIVE_BACKUP_SAVE_DELAY_MS);
+  }, [currentUser?.email, hostedViewer]);
 
   useEffect(() => {
     if (!currentUser || hostedViewer) return;
@@ -352,6 +414,7 @@ export default function App() {
 
   useEffect(() => {
     if (!publishedReady) return;
+    if (realtimeActive) return;
     if (!currentUser || readOnly || hostedViewer || remoteLoadRef.current || realtimeRemoteLoadRef.current) return;
     const nextHash = databaseSyncHash(database);
     if (nextHash === lastDraftHashRef.current) return;
@@ -407,7 +470,67 @@ export default function App() {
     }, LIVE_SYNC_AUTOSAVE_DELAY_MS);
 
     return () => window.clearTimeout(timer);
-  }, [database, currentUser?.email, readOnly, hostedViewer, publishedReady]);
+  }, [database, currentUser?.email, readOnly, hostedViewer, publishedReady, realtimeActive]);
+
+  useEffect(() => {
+    if (!LIVE_TEAM_SYNC) return;
+    if (!publishedReady || !realtimeActive) return;
+    if (!currentUser || readOnly || hostedViewer) return;
+    if (remoteLoadRef.current || realtimeRemoteLoadRef.current) return;
+    const publisher = realtimePublisherRef.current;
+    if (!publisher) return;
+
+    const nextHash = databaseSyncHash(database);
+    if (nextHash === realtimeLastPublishedHashRef.current) return;
+    if (realtimePublishTimerRef.current) {
+      window.clearTimeout(realtimePublishTimerRef.current);
+    }
+
+    setCloudSync((current) => ({
+      ...current,
+      phase: "saving",
+      message: "Sharing live team changes..."
+    }));
+
+    realtimePublishTimerRef.current = window.setTimeout(() => {
+      realtimePublishTimerRef.current = null;
+      if (remoteLoadRef.current || realtimeRemoteLoadRef.current) return;
+      const latestDatabase = databaseRef.current;
+      const latestHash = databaseSyncHash(latestDatabase);
+      if (latestHash === realtimeLastPublishedHashRef.current) return;
+
+      try {
+        publisher(realtimeBaseDatabaseRef.current, latestDatabase);
+        realtimeBaseDatabaseRef.current = latestDatabase;
+        realtimeLastPublishedHashRef.current = latestHash;
+        lastDraftHashRef.current = latestHash;
+        setPublishedDatabase(latestDatabase);
+        lastPublishedDatabaseRef.current = latestDatabase;
+        setCloudSync((current) => ({
+          ...current,
+          phase: "saved",
+          message: "Live team changes shared.",
+          lastSavedAt: new Date().toISOString(),
+          configured: true
+        }));
+        scheduleLiveBackup(latestHash);
+      } catch (error) {
+        setCloudSync((current) => ({
+          ...current,
+          phase: "offline",
+          message: error instanceof Error ? error.message : "Realtime save failed. Local browser save is still active.",
+          configured: true
+        }));
+      }
+    }, LIVE_SYNC_AUTOSAVE_DELAY_MS);
+
+    return () => {
+      if (realtimePublishTimerRef.current) {
+        window.clearTimeout(realtimePublishTimerRef.current);
+        realtimePublishTimerRef.current = null;
+      }
+    };
+  }, [database, currentUser?.email, readOnly, hostedViewer, publishedReady, realtimeActive, scheduleLiveBackup]);
 
   useEffect(() => {
     saveTheme(theme);
@@ -465,6 +588,7 @@ export default function App() {
 
   useEffect(() => {
     if (!publishedReady) return;
+    if (realtimeActive) return;
     if (!currentUser || hostedViewer) return;
     const interval = window.setInterval(() => {
       void fetchPublishedDatabase()
@@ -556,7 +680,7 @@ export default function App() {
     }, LIVE_TEAM_SYNC ? LIVE_SYNC_POLL_MS : 15_000);
 
     return () => window.clearInterval(interval);
-  }, [currentUser?.email, database, readOnly, hostedViewer, explicitRemovalSet, publishedReady]);
+  }, [currentUser?.email, database, readOnly, hostedViewer, explicitRemovalSet, publishedReady, realtimeActive]);
 
   useEffect(() => {
     saveAssignments(assignments);
@@ -815,8 +939,33 @@ export default function App() {
   }, [currentUser, hostedViewer, setDatabase]);
 
   const handleRealtimeDatabase = useCallback((nextDatabase: LoreDatabase) => {
-    void nextDatabase;
-  }, []);
+    const nextHash = databaseSyncHash(nextDatabase);
+    const currentHash = databaseSyncHash(databaseRef.current);
+    realtimeBaseDatabaseRef.current = nextDatabase;
+    realtimeLastPublishedHashRef.current = nextHash;
+    lastDraftHashRef.current = nextHash;
+    lastPublishedDatabaseRef.current = nextDatabase;
+    setPublishedDatabase(nextDatabase);
+
+    if (nextHash === currentHash) return;
+
+    realtimeRemoteLoadRef.current = true;
+    remoteLoadRef.current = true;
+    setDatabase(nextDatabase, { source: "remote" });
+    const result = saveDatabase(nextDatabase);
+    setStorageWarning(result.ok ? "" : result.message || "The app could not save the live team change locally.");
+    window.setTimeout(() => {
+      realtimeRemoteLoadRef.current = false;
+      remoteLoadRef.current = false;
+    }, 0);
+    setCloudSync((current) => ({
+      ...current,
+      phase: "saved",
+      message: "Live team change received.",
+      lastSavedAt: new Date().toISOString(),
+      configured: true
+    }));
+  }, [setDatabase]);
 
   const handleRealtimePublisherReady = useCallback((publisher: RealtimePublisher | null) => {
     realtimePublisherRef.current = publisher;
