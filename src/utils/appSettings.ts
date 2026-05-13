@@ -1,5 +1,11 @@
 import type { AccessUserPermission, ActiveView } from "../types";
 import { DEFAULT_ACCESS_USERS, loadAccessUsers, saveAccessUsers } from "./accessControl";
+import {
+  type DriveSettings,
+  getDriveSettings,
+  normalizeDriveSettings,
+  saveDriveSettings
+} from "./driveSettings";
 
 export interface AppVisibilitySettings {
   hiddenForMembers: ActiveView[];
@@ -8,6 +14,7 @@ export interface AppVisibilitySettings {
 export interface AppSyncSettings {
   visibility: AppVisibilitySettings;
   accessUsers: AccessUserPermission[];
+  driveSettings: DriveSettings;
 }
 
 export const APP_SYNC_SETTINGS_KEY = "tavern-cook-book:sync-settings";
@@ -30,7 +37,8 @@ export function createDefaultAppSyncSettings(): AppSyncSettings {
     visibility: {
       hiddenForMembers: []
     },
-    accessUsers: loadAccessUsers()
+    accessUsers: loadAccessUsers(),
+    driveSettings: getDriveSettings()
   };
 }
 
@@ -48,6 +56,7 @@ export function saveAppSyncSettings(settings: AppSyncSettings) {
   const normalized = normalizeAppSyncSettings(settings);
   localStorage.setItem(APP_SYNC_SETTINGS_KEY, JSON.stringify(normalized));
   saveAccessUsers(normalized.accessUsers);
+  saveDriveSettings(normalized.driveSettings);
 }
 
 export function normalizeAppSyncSettings(value: unknown): AppSyncSettings {
@@ -61,12 +70,16 @@ export function normalizeAppSyncSettings(value: unknown): AppSyncSettings {
   const accessUsers = Array.isArray(source.accessUsers) && source.accessUsers.length
     ? normalizeAccessUsers(source.accessUsers)
     : loadAccessUsers();
+  const driveSettings = source.driveSettings
+    ? normalizeDriveSettings(source.driveSettings)
+    : getDriveSettings();
 
   return {
     visibility: {
       hiddenForMembers: [...new Set(hiddenForMembers)]
     },
-    accessUsers
+    accessUsers,
+    driveSettings
   };
 }
 

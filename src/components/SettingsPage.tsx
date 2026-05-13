@@ -52,7 +52,7 @@ export function SettingsPage({
 }: SettingsPageProps) {
   const [message, setMessage] = useState("");
   const [health, setHealth] = useState<HealthState | null>(null);
-  const [driveSettings, setDriveSettingsState] = useState<DriveSettings>(() => getDriveSettings());
+  const [driveSettings, setDriveSettingsState] = useState<DriveSettings>(() => appSyncSettings.driveSettings || getDriveSettings());
   const [accessUsers, setAccessUsers] = useState<AccessUserPermission[]>(() => loadAccessUsers());
   const [newAccessEmail, setNewAccessEmail] = useState("");
   const [newAccessRole, setNewAccessRole] = useState<AccessRole>("viewer");
@@ -72,6 +72,10 @@ export function SettingsPage({
         })
       );
   }, []);
+
+  useEffect(() => {
+    setDriveSettingsState(appSyncSettings.driveSettings || getDriveSettings());
+  }, [appSyncSettings.driveSettings]);
 
   const exportJson = () => {
     const blob = new Blob([JSON.stringify(sanitizeDatabaseForPersistence(database), null, 2)], { type: "application/json" });
@@ -184,7 +188,11 @@ export function SettingsPage({
 
     try {
       saveDriveSettings(driveSettings);
-      setMessage("Google Drive settings saved locally. Upload and Picker import can use them now.");
+      onAppSyncSettingsChange({
+        ...appSyncSettings,
+        driveSettings
+      });
+      setMessage("Google Drive settings saved for the team. STL Workshop and this app can reuse them now.");
     } catch {
       setMessage("Could not save Google Drive settings in this browser.");
     }
@@ -214,7 +222,12 @@ export function SettingsPage({
     if (!window.confirm("Clear saved Google Drive settings from this browser?")) return;
     try {
       clearDriveSettings();
-      setDriveSettingsState(createEmptyDriveSettings());
+      const emptySettings = createEmptyDriveSettings();
+      setDriveSettingsState(emptySettings);
+      onAppSyncSettingsChange({
+        ...appSyncSettings,
+        driveSettings: emptySettings
+      });
       setMessage("Google Drive settings cleared.");
     } catch {
       setMessage("Could not clear Google Drive settings in this browser.");
@@ -501,12 +514,12 @@ export function SettingsPage({
           <div>
             <h3 className="font-display text-2xl">Google Drive Integration</h3>
             <p className="mt-2 max-w-3xl text-sm leading-6" style={{ color: "var(--muted-ink)" }}>
-              Add your Google API Key and OAuth Client ID from Google Cloud Console. The app stores setup
-              details locally and saves only lightweight Drive metadata for gallery images.
+              Add your Google API Key and OAuth Client ID from Google Cloud Console. Admin-saved setup is
+              synced through the shared app settings so STL Workshop and Tavern use the same connection.
             </p>
           </div>
           <span className="rounded-full border px-3 py-1 text-sm" style={{ borderColor: "var(--card-border)", background: "var(--field-bg)" }}>
-            {driveConfigured ? "Configured locally" : "Not connected"}
+            {driveConfigured ? "Configured for team" : "Not connected"}
           </span>
         </div>
 

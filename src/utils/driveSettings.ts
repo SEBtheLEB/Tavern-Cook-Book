@@ -84,7 +84,7 @@ export function securityFindingsMessage(findings: DriveSettingsSecurityFinding[]
   return `Drive settings were not saved. ${fields}`;
 }
 
-function normalizeDriveSettings(value: unknown): DriveSettings {
+export function normalizeDriveSettings(value: unknown): DriveSettings {
   const settings = typeof value === "object" && value !== null ? value as Partial<DriveSettings> : {};
   return {
     googleApiKey: String(settings.googleApiKey ?? ""),
