@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-05-13T02:12:48.045Z",
+  "updatedAt": "2026-05-13T02:18:41.674Z",
   "updatedBy": "stlprodz1101@gmail.com",
   "payload": {
     "visibility": {
@@ -15,17 +15,24 @@
       {
         "email": "stlprodz1101@gmail.com",
         "role": "admin",
-        "label": "Sebastien / Main Admin"
-      },
-      {
-        "email": "sebastianac1101@gmail.com",
-        "role": "editor",
-        "label": "Sebastien backup"
+        "workshopRole": "Admin",
+        "label": "Sebastien / Main Admin",
+        "appIds": [
+          "all"
+        ],
+        "appRoles": {}
       },
       {
         "email": "pioac270407@gmail.com",
         "role": "editor",
-        "label": "Pio"
+        "workshopRole": "Editor",
+        "label": "Pio",
+        "appIds": [
+          "tales-codex"
+        ],
+        "appRoles": {
+          "tales-codex": "editor"
+        }
       }
     ],
     "driveSettings": {
@@ -35,6 +42,41 @@
       "defaultCharactersFolderId": "",
       "defaultWorldArtFolderId": "",
       "defaultMarketingArtFolderId": ""
-    }
+    },
+    "workshopUsers": [
+      {
+        "email": "stlprodz1101@gmail.com",
+        "role": "admin",
+        "workshopRole": "Admin",
+        "name": "Sebastien / Main Admin",
+        "label": "Sebastien / Main Admin",
+        "appIds": [
+          "all"
+        ],
+        "appRoles": {}
+      },
+      {
+        "email": "pioac270407@gmail.com",
+        "role": "editor",
+        "workshopRole": "Editor",
+        "name": "Pio",
+        "label": "Pio",
+        "appIds": [
+          "tales-codex"
+        ],
+        "appRoles": {
+          "tales-codex": "editor"
+        }
+      },
+      {
+        "email": "sebastianac1101@gmail.com",
+        "role": "editor",
+        "workshopRole": "Editor",
+        "name": "Sebastien backup",
+        "label": "Sebastien backup",
+        "appIds": [],
+        "appRoles": {}
+      }
+    ]
   }
 }
