@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-05-13T02:19:29.143Z",
+  "updatedAt": "2026-05-13T02:19:49.746Z",
   "updatedBy": "stlprodz1101@gmail.com",
   "payload": {
     "visibility": {
@@ -15,36 +15,17 @@
       {
         "email": "stlprodz1101@gmail.com",
         "role": "admin",
-        "workshopRole": "Admin",
-        "label": "Sebastien / Main Admin",
-        "appIds": [
-          "all"
-        ],
-        "appRoles": {}
-      },
-      {
-        "email": "pioac270407@gmail.com",
-        "role": "editor",
-        "workshopRole": "Editor",
-        "label": "Pio",
-        "appIds": [
-          "tales-codex"
-        ],
-        "appRoles": {
-          "tales-codex": "editor"
-        }
+        "label": "Sebastien / Main Admin"
       },
       {
         "email": "sebastianac1101@gmail.com",
         "role": "editor",
-        "workshopRole": "Editor",
-        "label": "Sebastien backup",
-        "appIds": [
-          "tales-codex"
-        ],
-        "appRoles": {
-          "tales-codex": "editor"
-        }
+        "label": "Sebastien backup"
+      },
+      {
+        "email": "pioac270407@gmail.com",
+        "role": "editor",
+        "label": "Pio"
       }
     ],
     "driveSettings": {
@@ -54,45 +35,6 @@
       "defaultCharactersFolderId": "",
       "defaultWorldArtFolderId": "",
       "defaultMarketingArtFolderId": ""
-    },
-    "workshopUsers": [
-      {
-        "email": "stlprodz1101@gmail.com",
-        "role": "admin",
-        "workshopRole": "Admin",
-        "name": "Sebastien / Main Admin",
-        "label": "Sebastien / Main Admin",
-        "appIds": [
-          "all"
-        ],
-        "appRoles": {}
-      },
-      {
-        "email": "pioac270407@gmail.com",
-        "role": "editor",
-        "workshopRole": "Editor",
-        "name": "Pio",
-        "label": "Pio",
-        "appIds": [
-          "tales-codex"
-        ],
-        "appRoles": {
-          "tales-codex": "editor"
-        }
-      },
-      {
-        "email": "sebastianac1101@gmail.com",
-        "role": "editor",
-        "workshopRole": "Editor",
-        "name": "Sebastien backup",
-        "label": "Sebastien backup",
-        "appIds": [
-          "tales-codex"
-        ],
-        "appRoles": {
-          "tales-codex": "editor"
-        }
-      }
-    ]
+    }
   }
 }
