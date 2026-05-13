@@ -1,6 +1,17 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { LiveObject, type JsonObject } from "@liveblocks/client";
-import { LiveblocksProvider, RoomProvider, useMutation, useOthers, useStatus, useStorage, useUpdateMyPresence } from "@liveblocks/react";
+import {
+  LiveblocksProvider,
+  RoomProvider,
+  useBroadcastEvent,
+  useEventListener,
+  useMutation,
+  useOthers,
+  useRoom,
+  useStatus,
+  useStorage,
+  useUpdateMyPresence
+} from "@liveblocks/react";
 import type { ActiveView, GoogleAccountUser, LoreDatabase, LoreEntry } from "../types";
 import { loadGoogleCredential } from "../utils/accessControl";
 import { databaseSyncHash } from "../utils/cloudSync";
@@ -34,6 +45,13 @@ interface RealtimeLiveUser {
     location?: JsonObject | null;
     hovering?: JsonObject | null;
   };
+}
+
+interface RealtimeDatabaseSignal extends JsonObject {
+  type: "tavern-database-updated";
+  hash: string;
+  updatedAt: string;
+  sourceEmail: string;
 }
 
 interface RealtimeRoomBridgeProps {
@@ -159,10 +177,13 @@ function RealtimeBridgeInner({
 }: Omit<RealtimeRoomBridgeProps, "enabled" | "currentUser" | "canonicalDatabase" | "canonicalReady"> & { currentUser: GoogleAccountUser }) {
   const liveDatabase = useStorage((root) => root.database?.value);
   const updateMyPresence = useUpdateMyPresence();
+  const broadcastEvent = useBroadcastEvent();
+  const room = useRoom();
   const status = useStatus();
   const others = useOthers((users) => users.map((user) => realtimeUserSummary(user as unknown as RealtimeLiveUser)));
   const databaseRef = useRef(database);
   const lastSeenLiveDatabaseHashRef = useRef("");
+  const storagePullRetryTimerRef = useRef<number | null>(null);
   const publishDatabase = useMutation(
     ({ storage }, previousDatabase: LoreDatabase, nextDatabase: LoreDatabase) => {
       const holder = storage.get("database");
@@ -183,10 +204,44 @@ function RealtimeBridgeInner({
     databaseRef.current = database;
   }, [database]);
 
+  const readDatabaseFromStorage = useCallback(async (expectedHash?: string) => {
+    try {
+      const { root } = await room.getStorage();
+      const holder = root.get("database") as LiveObject<{ value: JsonObject }> | undefined;
+      const normalized = normalizeRealtimeDatabase(holder?.get("value"));
+      if (!normalized) return;
+
+      const liveHash = databaseSyncHash(normalized);
+      if (expectedHash && liveHash !== expectedHash && !storagePullRetryTimerRef.current) {
+        storagePullRetryTimerRef.current = window.setTimeout(() => {
+          storagePullRetryTimerRef.current = null;
+          void readDatabaseFromStorage(expectedHash);
+        }, 350);
+      }
+      if (liveHash === lastSeenLiveDatabaseHashRef.current) return;
+      lastSeenLiveDatabaseHashRef.current = liveHash;
+      const localHash = databaseSyncHash(databaseRef.current);
+      if (liveHash === localHash) return;
+      onDatabaseFromRoom(normalized);
+    } catch {
+      // The regular Liveblocks storage subscription will keep trying.
+    }
+  }, [onDatabaseFromRoom, room]);
+
+  const publishDatabaseAndSignal = useCallback<RealtimePublisher>((previousDatabase, nextDatabase) => {
+    publishDatabase(previousDatabase, nextDatabase);
+    broadcastEvent({
+      type: "tavern-database-updated",
+      hash: databaseSyncHash(nextDatabase),
+      updatedAt: new Date().toISOString(),
+      sourceEmail: currentUser.email
+    } satisfies RealtimeDatabaseSignal);
+  }, [broadcastEvent, currentUser.email, publishDatabase]);
+
   useEffect(() => {
-    onPublisherReady(publishDatabase);
+    onPublisherReady(publishDatabaseAndSignal);
     return () => onPublisherReady(null);
-  }, [onPublisherReady, publishDatabase]);
+  }, [onPublisherReady, publishDatabaseAndSignal]);
 
   useEffect(() => {
     onResetterReady(replaceDatabase);
@@ -213,6 +268,13 @@ function RealtimeBridgeInner({
     onStatusChange(status);
   }, [onStatusChange, status]);
 
+  useEventListener(({ event }) => {
+    const signal = event && typeof event === "object" ? event as Partial<RealtimeDatabaseSignal> : null;
+    if (signal?.type !== "tavern-database-updated") return;
+    if (signal.sourceEmail === currentUser.email) return;
+    void readDatabaseFromStorage(typeof signal.hash === "string" ? signal.hash : undefined);
+  });
+
   useEffect(() => {
     updateMyPresence({
       profile: realtimeProfileFromUser(currentUser) as unknown as JsonObject,
@@ -230,6 +292,15 @@ function RealtimeBridgeInner({
     if (liveHash === localHash) return;
     onDatabaseFromRoom(normalized);
   }, [liveDatabase, onDatabaseFromRoom]);
+
+  useEffect(() => {
+    return () => {
+      if (storagePullRetryTimerRef.current) {
+        window.clearTimeout(storagePullRetryTimerRef.current);
+        storagePullRetryTimerRef.current = null;
+      }
+    };
+  }, []);
 
   return null;
 }

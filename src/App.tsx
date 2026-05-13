@@ -288,8 +288,9 @@ export default function App() {
   const currentRole = currentUser?.role || "viewer";
   const canEdit = roleCanEdit(currentRole);
   const canAccessSettings = roleCanAccessSettings(currentRole);
-  const readOnly = forcedReadOnly || !canEdit || Boolean(currentUser && !hostedViewer && !publishedReady);
   const realtimeActive = Boolean(currentUser && !hostedViewer && realtimeReady);
+  const teamDataReady = publishedReady || realtimeActive;
+  const readOnly = forcedReadOnly || !canEdit || Boolean(currentUser && !hostedViewer && !teamDataReady);
   const setDatabase = useCallback((
     nextValue: LoreDatabase | ((current: LoreDatabase) => LoreDatabase),
     options: { source?: "local" | "remote" } = {}
@@ -1830,12 +1831,12 @@ export default function App() {
       <RealtimeRoomBridge
         currentUser={currentUser}
         database={database}
-        canonicalDatabase={publishedDatabase}
-        canonicalReady={publishedReady}
+        canonicalDatabase={publishedReady ? publishedDatabase : database}
+        canonicalReady={publishedReady || Boolean(currentUser && !hostedViewer)}
         activeView={activeView}
         selectedEntry={selectedEntry}
         selectedBestiaryCreatureId={selectedBestiaryCreatureId}
-        enabled={!readOnly || currentRole === "viewer"}
+        enabled={Boolean(currentUser && !hostedViewer)}
         onDatabaseFromRoom={handleRealtimeDatabase}
         onPublisherReady={handleRealtimePublisherReady}
         onResetterReady={handleRealtimeResetterReady}

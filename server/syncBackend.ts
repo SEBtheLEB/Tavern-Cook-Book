@@ -163,6 +163,23 @@ function bearerToken(headers: IncomingHttpHeaders) {
 }
 
 async function readGitHubJson(path: string): Promise<{ data: unknown; sha: string } | null> {
+  const raw = await readGitHubRaw(path);
+  if (!raw) return null;
+  const content = raw.content.trim();
+  if (!content) return null;
+  try {
+    return {
+      data: JSON.parse(content),
+      sha: raw.sha
+    };
+  } catch (error) {
+    throw new Error(
+      `Sync file ${path} contains invalid JSON. ${error instanceof Error ? error.message : "Could not parse file."}`
+    );
+  }
+}
+
+async function readGitHubRaw(path: string): Promise<{ content: string; sha: string } | null> {
   const response = await fetch(gitHubContentsUrl(path), {
     headers: gitHubHeaders()
   });
@@ -171,9 +188,8 @@ async function readGitHubJson(path: string): Promise<{ data: unknown; sha: strin
   if (!response.ok) throw new Error(await gitHubError(response, "Could not read sync file."));
 
   const file = await response.json() as GitHubContentFile;
-  const content = decodeGitHubContent(file);
   return {
-    data: JSON.parse(content),
+    content: decodeGitHubContent(file),
     sha: file.sha || ""
   };
 }
@@ -220,20 +236,6 @@ function wait(ms: number) {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
   });
-}
-
-async function readGitHubRaw(path: string): Promise<{ content: string; sha: string } | null> {
-  const response = await fetch(gitHubContentsUrl(path), {
-    headers: gitHubHeaders()
-  });
-
-  if (response.status === 404) return null;
-  if (!response.ok) throw new Error(await gitHubError(response, "Could not read sync file."));
-  const file = await response.json() as GitHubContentFile;
-  return {
-    content: decodeGitHubContent(file),
-    sha: file.sha || ""
-  };
 }
 
 function decodeGitHubContent(file: GitHubContentFile) {
