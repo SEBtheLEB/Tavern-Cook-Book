@@ -18,6 +18,7 @@ import {
 import { sanitizeDatabaseForPersistence } from "../utils/storage";
 
 export type RealtimePublisher = (previousDatabase: LoreDatabase, nextDatabase: LoreDatabase) => void;
+export type RealtimeDatabaseResetter = (nextDatabase: LoreDatabase) => void;
 export type RealtimePresenceUpdater = (patch: Partial<TavernPresence>) => void;
 
 interface RealtimeLiveUser {
@@ -46,6 +47,7 @@ interface RealtimeRoomBridgeProps {
   enabled: boolean;
   onDatabaseFromRoom: (database: LoreDatabase) => void;
   onPublisherReady: (publisher: RealtimePublisher | null) => void;
+  onResetterReady: (resetter: RealtimeDatabaseResetter | null) => void;
   onPresenceUpdaterReady: (updater: RealtimePresenceUpdater | null) => void;
   onUsersChange: (users: RealtimeUserSummary[]) => void;
   onStatusChange: (status: string) => void;
@@ -62,6 +64,7 @@ export function RealtimeRoomBridge({
   enabled,
   onDatabaseFromRoom,
   onPublisherReady,
+  onResetterReady,
   onPresenceUpdaterReady,
   onUsersChange,
   onStatusChange
@@ -131,6 +134,7 @@ export function RealtimeRoomBridge({
           selectedBestiaryCreatureId={selectedBestiaryCreatureId}
           onDatabaseFromRoom={onDatabaseFromRoom}
           onPublisherReady={onPublisherReady}
+          onResetterReady={onResetterReady}
           onPresenceUpdaterReady={onPresenceUpdaterReady}
           onUsersChange={onUsersChange}
           onStatusChange={onStatusChange}
@@ -148,6 +152,7 @@ function RealtimeBridgeInner({
   selectedBestiaryCreatureId,
   onDatabaseFromRoom,
   onPublisherReady,
+  onResetterReady,
   onPresenceUpdaterReady,
   onUsersChange,
   onStatusChange
@@ -165,10 +170,22 @@ function RealtimeBridgeInner({
     },
     []
   );
+  const replaceDatabase = useMutation(
+    ({ storage }, nextDatabase: LoreDatabase) => {
+      const holder = storage.get("database");
+      holder.set("value", sanitizeDatabaseForPersistence(nextDatabase) as unknown as JsonObject);
+    },
+    []
+  );
   useEffect(() => {
     onPublisherReady(publishDatabase);
     return () => onPublisherReady(null);
   }, [onPublisherReady, publishDatabase]);
+
+  useEffect(() => {
+    onResetterReady(replaceDatabase);
+    return () => onResetterReady(null);
+  }, [onResetterReady, replaceDatabase]);
 
   useEffect(() => {
     const updater: RealtimePresenceUpdater = (patch) => {

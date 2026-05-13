@@ -56,7 +56,7 @@ import { TimelineView } from "./components/TimelineView";
 import { TopBar } from "./components/TopBar";
 import { WorldBuildingPage } from "./components/WorldBuildingPage";
 import { RealtimeCollaborationContext, realtimeTargetKey } from "./components/RealtimeCollaborationContext";
-import { RealtimeRoomBridge, type RealtimePresenceUpdater, type RealtimePublisher } from "./components/RealtimeRoomBridge";
+import { RealtimeRoomBridge, type RealtimeDatabaseResetter, type RealtimePresenceUpdater, type RealtimePublisher } from "./components/RealtimeRoomBridge";
 import { buildLoreKeywords, LoreKeywordProvider } from "./components/LoreKeywordText";
 import { buildArtVaultDashboardStats } from "./utils/artVaultDashboard";
 import {
@@ -182,11 +182,16 @@ interface SyncConflictReview {
   teamUpdatedAt: string;
 }
 
+interface AdminBaselineReview {
+  localDatabase: LoreDatabase;
+  teamDatabase: LoreDatabase;
+  teamUpdatedAt: string;
+}
+
 const EXPLICIT_REMOVALS_KEY = "tavern-cook-book:explicit-removals";
 const LIVE_TEAM_SYNC = true;
 const LIVE_SYNC_AUTOSAVE_DELAY_MS = 2500;
-const LIVE_SYNC_POLL_MS = 5000;
-const REALTIME_BACKUP_SAVE_DELAY_MS = 10_000;
+const LIVE_SYNC_POLL_MS = 2500;
 
 function buildWorkshopProgress(database: LoreDatabase, currentUser: GoogleAccountUser) {
   const totalEntries = database.entries.length + database.bestiary.length;
@@ -248,6 +253,8 @@ export default function App() {
   const [pushMessage, setPushMessage] = useState("");
   const [pullingLatest, setPullingLatest] = useState(false);
   const [syncConflictReview, setSyncConflictReview] = useState<SyncConflictReview | null>(null);
+  const [adminBaselineReview, setAdminBaselineReview] = useState<AdminBaselineReview | null>(null);
+  const [adminBaselineSaving, setAdminBaselineSaving] = useState(false);
   const [explicitRemovalIds, setExplicitRemovalIds] = useState<string[]>(() => loadExplicitRemovalIds());
   const [realtimeUsers, setRealtimeUsers] = useState<RealtimeUserSummary[]>([]);
   const [realtimeStatus, setRealtimeStatus] = useState("initial");
@@ -259,11 +266,12 @@ export default function App() {
   const realtimeBaseDatabaseRef = useRef(database);
   const realtimeLastPublishedHashRef = useRef(databaseSyncHash(database));
   const realtimePublishTimerRef = useRef<number | null>(null);
-  const realtimeBackupSaveTimerRef = useRef<number | null>(null);
   const realtimePublisherRef = useRef<RealtimePublisher | null>(null);
+  const realtimeResetterRef = useRef<RealtimeDatabaseResetter | null>(null);
   const realtimePresenceUpdaterRef = useRef<RealtimePresenceUpdater | null>(null);
   const realtimeRemoteLoadRef = useRef(false);
   const remoteLoadRef = useRef(false);
+  const skipNextLocalDatabaseSaveRef = useRef(false);
   const lastDraftHashRef = useRef("");
   const lastPublishedHashRef = useRef("");
   const lastPublishedDatabaseRef = useRef<LoreDatabase>(createStarterDatabase());
@@ -323,62 +331,6 @@ export default function App() {
   }, [database, hostedViewer, readOnly, realtimeActive]);
 
   useEffect(() => {
-    if (!realtimeActive || readOnly || hostedViewer || realtimeRemoteLoadRef.current || !currentUser) return;
-    const nextHash = databaseSyncHash(database);
-    if (nextHash === lastPublishedHashRef.current) return;
-
-    if (realtimeBackupSaveTimerRef.current) {
-      window.clearTimeout(realtimeBackupSaveTimerRef.current);
-    }
-
-    realtimeBackupSaveTimerRef.current = window.setTimeout(() => {
-      void savePublishedDatabase(currentUser.email, database)
-        .then((result) => {
-          if (!result.ok || !result.envelope?.payload.database) {
-            setCloudSync((current) => ({
-              ...current,
-              phase: result.error?.includes("sign-in token") ? "needsAuth" : "offline",
-              message: result.error || "Realtime edit is live, but the shared backup could not save yet.",
-              configured: result.configured
-            }));
-            return;
-          }
-
-          const savedDatabase = result.envelope.payload.database;
-          const savedHash = databaseSyncHash(savedDatabase);
-          setPublishedDatabase(savedDatabase);
-          setPublishedReady(true);
-          lastPublishedDatabaseRef.current = savedDatabase;
-          lastPublishedHashRef.current = savedHash;
-          lastDraftHashRef.current = savedHash;
-          lastDraftUpdatedAtRef.current = result.envelope.updatedAt;
-          savePublishedSyncState(savedDatabase, result.envelope.updatedAt);
-          setCloudSync({
-            phase: "saved",
-            message: "Realtime edit shared and backed up for the team.",
-            lastSavedAt: result.envelope.updatedAt,
-            configured: true
-          });
-        })
-        .catch((error) => {
-          setCloudSync((current) => ({
-            ...current,
-            phase: "offline",
-            message: error instanceof Error ? error.message : "Realtime edit is live, but the shared backup could not save yet.",
-            configured: true
-          }));
-        });
-    }, REALTIME_BACKUP_SAVE_DELAY_MS);
-
-    return () => {
-      if (realtimeBackupSaveTimerRef.current) {
-        window.clearTimeout(realtimeBackupSaveTimerRef.current);
-        realtimeBackupSaveTimerRef.current = null;
-      }
-    };
-  }, [database, currentUser?.email, hostedViewer, readOnly, realtimeActive]);
-
-  useEffect(() => {
     if (!currentUser || hostedViewer) return;
     if (realtimeStatus === "disconnected" || realtimeStatus === "failed") {
       setCloudSync((current) => ({
@@ -406,14 +358,18 @@ export default function App() {
 
   useEffect(() => {
     if (!readOnly) {
+      if (skipNextLocalDatabaseSaveRef.current) {
+        skipNextLocalDatabaseSaveRef.current = false;
+        return;
+      }
       const result = saveDatabase(database);
       setStorageWarning(result.ok ? "" : result.message || "The app could not save this change.");
     }
   }, [database, readOnly]);
 
   useEffect(() => {
-    if (realtimeActive) return;
-    if (!currentUser || readOnly || hostedViewer || remoteLoadRef.current) return;
+    if (!publishedReady) return;
+    if (!currentUser || readOnly || hostedViewer || remoteLoadRef.current || realtimeRemoteLoadRef.current) return;
     const nextHash = databaseSyncHash(database);
     if (nextHash === lastDraftHashRef.current) return;
 
@@ -468,7 +424,7 @@ export default function App() {
     }, LIVE_SYNC_AUTOSAVE_DELAY_MS);
 
     return () => window.clearTimeout(timer);
-  }, [database, currentUser?.email, readOnly, hostedViewer, realtimeActive]);
+  }, [database, currentUser?.email, readOnly, hostedViewer, publishedReady]);
 
   useEffect(() => {
     saveTheme(theme);
@@ -525,7 +481,7 @@ export default function App() {
   }, [currentUser?.email, database, readOnly, hostedViewer]);
 
   useEffect(() => {
-    if (realtimeActive) return;
+    if (!publishedReady) return;
     if (!currentUser || hostedViewer) return;
     const interval = window.setInterval(() => {
       void fetchPublishedDatabase()
@@ -617,7 +573,7 @@ export default function App() {
     }, LIVE_TEAM_SYNC ? LIVE_SYNC_POLL_MS : 15_000);
 
     return () => window.clearInterval(interval);
-  }, [currentUser?.email, database, readOnly, hostedViewer, explicitRemovalSet, realtimeActive]);
+  }, [currentUser?.email, database, readOnly, hostedViewer, explicitRemovalSet, publishedReady]);
 
   useEffect(() => {
     saveAssignments(assignments);
@@ -732,6 +688,20 @@ export default function App() {
       const remotePublished = publishedEnvelope ? fetchedPublished : localDatabase;
       const draftEnvelope = !LIVE_TEAM_SYNC && canEdit && draftResult?.ok ? draftResult.envelope : null;
       const remotePublishedHash = databaseSyncHash(remotePublished);
+      const localDatabaseHash = databaseSyncHash(localDatabase);
+      const shouldReviewAdminBaseline =
+        LIVE_TEAM_SYNC &&
+        currentUser.role === "admin" &&
+        publishedEnvelope &&
+        localDatabaseHash !== remotePublishedHash &&
+        hasAdminLocalBaselineDifference(localDatabase, remotePublished);
+      if (shouldReviewAdminBaseline) {
+        setAdminBaselineReview({
+          localDatabase,
+          teamDatabase: remotePublished,
+          teamUpdatedAt: publishedEnvelope.updatedAt
+        });
+      }
       setPublishedDatabase(remotePublished);
       setPublishedReady(true);
       lastPublishedHashRef.current = remotePublishedHash;
@@ -751,8 +721,13 @@ export default function App() {
       const chosenHash = databaseSyncHash(chosenDatabase);
 
       remoteLoadRef.current = true;
+      if (shouldReviewAdminBaseline) {
+        skipNextLocalDatabaseSaveRef.current = true;
+      }
       setDatabase(chosenDatabase, { source: "remote" });
-      saveDatabase(chosenDatabase);
+      if (!shouldReviewAdminBaseline) {
+        saveDatabase(chosenDatabase);
+      }
       window.setTimeout(() => {
         remoteLoadRef.current = false;
       }, 0);
@@ -886,6 +861,10 @@ export default function App() {
     }));
   }, []);
 
+  const handleRealtimeResetterReady = useCallback((resetter: RealtimeDatabaseResetter | null) => {
+    realtimeResetterRef.current = resetter;
+  }, []);
+
   useEffect(() => {
     if (publishedReady) return;
     setRealtimeReady(false);
@@ -955,6 +934,70 @@ export default function App() {
   const updateDatabase = (next: LoreDatabase) => {
     if (readOnly) return;
     setDatabase(next);
+  };
+
+  const useTeamBaselineHere = () => {
+    setAdminBaselineReview(null);
+    const result = saveDatabase(databaseRef.current);
+    setStorageWarning(result.ok ? "" : result.message || "The app could not save the team baseline locally.");
+  };
+
+  const centralizeAdminBaseline = async () => {
+    if (!currentUser || currentUser.role !== "admin" || !adminBaselineReview) return;
+    setAdminBaselineSaving(true);
+    setCloudSync((current) => ({
+      ...current,
+      phase: "publishing",
+      message: "Setting this admin copy as the team baseline..."
+    }));
+
+    try {
+      const result = await savePublishedDatabase(currentUser.email, adminBaselineReview.localDatabase);
+      if (!result.ok || !result.envelope?.payload.database) {
+        setCloudSync({
+          phase: "offline",
+          message: result.error || "Could not set the admin copy as the team baseline.",
+          lastSavedAt: cloudSync.lastSavedAt,
+          configured: result.configured
+        });
+        return;
+      }
+
+      const nextDatabase = result.envelope.payload.database;
+      const nextHash = databaseSyncHash(nextDatabase);
+      remoteLoadRef.current = true;
+      setDatabase(nextDatabase, { source: "remote" });
+      saveDatabase(nextDatabase);
+      window.setTimeout(() => {
+        remoteLoadRef.current = false;
+      }, 0);
+      realtimeResetterRef.current?.(nextDatabase);
+      setPublishedDatabase(nextDatabase);
+      setPublishedReady(true);
+      lastPublishedDatabaseRef.current = nextDatabase;
+      lastPublishedHashRef.current = nextHash;
+      lastDraftHashRef.current = nextHash;
+      lastDraftUpdatedAtRef.current = result.envelope.updatedAt;
+      realtimeBaseDatabaseRef.current = nextDatabase;
+      realtimeLastPublishedHashRef.current = nextHash;
+      savePublishedSyncState(nextDatabase, result.envelope.updatedAt);
+      setAdminBaselineReview(null);
+      setCloudSync({
+        phase: "saved",
+        message: "Admin copy is now the team baseline. Other accounts will load it automatically.",
+        lastSavedAt: result.envelope.updatedAt,
+        configured: true
+      });
+    } catch (error) {
+      setCloudSync({
+        phase: "offline",
+        message: error instanceof Error ? error.message : "Could not set the admin copy as the team baseline.",
+        lastSavedAt: cloudSync.lastSavedAt,
+        configured: true
+      });
+    } finally {
+      setAdminBaselineSaving(false);
+    }
   };
 
   const rememberExplicitRemoval = (changeId: string) => {
@@ -1670,6 +1713,7 @@ export default function App() {
         enabled={!readOnly || currentRole === "viewer"}
         onDatabaseFromRoom={handleRealtimeDatabase}
         onPublisherReady={handleRealtimePublisherReady}
+        onResetterReady={handleRealtimeResetterReady}
         onPresenceUpdaterReady={handleRealtimePresenceUpdaterReady}
         onUsersChange={setRealtimeUsers}
         onStatusChange={setRealtimeStatus}
@@ -1960,6 +2004,16 @@ export default function App() {
             onUseTeam={() => resolveSyncConflicts("team")}
             onKeepMine={() => resolveSyncConflicts("mine")}
             onClose={() => setSyncConflictReview(null)}
+          />
+        )}
+
+        {adminBaselineReview && (
+          <AdminBaselineModal
+            review={adminBaselineReview}
+            saving={adminBaselineSaving}
+            message={cloudSync.message}
+            onUseAdminCopy={centralizeAdminBaseline}
+            onUseTeamBaseline={useTeamBaselineHere}
           />
         )}
 
@@ -2390,6 +2444,45 @@ function stableString(value: unknown) {
   return JSON.stringify(value);
 }
 
+function hasAdminLocalBaselineDifference(localDatabase: LoreDatabase, teamDatabase: LoreDatabase) {
+  const localIds = collectDatabaseIdentitySet(localDatabase);
+  const teamIds = collectDatabaseIdentitySet(teamDatabase);
+  if ([...localIds].some((id) => !teamIds.has(id))) return true;
+  if ([...teamIds].some((id) => !localIds.has(id))) return true;
+  return databaseSyncHash(localDatabase) !== databaseSyncHash(teamDatabase);
+}
+
+function collectDatabaseIdentitySet(database: LoreDatabase) {
+  const ids = new Set<string>();
+  (database.entries || []).forEach((entry) => ids.add(`entry:${entry.id}`));
+  (database.bestiary || []).forEach((creature) => ids.add(`creature:${creature.id}`));
+  (database.bestiaryCategoryVaults || []).forEach((vault) => ids.add(`vault:${vault.id}`));
+  Object.entries(database.worldBuilding || {}).forEach(([category, entries]) => {
+    (entries || []).forEach((entry) => ids.add(`world:${category}:${entry.id}`));
+  });
+  return ids;
+}
+
+function baselineSummary(database: LoreDatabase) {
+  const worldCount = Object.values(database.worldBuilding || {}).reduce(
+    (total, entries) => total + (entries?.length || 0),
+    0
+  );
+  const characterCount = (database.entries || []).filter(isCharacterEntry).length;
+  const artBinderCount =
+    (database.entries || []).reduce((total, entry) => total + (entry.artVault?.sections?.length || 0), 0) +
+    (database.bestiary || []).reduce((total, creature) => total + (creature.artVault?.sections?.length || 0), 0) +
+    (database.bestiaryCategoryVaults || []).reduce((total, vault) => total + (vault.artVault?.sections?.length || 0), 0);
+
+  return {
+    loreEntries: database.entries?.length || 0,
+    characters: characterCount,
+    bestiary: database.bestiary?.length || 0,
+    world: worldCount,
+    artBinder: artBinderCount
+  };
+}
+
 function loadExplicitRemovalIds() {
   try {
     const raw = localStorage.getItem(EXPLICIT_REMOVALS_KEY);
@@ -2449,6 +2542,67 @@ function SyncConflictModal({
         <footer>
           <button className="tab-frame rounded px-4 py-2" onClick={onKeepMine}>Keep My Version</button>
           <button className="button-frame rounded px-4 py-2" onClick={onUseTeam}>Use Team Version</button>
+        </footer>
+      </section>
+    </div>
+  );
+}
+
+function AdminBaselineModal({
+  review,
+  saving,
+  message,
+  onUseAdminCopy,
+  onUseTeamBaseline
+}: {
+  review: AdminBaselineReview;
+  saving: boolean;
+  message: string;
+  onUseAdminCopy: () => void;
+  onUseTeamBaseline: () => void;
+}) {
+  const adminSummary = baselineSummary(review.localDatabase);
+  const teamSummary = baselineSummary(review.teamDatabase);
+
+  return (
+    <div className="sync-conflict-backdrop">
+      <section className="sync-conflict-modal" role="dialog" aria-modal="true" aria-labelledby="admin-baseline-title">
+        <header>
+          <div className="sync-conflict-icon">
+            <Icon name="Database" className="h-5 w-5" />
+          </div>
+          <div>
+            <p>Admin Baseline</p>
+            <h2 id="admin-baseline-title" className="font-display">Choose The Team Source</h2>
+          </div>
+        </header>
+        <div className="sync-conflict-body entry-scroll">
+          <p>
+            This admin browser has a different cook book than the published team version. Choose the admin copy to make
+            it the shared baseline for every account, or keep the current team baseline in this browser.
+          </p>
+          <div className="sync-conflict-row">
+            <strong>Admin browser copy</strong>
+            <span>{adminSummary.loreEntries} lore entries / {adminSummary.characters} characters / {adminSummary.bestiary} bestiary</span>
+            <small>{adminSummary.world} world records / {adminSummary.artBinder} art binder sections</small>
+          </div>
+          <div className="sync-conflict-row">
+            <strong>Published team baseline</strong>
+            <span>{teamSummary.loreEntries} lore entries / {teamSummary.characters} characters / {teamSummary.bestiary} bestiary</span>
+            <small>
+              {teamSummary.world} world records / {teamSummary.artBinder} art binder sections
+              {review.teamUpdatedAt ? ` / saved ${new Date(review.teamUpdatedAt).toLocaleString()}` : ""}
+            </small>
+          </div>
+        </div>
+        {message && <div className="sync-publish-message">{message}</div>}
+        <footer>
+          <button className="tab-frame rounded px-4 py-2" onClick={onUseTeamBaseline} disabled={saving}>
+            Use Team Baseline Here
+          </button>
+          <button className="button-frame rounded px-4 py-2" onClick={onUseAdminCopy} disabled={saving}>
+            {saving ? "Centralizing..." : "Use Admin Copy For Everyone"}
+          </button>
         </footer>
       </section>
     </div>
