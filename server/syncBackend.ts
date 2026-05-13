@@ -27,7 +27,7 @@ interface GitHubContentFile {
 }
 
 const DEFAULT_REPO = "SEBtheLEB/Tavern-Cook-Book";
-const DEFAULT_BRANCH = "main";
+const DEFAULT_BRANCH = "tavern-sync";
 const SYNC_ROOT = "sync/tavern-cook-book";
 const GOOGLE_TOKENINFO_URL = "https://oauth2.googleapis.com/tokeninfo";
 const MAIN_ADMIN_EMAIL = "stlprodz1101@gmail.com";

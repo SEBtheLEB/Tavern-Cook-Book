@@ -190,8 +190,8 @@ interface AdminBaselineReview {
 
 const EXPLICIT_REMOVALS_KEY = "tavern-cook-book:explicit-removals";
 const LIVE_TEAM_SYNC = true;
-const LIVE_SYNC_AUTOSAVE_DELAY_MS = 2500;
-const LIVE_SYNC_POLL_MS = 2500;
+const LIVE_SYNC_AUTOSAVE_DELAY_MS = 900;
+const LIVE_SYNC_POLL_MS = 1200;
 
 function buildWorkshopProgress(database: LoreDatabase, currentUser: GoogleAccountUser) {
   const totalEntries = database.entries.length + database.bestiary.length;
@@ -212,8 +212,13 @@ export default function App() {
   const hostedViewer = import.meta.env.VITE_READONLY_VIEWER === "true";
   const forcedReadOnly =
     hostedViewer || new URLSearchParams(window.location.search).get("readonly") === "1";
+  const [currentUser, setCurrentUser] = useState<GoogleAccountUser | null>(() => loadGoogleAccount());
+  const initialLocalDatabaseRef = useRef<LoreDatabase | null>(null);
+  if (!initialLocalDatabaseRef.current) {
+    initialLocalDatabaseRef.current = hostedViewer ? createStarterDatabase() : loadDatabase();
+  }
   const [database, setLocalDatabase] = useState<LoreDatabase>(() =>
-    hostedViewer ? createStarterDatabase() : loadDatabase()
+    hostedViewer || currentUser ? createStarterDatabase() : initialLocalDatabaseRef.current || loadDatabase()
   );
   const [theme, setTheme] = useState<ThemeMode>(() => loadTheme());
   const [activeView, setActiveView] = useState<ActiveView>("dashboard");
@@ -239,7 +244,6 @@ export default function App() {
   const [userProfiles, setUserProfiles] = useState(() => getUserProfiles());
   const [questCategories, setQuestCategories] = useState(() => getQuestCategories());
   const [favorites, setFavorites] = useState(() => loadFavorites());
-  const [currentUser, setCurrentUser] = useState<GoogleAccountUser | null>(() => loadGoogleAccount());
   const [publishedDatabase, setPublishedDatabase] = useState<LoreDatabase>(() => createStarterDatabase());
   const [publishedReady, setPublishedReady] = useState(false);
   const [appSyncSettings, setAppSyncSettings] = useState(() => loadAppSyncSettings());
@@ -272,6 +276,7 @@ export default function App() {
   const realtimeRemoteLoadRef = useRef(false);
   const remoteLoadRef = useRef(false);
   const skipNextLocalDatabaseSaveRef = useRef(false);
+  const adminBaselinePromptedRef = useRef(false);
   const lastDraftHashRef = useRef("");
   const lastPublishedHashRef = useRef("");
   const lastPublishedDatabaseRef = useRef<LoreDatabase>(createStarterDatabase());
@@ -280,7 +285,7 @@ export default function App() {
   const currentRole = currentUser?.role || "viewer";
   const canEdit = roleCanEdit(currentRole);
   const canAccessSettings = roleCanAccessSettings(currentRole);
-  const readOnly = forcedReadOnly || !canEdit;
+  const readOnly = forcedReadOnly || !canEdit || Boolean(currentUser && !hostedViewer && !publishedReady);
   const realtimeActive = Boolean(currentUser && !hostedViewer && realtimeReady);
   const setDatabase = useCallback((
     nextValue: LoreDatabase | ((current: LoreDatabase) => LoreDatabase),
@@ -300,35 +305,13 @@ export default function App() {
   }, [database]);
 
   useEffect(() => {
-    if (!realtimeActive || readOnly || hostedViewer || realtimeRemoteLoadRef.current) return;
-    const publisher = realtimePublisherRef.current;
-    if (!publisher) return;
-    const nextHash = databaseSyncHash(database);
-    if (nextHash === realtimeLastPublishedHashRef.current) return;
-
-    if (realtimePublishTimerRef.current) {
-      window.clearTimeout(realtimePublishTimerRef.current);
-    }
-
-    realtimePublishTimerRef.current = window.setTimeout(() => {
-      publisher(realtimeBaseDatabaseRef.current, database);
-      realtimeBaseDatabaseRef.current = database;
-      realtimeLastPublishedHashRef.current = nextHash;
-      setCloudSync((current) => ({
-        ...current,
-        phase: "saved",
-        message: "Realtime edit shared with the team.",
-        configured: true
-      }));
-    }, 450);
-
     return () => {
       if (realtimePublishTimerRef.current) {
         window.clearTimeout(realtimePublishTimerRef.current);
         realtimePublishTimerRef.current = null;
       }
     };
-  }, [database, hostedViewer, readOnly, realtimeActive]);
+  }, []);
 
   useEffect(() => {
     if (!currentUser || hostedViewer) return;
@@ -639,7 +622,9 @@ export default function App() {
   useEffect(() => {
     if (!currentUser || hostedViewer) return;
     let cancelled = false;
-    const localDatabase = database;
+    const localDatabase = currentUser.role === "admin"
+      ? initialLocalDatabaseRef.current || database
+      : database;
 
     const loadRemoteState = async () => {
       setPublishedReady(false);
@@ -692,10 +677,12 @@ export default function App() {
       const shouldReviewAdminBaseline =
         LIVE_TEAM_SYNC &&
         currentUser.role === "admin" &&
+        !adminBaselinePromptedRef.current &&
         publishedEnvelope &&
         localDatabaseHash !== remotePublishedHash &&
         hasAdminLocalBaselineDifference(localDatabase, remotePublished);
       if (shouldReviewAdminBaseline) {
+        adminBaselinePromptedRef.current = true;
         setAdminBaselineReview({
           localDatabase,
           teamDatabase: remotePublished,
@@ -815,7 +802,7 @@ export default function App() {
   useEffect(() => {
     if (hostedViewer) return;
     const handleStorage = (event: StorageEvent) => {
-      if (event.key === DATABASE_KEY) {
+      if (!currentUser && event.key === DATABASE_KEY) {
         setDatabase(loadDatabase(), { source: "remote" });
       }
       if (event.key === THEME_KEY) {
@@ -825,35 +812,11 @@ export default function App() {
 
     window.addEventListener("storage", handleStorage);
     return () => window.removeEventListener("storage", handleStorage);
-  }, [hostedViewer]);
+  }, [currentUser, hostedViewer, setDatabase]);
 
   const handleRealtimeDatabase = useCallback((nextDatabase: LoreDatabase) => {
-    const localHash = databaseSyncHash(databaseRef.current);
-    const nextHash = databaseSyncHash(nextDatabase);
-    if (!readOnly && localHash !== realtimeLastPublishedHashRef.current && nextHash !== localHash) {
-      setCloudSync((current) => ({
-        ...current,
-        message: "A live team update is waiting while your current edit saves."
-      }));
-      return;
-    }
-
-    realtimeRemoteLoadRef.current = true;
-    setDatabase(nextDatabase, { source: "remote" });
-    saveDatabase(nextDatabase);
-    window.setTimeout(() => {
-      realtimeRemoteLoadRef.current = false;
-    }, 0);
-    lastDraftHashRef.current = nextHash;
-    realtimeBaseDatabaseRef.current = nextDatabase;
-    realtimeLastPublishedHashRef.current = nextHash;
-    setCloudSync((current) => ({
-      ...current,
-      phase: "saved",
-      message: "Live team update received.",
-      configured: true
-    }));
-  }, [readOnly, setDatabase]);
+    void nextDatabase;
+  }, []);
 
   const handleRealtimePublisherReady = useCallback((publisher: RealtimePublisher | null) => {
     realtimePublisherRef.current = publisher;
@@ -947,6 +910,9 @@ export default function App() {
 
   const useTeamBaselineHere = () => {
     setAdminBaselineReview(null);
+    if (databaseRef.current) {
+      initialLocalDatabaseRef.current = databaseRef.current;
+    }
     const result = saveDatabase(databaseRef.current);
     setStorageWarning(result.ok ? "" : result.message || "The app could not save the team baseline locally.");
   };
@@ -974,6 +940,7 @@ export default function App() {
 
       const nextDatabase = result.envelope.payload.database;
       const nextHash = databaseSyncHash(nextDatabase);
+      initialLocalDatabaseRef.current = nextDatabase;
       remoteLoadRef.current = true;
       setDatabase(nextDatabase, { source: "remote" });
       saveDatabase(nextDatabase);
