@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-05-13T02:19:27.342Z",
+  "updatedAt": "2026-05-13T02:19:29.143Z",
   "updatedBy": "stlprodz1101@gmail.com",
   "payload": {
     "visibility": {
@@ -40,12 +40,10 @@
         "workshopRole": "Editor",
         "label": "Sebastien backup",
         "appIds": [
-          "tales-codex",
-          "vainglorious-hub"
+          "tales-codex"
         ],
         "appRoles": {
-          "tales-codex": "editor",
-          "vainglorious-hub": "editor"
+          "tales-codex": "editor"
         }
       }
     ],
@@ -89,12 +87,10 @@
         "name": "Sebastien backup",
         "label": "Sebastien backup",
         "appIds": [
-          "tales-codex",
-          "vainglorious-hub"
+          "tales-codex"
         ],
         "appRoles": {
-          "tales-codex": "editor",
-          "vainglorious-hub": "editor"
+          "tales-codex": "editor"
         }
       }
     ]
