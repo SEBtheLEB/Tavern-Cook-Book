@@ -211,27 +211,45 @@ export async function authenticateGoogleDrive(options: { forceConsent?: boolean 
   }
 
   return new Promise<string>((resolve, reject) => {
+    let settled = false;
+    const timeout = window.setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      reject(new Error("Google sign-in did not respond. If a Google approval popup opened, finish it and try again."));
+    }, 60_000);
+    const resolveToken = (token: string) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timeout);
+      resolve(token);
+    };
+    const rejectToken = (error: Error) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timeout);
+      reject(error);
+    };
     const tokenClient = oauth.initTokenClient({
       client_id: settings.googleOAuthClientId.trim(),
       scope: DRIVE_SCOPES,
       hint: signedInGoogleEmail(),
       callback: (response) => {
         if (response.error) {
-          reject(new Error(response.error_description || response.error || "Google sign-in did not complete."));
+          rejectToken(new Error(response.error_description || response.error || "Google sign-in did not complete."));
           return;
         }
         if (!response.access_token) {
-          reject(new Error("Google did not return an access token."));
+          rejectToken(new Error("Google did not return an access token."));
           return;
         }
         accessToken = response.access_token;
         accessTokenScopes = response.scope || DRIVE_SCOPES;
         accessTokenExpiresAt = Date.now() + (response.expires_in || 3600) * 1000;
         notifyGoogleDriveAuthenticated();
-        resolve(accessToken);
+        resolveToken(accessToken);
       },
       error_callback: (error) => {
-        reject(new Error(error.message || error.type || "Google sign-in failed."));
+        rejectToken(new Error(error.message || error.type || "Google sign-in failed."));
       }
     });
 
@@ -356,25 +374,26 @@ export async function getDriveFileMetadata(fileId: string, token = accessToken):
   return response.json() as Promise<UploadedDriveFile>;
 }
 
-export async function getOrCreateGoogleDriveFolder(name: string, parentFolderId: string): Promise<GoogleDriveFolder> {
+export async function getOrCreateGoogleDriveFolder(name: string, parentFolderId: string, token = ""): Promise<GoogleDriveFolder> {
   const trimmedName = cleanDriveFolderName(name);
   const trimmedParentId = parentFolderId.trim();
   if (!trimmedName) throw new Error("Missing Google Drive folder name.");
   if (!trimmedParentId) throw new Error("Choose a parent Google Drive folder first.");
 
-  const token = await authenticateGoogleDrive();
-  const existing = await findGoogleDriveFolder(trimmedName, trimmedParentId, token);
-  return existing || createGoogleDriveFolder(trimmedName, trimmedParentId, token);
+  const activeToken = token || await authenticateGoogleDrive();
+  const existing = await findGoogleDriveFolder(trimmedName, trimmedParentId, activeToken);
+  return existing || createGoogleDriveFolder(trimmedName, trimmedParentId, activeToken);
 }
 
 export async function getOrCreateGoogleDriveFolderPath(parentFolderId: string, folderNames: string[]): Promise<GoogleDriveFolder> {
   const cleanNames = folderNames.map(cleanDriveFolderName).filter(Boolean);
   if (!cleanNames.length) throw new Error("Missing Google Drive folder path.");
 
+  const token = await authenticateGoogleDrive();
   let parentId = parentFolderId.trim();
   let currentFolder: GoogleDriveFolder | null = null;
   for (const folderName of cleanNames) {
-    currentFolder = await getOrCreateGoogleDriveFolder(folderName, parentId);
+    currentFolder = await getOrCreateGoogleDriveFolder(folderName, parentId, token);
     parentId = currentFolder.id;
   }
 
@@ -398,11 +417,15 @@ async function findGoogleDriveFolder(name: string, parentFolderId: string, token
     `name = '${driveQueryValue(name)}'`
   ].join(" and "));
 
-  const response = await fetch(`https://www.googleapis.com/drive/v3/files?${params.toString()}${driveApiKeyParam()}`, {
-    headers: {
-      Authorization: `Bearer ${token}`
-    }
-  });
+  const response = await fetchDriveWithTimeout(
+    `https://www.googleapis.com/drive/v3/files?${params.toString()}${driveApiKeyParam()}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    },
+    "Google Drive took too long while checking folders."
+  );
   if (!response.ok) throw await driveError(response, "Could not check Google Drive folders.");
   const payload = await response.json() as { files?: DriveBrowserItem[] };
   const folder = Array.isArray(payload.files) ? payload.files.find((item) => item?.id) : null;
@@ -410,7 +433,7 @@ async function findGoogleDriveFolder(name: string, parentFolderId: string, token
 }
 
 async function createGoogleDriveFolder(name: string, parentFolderId: string, token: string): Promise<GoogleDriveFolder> {
-  const response = await fetch(
+  const response = await fetchDriveWithTimeout(
     `https://www.googleapis.com/drive/v3/files?fields=id,name,mimeType,webViewLink&supportsAllDrives=true${driveApiKeyParam()}`,
     {
       method: "POST",
@@ -423,7 +446,8 @@ async function createGoogleDriveFolder(name: string, parentFolderId: string, tok
         mimeType: GOOGLE_DRIVE_FOLDER_MIME_TYPE,
         parents: [parentFolderId]
       })
-    }
+    },
+    "Google Drive took too long while creating the folder."
   );
   if (!response.ok) throw await driveError(response, "Could not create the Google Drive folder.");
   const folder = await response.json() as DriveBrowserItem;
@@ -433,6 +457,24 @@ async function createGoogleDriveFolder(name: string, parentFolderId: string, tok
     mimeType: folder.mimeType || GOOGLE_DRIVE_FOLDER_MIME_TYPE,
     url: folder.webViewLink || googleDriveFolderLink(folder.id)
   };
+}
+
+async function fetchDriveWithTimeout(input: RequestInfo | URL, init: RequestInit, timeoutMessage: string) {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 30_000);
+  try {
+    return await fetch(input, {
+      ...init,
+      signal: init.signal || controller.signal
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error(timeoutMessage);
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
+  }
 }
 
 export async function moveDriveFileToFolder(fileId: string, targetFolderId: string): Promise<MovedDriveFile> {

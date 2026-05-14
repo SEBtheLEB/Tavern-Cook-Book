@@ -1849,8 +1849,18 @@ function CreatureArtVaultPage({
     }
     const match = findVaultSlot(vault, ref);
     if (!match) return;
-    setUploadTarget(ref);
-    uploadInputRef.current?.click();
+    try {
+      if (!match.section.driveFolderId?.trim()) {
+        setMessage(`Preparing ${match.section.title} folder in Google Drive...`);
+        const folder = artVaultFolderTarget(await resolveArtVaultDriveFolder(creatureArtVaultDriveContext(creature, match.section, activitySubjectType)));
+        setVaultUploadFolder(folder);
+        commitVault(updateVaultSectionDriveFolder(vault, match.section.id, folder));
+      }
+      setUploadTarget(ref);
+      uploadInputRef.current?.click();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not prepare this Art Vault folder.");
+    }
   };
 
   const uploadFileToSlot = async (file: File | undefined) => {

@@ -130,6 +130,18 @@ export function DriveImageSourceControls({
       const uploadFolder = await chooseFolder();
       if (!uploadFolder?.id) return;
     }
+    if (!folder.id && resolveUploadFolder) {
+      setBusy(true);
+      try {
+        const uploadFolder = await resolveFolderForUpload();
+        if (!uploadFolder?.id) return;
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : "Could not prepare the Art Vault folder.");
+        return;
+      } finally {
+        setBusy(false);
+      }
+    }
     fileInputRef.current?.click();
   };
 
@@ -153,12 +165,11 @@ export function DriveImageSourceControls({
       return;
     }
 
-    const uploadFolder = await resolveFolderForUpload();
-    if (!uploadFolder?.id) return;
-
     setBusy(true);
-    setMessage(`Uploading "${file.name}" to Google Drive...`);
     try {
+      const uploadFolder = await resolveFolderForUpload();
+      if (!uploadFolder?.id) return;
+      setMessage(`Uploading "${file.name}" to Google Drive...`);
       const uploaded = await uploadImageToDrive(file, uploadFolder.id, {
         fileName: typeof uploadFileName === "function" ? uploadFileName(file) : uploadFileName,
         naming: {
