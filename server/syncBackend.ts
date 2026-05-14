@@ -192,9 +192,20 @@ async function readGitHubRaw(path: string): Promise<{ content: string; sha: stri
 
   const file = await response.json() as GitHubContentFile;
   return {
-    content: decodeGitHubContent(file),
+    content: decodeGitHubContent(file) || (file.sha ? await readGitHubBlob(file.sha) : ""),
     sha: file.sha || ""
   };
+}
+
+async function readGitHubBlob(sha: string) {
+  const response = await fetch(gitHubBlobUrl(sha), {
+    headers: gitHubHeaders()
+  });
+
+  if (!response.ok) throw new Error(await gitHubError(response, "Could not read large sync file."));
+
+  const blob = await response.json() as GitHubContentFile;
+  return decodeGitHubContent(blob);
 }
 
 async function writeGitHubJson(path: string, value: unknown, message: string) {
@@ -252,6 +263,11 @@ function gitHubContentsUrl(path: string) {
   const encodedPath = path.split("/").map((part) => encodeURIComponent(part)).join("/");
   const params = new URLSearchParams({ ref: syncBranch() });
   return `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${encodedPath}?${params.toString()}`;
+}
+
+function gitHubBlobUrl(sha: string) {
+  const [owner, repo] = syncRepo().split("/");
+  return `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/blobs/${encodeURIComponent(sha)}`;
 }
 
 function gitHubHeaders() {
