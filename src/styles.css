@@ -17853,6 +17853,11 @@ body > .picker-dialog-bg {
   font-weight: 700;
 }
 
+.drive-browser-status.error {
+  background: #fff0e5;
+  color: #8d2f18;
+}
+
 .drive-browser-grid {
   min-height: 240px;
   overflow: auto;

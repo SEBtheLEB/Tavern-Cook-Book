@@ -59,6 +59,7 @@ export interface DriveUploadOptions {
 interface GoogleTokenResponse {
   access_token?: string;
   expires_in?: number;
+  scope?: string;
   error?: string;
   error_description?: string;
 }
@@ -153,6 +154,7 @@ declare global {
 
 let accessToken = "";
 let accessTokenExpiresAt = 0;
+let accessTokenScopes = "";
 let scriptLoadPromise: Promise<void> | null = null;
 let pickerScriptLoadPromise: Promise<void> | null = null;
 let pickerLoadPromise: Promise<void> | null = null;
@@ -188,13 +190,13 @@ export function loadGoogleApiScripts() {
   return scriptLoadPromise;
 }
 
-export async function authenticateGoogleDrive() {
+export async function authenticateGoogleDrive(options: { forceConsent?: boolean } = {}) {
   const settings = getDriveSettings();
   if (!isDriveConfigured(settings)) {
     throw new Error("Google Drive is not connected yet. Add your API Key and OAuth Client ID in Settings first.");
   }
 
-  if (accessToken && Date.now() < accessTokenExpiresAt - 60_000) {
+  if (!options.forceConsent && accessToken && hasRequiredDriveScopes(accessTokenScopes) && Date.now() < accessTokenExpiresAt - 60_000) {
     return accessToken;
   }
 
@@ -219,6 +221,7 @@ export async function authenticateGoogleDrive() {
           return;
         }
         accessToken = response.access_token;
+        accessTokenScopes = response.scope || DRIVE_SCOPES;
         accessTokenExpiresAt = Date.now() + (response.expires_in || 3600) * 1000;
         resolve(accessToken);
       },
@@ -227,8 +230,15 @@ export async function authenticateGoogleDrive() {
       }
     });
 
-    tokenClient.requestAccessToken({ prompt: accessToken ? "" : "consent" });
+    tokenClient.requestAccessToken({
+      prompt: options.forceConsent || !accessToken || !hasRequiredDriveScopes(accessTokenScopes) ? "consent" : ""
+    });
   });
+}
+
+function hasRequiredDriveScopes(scopes: string) {
+  const granted = new Set(scopes.split(/\s+/).filter(Boolean));
+  return granted.has(DRIVE_FILE_SCOPE) && granted.has(DRIVE_METADATA_SCOPE);
 }
 
 function signedInGoogleEmail() {
@@ -502,10 +512,12 @@ function openGoogleDriveBrowser(
     document.body.appendChild(overlay);
     searchInput.focus();
 
+    let activeToken = token;
     let items: DriveBrowserItem[] = [];
     let nextPageToken = "";
     let loading = false;
     let closed = false;
+    let retriedConsent = false;
 
     const cleanup = () => {
       closed = true;
@@ -516,11 +528,6 @@ function openGoogleDriveBrowser(
     const close = (value: GooglePickerFile | GoogleDriveFolder | null) => {
       cleanup();
       resolve(value);
-    };
-
-    const fail = (error: unknown) => {
-      cleanup();
-      reject(error instanceof Error ? error : new Error("Google Drive browser could not be opened."));
     };
 
     const render = () => {
@@ -567,10 +574,11 @@ function openGoogleDriveBrowser(
     const load = async (append = false) => {
       if (loading || closed) return;
       loading = true;
+      status.classList.remove("error");
       status.textContent = append ? "Loading more from Google Drive..." : "Loading Google Drive...";
       loadMoreButton.disabled = true;
       try {
-        const result = await fetchDriveBrowserItems(mode, token, searchInput.value, append ? nextPageToken : "");
+        const result = await fetchDriveBrowserItems(mode, activeToken, searchInput.value, append ? nextPageToken : "");
         items = append ? [...items, ...result.files] : result.files;
         nextPageToken = result.nextPageToken;
         status.textContent = items.length
@@ -579,7 +587,27 @@ function openGoogleDriveBrowser(
         loading = false;
         render();
       } catch (error) {
-        fail(error);
+        if (!retriedConsent && shouldRetryDriveBrowserAuth(error)) {
+          retriedConsent = true;
+          try {
+            status.textContent = "Google Drive needs one more approval to show your files...";
+            activeToken = await authenticateGoogleDrive({ forceConsent: true });
+            loading = false;
+            void load(append);
+            return;
+          } catch (authError) {
+            loading = false;
+            status.classList.add("error");
+            status.textContent = driveBrowserErrorMessage(authError);
+            render();
+            return;
+          }
+        }
+
+        loading = false;
+        status.classList.add("error");
+        status.textContent = driveBrowserErrorMessage(error);
+        render();
       }
     };
 
@@ -671,6 +699,22 @@ function driveBrowserItemToSelection(mode: DriveBrowserMode, item: DriveBrowserI
     url: item.webViewLink || `https://drive.google.com/file/d/${item.id}/view`,
     thumbnailUrl: item.thumbnailLink || stableDriveThumbnailUrl(item.id)
   } satisfies GooglePickerFile;
+}
+
+function shouldRetryDriveBrowserAuth(error: unknown) {
+  const message = error instanceof Error ? error.message.toLowerCase() : String(error || "").toLowerCase();
+  return message.includes("sign-in expired") ||
+    message.includes("permission denied") ||
+    message.includes("insufficient") ||
+    message.includes("scope") ||
+    message.includes("forbidden") ||
+    message.includes("unauthorized");
+}
+
+function driveBrowserErrorMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error || "");
+  if (!message.trim()) return "Google Drive could not load. Check Drive settings and try Refresh.";
+  return `${message} You can keep this window open, approve Google if asked, then tap Refresh.`;
 }
 
 export function handlePickedDriveFile(
