@@ -6,6 +6,8 @@ const GOOGLE_IDENTITY_SCRIPT_SRC = "https://accounts.google.com/gsi/client";
 const GOOGLE_PICKER_SCRIPT_ID = "google-api-loader";
 const GOOGLE_PICKER_SCRIPT_SRC = "https://apis.google.com/js/api.js";
 const DRIVE_FILE_SCOPE = "https://www.googleapis.com/auth/drive.file";
+const DRIVE_METADATA_SCOPE = "https://www.googleapis.com/auth/drive.metadata.readonly";
+const DRIVE_SCOPES = `${DRIVE_FILE_SCOPE} ${DRIVE_METADATA_SCOPE}`;
 const GOOGLE_DRIVE_FOLDER_MIME_TYPE = "application/vnd.google-apps.folder";
 const MULTIPART_UPLOAD_LIMIT = 5 * 1024 * 1024;
 const MAX_BROWSER_UPLOAD_SIZE = 100 * 1024 * 1024;
@@ -125,6 +127,23 @@ interface GoogleApiLoader {
   ) => void;
 }
 
+type DriveBrowserMode = "image" | "folder";
+
+interface DriveBrowserItem {
+  id: string;
+  name: string;
+  mimeType: string;
+  thumbnailLink?: string;
+  webViewLink?: string;
+  iconLink?: string;
+  modifiedTime?: string;
+}
+
+interface DriveBrowserListResponse {
+  files?: DriveBrowserItem[];
+  nextPageToken?: string;
+}
+
 declare global {
   interface Window {
     google?: GoogleApi;
@@ -188,7 +207,7 @@ export async function authenticateGoogleDrive() {
   return new Promise<string>((resolve, reject) => {
     const tokenClient = oauth.initTokenClient({
       client_id: settings.googleOAuthClientId.trim(),
-      scope: DRIVE_FILE_SCOPE,
+      scope: DRIVE_SCOPES,
       hint: signedInGoogleEmail(),
       callback: (response) => {
         if (response.error) {
@@ -399,56 +418,8 @@ export async function openGoogleDriveImagePicker(title = "Select Image From Goog
     return null;
   }
 
-  const settings = getDriveSettings();
   const token = await authenticateGoogleDrive();
-  await loadGooglePickerScript();
-  const pickerApi = window.google?.picker;
-  if (!pickerApi) throw new Error("Google Picker is not available.");
-
-  return new Promise<GooglePickerFile | null>((resolve, reject) => {
-    try {
-      const actionKey = pickerApi.Response.ACTION || "action";
-      const documentsKey = pickerApi.Response.DOCUMENTS || "docs";
-      const pickedAction = pickerApi.Action.PICKED || "picked";
-      const cancelAction = pickerApi.Action.CANCEL || "cancel";
-      const imageMimeTypes = IMAGE_MIME_TYPES.join(",");
-      const docsView = createImagePickerView(pickerApi, imageMimeTypes);
-      let builder = new pickerApi.PickerBuilder()
-        .addView(docsView)
-        .setOAuthToken(token)
-        .setDeveloperKey(settings.googleApiKey.trim())
-        .setSelectableMimeTypes(imageMimeTypes)
-        .setMaxItems(1)
-        .setTitle(title);
-
-      const appId = googleAppIdFromOAuthClientId(settings.googleOAuthClientId);
-      if (appId && builder.setAppId) builder = builder.setAppId(appId);
-      if (builder.setOrigin) builder = builder.setOrigin(googlePickerOrigin());
-
-      const picker = builder
-        .setCallback((data) => {
-          const action = String(data[actionKey] || "");
-          if (action === cancelAction) {
-            resolve(null);
-            return;
-          }
-          if (action !== pickedAction) return;
-
-          const documents = data[documentsKey];
-          if (!Array.isArray(documents) || !documents.length) {
-            reject(new Error("No Drive image was selected."));
-            return;
-          }
-
-          resolve(pickerDocumentToFile(documents[0], pickerApi));
-        })
-        .build();
-
-      picker.setVisible(true);
-    } catch (error) {
-      reject(error instanceof Error ? error : new Error("Google Picker could not be opened."));
-    }
-  });
+  return openGoogleDriveBrowser("image", title, token) as Promise<GooglePickerFile | null>;
 }
 
 export async function openGoogleDriveFolderPicker(title = "Select Upload Folder"): Promise<GoogleDriveFolder | null> {
@@ -457,55 +428,249 @@ export async function openGoogleDriveFolderPicker(title = "Select Upload Folder"
     return null;
   }
 
-  const settings = getDriveSettings();
   const token = await authenticateGoogleDrive();
-  await loadGooglePickerScript();
-  const pickerApi = window.google?.picker;
-  if (!pickerApi) throw new Error("Google Picker is not available.");
+  return openGoogleDriveBrowser("folder", title, token) as Promise<GoogleDriveFolder | null>;
+}
 
-  return new Promise<GoogleDriveFolder | null>((resolve, reject) => {
-    try {
-      const actionKey = pickerApi.Response.ACTION || "action";
-      const documentsKey = pickerApi.Response.DOCUMENTS || "docs";
-      const pickedAction = pickerApi.Action.PICKED || "picked";
-      const cancelAction = pickerApi.Action.CANCEL || "cancel";
-      const folderView = createFolderPickerView(pickerApi);
-      let builder = new pickerApi.PickerBuilder()
-        .addView(folderView)
-        .setOAuthToken(token)
-        .setDeveloperKey(settings.googleApiKey.trim())
-        .setSelectableMimeTypes(GOOGLE_DRIVE_FOLDER_MIME_TYPE)
-        .setMaxItems(1)
-        .setTitle(title);
+function openGoogleDriveBrowser(
+  mode: DriveBrowserMode,
+  title: string,
+  token: string
+): Promise<GooglePickerFile | GoogleDriveFolder | null> {
+  return new Promise((resolve, reject) => {
+    const overlay = document.createElement("div");
+    overlay.className = "drive-browser-overlay";
+    overlay.setAttribute("role", "presentation");
 
-      const appId = googleAppIdFromOAuthClientId(settings.googleOAuthClientId);
-      if (appId && builder.setAppId) builder = builder.setAppId(appId);
-      if (builder.setOrigin) builder = builder.setOrigin(googlePickerOrigin());
+    const modal = document.createElement("section");
+    modal.className = "drive-browser-modal";
+    modal.setAttribute("role", "dialog");
+    modal.setAttribute("aria-modal", "true");
+    modal.setAttribute("aria-label", title);
 
-      const picker = builder
-        .setCallback((data) => {
-          const action = String(data[actionKey] || "");
-          if (action === cancelAction) {
-            resolve(null);
-            return;
-          }
-          if (action !== pickedAction) return;
+    const header = document.createElement("header");
+    header.className = "drive-browser-header";
 
-          const documents = data[documentsKey];
-          if (!Array.isArray(documents) || !documents.length) {
-            reject(new Error("No Drive folder was selected."));
-            return;
-          }
+    const headingWrap = document.createElement("div");
+    const eyebrow = document.createElement("p");
+    eyebrow.textContent = mode === "folder" ? "Google Drive Folders" : "Google Drive Images";
+    const heading = document.createElement("h2");
+    heading.textContent = title;
+    headingWrap.append(eyebrow, heading);
 
-          resolve(pickerDocumentToFolder(documents[0], pickerApi));
-        })
-        .build();
+    const closeButton = document.createElement("button");
+    closeButton.type = "button";
+    closeButton.className = "drive-browser-close";
+    closeButton.setAttribute("aria-label", "Close Drive browser");
+    closeButton.textContent = "x";
+    header.append(headingWrap, closeButton);
 
-      picker.setVisible(true);
-    } catch (error) {
-      reject(error instanceof Error ? error : new Error("Google Drive folder picker could not be opened."));
+    const toolbar = document.createElement("form");
+    toolbar.className = "drive-browser-toolbar";
+    const searchInput = document.createElement("input");
+    searchInput.type = "search";
+    searchInput.placeholder = mode === "folder" ? "Search folders..." : "Search images...";
+    searchInput.autocomplete = "off";
+    const searchButton = document.createElement("button");
+    searchButton.type = "submit";
+    searchButton.textContent = "Search";
+    const refreshButton = document.createElement("button");
+    refreshButton.type = "button";
+    refreshButton.textContent = "Refresh";
+    toolbar.append(searchInput, searchButton, refreshButton);
+
+    const status = document.createElement("p");
+    status.className = "drive-browser-status";
+    status.textContent = "Loading Google Drive...";
+
+    const grid = document.createElement("div");
+    grid.className = "drive-browser-grid";
+
+    const footer = document.createElement("footer");
+    footer.className = "drive-browser-footer";
+    const loadMoreButton = document.createElement("button");
+    loadMoreButton.type = "button";
+    loadMoreButton.textContent = "Load More";
+    loadMoreButton.disabled = true;
+    const cancelButton = document.createElement("button");
+    cancelButton.type = "button";
+    cancelButton.textContent = "Cancel";
+    footer.append(loadMoreButton, cancelButton);
+
+    modal.append(header, toolbar, status, grid, footer);
+    overlay.append(modal);
+    document.body.appendChild(overlay);
+    searchInput.focus();
+
+    let items: DriveBrowserItem[] = [];
+    let nextPageToken = "";
+    let loading = false;
+    let closed = false;
+
+    const cleanup = () => {
+      closed = true;
+      document.removeEventListener("keydown", handleKeyDown);
+      overlay.remove();
+    };
+
+    const close = (value: GooglePickerFile | GoogleDriveFolder | null) => {
+      cleanup();
+      resolve(value);
+    };
+
+    const fail = (error: unknown) => {
+      cleanup();
+      reject(error instanceof Error ? error : new Error("Google Drive browser could not be opened."));
+    };
+
+    const render = () => {
+      grid.replaceChildren();
+      items.forEach((item) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "drive-browser-item";
+
+        const preview = document.createElement("span");
+        preview.className = "drive-browser-preview";
+        if (mode === "image") {
+          const image = document.createElement("img");
+          image.alt = "";
+          image.loading = "lazy";
+          image.src = item.thumbnailLink || stableDriveThumbnailUrl(item.id);
+          preview.appendChild(image);
+        } else {
+          preview.classList.add("folder");
+          preview.textContent = "Folder";
+        }
+
+        const name = document.createElement("strong");
+        name.textContent = item.name || (mode === "folder" ? "Untitled Folder" : "Untitled Image");
+        const meta = document.createElement("small");
+        meta.textContent = item.modifiedTime ? `Updated ${new Date(item.modifiedTime).toLocaleDateString()}` : item.mimeType;
+        button.append(preview, name, meta);
+        button.addEventListener("click", () => close(driveBrowserItemToSelection(mode, item)));
+        grid.appendChild(button);
+      });
+
+      if (!items.length && !loading) {
+        const empty = document.createElement("div");
+        empty.className = "drive-browser-empty";
+        empty.textContent = mode === "folder"
+          ? "No Drive folders found. Try a different search."
+          : "No Drive images found. Try a different search.";
+        grid.appendChild(empty);
+      }
+
+      loadMoreButton.disabled = loading || !nextPageToken;
+    };
+
+    const load = async (append = false) => {
+      if (loading || closed) return;
+      loading = true;
+      status.textContent = append ? "Loading more from Google Drive..." : "Loading Google Drive...";
+      loadMoreButton.disabled = true;
+      try {
+        const result = await fetchDriveBrowserItems(mode, token, searchInput.value, append ? nextPageToken : "");
+        items = append ? [...items, ...result.files] : result.files;
+        nextPageToken = result.nextPageToken;
+        status.textContent = items.length
+          ? `${items.length} ${mode === "folder" ? "folder" : "image"}${items.length === 1 ? "" : "s"} ready.`
+          : "No matching Drive items found.";
+        loading = false;
+        render();
+      } catch (error) {
+        fail(error);
+      }
+    };
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") close(null);
+    }
+
+    closeButton.addEventListener("click", () => close(null));
+    cancelButton.addEventListener("click", () => close(null));
+    refreshButton.addEventListener("click", () => void load(false));
+    loadMoreButton.addEventListener("click", () => void load(true));
+    toolbar.addEventListener("submit", (event) => {
+      event.preventDefault();
+      void load(false);
+    });
+    overlay.addEventListener("click", (event) => {
+      if (event.target === overlay) close(null);
+    });
+    document.addEventListener("keydown", handleKeyDown);
+
+    void load(false);
+  });
+}
+
+async function fetchDriveBrowserItems(
+  mode: DriveBrowserMode,
+  token: string,
+  search: string,
+  pageToken: string
+) {
+  const params = new URLSearchParams({
+    corpora: "user",
+    includeItemsFromAllDrives: "true",
+    supportsAllDrives: "true",
+    spaces: "drive",
+    pageSize: "60",
+    fields: "nextPageToken,files(id,name,mimeType,thumbnailLink,webViewLink,iconLink,modifiedTime)",
+    orderBy: mode === "folder" ? "name_natural" : "modifiedTime desc,name_natural"
+  });
+
+  const query = buildDriveBrowserQuery(mode, search);
+  params.set("q", query);
+  if (pageToken) params.set("pageToken", pageToken);
+
+  const response = await fetch(`https://www.googleapis.com/drive/v3/files?${params.toString()}${driveApiKeyParam()}`, {
+    headers: {
+      Authorization: `Bearer ${token}`
     }
   });
+  if (!response.ok) throw await driveError(response, "Could not load Google Drive items.");
+  const payload = await response.json() as DriveBrowserListResponse;
+  return {
+    files: Array.isArray(payload.files) ? payload.files.filter((item) => item?.id) : [],
+    nextPageToken: payload.nextPageToken || ""
+  };
+}
+
+function buildDriveBrowserQuery(mode: DriveBrowserMode, search: string) {
+  const clauses = ["trashed=false"];
+  if (mode === "folder") {
+    clauses.push(`mimeType='${GOOGLE_DRIVE_FOLDER_MIME_TYPE}'`);
+  } else {
+    clauses.push(`(${IMAGE_MIME_TYPES.map((mimeType) => `mimeType='${mimeType}'`).join(" or ")})`);
+  }
+
+  const cleanSearch = driveQueryValue(search);
+  if (cleanSearch) clauses.push(`name contains '${cleanSearch}'`);
+  return clauses.join(" and ");
+}
+
+function driveQueryValue(value: string) {
+  return value.trim().replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+}
+
+function driveBrowserItemToSelection(mode: DriveBrowserMode, item: DriveBrowserItem) {
+  if (mode === "folder") {
+    return {
+      id: item.id,
+      name: item.name || "Selected Drive Folder",
+      mimeType: item.mimeType || GOOGLE_DRIVE_FOLDER_MIME_TYPE,
+      url: item.webViewLink || googleDriveFolderLink(item.id)
+    } satisfies GoogleDriveFolder;
+  }
+
+  return {
+    id: item.id,
+    name: item.name || "Imported Drive Image",
+    mimeType: item.mimeType || "",
+    url: item.webViewLink || `https://drive.google.com/file/d/${item.id}/view`,
+    thumbnailUrl: item.thumbnailLink || stableDriveThumbnailUrl(item.id)
+  } satisfies GooglePickerFile;
 }
 
 export function handlePickedDriveFile(
