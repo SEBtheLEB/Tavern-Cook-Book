@@ -190,6 +190,7 @@ interface AdminBaselineReview {
 
 const EXPLICIT_REMOVALS_KEY = "tavern-cook-book:explicit-removals";
 const LIVE_TEAM_SYNC = true;
+const REALTIME_DATABASE_SYNC = false;
 const LIVE_SYNC_AUTOSAVE_DELAY_MS = 900;
 const LIVE_SYNC_POLL_MS = 1200;
 const LIVE_BACKUP_SAVE_DELAY_MS = 12_000;
@@ -417,7 +418,6 @@ export default function App() {
 
   useEffect(() => {
     if (!publishedReady) return;
-    if (realtimeActive) return;
     if (!currentUser || readOnly || hostedViewer || remoteLoadRef.current || realtimeRemoteLoadRef.current) return;
     const nextHash = databaseSyncHash(database);
     if (nextHash === lastDraftHashRef.current) return;
@@ -477,6 +477,7 @@ export default function App() {
 
   useEffect(() => {
     if (!LIVE_TEAM_SYNC) return;
+    if (!REALTIME_DATABASE_SYNC) return;
     if (!publishedReady || !realtimeActive) return;
     if (!currentUser || readOnly || hostedViewer) return;
     if (remoteLoadRef.current || realtimeRemoteLoadRef.current) return;
@@ -591,7 +592,6 @@ export default function App() {
 
   useEffect(() => {
     if (!publishedReady) return;
-    if (realtimeActive) return;
     if (!currentUser || hostedViewer) return;
     const interval = window.setInterval(() => {
       void fetchPublishedDatabase()
@@ -942,6 +942,7 @@ export default function App() {
   }, [currentUser, hostedViewer, setDatabase]);
 
   const handleRealtimeDatabase = useCallback((nextDatabase: LoreDatabase) => {
+    if (!REALTIME_DATABASE_SYNC) return;
     const nextHash = databaseSyncHash(nextDatabase);
     const currentHash = databaseSyncHash(databaseRef.current);
     realtimeBaseDatabaseRef.current = nextDatabase;
@@ -980,7 +981,7 @@ export default function App() {
     setCloudSync((current) => ({
       ...current,
       phase: publisher ? "saved" : current.phase,
-      message: publisher ? "Realtime collaboration is live." : current.message,
+      message: publisher ? "Team presence is live. Edits save through shared cloud sync." : current.message,
       configured: current.configured
     }));
   }, []);
