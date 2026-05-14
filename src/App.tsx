@@ -66,7 +66,8 @@ import {
   loadGoogleAccount,
   roleCanAccessSettings,
   roleCanEdit,
-  saveAccessUsers
+  saveAccessUsers,
+  saveGoogleAccount
 } from "./utils/accessControl";
 import { loadAppSyncSettings, normalizeAppSyncSettings, saveAppSyncSettings } from "./utils/appSettings";
 import {
@@ -195,6 +196,7 @@ const REALTIME_DATABASE_SYNC = false;
 const LIVE_SYNC_AUTOSAVE_DELAY_MS = 250;
 const LIVE_SYNC_POLL_MS = 1200;
 const LIVE_BACKUP_SAVE_DELAY_MS = 12_000;
+const PENDING_TEAM_CHANGE_MAX_AGE_MS = 60_000;
 
 function buildWorkshopProgress(database: LoreDatabase, currentUser: GoogleAccountUser) {
   const totalEntries = database.entries.length + database.bestiary.length;
@@ -286,13 +288,13 @@ export default function App() {
   const lastPublishedHashRef = useRef("");
   const lastPublishedDatabaseRef = useRef<LoreDatabase>(createStarterDatabase());
   const lastDraftUpdatedAtRef = useRef("");
-  const pendingTeamChangeHashRef = useRef(loadPendingTeamChange().hash);
+  const pendingTeamChangeHashRef = useRef(getFreshPendingTeamChange().hash);
   const syncSettingsSaveTimerRef = useRef<number | null>(null);
   const currentRole = currentUser?.role || "viewer";
   const canEdit = roleCanEdit(currentRole);
   const canAccessSettings = roleCanAccessSettings(currentRole);
   const realtimeActive = Boolean(currentUser && !hostedViewer && realtimeReady);
-  const teamDataReady = publishedReady || realtimeActive;
+  const teamDataReady = publishedReady;
   const readOnly = forcedReadOnly || !canEdit || Boolean(currentUser && !hostedViewer && !teamDataReady);
   const setDatabase = useCallback((
     nextValue: LoreDatabase | ((current: LoreDatabase) => LoreDatabase),
@@ -620,7 +622,11 @@ export default function App() {
 
           if (LIVE_TEAM_SYNC) {
             const localHash = databaseSyncHash(databaseRef.current);
-            const pendingHash = pendingTeamChangeHashRef.current || loadPendingTeamChange().hash;
+            const pendingTeamChange = getFreshPendingTeamChange();
+            if (pendingTeamChangeHashRef.current && pendingTeamChangeHashRef.current !== pendingTeamChange.hash) {
+              pendingTeamChangeHashRef.current = "";
+            }
+            const pendingHash = pendingTeamChange.hash;
             if (pendingHash && localHash === pendingHash) {
               setCloudSync((current) => ({
                 ...current,
@@ -631,7 +637,7 @@ export default function App() {
             if (lastDraftUpdatedAtRef.current && !isSyncDateAfter(result.envelope.updatedAt, lastDraftUpdatedAtRef.current)) {
               return;
             }
-            if (!readOnly && localHash !== lastDraftHashRef.current) {
+            if (!readOnly && pendingHash && localHash !== lastDraftHashRef.current) {
               setCloudSync((current) => ({
                 ...current,
                 message: "New live team changes are waiting while your current edit saves."
@@ -808,14 +814,24 @@ export default function App() {
       ]);
       if (cancelled) return;
 
+      let effectiveCurrentUser = currentUser;
+      let effectiveCanEdit = canEdit;
+      let effectiveCanAccessSettings = canAccessSettings;
       if (settingsResult.ok && settingsResult.envelope?.payload) {
         const remoteSettings = normalizeAppSyncSettings(settingsResult.envelope.payload);
         saveAppSyncSettings(remoteSettings);
         saveAccessUsers(remoteSettings.accessUsers);
         setAppSyncSettings(remoteSettings);
-        const access = remoteSettings.accessUsers.find((user) => user.email === currentUser.email);
-        if (access && access.role !== currentUser.role) {
-          setCurrentUser({ ...currentUser, role: access.role });
+        const currentEmail = currentUser.email.trim().toLowerCase();
+        const access = remoteSettings.accessUsers.find((user) => user.email === currentEmail);
+        if (access) {
+          effectiveCurrentUser = { ...currentUser, role: access.role };
+          effectiveCanEdit = roleCanEdit(access.role);
+          effectiveCanAccessSettings = roleCanAccessSettings(access.role);
+          if (access.role !== currentUser.role) {
+            saveGoogleAccount(effectiveCurrentUser);
+            setCurrentUser(effectiveCurrentUser);
+          }
         }
       }
 
@@ -827,16 +843,16 @@ export default function App() {
       const draftEnvelope = !LIVE_TEAM_SYNC && canEdit && draftResult?.ok ? draftResult.envelope : null;
       const remotePublishedHash = databaseSyncHash(remotePublished);
       const localDatabaseHash = databaseSyncHash(localDatabase);
-      const pendingTeamChange = loadPendingTeamChange();
+      const pendingTeamChange = getFreshPendingTeamChange();
       const shouldKeepPendingLocalChange =
         LIVE_TEAM_SYNC &&
-        canEdit &&
+        effectiveCanEdit &&
         Boolean(pendingTeamChange.hash) &&
         pendingTeamChange.hash === localDatabaseHash &&
         (!publishedEnvelope || isSyncDateAfter(pendingTeamChange.updatedAt, publishedEnvelope.updatedAt));
       const shouldReviewAdminBaseline =
         LIVE_TEAM_SYNC &&
-        currentUser.role === "admin" &&
+        effectiveCanAccessSettings &&
         !shouldKeepPendingLocalChange &&
         !adminBaselinePromptedRef.current &&
         publishedEnvelope &&
@@ -907,8 +923,8 @@ export default function App() {
           : latestSyncDate(publishedEnvelope?.updatedAt || "", draftEnvelope?.updatedAt || ""),
         configured: true
       });
-      if (!LIVE_TEAM_SYNC && canEdit && draftDatabase && chosenHash !== draftHash) {
-        void saveUserDraft(currentUser.email, chosenDatabase)
+      if (!LIVE_TEAM_SYNC && effectiveCanEdit && draftDatabase && chosenHash !== draftHash) {
+        void saveUserDraft(effectiveCurrentUser.email, chosenDatabase)
           .then((draftResult) => {
             if (!draftResult.ok || !draftResult.envelope?.payload.database) return;
             lastDraftHashRef.current = databaseSyncHash(draftResult.envelope.payload.database);
@@ -932,7 +948,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [currentUser?.email, hostedViewer, explicitRemovalSet]);
+  }, [currentUser?.email, currentUser?.role, hostedViewer, explicitRemovalSet]);
 
   useEffect(() => {
     if (!readOnly || !artVaultDashboardOpen) return;
@@ -1816,7 +1832,9 @@ export default function App() {
       signOut();
       return;
     }
-    setCurrentUser({ ...currentUser, role: access.role });
+    const updatedUser = { ...currentUser, role: access.role };
+    saveGoogleAccount(updatedUser);
+    setCurrentUser(updatedUser);
   };
 
   const updateAccessUsersFromSettings = (users: Parameters<typeof saveAccessUsers>[0]) => {
@@ -1874,7 +1892,7 @@ export default function App() {
         currentUser={currentUser}
         database={database}
         canonicalDatabase={publishedReady ? publishedDatabase : database}
-        canonicalReady={publishedReady || Boolean(currentUser && !hostedViewer)}
+        canonicalReady={publishedReady}
         activeView={activeView}
         selectedEntry={selectedEntry}
         selectedBestiaryCreatureId={selectedBestiaryCreatureId}
@@ -2686,6 +2704,20 @@ function loadPendingTeamChange() {
   } catch {
     return { hash: "", updatedAt: "" };
   }
+}
+
+function isPendingTeamChangeFresh(pending: { hash: string; updatedAt: string }) {
+  if (!pending.hash || !pending.updatedAt) return false;
+  const updatedAt = Date.parse(pending.updatedAt);
+  if (!Number.isFinite(updatedAt)) return false;
+  return Date.now() - updatedAt <= PENDING_TEAM_CHANGE_MAX_AGE_MS;
+}
+
+function getFreshPendingTeamChange() {
+  const pending = loadPendingTeamChange();
+  if (!pending.hash || isPendingTeamChangeFresh(pending)) return pending;
+  clearPendingTeamChange(pending.hash);
+  return { hash: "", updatedAt: "" };
 }
 
 function savePendingTeamChange(database: LoreDatabase) {
