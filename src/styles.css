@@ -17728,34 +17728,23 @@ button,
 /* Google Picker is injected outside React, so keep it above every app modal and menu. */
 body > .picker-dialog,
 body > .picker-dialog-bg,
-body > .goog-modalpopup,
-body > .modal-dialog,
-body > .modal-dialog-bg,
 .picker-dialog,
 .picker-dialog-bg,
 .picker-frame,
 .picker-dialog-content,
 .picker-dialog iframe,
-.goog-modalpopup,
-.modal-dialog,
-.modal-dialog-bg,
 iframe[src*="picker"],
 iframe[src*="docs.google.com/picker"],
-iframe[src*="drive.google.com/picker"],
-iframe[src*="accounts.google.com"] {
+iframe[src*="drive.google.com/picker"] {
   z-index: 2147483647 !important;
 }
 
 body > .picker-dialog,
-body > .picker-dialog-bg,
-body > .goog-modalpopup,
-body > .modal-dialog,
-body > .modal-dialog-bg {
+body > .picker-dialog-bg {
   position: fixed !important;
 }
 
-body > .picker-dialog-bg,
-body > .modal-dialog-bg {
+body > .picker-dialog-bg {
   z-index: 2147483646 !important;
 }
 

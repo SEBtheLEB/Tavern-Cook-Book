@@ -423,7 +423,7 @@ export async function openGoogleDriveImagePicker(title = "Select Image From Goog
 
       const appId = googleAppIdFromOAuthClientId(settings.googleOAuthClientId);
       if (appId && builder.setAppId) builder = builder.setAppId(appId);
-      if (builder.setOrigin) builder = builder.setOrigin(window.location.origin);
+      if (builder.setOrigin) builder = builder.setOrigin(googlePickerOrigin());
 
       const picker = builder
         .setCallback((data) => {
@@ -480,7 +480,7 @@ export async function openGoogleDriveFolderPicker(title = "Select Upload Folder"
 
       const appId = googleAppIdFromOAuthClientId(settings.googleOAuthClientId);
       if (appId && builder.setAppId) builder = builder.setAppId(appId);
-      if (builder.setOrigin) builder = builder.setOrigin(window.location.origin);
+      if (builder.setOrigin) builder = builder.setOrigin(googlePickerOrigin());
 
       const picker = builder
         .setCallback((data) => {
@@ -613,6 +613,29 @@ export function googleDriveFolderLink(folderId: string) {
 function googleAppIdFromOAuthClientId(clientId: string) {
   const projectNumber = clientId.trim().match(/^(\d+)-/)?.[1];
   return projectNumber || "";
+}
+
+function googlePickerOrigin() {
+  const ownOrigin = `${window.location.protocol}//${window.location.host}`;
+  try {
+    const topOrigin = window.top?.location?.origin;
+    if (topOrigin && topOrigin !== "null") return topOrigin;
+  } catch {
+    const referrerOrigin = originFromReferrer(document.referrer);
+    if (referrerOrigin) return referrerOrigin;
+  }
+
+  return originFromReferrer(document.referrer) || ownOrigin;
+}
+
+function originFromReferrer(referrer: string) {
+  if (!referrer.trim()) return "";
+  try {
+    const url = new URL(referrer);
+    return url.protocol === "https:" || url.protocol === "http:" ? url.origin : "";
+  } catch {
+    return "";
+  }
 }
 
 function validateDriveUpload(file: File, folderId: string) {
