@@ -296,6 +296,8 @@ export default function App() {
   const currentRole = currentUser?.role || "viewer";
   const canEdit = roleCanEdit(currentRole);
   const canAccessSettings = roleCanAccessSettings(currentRole);
+  const canWriteTeamDatabase = LIVE_TEAM_SYNC && canAccessSettings;
+  const usesWorkingCopy = LIVE_TEAM_SYNC && Boolean(currentUser && !hostedViewer && canEdit && !canAccessSettings);
   const realtimeActive = Boolean(currentUser && !hostedViewer && realtimeReady);
   const teamDataReady = publishedReady;
   const cloudCredentialRequired = Boolean(LIVE_TEAM_SYNC && currentUser && !hostedViewer && !hasCloudCredential);
@@ -312,12 +314,12 @@ export default function App() {
     databaseRef.current = next;
     setLocalDatabase(next);
     if (options.source === "remote") return;
-    if (LIVE_TEAM_SYNC && currentUser && !hostedViewer && !readOnly) {
+    if (canWriteTeamDatabase && currentUser && !hostedViewer && !readOnly) {
       const pending = savePendingTeamChange(next);
       pendingTeamChangeHashRef.current = pending.hash;
       setTeamSaveSignal((value) => value + 1);
     }
-  }, [currentUser?.email, hostedViewer, readOnly]);
+  }, [canWriteTeamDatabase, currentUser?.email, hostedViewer, readOnly]);
   useEffect(() => {
     databaseRef.current = database;
   }, [database]);
@@ -429,12 +431,24 @@ export default function App() {
       }
       const result = saveDatabase(database);
       setStorageWarning(result.ok ? "" : result.message || "The app could not save this change.");
+      if (usesWorkingCopy) {
+        setCloudSync((current) => ({
+          ...current,
+          phase: result.ok ? "saved" : "offline",
+          message: result.ok
+            ? "Working copy saved in this browser from the admin version."
+            : result.message || "The app could not save this working copy.",
+          lastSavedAt: result.ok ? new Date().toISOString() : current.lastSavedAt,
+          configured: true
+        }));
+      }
     }
-  }, [database, readOnly]);
+  }, [database, readOnly, usesWorkingCopy]);
 
   useEffect(() => {
     if (!publishedReady) return;
     if (!currentUser || readOnly || hostedViewer || remoteLoadRef.current || realtimeRemoteLoadRef.current) return;
+    if (LIVE_TEAM_SYNC && !canAccessSettings) return;
     if (LIVE_TEAM_SYNC && !hasCloudCredential) {
       setCloudSync((current) => ({
         ...current,
@@ -480,7 +494,7 @@ export default function App() {
           }
           const savedDatabase = result.envelope.payload.database;
           const savedHash = databaseSyncHash(savedDatabase);
-          if (LIVE_TEAM_SYNC) {
+          if (LIVE_TEAM_SYNC && canAccessSettings) {
             setPublishedDatabase(savedDatabase);
             setPublishedReady(true);
             lastPublishedDatabaseRef.current = savedDatabase;
@@ -512,7 +526,7 @@ export default function App() {
     }, LIVE_SYNC_AUTOSAVE_DELAY_MS);
 
     return () => window.clearTimeout(timer);
-  }, [database, teamSaveSignal, currentUser?.email, readOnly, hostedViewer, publishedReady, realtimeActive, hasCloudCredential]);
+  }, [database, teamSaveSignal, currentUser?.email, readOnly, hostedViewer, publishedReady, realtimeActive, hasCloudCredential, canAccessSettings]);
 
   useEffect(() => {
     if (!LIVE_TEAM_SYNC) return;
@@ -690,7 +704,7 @@ export default function App() {
           const previousPublishedDatabase = lastPublishedDatabaseRef.current;
           const merge = readOnly
             ? { database: remotePublished, conflicts: [], appliedCount: 0, changed: true }
-            : mergeIncomingTeamDatabase(database, previousPublishedDatabase, remotePublished, explicitRemovalSet);
+            : mergeIncomingTeamDatabase(databaseRef.current, previousPublishedDatabase, remotePublished, explicitRemovalSet);
           const mergedHash = databaseSyncHash(merge.database);
           setPublishedDatabase(remotePublished);
           setPublishedReady(true);
@@ -715,15 +729,21 @@ export default function App() {
           }
           setCloudSync({
             phase: "saved",
-            message: merge.conflicts.length
-              ? `Loaded team changes, but ${merge.conflicts.length} overlap ${merge.conflicts.length === 1 ? "needs" : "need"} your choice.`
-              : merge.appliedCount
-                ? `Loaded ${merge.appliedCount} latest team ${merge.appliedCount === 1 ? "change" : "changes"}.`
-                : "Loaded the latest team push.",
+            message: LIVE_TEAM_SYNC
+              ? merge.conflicts.length
+                ? `Admin version updated, but ${merge.conflicts.length} overlap ${merge.conflicts.length === 1 ? "needs" : "need"} your choice.`
+                : merge.appliedCount
+                  ? `Admin version updated. Kept your working copy and added ${merge.appliedCount} admin ${merge.appliedCount === 1 ? "change" : "changes"}.`
+                  : "Admin version updated. Your working copy is still saved in this browser."
+              : merge.conflicts.length
+                ? `Loaded team changes, but ${merge.conflicts.length} overlap ${merge.conflicts.length === 1 ? "needs" : "need"} your choice.`
+                : merge.appliedCount
+                  ? `Loaded ${merge.appliedCount} latest team ${merge.appliedCount === 1 ? "change" : "changes"}.`
+                  : "Loaded the latest team push.",
             lastSavedAt: result.envelope.updatedAt,
             configured: true
           });
-          if (!readOnly && currentUser) {
+          if (!LIVE_TEAM_SYNC && !readOnly && currentUser) {
             void saveUserDraft(currentUser.email, merge.database)
               .then((draftResult) => {
                 if (!draftResult.ok || !draftResult.envelope?.payload.database) return;
@@ -737,7 +757,7 @@ export default function App() {
     }, LIVE_TEAM_SYNC ? LIVE_SYNC_POLL_MS : 15_000);
 
     return () => window.clearInterval(interval);
-  }, [currentUser?.email, database, readOnly, hostedViewer, explicitRemovalSet, publishedReady, realtimeActive]);
+  }, [currentUser?.email, database, readOnly, hostedViewer, explicitRemovalSet, publishedReady, realtimeActive, canAccessSettings]);
 
   useEffect(() => {
     saveAssignments(assignments);
@@ -873,16 +893,17 @@ export default function App() {
       const draftEnvelope = !LIVE_TEAM_SYNC && canEdit && draftResult?.ok ? draftResult.envelope : null;
       const remotePublishedHash = databaseSyncHash(remotePublished);
       const localDatabaseHash = databaseSyncHash(localDatabase);
-      const pendingTeamChange = getFreshPendingTeamChange();
+      const adminTeamWriter = LIVE_TEAM_SYNC && effectiveCanAccessSettings;
+      const localWorkingCopy = LIVE_TEAM_SYNC && effectiveCanEdit && !effectiveCanAccessSettings;
+      const pendingTeamChange = adminTeamWriter ? getFreshPendingTeamChange() : { hash: "", updatedAt: "" };
       const shouldKeepPendingLocalChange =
-        LIVE_TEAM_SYNC &&
+        adminTeamWriter &&
         effectiveCanEdit &&
         Boolean(pendingTeamChange.hash) &&
         pendingTeamChange.hash === localDatabaseHash &&
         (!publishedEnvelope || isSyncDateAfter(pendingTeamChange.updatedAt, publishedEnvelope.updatedAt));
       const shouldReviewAdminBaseline =
-        LIVE_TEAM_SYNC &&
-        effectiveCanAccessSettings &&
+        adminTeamWriter &&
         !shouldKeepPendingLocalChange &&
         !adminBaselinePromptedRef.current &&
         publishedEnvelope &&
@@ -909,9 +930,14 @@ export default function App() {
       const mergedDraft = draftDatabase && publishedEnvelope
         ? mergeDraftOntoPublished(draftDatabase, remotePublished, explicitRemovalSet)
         : null;
-      const chosenDatabase = LIVE_TEAM_SYNC
+      const localWorkingMerge = localWorkingCopy && publishedEnvelope
+        ? mergeDraftOntoPublished(localDatabase, remotePublished, explicitRemovalSet)
+        : null;
+      const chosenDatabase = adminTeamWriter
         ? (shouldKeepPendingLocalChange ? localDatabase : (publishedEnvelope ? remotePublished : localDatabase))
-        : mergedDraft?.database || draftDatabase || (publishedEnvelope ? remotePublished : localDatabase);
+        : localWorkingCopy
+          ? localWorkingMerge?.database || (publishedEnvelope ? remotePublished : localDatabase)
+          : mergedDraft?.database || draftDatabase || (publishedEnvelope ? remotePublished : localDatabase);
       const chosenHash = databaseSyncHash(chosenDatabase);
 
       remoteLoadRef.current = true;
@@ -930,17 +956,23 @@ export default function App() {
         pendingTeamChangeHashRef.current = pendingTeamChange.hash;
       }
       lastDraftHashRef.current = shouldKeepPendingLocalChange ? remotePublishedHash : chosenHash;
-      lastDraftUpdatedAtRef.current = LIVE_TEAM_SYNC
+      lastDraftUpdatedAtRef.current = adminTeamWriter || localWorkingCopy
         ? publishedEnvelope?.updatedAt || ""
         : latestSyncDate(publishedEnvelope?.updatedAt || "", draftEnvelope?.updatedAt || "");
       setCloudSync({
         phase: publishedEnvelope || draftEnvelope ? "saved" : "idle",
-        message: LIVE_TEAM_SYNC
+        message: adminTeamWriter
           ? shouldKeepPendingLocalChange
             ? "Loaded your latest browser edit and saving it to the team."
             : publishedEnvelope
             ? `Loaded live team database saved ${new Date(publishedEnvelope.updatedAt).toLocaleString()}.`
             : "Live sync is ready. Your next edit will save for the team."
+          : localWorkingCopy
+          ? localWorkingMerge?.privateCount
+            ? `Loaded the admin version and kept ${localWorkingMerge.privateCount} local working ${localWorkingMerge.privateCount === 1 ? "change" : "changes"}.`
+            : publishedEnvelope
+              ? `Loaded the admin version saved ${new Date(publishedEnvelope.updatedAt).toLocaleString()}. Your edits save to this browser.`
+              : "Working copy is ready. Your edits save to this browser."
           : mergedDraft?.privateCount
           ? `Loaded the latest team version and kept ${mergedDraft.privateCount} private ${mergedDraft.privateCount === 1 ? "change" : "changes"}.`
           : publishedEnvelope
@@ -948,7 +980,7 @@ export default function App() {
             : draftEnvelope
               ? `Loaded private draft saved ${new Date(draftEnvelope.updatedAt).toLocaleString()}.`
               : "Cloud sync is ready. Your next edit will autosave.",
-        lastSavedAt: LIVE_TEAM_SYNC
+        lastSavedAt: adminTeamWriter || localWorkingCopy
           ? publishedEnvelope?.updatedAt || ""
           : latestSyncDate(publishedEnvelope?.updatedAt || "", draftEnvelope?.updatedAt || ""),
         configured: true
@@ -1216,6 +1248,21 @@ export default function App() {
 
   const forceSaveTeamDatabase = async () => {
     if (!LIVE_TEAM_SYNC || !currentUser || readOnly || hostedViewer) return;
+    if (!canAccessSettings) {
+      const savedAt = new Date().toISOString();
+      const result = saveDatabase(databaseRef.current);
+      setStorageWarning(result.ok ? "" : result.message || "The app could not save this working copy.");
+      setCloudSync((current) => ({
+        ...current,
+        phase: result.ok ? "saved" : "offline",
+        message: result.ok
+          ? "Working copy saved in this browser from the admin version."
+          : result.message || "The app could not save this working copy.",
+        lastSavedAt: savedAt,
+        configured: true
+      }));
+      return;
+    }
     if (!hasCloudCredential) {
       setCloudSync((current) => ({
         ...current,
@@ -2030,6 +2077,8 @@ export default function App() {
           canAccessSettings={canAccessSettings}
           hiddenViewIds={hiddenViewIds}
           syncLabel={cloudSync.message}
+          syncName={usesWorkingCopy ? "Working Copy" : "Live Sync"}
+          syncActionTitle={usesWorkingCopy ? "Click to save this working copy in this browser" : "Click to save this cookbook to team sync now"}
           syncWorking={cloudSync.phase === "publishing" || cloudSync.phase === "saving" || cloudSync.phase === "loading"}
           liveUsers={realtimeUsers}
           liveStatus={realtimeStatus}

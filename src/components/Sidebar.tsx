@@ -26,6 +26,8 @@ interface SidebarProps {
   canAccessSettings?: boolean;
   hiddenViewIds?: ActiveView[];
   syncLabel?: string;
+  syncName?: string;
+  syncActionTitle?: string;
   syncWorking?: boolean;
   liveUsers?: RealtimeUserSummary[];
   liveStatus?: string;
@@ -62,6 +64,8 @@ export function Sidebar({
   canAccessSettings = false,
   hiddenViewIds = [],
   syncLabel = "",
+  syncName = "Live Sync",
+  syncActionTitle = "Click to save this cookbook to team sync now",
   syncWorking = false,
   liveUsers = [],
   liveStatus = "initial"
@@ -447,7 +451,7 @@ export function Sidebar({
             {!readOnly && !onOpenPushChanges && (
               <button
                 className={`sidebar-live-sync-status ${syncWorking ? "working" : ""}`}
-                title={collapsed ? syncLabel || "Live sync is on" : "Click to save this cookbook to team sync now"}
+                title={collapsed ? syncLabel || syncName : syncActionTitle}
                 aria-label={syncLabel || "Live sync is on"}
                 onClick={onForceLiveSync}
                 disabled={syncWorking || !onForceLiveSync}
@@ -458,7 +462,7 @@ export function Sidebar({
                 <Icon name={syncWorking ? "RefreshCw" : "Users"} className="h-5 w-5" />
                 {!collapsed && (
                   <span>
-                    <strong>{syncWorking ? "Syncing" : "Live Sync"}</strong>
+                    <strong>{syncWorking ? "Syncing" : syncName}</strong>
                     <small>{syncLabel || "Ready"}</small>
                   </span>
                 )}
