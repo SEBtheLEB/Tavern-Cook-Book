@@ -378,11 +378,13 @@ export default function App() {
 
   useEffect(() => {
     if (!currentUser || hostedViewer) return;
-    if (realtimeStatus === "disconnected" || realtimeStatus === "failed") {
+    if (realtimeStatus === "disconnected" || realtimeStatus.startsWith("failed")) {
       setCloudSync((current) => ({
         ...current,
         phase: "offline",
-        message: "Realtime collaboration is not connected. Add LIVEBLOCKS_SECRET_KEY in Vercel to enable instant team editing.",
+        message: realtimeStatus.startsWith("failed:")
+          ? realtimeStatus.slice("failed:".length)
+          : "Realtime collaboration is not connected. Add LIVEBLOCKS_SECRET_KEY in Vercel to enable instant team editing.",
         configured: current.configured
       }));
     }

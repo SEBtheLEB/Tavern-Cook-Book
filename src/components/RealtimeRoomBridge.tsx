@@ -4,6 +4,7 @@ import {
   LiveblocksProvider,
   RoomProvider,
   useBroadcastEvent,
+  useErrorListener,
   useEventListener,
   useMutation,
   useOthers,
@@ -103,6 +104,7 @@ export function RealtimeRoomBridge({
 
   return (
     <LiveblocksProvider
+      key={`${currentUser.email}:${currentUser.role}`}
       authEndpoint={async (room) => {
         const credential = loadGoogleCredential();
         if (!credential) {
@@ -135,6 +137,7 @@ export function RealtimeRoomBridge({
       }}
     >
       <RoomProvider
+        key={`${TAVERN_REALTIME_ROOM_ID}:${currentUser.email}:${currentUser.role}`}
         id={TAVERN_REALTIME_ROOM_ID}
         initialPresence={{
           profile: realtimeProfileFromUser(currentUser) as unknown as JsonObject,
@@ -186,7 +189,7 @@ function RealtimeBridgeInner({
   const storagePullRetryTimerRef = useRef<number | null>(null);
   const publishDatabase = useMutation(
     ({ storage }, previousDatabase: LoreDatabase, nextDatabase: LoreDatabase) => {
-      const holder = storage.get("database");
+      const holder = ensureDatabaseHolder(storage, previousDatabase);
       const remoteDatabase = normalizeRealtimeDatabase(holder.get("value")) || previousDatabase;
       const mergedDatabase = mergeDatabaseChange(previousDatabase, nextDatabase, remoteDatabase);
       holder.set("value", sanitizeDatabaseForPersistence(mergedDatabase) as unknown as JsonObject);
@@ -195,7 +198,7 @@ function RealtimeBridgeInner({
   );
   const replaceDatabase = useMutation(
     ({ storage }, nextDatabase: LoreDatabase) => {
-      const holder = storage.get("database");
+      const holder = ensureDatabaseHolder(storage, nextDatabase);
       holder.set("value", sanitizeDatabaseForPersistence(nextDatabase) as unknown as JsonObject);
     },
     []
@@ -268,6 +271,10 @@ function RealtimeBridgeInner({
     onStatusChange(status);
   }, [onStatusChange, status]);
 
+  useErrorListener((error) => {
+    onStatusChange(`failed:${error.message || "Realtime collaboration error."}`);
+  });
+
   useEventListener(({ event }) => {
     const signal = event && typeof event === "object" ? event as Partial<RealtimeDatabaseSignal> : null;
     if (signal?.type !== "tavern-database-updated") return;
@@ -303,6 +310,20 @@ function RealtimeBridgeInner({
   }, []);
 
   return null;
+}
+
+function ensureDatabaseHolder(
+  storage: LiveObject<any>,
+  fallbackDatabase: LoreDatabase
+) {
+  let holder = storage.get("database") as LiveObject<{ value: JsonObject }> | undefined;
+  if (!holder) {
+    holder = new LiveObject<{ value: JsonObject }>({
+      value: sanitizeDatabaseForPersistence(fallbackDatabase) as unknown as JsonObject
+    });
+    storage.set("database", holder);
+  }
+  return holder;
 }
 
 function realtimeLocation(
