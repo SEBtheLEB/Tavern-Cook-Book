@@ -638,6 +638,9 @@ async function fetchDriveBrowserItems(
   search: string,
   pageToken: string
 ) {
+  const proxied = await fetchDriveBrowserItemsFromApp(mode, token, search, pageToken);
+  if (proxied) return proxied;
+
   const params = new URLSearchParams({
     corpora: "user",
     includeItemsFromAllDrives: "true",
@@ -663,6 +666,37 @@ async function fetchDriveBrowserItems(
     files: Array.isArray(payload.files) ? payload.files.filter((item) => item?.id) : [],
     nextPageToken: payload.nextPageToken || ""
   };
+}
+
+async function fetchDriveBrowserItemsFromApp(
+  mode: DriveBrowserMode,
+  token: string,
+  search: string,
+  pageToken: string
+) {
+  const params = new URLSearchParams({ mode });
+  if (search.trim()) params.set("search", search.trim());
+  if (pageToken) params.set("pageToken", pageToken);
+
+  try {
+    const response = await fetch(`/api/drive-list?${params.toString()}`, {
+      cache: "no-store",
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+
+    if (response.status === 404) return null;
+    if (!response.ok) throw await driveError(response, "Could not load Google Drive items.");
+    const payload = await response.json() as DriveBrowserListResponse;
+    return {
+      files: Array.isArray(payload.files) ? payload.files.filter((item) => item?.id) : [],
+      nextPageToken: payload.nextPageToken || ""
+    };
+  } catch (error) {
+    if (error instanceof TypeError) return null;
+    throw error;
+  }
 }
 
 function buildDriveBrowserQuery(mode: DriveBrowserMode, search: string) {
@@ -1034,7 +1068,9 @@ async function driveError(response: Response, fallback: string) {
   let message = fallback;
   try {
     const payload = await response.json();
-    message = payload?.error?.message || message;
+    message = typeof payload?.error === "string"
+      ? payload.error
+      : payload?.error?.message || payload?.message || message;
   } catch {
     message = response.statusText || message;
   }

@@ -1,6 +1,7 @@
 import "dotenv/config";
 import express from "express";
 import { getAssistantHealth, handleAssistantRequest } from "./assistantBackend.ts";
+import { handleDriveListRequest } from "./driveListBackend.ts";
 import { getSyncHealth, handleSyncRequest } from "./syncBackend.ts";
 
 const app = express();
@@ -39,6 +40,15 @@ app.post("/api/sync", async (request, response) => {
 
 app.get("/api/sync-health", (_request, response) => {
   response.json(getSyncHealth());
+});
+
+app.get("/api/drive-list", async (request, response) => {
+  const result = await handleDriveListRequest({
+    method: "GET",
+    url: request.originalUrl,
+    headers: request.headers
+  });
+  response.status(result.status).json(result.body);
 });
 
 app.listen(port, "127.0.0.1", () => {
