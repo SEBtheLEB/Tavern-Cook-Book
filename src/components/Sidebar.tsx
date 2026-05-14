@@ -514,7 +514,7 @@ export function Sidebar({
                 )}
               </div>
             )}
-            <div className={`sidebar-account-card ${collapsed ? "collapsed" : ""}`}>
+            <div className={`sidebar-account-card ${collapsed ? "collapsed" : ""} ${accountMenuOpen ? "menu-open" : ""}`}>
               <button
                 className="sidebar-account-main"
                 onClick={() => setAccountMenuOpen((value) => !value)}

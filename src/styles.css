@@ -14294,6 +14294,10 @@ button,
   background: transparent;
 }
 
+.sidebar-account-card.menu-open {
+  z-index: 12000;
+}
+
 .sidebar-account-main {
   position: relative;
   display: grid;
@@ -14357,7 +14361,7 @@ button,
   position: absolute;
   left: 0;
   bottom: calc(100% + 10px);
-  z-index: 120;
+  z-index: 12001;
   display: grid;
   width: min(270px, calc(100vw - 1rem));
   gap: 0.45rem;
@@ -17721,10 +17725,17 @@ button,
   }
 }
 
-/* Google Picker is injected outside React, so keep it above every app modal. */
+/* Google Picker is injected outside React, so keep it above every app modal and menu. */
+body > .picker-dialog,
+body > .picker-dialog-bg,
+body > .goog-modalpopup,
+body > .modal-dialog,
+body > .modal-dialog-bg,
 .picker-dialog,
 .picker-dialog-bg,
 .picker-frame,
+.picker-dialog-content,
+.picker-dialog iframe,
 .goog-modalpopup,
 .modal-dialog,
 .modal-dialog-bg,
@@ -17733,6 +17744,23 @@ iframe[src*="docs.google.com/picker"],
 iframe[src*="drive.google.com/picker"],
 iframe[src*="accounts.google.com"] {
   z-index: 2147483647 !important;
+}
+
+body > .picker-dialog,
+body > .picker-dialog-bg,
+body > .goog-modalpopup,
+body > .modal-dialog,
+body > .modal-dialog-bg {
+  position: fixed !important;
+}
+
+body > .picker-dialog-bg,
+body > .modal-dialog-bg {
+  z-index: 2147483646 !important;
+}
+
+.picker-dialog {
+  isolation: isolate !important;
 }
 
 /* Sprite Sheet Animator */
