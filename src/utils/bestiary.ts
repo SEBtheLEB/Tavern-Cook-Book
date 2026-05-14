@@ -19,7 +19,7 @@ import {
   nowIso,
   slugify
 } from "./entries";
-import { legacyCreatureFit, normalizeImageFit } from "./imageFit";
+import { extractGoogleDriveFileId, googleDriveThumbnailUrl, legacyCreatureFit, normalizeImageFit } from "./imageFit";
 
 const creatureArtVaultBlueprints = [
   {
@@ -585,7 +585,7 @@ function numberInRange(value: unknown, min: number, max: number, fallback: numbe
 function sanitizeArtVaultImage(image: ArtVaultImageMetadata): ArtVaultImageMetadata {
   return {
     ...image,
-    thumbnailUrl: safeImageUrl(image.thumbnailUrl),
+    thumbnailUrl: normalizeDriveBackedImageUrl(image.thumbnailUrl, image.driveFileId),
     webViewLink: safeImageUrl(image.webViewLink),
     notes: text(image.notes),
     assetState: image.assetState === "final" ? "final" : image.assetState === "wip" ? "wip" : undefined,
@@ -646,5 +646,13 @@ function safeImageUrl(value: unknown) {
   const normalized = text(value).trim();
   const lower = normalized.toLowerCase();
   return lower.startsWith("blob:") || lower.startsWith("data:") ? "" : normalized;
+}
+
+function normalizeDriveBackedImageUrl(value: unknown, driveFileId: unknown) {
+  const imageUrl = safeImageUrl(value);
+  const fileId = text(driveFileId).trim();
+  if (!fileId) return imageUrl;
+  const storedFileId = extractGoogleDriveFileId(imageUrl);
+  return storedFileId === fileId ? imageUrl : googleDriveThumbnailUrl(fileId);
 }
 

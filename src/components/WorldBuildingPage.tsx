@@ -23,6 +23,7 @@ import { richTextToPlainText } from "../utils/richText";
 import { AdjustableImage } from "./AdjustableImage";
 import { AssignableModule } from "./AssignmentSystem";
 import { CustomSelect } from "./CustomSelect";
+import { DriveAwareImage } from "./DriveAwareImage";
 import { DriveImageSourceControls } from "./DriveImageSourceControls";
 import { Icon } from "./Icon";
 import { ImageAdjustModal } from "./ImageAdjustModal";
@@ -561,7 +562,7 @@ export function WorldBuildingPage({
                   });
                 }}
               >
-                <img src={resolveImageSourceUrl(activeEntry.image)} alt="" style={imageFitToStyle(activeEntry.imageFit)} />
+                <DriveAwareImage src={resolveImageSourceUrl(activeEntry.image)} alt="" style={imageFitToStyle(activeEntry.imageFit)} />
                 {isEditing && <span>Adjust</span>}
               </button>
             ) : (
@@ -1137,7 +1138,7 @@ function RelatedEntryPicker({
               onClick={() => toggleSelected(target.key)}
             >
               <span>
-                {target.image ? <img src={resolveImageSourceUrl(target.image)} alt="" /> : <Icon name="BookOpen" className="h-6 w-6" />}
+                {target.image ? <DriveAwareImage src={resolveImageSourceUrl(target.image)} alt="" /> : <Icon name="BookOpen" className="h-6 w-6" />}
               </span>
               <strong>{target.title}</strong>
               <small>{target.subtitle}</small>
@@ -1175,7 +1176,7 @@ function RelatedEntryCard({
       )}
       <button className="world-building-related-main" onClick={target.open}>
         <span>
-          {target.image ? <img src={resolveImageSourceUrl(target.image)} alt="" /> : <Icon name="BookOpen" className="h-6 w-6" />}
+          {target.image ? <DriveAwareImage src={resolveImageSourceUrl(target.image)} alt="" /> : <Icon name="BookOpen" className="h-6 w-6" />}
         </span>
         <strong>{target.title}</strong>
         <small>{target.subtitle}</small>

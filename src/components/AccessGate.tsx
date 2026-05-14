@@ -20,6 +20,7 @@ import {
   redirectDesktopBrowserCredential
 } from "../utils/desktopShell";
 import { BrandImageEditor } from "./BrandImageEditor";
+import { DriveAwareImage } from "./DriveAwareImage";
 import { Icon } from "./Icon";
 
 interface AccessGateProps {
@@ -143,7 +144,7 @@ export function AccessGate({
         <section className="access-card access-denied-card">
           <div className={`access-card-icon denied ${brandingLogoImage ? "has-image" : ""}`}>
             {brandingLogoImage ? (
-              <img src={brandingLogoImage} alt="STL Productionz" />
+              <DriveAwareImage src={brandingLogoImage} alt="STL Productionz" />
             ) : (
               <Icon name="ShieldAlert" className="h-8 w-8" />
             )}
@@ -152,7 +153,7 @@ export function AccessGate({
           <h1 className="font-display">STL Productionz</h1>
           <p>You do not have access to this Cook Book. Please contact Sebastien to be added.</p>
           <div className="access-user-preview">
-            {deniedUser.picture ? <img src={deniedUser.picture} alt="" /> : <Icon name="UserRound" className="h-5 w-5" />}
+            {deniedUser.picture ? <DriveAwareImage src={deniedUser.picture} alt="" /> : <Icon name="UserRound" className="h-5 w-5" />}
             <div>
               <strong>{deniedUser.name}</strong>
               <span>{deniedUser.email}</span>
@@ -178,7 +179,7 @@ export function AccessGate({
       <section className="access-card">
         <div className={`access-card-icon ${brandingLogoImage ? "has-image" : ""}`}>
           {brandingLogoImage ? (
-            <img src={brandingLogoImage} alt="STL Productionz" />
+            <DriveAwareImage src={brandingLogoImage} alt="STL Productionz" />
           ) : (
             <Icon name="Sparkles" className="h-8 w-8" />
           )}

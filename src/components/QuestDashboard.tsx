@@ -14,6 +14,7 @@ import {
   updateAssignmentStatus
 } from "../utils/assignments";
 import { CustomSelect } from "./CustomSelect";
+import { DriveAwareImage } from "./DriveAwareImage";
 import { Icon } from "./Icon";
 
 interface QuestDashboardProps {
@@ -165,7 +166,7 @@ export function QuestDashboard({
       <section className="quest-dashboard-header">
         <div className="quest-profile-avatar">
           {userMember.avatar || currentUser.picture ? (
-            <img src={userMember.avatar || currentUser.picture} alt="" />
+            <DriveAwareImage src={userMember.avatar || currentUser.picture || ""} alt="" />
           ) : (
             <Icon name="UserRound" className="h-9 w-9" />
           )}

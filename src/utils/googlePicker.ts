@@ -7,7 +7,8 @@ const GOOGLE_PICKER_SCRIPT_ID = "google-api-loader";
 const GOOGLE_PICKER_SCRIPT_SRC = "https://apis.google.com/js/api.js";
 const DRIVE_FILE_SCOPE = "https://www.googleapis.com/auth/drive.file";
 const DRIVE_METADATA_SCOPE = "https://www.googleapis.com/auth/drive.metadata.readonly";
-const DRIVE_SCOPES = `${DRIVE_FILE_SCOPE} ${DRIVE_METADATA_SCOPE}`;
+const DRIVE_READONLY_SCOPE = "https://www.googleapis.com/auth/drive.readonly";
+const DRIVE_SCOPES = `${DRIVE_FILE_SCOPE} ${DRIVE_METADATA_SCOPE} ${DRIVE_READONLY_SCOPE}`;
 const GOOGLE_DRIVE_FOLDER_MIME_TYPE = "application/vnd.google-apps.folder";
 const MULTIPART_UPLOAD_LIMIT = 5 * 1024 * 1024;
 const MAX_BROWSER_UPLOAD_SIZE = 100 * 1024 * 1024;
@@ -158,6 +159,9 @@ let accessTokenScopes = "";
 let scriptLoadPromise: Promise<void> | null = null;
 let pickerScriptLoadPromise: Promise<void> | null = null;
 let pickerLoadPromise: Promise<void> | null = null;
+const driveImageBlobUrlCache = new Map<string, string>();
+
+export const GOOGLE_DRIVE_AUTH_EVENT = "tavern-google-drive-authenticated";
 
 export function loadGoogleApiScripts() {
   if (window.google?.accounts?.oauth2) return Promise.resolve();
@@ -223,6 +227,7 @@ export async function authenticateGoogleDrive(options: { forceConsent?: boolean 
         accessToken = response.access_token;
         accessTokenScopes = response.scope || DRIVE_SCOPES;
         accessTokenExpiresAt = Date.now() + (response.expires_in || 3600) * 1000;
+        notifyGoogleDriveAuthenticated();
         resolve(accessToken);
       },
       error_callback: (error) => {
@@ -236,9 +241,66 @@ export async function authenticateGoogleDrive(options: { forceConsent?: boolean 
   });
 }
 
+export function getActiveDriveAccessToken() {
+  return accessToken && hasRequiredDriveScopes(accessTokenScopes) && Date.now() < accessTokenExpiresAt - 60_000
+    ? accessToken
+    : "";
+}
+
+export async function fetchDriveImageBlobUrl(fileId: string, options: { signal?: AbortSignal } = {}) {
+  const trimmedFileId = fileId.trim();
+  if (!trimmedFileId) throw new Error("Missing Drive image file ID.");
+
+  const cachedUrl = driveImageBlobUrlCache.get(trimmedFileId);
+  if (cachedUrl) return cachedUrl;
+
+  const token = getActiveDriveAccessToken();
+  if (!token) throw new Error("Sign in to Google Drive before previewing private Drive images.");
+
+  const response = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(trimmedFileId)}?alt=media${driveApiKeyParam()}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      signal: options.signal
+    }
+  );
+  if (!response.ok) {
+    driveImageBlobUrlCache.delete(trimmedFileId);
+    throw await driveError(response, "Could not load the Google Drive image preview.");
+  }
+
+  const blob = await response.blob();
+  if (blob.type && !blob.type.toLowerCase().startsWith("image/") && blob.type.toLowerCase() !== "application/octet-stream") {
+    throw new Error("Google Drive returned a file that is not an image.");
+  }
+
+  const objectUrl = URL.createObjectURL(blob);
+  driveImageBlobUrlCache.set(trimmedFileId, objectUrl);
+  return objectUrl;
+}
+
+export function clearDriveImageBlobUrlCache(fileId?: string) {
+  if (fileId?.trim()) {
+    const key = fileId.trim();
+    const cachedUrl = driveImageBlobUrlCache.get(key);
+    if (cachedUrl) URL.revokeObjectURL(cachedUrl);
+    driveImageBlobUrlCache.delete(key);
+    return;
+  }
+
+  driveImageBlobUrlCache.forEach((cachedUrl) => URL.revokeObjectURL(cachedUrl));
+  driveImageBlobUrlCache.clear();
+}
+
 function hasRequiredDriveScopes(scopes: string) {
   const granted = new Set(scopes.split(/\s+/).filter(Boolean));
-  return granted.has(DRIVE_FILE_SCOPE) && granted.has(DRIVE_METADATA_SCOPE);
+  return granted.has(DRIVE_FILE_SCOPE) && granted.has(DRIVE_METADATA_SCOPE) && granted.has(DRIVE_READONLY_SCOPE);
+}
+
+function notifyGoogleDriveAuthenticated() {
+  window.dispatchEvent(new CustomEvent(GOOGLE_DRIVE_AUTH_EVENT));
 }
 
 function signedInGoogleEmail() {

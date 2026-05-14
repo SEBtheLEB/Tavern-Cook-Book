@@ -36,6 +36,7 @@ import { imageFitToStyle, normalizeImageFit } from "../utils/imageFit";
 import type { AssignableModuleInfo, AssignmentRecord } from "../utils/assignments";
 import { AdjustableImage } from "./AdjustableImage";
 import { CustomSelect } from "./CustomSelect";
+import { DriveAwareImage } from "./DriveAwareImage";
 import { DriveImageSourceControls } from "./DriveImageSourceControls";
 import { ImageAdjustModal } from "./ImageAdjustModal";
 import { ImageManagerModal, type ImageManagerSlotDraft } from "./ImageManagerModal";
@@ -1174,7 +1175,7 @@ export function CharacterProfileView({
               onClick={(event) => openImageAdjuster("characterPortrait", "Character Portrait", "3 / 4", frameFromElement(event.currentTarget))}
             >
               {character.portrait ? (
-                <img src={character.portrait} alt="" style={imageFitToStyle(imageFitForSlot("characterPortrait"))} />
+                <DriveAwareImage src={character.portrait} alt="" style={imageFitToStyle(imageFitForSlot("characterPortrait"))} />
               ) : (
                 <PortraitPlaceholder />
               )}
@@ -1184,7 +1185,7 @@ export function CharacterProfileView({
               </span>
             </button>
           ) : (
-            character.portrait ? <img src={character.portrait} alt="" style={imageFitToStyle(imageFitForSlot("characterPortrait"))} /> : <PortraitPlaceholder />
+            character.portrait ? <DriveAwareImage src={character.portrait} alt="" style={imageFitToStyle(imageFitForSlot("characterPortrait"))} /> : <PortraitPlaceholder />
           )}
           {isEditing && character.portrait && (
             <button className="character-codex-remove-media" onClick={() => onRemoveImage("characterPortrait")}>
@@ -1359,7 +1360,7 @@ export function CharacterProfileView({
                   )}
                   <div className="relationship-avatar-wrap">
                     {relationship.image ? (
-                      <img src={relationship.image} alt="" />
+                      <DriveAwareImage src={relationship.image} alt="" />
                     ) : (
                       <span className="character-codex-mini-icon">
                         <Icon name="UserRound" className="h-5 w-5" />
@@ -1610,7 +1611,7 @@ function AddRelationshipModal({
                 type="button"
               >
                 <span className="relationship-character-avatar">
-                  {image ? <img src={image} alt="" /> : <Icon name="UserRound" className="h-7 w-7" />}
+                  {image ? <DriveAwareImage src={image} alt="" /> : <Icon name="UserRound" className="h-7 w-7" />}
                 </span>
                 <strong>{candidate.title}</strong>
                 {alreadyLinked && <small>Already linked</small>}
@@ -1626,7 +1627,7 @@ function AddRelationshipModal({
           <div className="relationship-selected-preview">
             <span className="relationship-character-avatar">
               {getCharacterRelationshipImage(selectedCharacter) ? (
-                <img src={getCharacterRelationshipImage(selectedCharacter)} alt="" />
+                <DriveAwareImage src={getCharacterRelationshipImage(selectedCharacter)} alt="" />
               ) : (
                 <Icon name="UserRound" className="h-7 w-7" />
               )}
@@ -3278,7 +3279,7 @@ function GalleryThumbnail({ src, title, imageFit }: { src: string; title: string
     setFailed(false);
   }, [src]);
   if (!src || failed) return <GalleryFallback />;
-  return <img src={src} alt={title || ""} style={imageFitToStyle(imageFit)} onError={() => setFailed(true)} />;
+  return <DriveAwareImage src={src} alt={title || ""} style={imageFitToStyle(imageFit)} onError={() => setFailed(true)} />;
 }
 
 function GalleryFallback() {
@@ -4177,11 +4178,11 @@ function CharacterSpriteShowcase({
                       onAdjustImage(sprite.slot, sprite.label, frameFromElement(event.currentTarget));
                     }}
                   >
-                    <img src={sprite.src} alt="" style={imageFitToStyle(getImageFit(sprite.slot))} />
+                    <DriveAwareImage src={sprite.src} alt="" style={imageFitToStyle(getImageFit(sprite.slot))} />
                     <span>Adjust</span>
                   </button>
                 ) : (
-                  <img src={sprite.src} alt="" style={imageFitToStyle(getImageFit(sprite.slot))} />
+                  <DriveAwareImage src={sprite.src} alt="" style={imageFitToStyle(getImageFit(sprite.slot))} />
                 )
               ) : (
                 <div className="character-sprite-placeholder">

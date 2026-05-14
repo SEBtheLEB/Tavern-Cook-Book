@@ -1,4 +1,6 @@
-﻿export interface SpriteAnimationPreset {
+import { extractGoogleDriveFileId, googleDriveThumbnailUrl } from "./imageFit";
+
+export interface SpriteAnimationPreset {
   id: string;
   spriteSheetAssetId: string;
   presetName: string;
@@ -103,7 +105,7 @@ export function normalizeSpriteSheetAsset(value: unknown): SpriteSheetAsset {
     folderName: text(source.folderName),
     driveFileId,
     driveUrl: text(source.driveUrl),
-    thumbnailUrl: text(source.thumbnailUrl),
+    thumbnailUrl: normalizeDriveBackedThumbnail(text(source.thumbnailUrl), driveFileId),
     originalFileName: text(source.originalFileName),
     uploadedAt: text(source.uploadedAt) || now,
     updatedAt: text(source.updatedAt) || now,
@@ -239,6 +241,12 @@ function text(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function normalizeDriveBackedThumbnail(value: string, driveFileId: string) {
+  if (!driveFileId) return value;
+  const storedFileId = extractGoogleDriveFileId(value);
+  return storedFileId === driveFileId ? value : googleDriveThumbnailUrl(driveFileId);
+}
+
 function positiveInt(value: unknown, fallback: number) {
   return clampInt(value, 1, Number.MAX_SAFE_INTEGER, fallback);
 }
@@ -254,7 +262,3 @@ function clampNumber(value: unknown, min: number, max: number, fallback: number)
   if (!Number.isFinite(parsed)) return fallback;
   return Math.min(max, Math.max(min, parsed));
 }
-
-
-
-

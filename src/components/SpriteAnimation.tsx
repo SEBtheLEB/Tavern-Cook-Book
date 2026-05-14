@@ -1,6 +1,7 @@
 ﻿import { useEffect, useMemo, useRef, useState } from "react";
 import type { SpriteAnimationPreset, SpriteSheetAsset } from "../utils/spriteSheets";
 import { buildFrameSequence, frameBounds } from "../utils/spriteSheets";
+import { useDriveAwareImageSrc } from "./DriveAwareImage";
 
 interface SpriteAnimationProps {
   spriteSheet: SpriteSheetAsset;
@@ -77,7 +78,7 @@ export function SpriteAnimation({
     return () => cancelAnimationFrame(animationFrame);
   }, [active, fpsOverride, preset.fps, sequence, shouldLoop, shouldPlayOnce]);
 
-  const imageUrl = spriteSheet.thumbnailUrl || spriteSheet.driveUrl;
+  const imageUrl = useDriveAwareImageSrc(spriteSheet.thumbnailUrl || spriteSheet.driveUrl).imageSrc;
   const { sourceX, sourceY } = frameBounds(frame, preset.columns, preset.frameWidth, preset.frameHeight);
   const scale = Math.max(0.25, preset.scale || 1);
   const width = preset.frameWidth * scale;

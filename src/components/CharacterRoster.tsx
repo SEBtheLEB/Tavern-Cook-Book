@@ -3,6 +3,7 @@ import type { AssignableModuleInfo } from "../utils/assignments";
 import { imageFitToStyle } from "../utils/imageFit";
 import { richTextToPlainText } from "../utils/richText";
 import { AssignableModule } from "./AssignmentSystem";
+import { DriveAwareImage } from "./DriveAwareImage";
 import { FavoriteButton } from "./FavoriteButton";
 import { Icon } from "./Icon";
 import { useRealtimeCollaboration } from "./RealtimeCollaborationContext";
@@ -83,14 +84,14 @@ export function CharacterRoster({ entries, onOpenEntry, isFavorite, onToggleFavo
               <div className="character-art-stage">
                 {mainImage ? (
                   <>
-                    <img
+                    <DriveAwareImage
                       className="character-art character-art-base"
                       src={mainImage}
                       alt=""
                       style={imageFitToStyle(entry.media.imageFits?.[mainSlot])}
                     />
                     {hoverImage && (
-                      <img
+                      <DriveAwareImage
                         className="character-art character-art-hover"
                         src={hoverImage}
                         alt=""

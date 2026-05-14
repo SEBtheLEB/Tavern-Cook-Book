@@ -3,6 +3,7 @@ import type { BestiaryCreature, FavoriteItem, LoreDatabase, LoreEntry } from "..
 import { favoriteKey, isFavorite } from "../utils/favorites";
 import { richTextToPlainText } from "../utils/richText";
 import { CustomSelect } from "./CustomSelect";
+import { DriveAwareImage } from "./DriveAwareImage";
 import { FavoriteButton } from "./FavoriteButton";
 import { Icon } from "./Icon";
 
@@ -134,7 +135,7 @@ export function FavoritesPage({
                     onClick={() => item.entry ? onOpenEntry(item.entry) : item.creature && onOpenCreature(item.creature)}
                   >
                     <div className="favorite-card-image">
-                      {item.image ? <img src={item.image} alt="" /> : <Icon name={item.kind === "creature" ? "Swords" : "BookOpen"} className="h-7 w-7" />}
+                      {item.image ? <DriveAwareImage src={item.image} alt="" /> : <Icon name={item.kind === "creature" ? "Swords" : "BookOpen"} className="h-7 w-7" />}
                     </div>
                     <div>
                       <p>{item.type}</p>

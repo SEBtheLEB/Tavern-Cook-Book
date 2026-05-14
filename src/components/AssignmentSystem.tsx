@@ -19,6 +19,7 @@ import {
   updateAssignmentStatus
 } from "../utils/assignments";
 import { CustomSelect } from "./CustomSelect";
+import { DriveAwareImage } from "./DriveAwareImage";
 import { Icon } from "./Icon";
 
 interface AssignmentContextValue {
@@ -421,7 +422,7 @@ function AssignmentPopup({
           {visibleMembers.map((member) => (
             <button key={member.id} onClick={() => onAssign(member)}>
               <span className="assignment-teammate-avatar">
-                {member.avatar ? <img src={member.avatar} alt="" /> : <Icon name="UserRound" className="h-6 w-6" />}
+                {member.avatar ? <DriveAwareImage src={member.avatar} alt="" /> : <Icon name="UserRound" className="h-6 w-6" />}
               </span>
               <strong>{member.name}</strong>
               <small>{member.role}</small>

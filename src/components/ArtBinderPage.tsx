@@ -13,6 +13,7 @@ import { googleDriveFolderLink, openGoogleDriveFolderPicker, type GoogleDriveFol
 import { googleDriveWebViewLink, normalizeImageFit } from "../utils/imageFit";
 import { loadSpriteSheetAssets } from "../utils/spriteSheets";
 import { CustomSelect } from "./CustomSelect";
+import { DriveAwareImage } from "./DriveAwareImage";
 import { Icon } from "./Icon";
 import { ImageManagerModal, type ImageManagerSlotDraft } from "./ImageManagerModal";
 import { useRealtimeCollaboration } from "./RealtimeCollaborationContext";
@@ -563,7 +564,7 @@ function ArtBinderCard({
         {card.slot.image?.spriteAnimation ? (
           <ArtBinderSpriteAnimation reference={card.slot.image.spriteAnimation} />
         ) : card.slot.image?.thumbnailUrl ? (
-          <img src={card.slot.image.thumbnailUrl} alt="" />
+          <DriveAwareImage src={card.slot.image.thumbnailUrl} alt="" />
         ) : (
           <Icon name="Image" className="h-8 w-8" />
         )}

@@ -17,6 +17,7 @@ import {
   type SpriteSheetAsset
 } from "../utils/spriteSheets";
 import { CustomSelect } from "./CustomSelect";
+import { DriveAwareImage } from "./DriveAwareImage";
 import { DriveImageSourceControls } from "./DriveImageSourceControls";
 import { Icon } from "./Icon";
 import { SpriteAnimation } from "./SpriteAnimation";
@@ -177,7 +178,7 @@ export function SpriteCutterModal({ slot, onClose, onAdd }: SpriteCutterModalPro
       imageUrl,
       driveFileId: file.id,
       driveUrl: file.url || googleDriveWebViewLink(file.id),
-      thumbnailUrl: file.thumbnailUrl || googleDriveThumbnailUrl(file.id),
+      thumbnailUrl: googleDriveThumbnailUrl(file.id),
       originalFileName: file.name
     });
   };
@@ -187,7 +188,7 @@ export function SpriteCutterModal({ slot, onClose, onAdd }: SpriteCutterModalPro
       imageUrl,
       driveFileId: file.id,
       driveUrl: file.webViewLink || googleDriveWebViewLink(file.id),
-      thumbnailUrl: file.thumbnailLink || googleDriveThumbnailUrl(file.id),
+      thumbnailUrl: googleDriveThumbnailUrl(file.id),
       originalFileName: file.name,
       folder
     });
@@ -396,7 +397,7 @@ export function SpriteCutterModal({ slot, onClose, onAdd }: SpriteCutterModalPro
                     height: imageSize.height ? imageSize.height * zoom : undefined
                   }}
                 >
-                  <img
+                  <DriveAwareImage
                     src={selectedImageUrl}
                     alt="Sprite sheet"
                     draggable={false}

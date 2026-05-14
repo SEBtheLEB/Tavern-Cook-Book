@@ -36,6 +36,7 @@ import { AssistantPanel } from "./components/AssistantPanel";
 import { BestiaryPage } from "./components/BestiaryPage";
 import { CharacterDetailPage } from "./components/CharacterDetailPage";
 import { Dashboard } from "./components/Dashboard";
+import { DriveAwareImage } from "./components/DriveAwareImage";
 import { EntryGrid } from "./components/EntryGrid";
 import { EntryModal } from "./components/EntryModal";
 import { FavoritesPage } from "./components/FavoritesPage";
@@ -3073,7 +3074,7 @@ function KeywordReferencePopup({
               <article key={entry.id} className="keyword-reference-card">
                 <div className="keyword-reference-thumb">
                   {entry.media.iconImage || entry.media.mainImage || entry.media.characterPortrait ? (
-                    <img src={entry.media.iconImage || entry.media.mainImage || entry.media.characterPortrait} alt="" />
+                    <DriveAwareImage src={entry.media.iconImage || entry.media.mainImage || entry.media.characterPortrait || ""} alt="" />
                   ) : (
                     <span>{entry.title.slice(0, 1)}</span>
                   )}

@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { CSSProperties, MouseEvent, ReactNode } from "react";
 import type { ImageFitSettings } from "../types";
 import { imageFitToStyle } from "../utils/imageFit";
+import { DriveAwareImage } from "./DriveAwareImage";
 import { ImageAdjustModal } from "./ImageAdjustModal";
 
 interface AdjustableImageProps {
@@ -47,7 +48,7 @@ export function AdjustableImage({
   if (!src) return <>{fallback}</>;
 
   const image = (
-    <img
+    <DriveAwareImage
       src={src}
       alt={alt}
       className={imageClassName}

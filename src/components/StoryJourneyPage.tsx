@@ -4,6 +4,7 @@ import { normalizeImageFit, resolveImageSourceUrl } from "../utils/imageFit";
 import { richTextToPlainText } from "../utils/richText";
 import { AdjustableImage } from "./AdjustableImage";
 import { CustomSelect } from "./CustomSelect";
+import { DriveAwareImage } from "./DriveAwareImage";
 import { DriveImageSourceControls } from "./DriveImageSourceControls";
 import { ImageManagerModal, type ImageManagerSlotDraft } from "./ImageManagerModal";
 import { Icon } from "./Icon";
@@ -918,7 +919,7 @@ export function StoryJourneyPage({ entries, bestiary, readOnly = false, onOpenEn
                     onSave={saveChapterCoverAdjustment}
                   />
                 ) : (
-                  <img className="story-preview-cover-image" src={coverImageUrl} alt="" />
+                  <DriveAwareImage className="story-preview-cover-image" src={coverImageUrl} alt="" />
                 )
               )}
               <p>Selected Chapter</p>
@@ -974,7 +975,7 @@ export function StoryJourneyPage({ entries, bestiary, readOnly = false, onOpenEn
                       onSave={savePageImageAdjustment}
                     />
                   ) : (
-                    <img className="story-page-image" src={pageImageUrl} alt="" />
+                    <DriveAwareImage className="story-page-image" src={pageImageUrl} alt="" />
                   )
                 ) : (
                   <>

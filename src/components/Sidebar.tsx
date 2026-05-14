@@ -3,6 +3,7 @@ import type { DragEvent, MouseEvent } from "react";
 import type { ActiveView, GoogleAccountUser, LoreDatabase, ViewConfig } from "../types";
 import { mainNavigation } from "../data/navigation";
 import type { RealtimeUserSummary } from "../utils/realtimeCollaboration";
+import { DriveAwareImage } from "./DriveAwareImage";
 import { Icon } from "./Icon";
 
 interface SidebarProps {
@@ -483,7 +484,7 @@ export function Sidebar({
                   <span className="sidebar-live-roster-stack">
                     {liveRosterUsers.slice(0, 4).map((user) => (
                       <span key={`${user.connectionId}-${user.email || user.name}`} className="sidebar-live-avatar">
-                        {user.picture ? <img src={user.picture} alt="" /> : user.name.slice(0, 1).toUpperCase()}
+                        {user.picture ? <DriveAwareImage src={user.picture} alt="" /> : user.name.slice(0, 1).toUpperCase()}
                       </span>
                     ))}
                   </span>
@@ -498,7 +499,7 @@ export function Sidebar({
                     {liveRosterUsers.map((user) => (
                       <div key={`${user.connectionId}-${user.email || user.name}`} className="sidebar-live-roster-row">
                         <span className="sidebar-live-avatar large">
-                          {user.picture ? <img src={user.picture} alt="" /> : user.name.slice(0, 1).toUpperCase()}
+                          {user.picture ? <DriveAwareImage src={user.picture} alt="" /> : user.name.slice(0, 1).toUpperCase()}
                         </span>
                         <span>
                           <strong>{user.name}</strong>
@@ -527,7 +528,7 @@ export function Sidebar({
               >
                 <div className="sidebar-account-avatar">
                   {currentUser.picture ? (
-                    <img src={currentUser.picture} alt="" />
+                    <DriveAwareImage src={currentUser.picture} alt="" />
                   ) : (
                     <Icon name="UserRound" className="h-5 w-5" />
                   )}
@@ -539,7 +540,7 @@ export function Sidebar({
                 <div className="sidebar-account-menu-header">
                   <div className="sidebar-account-avatar small">
                     {currentUser.picture ? (
-                      <img src={currentUser.picture} alt="" />
+                      <DriveAwareImage src={currentUser.picture} alt="" />
                     ) : (
                       <Icon name="UserRound" className="h-4 w-4" />
                     )}

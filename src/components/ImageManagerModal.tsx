@@ -17,6 +17,7 @@ import { loadSpriteSheetAssets } from "../utils/spriteSheets";
 import { SpriteAnimation } from "./SpriteAnimation";
 import { SpriteCutterModal } from "./SpriteCutterModal";
 import { Icon } from "./Icon";
+import { DriveAwareImage } from "./DriveAwareImage";
 
 export interface ImageManagerSlot {
   id: string;
@@ -182,7 +183,7 @@ function ManagedImageSlotCard({
           {slot.spriteAnimation ? (
             <ManagedSpriteAnimationPreview reference={slot.spriteAnimation} />
           ) : slot.imageUrl ? (
-            <img src={slot.imageUrl} alt="" style={imageFitToStyle(slot.imageFit)} />
+            <DriveAwareImage src={slot.imageUrl} alt="" style={imageFitToStyle(slot.imageFit)} />
           ) : (
             <div className="image-manager-empty-preview">
               <Icon name="Image" className="h-8 w-8" />

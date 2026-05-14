@@ -13,7 +13,7 @@
   LoreDatabase,
   LoreEntry
 } from "../types";
-import { normalizeImageFit } from "./imageFit";
+import { extractGoogleDriveFileId, googleDriveThumbnailUrl, normalizeImageFit } from "./imageFit";
 
 export const emptyConnections = (): EntryConnections => ({
   characters: [],
@@ -75,7 +75,7 @@ const normalizeArtGallery = (value: unknown): CharacterArtGalleryItem[] => {
       title: typeof item.title === "string" ? item.title : "",
       category: typeof item.category === "string" ? item.category : "",
       driveFileId: typeof item.driveFileId === "string" ? item.driveFileId : "",
-      thumbnailUrl: typeof item.thumbnailUrl === "string" && !item.thumbnailUrl.trim().toLowerCase().startsWith("data:") ? item.thumbnailUrl : "",
+      thumbnailUrl: normalizeDriveBackedImageUrl(item.thumbnailUrl, item.driveFileId),
       webViewLink: typeof item.webViewLink === "string" ? item.webViewLink : "",
       dateAdded: typeof item.dateAdded === "string" && item.dateAdded ? item.dateAdded : nowIso(),
       isFeatured: Boolean(item.isFeatured),
@@ -451,7 +451,7 @@ function normalizeArtVaultImage(value: unknown, slotId: string): ArtVaultImageMe
     category: typeof image.category === "string" ? image.category : "",
     slotId: typeof image.slotId === "string" && image.slotId.trim() ? image.slotId.trim() : slotId,
     driveFileId: typeof image.driveFileId === "string" ? image.driveFileId : "",
-    thumbnailUrl: unsafeStoredMediaUrl(image.thumbnailUrl) ? "" : String(image.thumbnailUrl || ""),
+    thumbnailUrl: normalizeDriveBackedImageUrl(image.thumbnailUrl, image.driveFileId),
     webViewLink: unsafeStoredMediaUrl(image.webViewLink) ? "" : String(image.webViewLink || ""),
     dateAdded: typeof image.dateAdded === "string" && image.dateAdded ? image.dateAdded : nowIso(),
     uploadStatus: typeof image.uploadStatus === "string" ? image.uploadStatus : "",
@@ -509,6 +509,15 @@ function unsafeBlobUrl(value: unknown) {
 function unsafeStoredMediaUrl(value: unknown) {
   const normalized = String(value || "").trim().toLowerCase();
   return normalized.startsWith("blob:") || normalized.startsWith("data:");
+}
+
+function normalizeDriveBackedImageUrl(value: unknown, driveFileId: unknown) {
+  if (unsafeStoredMediaUrl(value)) return "";
+  const imageUrl = String(value || "");
+  const fileId = typeof driveFileId === "string" ? driveFileId.trim() : "";
+  if (!fileId) return imageUrl;
+  const storedFileId = extractGoogleDriveFileId(imageUrl);
+  return storedFileId === fileId ? imageUrl : googleDriveThumbnailUrl(fileId);
 }
 
 export const normalizeEntry = (

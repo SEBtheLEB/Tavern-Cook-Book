@@ -15,6 +15,7 @@ import { normalizeEntry } from "../utils/entries";
 import { normalizeImageFit } from "../utils/imageFit";
 import { AdjustableImage } from "./AdjustableImage";
 import { CustomSelect } from "./CustomSelect";
+import { DriveAwareImage } from "./DriveAwareImage";
 import { DriveImageSourceControls } from "./DriveImageSourceControls";
 import { Icon } from "./Icon";
 import { CharacterProfileView } from "./CharacterProfileView";
@@ -548,7 +549,7 @@ export function EntryModal({
         <header className="flex items-start gap-3 border-b p-4" style={{ borderColor: "var(--card-border)" }}>
           <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded border" style={{ borderColor: "var(--card-border)", background: "var(--field-bg)" }}>
             {draft.media.iconImage || draft.media.mainImage ? (
-              <img src={draft.media.iconImage || draft.media.mainImage} alt="" className="h-full w-full object-cover" />
+              <DriveAwareImage src={draft.media.iconImage || draft.media.mainImage || ""} alt="" className="h-full w-full object-cover" />
             ) : (
               <Icon name="BookOpen" className="h-7 w-7" />
             )}
@@ -848,8 +849,8 @@ export function EntryModal({
                 <section className="soft-panel rounded p-4">
                   <h3 className="font-display text-xl">Media Gallery</h3>
                   <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    {[draft.media.mainImage, ...draft.media.galleryImages].filter(Boolean).map((src, index) => (
-                      <img key={`${src}-${index}`} src={src} alt="" className="aspect-video rounded object-cover" />
+                    {[draft.media.mainImage, ...draft.media.galleryImages].filter((src): src is string => Boolean(src)).map((src, index) => (
+                      <DriveAwareImage key={`${src}-${index}`} src={src} alt="" className="aspect-video rounded object-cover" />
                     ))}
                   </div>
                   <div className="mt-4 space-y-2">
@@ -874,7 +875,7 @@ export function EntryModal({
                     {visibleCharacterImages.map(([label, src]) => (
                       <figure key={label} className="rounded border p-3" style={{ borderColor: "var(--card-border)", background: "var(--field-bg)" }}>
                         <div className="grid aspect-square place-items-center overflow-hidden rounded">
-                          <img src={src} alt="" className="h-full w-full object-contain" />
+                          <DriveAwareImage src={src || ""} alt="" className="h-full w-full object-contain" />
                         </div>
                         <figcaption className="mt-2 text-center text-xs uppercase tracking-[0.12em]" style={{ color: "var(--muted-ink)" }}>
                           {label}

@@ -17,6 +17,7 @@ import {
   type SpriteSheetAsset
 } from "../utils/spriteSheets";
 import { CustomSelect } from "./CustomSelect";
+import { DriveAwareImage } from "./DriveAwareImage";
 import { DriveImageSourceControls } from "./DriveImageSourceControls";
 import { Icon } from "./Icon";
 import { SpriteAnimation } from "./SpriteAnimation";
@@ -237,7 +238,7 @@ export function SpriteSheetAnimatorPage({ readOnly }: SpriteSheetAnimatorPagePro
       imageUrl,
       driveFileId: file.id,
       driveUrl: file.url || googleDriveWebViewLink(file.id),
-      thumbnailUrl: file.thumbnailUrl || googleDriveThumbnailUrl(file.id),
+      thumbnailUrl: googleDriveThumbnailUrl(file.id),
       originalFileName: file.name
     });
   };
@@ -247,7 +248,7 @@ export function SpriteSheetAnimatorPage({ readOnly }: SpriteSheetAnimatorPagePro
       imageUrl,
       driveFileId: file.id,
       driveUrl: file.webViewLink || googleDriveWebViewLink(file.id),
-      thumbnailUrl: file.thumbnailLink || googleDriveThumbnailUrl(file.id),
+      thumbnailUrl: googleDriveThumbnailUrl(file.id),
       originalFileName: file.name,
       folder
     });
@@ -551,7 +552,7 @@ export function SpriteSheetAnimatorPage({ readOnly }: SpriteSheetAnimatorPagePro
               <article key={asset.id} className={`sprite-library-card ${asset.id === selectedAsset?.id ? "selected" : ""}`}>
                 <button type="button" onClick={() => setSelectedAssetId(asset.id)}>
                   <span className="sprite-library-thumb">
-                    {asset.thumbnailUrl ? <img src={asset.thumbnailUrl} alt="" /> : <Icon name="Image" className="h-8 w-8" />}
+                    {asset.thumbnailUrl ? <DriveAwareImage src={asset.thumbnailUrl} alt="" /> : <Icon name="Image" className="h-8 w-8" />}
                   </span>
                   <span>
                     <strong>{asset.name}</strong>
@@ -599,7 +600,7 @@ export function SpriteSheetAnimatorPage({ readOnly }: SpriteSheetAnimatorPagePro
                     height: imageSize.height ? imageSize.height * zoom : undefined
                   }}
                 >
-                  <img
+                  <DriveAwareImage
                     src={selectedImageUrl}
                     alt={selectedAsset?.name || "Sprite sheet"}
                     draggable={false}

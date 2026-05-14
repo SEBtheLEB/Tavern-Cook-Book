@@ -10,6 +10,7 @@ import {
   saveUserProfiles
 } from "../utils/assignments";
 import { CustomSelect } from "./CustomSelect";
+import { DriveAwareImage } from "./DriveAwareImage";
 import { DriveImageSourceControls } from "./DriveImageSourceControls";
 import { Icon } from "./Icon";
 
@@ -90,7 +91,7 @@ export function ProfilePage({
 
       <section className="profile-header-panel">
         <div className="quest-profile-avatar large">
-          {draft.picture ? <img src={draft.picture} alt="" /> : <Icon name="UserRound" className="h-10 w-10" />}
+          {draft.picture ? <DriveAwareImage src={draft.picture} alt="" /> : <Icon name="UserRound" className="h-10 w-10" />}
         </div>
         <div>
           <p>Profile</p>

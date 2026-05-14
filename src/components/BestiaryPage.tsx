@@ -45,6 +45,7 @@ import type { AssignableModuleInfo, AssignmentRecord } from "../utils/assignment
 import type { ArtBinderInitialFilter } from "./ArtBinderPage";
 import { AssignableModule } from "./AssignmentSystem";
 import { CustomSelect } from "./CustomSelect";
+import { DriveAwareImage } from "./DriveAwareImage";
 import { DriveImageSourceControls } from "./DriveImageSourceControls";
 import { FavoriteButton } from "./FavoriteButton";
 import { ImageAdjustModal } from "./ImageAdjustModal";
@@ -935,11 +936,11 @@ function CreatureCard({
                 }}
                 title={`Adjust ${creature.name} archive image`}
               >
-                <img src={image} alt="" style={imageFitToStyle(imageFit)} />
+                <DriveAwareImage src={image} alt="" style={imageFitToStyle(imageFit)} />
                 <span>Adjust</span>
               </button>
             ) : (
-              <img src={image} alt="" style={imageFitToStyle(imageFit)} />
+              <DriveAwareImage src={image} alt="" style={imageFitToStyle(imageFit)} />
             )
           ) : <CreaturePlaceholder />}
           {!image && <span className="bestiary-card-art-badge">Needs Art</span>}
@@ -1029,11 +1030,11 @@ function CreatureDetails({
           {detailImage ? (
             editing ? (
               <button className="editable-image-trigger bestiary-image-adjust-trigger" onClick={(event) => onAdjustImage(frameFromElement(event.currentTarget), expanded)}>
-                <img src={detailImage} alt="" style={imageFitToStyle(detailImageFit)} />
+                <DriveAwareImage src={detailImage} alt="" style={imageFitToStyle(detailImageFit)} />
                 <span>Adjust</span>
               </button>
             ) : (
-              <img src={detailImage} alt="" style={imageFitToStyle(detailImageFit)} />
+              <DriveAwareImage src={detailImage} alt="" style={imageFitToStyle(detailImageFit)} />
             )
           ) : <CreaturePlaceholder />}
         </div>
@@ -1385,7 +1386,7 @@ function CreatureDropIconBoard({
         {categoryIcons.map((icon) => (
           <article key={icon.id} className="bestiary-drop-icon-card">
             <label className={`bestiary-drop-icon-upload ${editing ? "editable" : ""}`} title={editing ? "Upload or replace icon" : icon.label}>
-              {icon.image ? <img src={icon.image} alt="" /> : <span><Icon name="Package" className="h-6 w-6" /></span>}
+              {icon.image ? <DriveAwareImage src={icon.image} alt="" /> : <span><Icon name="Package" className="h-6 w-6" /></span>}
               {editing && (
                 <input
                   className="hidden"
@@ -2013,7 +2014,7 @@ function CreatureArtVaultPage({
           {backLabel}
         </button>
         <div className="character-art-vault-cover">
-          {cover ? <img src={cover} alt="" /> : <CreaturePlaceholder />}
+          {cover ? <DriveAwareImage src={cover} alt="" /> : <CreaturePlaceholder />}
         </div>
         <div className="character-art-vault-title-block">
           <p>{vaultEyebrow}</p>
@@ -2198,7 +2199,7 @@ function CreatureArtVaultPage({
                       <button className="character-art-vault-slot-main" onClick={() => openSlotEditor(ref)}>
                         <div className="character-art-vault-slot-preview">
                           {slot.image?.thumbnailUrl ? (
-                            <img src={slot.image.thumbnailUrl} alt="" />
+                            <DriveAwareImage src={slot.image.thumbnailUrl} alt="" />
                           ) : (
                             <div className="character-art-vault-slot-placeholder">
                               <span className="character-art-vault-linework" />
@@ -2254,7 +2255,7 @@ function CreatureArtVaultPage({
             </header>
             <div className="character-art-vault-slot-modal-body">
               <div className="character-art-vault-slot-modal-preview">
-                {slotDraft.image?.thumbnailUrl ? <img src={slotDraft.image.thumbnailUrl} alt="" /> : <CreaturePlaceholder />}
+                {slotDraft.image?.thumbnailUrl ? <DriveAwareImage src={slotDraft.image.thumbnailUrl} alt="" /> : <CreaturePlaceholder />}
                 <span className={`character-art-vault-status ${slotDraft.status || "empty"}`}>{artVaultStatusText(slotDraft.status)}</span>
               </div>
               <div className="character-art-vault-slot-modal-fields">
@@ -2499,7 +2500,7 @@ function CreatureImageFrameEditor({
   return (
     <div className="bestiary-image-frame-editor">
       <div className="bestiary-image-frame-preview">
-        {image ? <img src={image} alt="" style={creatureImageStyle(creature)} /> : <CreaturePlaceholder />}
+        {image ? <DriveAwareImage src={image} alt="" style={creatureImageStyle(creature)} /> : <CreaturePlaceholder />}
       </div>
       <div className="bestiary-image-frame-controls">
         <strong>Creature Gallery Framing</strong>

@@ -14,6 +14,7 @@ import { createBlankEntry } from "../utils/entries";
 import { googleDriveFolderLink, openGoogleDriveFolderPicker, type GoogleDriveFolder } from "../utils/googlePicker";
 import { googleDriveWebViewLink } from "../utils/imageFit";
 import { CustomSelect } from "./CustomSelect";
+import { DriveAwareImage } from "./DriveAwareImage";
 import { DriveImageSourceControls } from "./DriveImageSourceControls";
 import { Icon } from "./Icon";
 import { ImageManagerModal, type ImageManagerSlotDraft } from "./ImageManagerModal";
@@ -1263,7 +1264,7 @@ function IngredientImage({ ingredient }: { ingredient: PantryIngredient }) {
   return (
     <span className={`pantry-ingredient-image ${ingredient.imageUrl ? "has-image" : ""}`}>
       {ingredient.imageUrl ? (
-        <img src={ingredient.imageUrl} alt="" loading="lazy" />
+        <DriveAwareImage src={ingredient.imageUrl} alt="" loading="lazy" />
       ) : (
         <Icon name={ingredientIcon(ingredient)} className="h-6 w-6" />
       )}

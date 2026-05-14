@@ -20,6 +20,7 @@ import { isSupportedImage, readImageFileForStorage } from "../utils/media";
 import { createShareableHtml } from "../utils/shareExport";
 import { AssistantPanel } from "./AssistantPanel";
 import { CustomSelect } from "./CustomSelect";
+import { DriveAwareImage } from "./DriveAwareImage";
 import { Icon } from "./Icon";
 
 interface SettingsPageProps {
@@ -495,7 +496,7 @@ export function SettingsPage({
           <div className="mt-4 flex items-center gap-4">
             <div className="grid h-20 w-20 place-items-center overflow-hidden rounded border" style={{ borderColor: "var(--card-border)", background: "var(--field-bg)" }}>
               {database.branding.logoImage ? (
-                <img src={database.branding.logoImage} alt="STL Productionz" className="h-full w-full object-cover" />
+                <DriveAwareImage src={database.branding.logoImage} alt="STL Productionz" className="h-full w-full object-cover" />
               ) : (
                 <Icon name="ChefHat" className="h-8 w-8" />
               )}

@@ -5,6 +5,7 @@ import { googleDriveFolderLink, openGoogleDriveFolderPicker, openGoogleDriveImag
 import { defaultImageFit, googleDriveThumbnailUrl, imageFitToStyle, normalizeImageFit, resolveImageSourceUrl } from "../utils/imageFit";
 import { isSupportedImage } from "../utils/media";
 import { CustomSelect } from "./CustomSelect";
+import { DriveAwareImage } from "./DriveAwareImage";
 import { Icon } from "./Icon";
 
 interface ImageAdjustModalProps {
@@ -176,7 +177,7 @@ export function ImageAdjustModal({
             <span>Slot Preview</span>
             <div className="image-adjust-preview-frame" style={previewStyle}>
               {draftUrl ? (
-                <img src={draftUrl} alt="" style={imageFitToStyle(draftFit)} />
+                <DriveAwareImage src={draftUrl} alt="" style={imageFitToStyle(draftFit)} />
               ) : (
                 <div className="image-adjust-empty-preview">
                   <Icon name="Image" className="h-8 w-8" />
