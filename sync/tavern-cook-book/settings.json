@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-05-14T22:06:40.166Z",
+  "updatedAt": "2026-05-14T23:41:45.677Z",
   "updatedBy": "stlprodz1101@gmail.com",
   "payload": {
     "visibility": {
@@ -34,7 +34,8 @@
       "defaultTalesFolderId": "",
       "defaultCharactersFolderId": "",
       "defaultWorldArtFolderId": "",
-      "defaultMarketingArtFolderId": ""
+      "defaultMarketingArtFolderId": "",
+      "defaultArtVaultFolderId": ""
     }
   }
 }
