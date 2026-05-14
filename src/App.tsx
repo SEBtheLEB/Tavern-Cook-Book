@@ -64,6 +64,7 @@ import {
   disableGoogleAutoSelect,
   getGoogleUserAccess,
   loadGoogleAccount,
+  loadGoogleCredential,
   roleCanAccessSettings,
   roleCanEdit,
   saveAccessUsers,
@@ -251,6 +252,8 @@ export default function App() {
   const [favorites, setFavorites] = useState(() => loadFavorites());
   const [publishedDatabase, setPublishedDatabase] = useState<LoreDatabase>(() => createStarterDatabase());
   const [publishedReady, setPublishedReady] = useState(false);
+  const [hasCloudCredential, setHasCloudCredential] = useState(() => Boolean(loadGoogleCredential()));
+  const [teamSaveSignal, setTeamSaveSignal] = useState(0);
   const [appSyncSettings, setAppSyncSettings] = useState(() => loadAppSyncSettings());
   const [cloudSync, setCloudSync] = useState<CloudSyncUiState>({
     phase: "idle",
@@ -295,7 +298,8 @@ export default function App() {
   const canAccessSettings = roleCanAccessSettings(currentRole);
   const realtimeActive = Boolean(currentUser && !hostedViewer && realtimeReady);
   const teamDataReady = publishedReady;
-  const readOnly = forcedReadOnly || !canEdit || Boolean(currentUser && !hostedViewer && !teamDataReady);
+  const cloudCredentialRequired = Boolean(LIVE_TEAM_SYNC && currentUser && !hostedViewer && !hasCloudCredential);
+  const readOnly = forcedReadOnly || !canEdit || Boolean(currentUser && !hostedViewer && (!teamDataReady || cloudCredentialRequired));
   const setDatabase = useCallback((
     nextValue: LoreDatabase | ((current: LoreDatabase) => LoreDatabase),
     options: { source?: "local" | "remote" } = {}
@@ -311,6 +315,7 @@ export default function App() {
     if (LIVE_TEAM_SYNC && currentUser && !hostedViewer && !readOnly) {
       const pending = savePendingTeamChange(next);
       pendingTeamChangeHashRef.current = pending.hash;
+      setTeamSaveSignal((value) => value + 1);
     }
   }, [currentUser?.email, hostedViewer, readOnly]);
   useEffect(() => {
@@ -347,6 +352,9 @@ export default function App() {
         .then((result) => {
           const envelope = result.envelope;
           if (!result.ok || !envelope?.payload.database) {
+            if (result.error?.includes("sign-in token")) {
+              setHasCloudCredential(false);
+            }
             setCloudSync((current) => ({
               ...current,
               message: result.error
@@ -427,10 +435,19 @@ export default function App() {
   useEffect(() => {
     if (!publishedReady) return;
     if (!currentUser || readOnly || hostedViewer || remoteLoadRef.current || realtimeRemoteLoadRef.current) return;
-    const nextHash = databaseSyncHash(database);
+    if (LIVE_TEAM_SYNC && !hasCloudCredential) {
+      setCloudSync((current) => ({
+        ...current,
+        phase: "needsAuth",
+        message: "Google sync token is missing or expired. Sign in again before editing."
+      }));
+      return;
+    }
+    const pendingDatabase = databaseRef.current;
+    const nextHash = databaseSyncHash(pendingDatabase);
     if (nextHash === lastDraftHashRef.current && nextHash !== pendingTeamChangeHashRef.current) return;
     if (LIVE_TEAM_SYNC) {
-      const pending = savePendingTeamChange(database);
+      const pending = savePendingTeamChange(pendingDatabase);
       pendingTeamChangeHashRef.current = pending.hash;
     }
 
@@ -450,6 +467,9 @@ export default function App() {
       void save
         .then((result) => {
           if (!result.ok || !result.envelope) {
+            if (result.error?.includes("sign-in token")) {
+              setHasCloudCredential(false);
+            }
             setCloudSync({
               phase: result.error?.includes("sign-in token") ? "needsAuth" : "offline",
               message: result.error || "Live sync failed. Local browser save is still active.",
@@ -492,7 +512,7 @@ export default function App() {
     }, LIVE_SYNC_AUTOSAVE_DELAY_MS);
 
     return () => window.clearTimeout(timer);
-  }, [database, currentUser?.email, readOnly, hostedViewer, publishedReady, realtimeActive]);
+  }, [database, teamSaveSignal, currentUser?.email, readOnly, hostedViewer, publishedReady, realtimeActive, hasCloudCredential]);
 
   useEffect(() => {
     if (!LIVE_TEAM_SYNC) return;
@@ -762,6 +782,7 @@ export default function App() {
   useEffect(() => {
     if (hostedViewer) return;
     return listenForLauncherSession((launcherUser) => {
+      setHasCloudCredential(Boolean(loadGoogleCredential()));
       setCurrentUser((current) => {
         if (
           current?.email === launcherUser.email &&
@@ -787,6 +808,15 @@ export default function App() {
 
     const loadRemoteState = async () => {
       setPublishedReady(false);
+      if (!hasCloudCredential) {
+        setCloudSync({
+          phase: "needsAuth",
+          message: "Google sync token is missing or expired. Sign in again before editing.",
+          lastSavedAt: "",
+          configured: true
+        });
+        return;
+      }
       setCloudSync((current) => ({
         ...current,
         phase: "loading",
@@ -948,7 +978,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [currentUser?.email, currentUser?.role, hostedViewer, explicitRemovalSet]);
+  }, [currentUser?.email, currentUser?.role, hostedViewer, explicitRemovalSet, hasCloudCredential]);
 
   useEffect(() => {
     if (!readOnly || !artVaultDashboardOpen) return;
@@ -1186,6 +1216,14 @@ export default function App() {
 
   const forceSaveTeamDatabase = async () => {
     if (!LIVE_TEAM_SYNC || !currentUser || readOnly || hostedViewer) return;
+    if (!hasCloudCredential) {
+      setCloudSync((current) => ({
+        ...current,
+        phase: "needsAuth",
+        message: "Google sync token is missing or expired. Sign in again before editing."
+      }));
+      return;
+    }
     const databaseToSave = databaseRef.current;
     const databaseToSaveHash = databaseSyncHash(databaseToSave);
     const pending = savePendingTeamChange(databaseToSave);
@@ -1199,6 +1237,9 @@ export default function App() {
     try {
       const result = await savePublishedDatabase(currentUser.email, databaseToSave);
       if (!result.ok || !result.envelope?.payload.database) {
+        if (result.error?.includes("sign-in token")) {
+          setHasCloudCredential(false);
+        }
         setCloudSync({
           phase: result.error?.includes("sign-in token") ? "needsAuth" : "offline",
           message: result.error || "Team save failed. Sign in again or check cloud sync settings.",
@@ -1872,6 +1913,7 @@ export default function App() {
   const signOut = () => {
     clearGoogleAccount();
     disableGoogleAutoSelect();
+    setHasCloudCredential(false);
     setCurrentUser(null);
     setSelectedEntry(null);
     setSelectedReferenceKeyword("");
@@ -1929,12 +1971,16 @@ export default function App() {
   }, []);
   const themeClassName = theme === "dream" ? "theme-dream" : "theme-light";
   const desktopBrowserAuthMode = isDesktopBrowserAuthRequest();
+  const needsCloudReauth = Boolean(currentUser && !hostedViewer && LIVE_TEAM_SYNC && !hasCloudCredential);
 
-  if (!currentUser || desktopBrowserAuthMode) {
+  if (!currentUser || desktopBrowserAuthMode || needsCloudReauth) {
     return (
       <div className={themeClassName}>
         <AccessGate
-          onSignIn={setCurrentUser}
+          onSignIn={(user) => {
+            setHasCloudCredential(Boolean(loadGoogleCredential()));
+            setCurrentUser(user);
+          }}
           brandingLogoImage={database.branding.logoImage}
           onBrandingLogoChange={!forcedReadOnly ? updateBrandingLogo : undefined}
         />
