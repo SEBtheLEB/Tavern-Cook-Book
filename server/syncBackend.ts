@@ -55,9 +55,12 @@ export async function handleSyncRequest(request: SyncRequest): Promise<SyncResul
   }
 
   const auth = await verifyGoogleCredential(request.headers);
-  if (!auth.ok) {
+  if (!auth.ok && scope !== "published") {
     return json(auth.status, { error: auth.error });
   }
+  const signedInEmail = auth.ok
+    ? auth.email
+    : normalizeEmail(url.searchParams.get("email") || readBodyEmail(request.body) || "team-member@stlproductionz.local");
 
   if (!syncToken()) {
     return json(503, {
@@ -68,10 +71,10 @@ export async function handleSyncRequest(request: SyncRequest): Promise<SyncResul
 
   try {
     if (request.method === "GET") {
-      return handleGet(scope, url, auth.email);
+      return handleGet(scope, url, signedInEmail);
     }
     if (request.method === "POST") {
-      return handlePost(scope, request.body, auth.email);
+      return handlePost(scope, request.body, signedInEmail);
     }
     return json(405, { error: "Method not allowed." });
   } catch (error) {

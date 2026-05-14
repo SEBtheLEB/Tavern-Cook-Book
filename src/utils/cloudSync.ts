@@ -164,7 +164,7 @@ async function cloudRequest<T>(
   options: { email?: string; payload?: unknown } = {}
 ): Promise<CloudSyncResponse<T>> {
   const credential = loadGoogleCredential();
-  if (!credential) {
+  if (!credential && scope !== "published") {
     return {
       ok: false,
       configured: false,
@@ -179,7 +179,7 @@ async function cloudRequest<T>(
     method,
     cache: "no-store",
     headers: {
-      Authorization: `Bearer ${credential}`,
+      ...(credential ? { Authorization: `Bearer ${credential}` } : {}),
       ...(method === "POST" ? { "Content-Type": "application/json" } : {})
     },
     body: method === "POST"
