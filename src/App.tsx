@@ -196,7 +196,7 @@ const REALTIME_DATABASE_SYNC = false;
 const LIVE_SYNC_AUTOSAVE_DELAY_MS = 250;
 const LIVE_SYNC_POLL_MS = 1200;
 const LIVE_BACKUP_SAVE_DELAY_MS = 12_000;
-const PENDING_TEAM_CHANGE_MAX_AGE_MS = 60_000;
+const PENDING_TEAM_CHANGE_MAX_AGE_MS = 12 * 60 * 60 * 1000;
 
 function buildWorkshopProgress(database: LoreDatabase, currentUser: GoogleAccountUser) {
   const totalEntries = database.entries.length + database.bestiary.length;
@@ -844,9 +844,22 @@ export default function App() {
       const draftEnvelope = !LIVE_TEAM_SYNC && canEdit && draftResult?.ok ? draftResult.envelope : null;
       const remotePublishedHash = databaseSyncHash(remotePublished);
       const teamWriter = LIVE_TEAM_SYNC && effectiveCanEdit;
-      if (teamWriter) {
+      const localDatabaseHash = databaseSyncHash(localDatabase);
+      const pendingTeamChange = getFreshPendingTeamChange();
+      const shouldRestorePendingTeamChange = Boolean(
+        teamWriter &&
+        publishedEnvelope &&
+        pendingTeamChange.hash &&
+        pendingTeamChange.hash === localDatabaseHash &&
+        pendingTeamChange.hash !== remotePublishedHash &&
+        isSyncDateAfter(pendingTeamChange.updatedAt, publishedEnvelope.updatedAt)
+      );
+
+      if (teamWriter && !shouldRestorePendingTeamChange) {
         pendingTeamChangeHashRef.current = "";
         clearPendingTeamChange();
+      } else if (shouldRestorePendingTeamChange) {
+        pendingTeamChangeHashRef.current = "";
       }
       setPublishedDatabase(remotePublished);
       setPublishedReady(true);
@@ -862,7 +875,7 @@ export default function App() {
         ? mergeDraftOntoPublished(draftDatabase, remotePublished, explicitRemovalSet)
         : null;
       const chosenDatabase = teamWriter
-        ? (publishedEnvelope ? remotePublished : localDatabase)
+        ? (shouldRestorePendingTeamChange ? localDatabase : publishedEnvelope ? remotePublished : localDatabase)
         : mergedDraft?.database || draftDatabase || (publishedEnvelope ? remotePublished : localDatabase);
       const chosenHash = databaseSyncHash(chosenDatabase);
 
@@ -875,12 +888,16 @@ export default function App() {
 
       lastDraftHashRef.current = chosenHash;
       lastDraftUpdatedAtRef.current = teamWriter
-        ? publishedEnvelope?.updatedAt || ""
+        ? shouldRestorePendingTeamChange
+          ? pendingTeamChange.updatedAt
+          : publishedEnvelope?.updatedAt || ""
         : latestSyncDate(publishedEnvelope?.updatedAt || "", draftEnvelope?.updatedAt || "");
       setCloudSync({
-        phase: publishedEnvelope || draftEnvelope ? "saved" : "idle",
+        phase: shouldRestorePendingTeamChange ? "saving" : publishedEnvelope || draftEnvelope ? "saved" : "idle",
         message: teamWriter
-          ? publishedEnvelope
+          ? shouldRestorePendingTeamChange
+            ? "Restored this teammate's unsaved edit and is saving it for everyone..."
+            : publishedEnvelope
             ? `Loaded shared team cookbook saved ${new Date(publishedEnvelope.updatedAt).toLocaleString()}.`
             : "Live sync is ready. Your next edit will save for everyone."
           : mergedDraft?.privateCount
@@ -891,10 +908,60 @@ export default function App() {
               ? `Loaded private draft saved ${new Date(draftEnvelope.updatedAt).toLocaleString()}.`
               : "Cloud sync is ready. Your next edit will autosave.",
         lastSavedAt: teamWriter
-          ? publishedEnvelope?.updatedAt || ""
+          ? shouldRestorePendingTeamChange
+            ? pendingTeamChange.updatedAt
+            : publishedEnvelope?.updatedAt || ""
           : latestSyncDate(publishedEnvelope?.updatedAt || "", draftEnvelope?.updatedAt || ""),
         configured: true
       });
+      if (shouldRestorePendingTeamChange) {
+        void savePublishedDatabase(effectiveCurrentUser.email, chosenDatabase)
+          .then((saveResult) => {
+            if (!saveResult.ok || !saveResult.envelope?.payload.database) {
+              setCloudSync({
+                phase: saveResult.error?.includes("sign-in token") ? "needsAuth" : "offline",
+                message: saveResult.error || "Restored the local edit, but team save failed. Try the Live Sync button before refreshing.",
+                lastSavedAt: pendingTeamChange.updatedAt,
+                configured: saveResult.configured
+              });
+              return;
+            }
+
+            const savedDatabase = saveResult.envelope.payload.database;
+            const savedHash = databaseSyncHash(savedDatabase);
+            remoteLoadRef.current = true;
+            setDatabase(savedDatabase, { source: "remote" });
+            saveDatabase(savedDatabase);
+            window.setTimeout(() => {
+              remoteLoadRef.current = false;
+            }, 0);
+            setPublishedDatabase(savedDatabase);
+            lastPublishedDatabaseRef.current = savedDatabase;
+            lastPublishedHashRef.current = savedHash;
+            lastDraftHashRef.current = savedHash;
+            lastDraftUpdatedAtRef.current = saveResult.envelope.updatedAt;
+            pendingTeamChangeHashRef.current = "";
+            clearPendingTeamChange(localDatabaseHash);
+            clearPendingTeamChange(savedHash);
+            savePublishedSyncState(savedDatabase, saveResult.envelope.updatedAt);
+            setCloudSync({
+              phase: "saved",
+              message: "Recovered teammate edit and saved it for everyone.",
+              lastSavedAt: saveResult.envelope.updatedAt,
+              configured: true
+            });
+          })
+          .catch((error) => {
+            setCloudSync({
+              phase: "offline",
+              message: error instanceof Error
+                ? `Restored the local edit, but team save failed: ${error.message}`
+                : "Restored the local edit, but team save failed. Try the Live Sync button before refreshing.",
+              lastSavedAt: pendingTeamChange.updatedAt,
+              configured: true
+            });
+          });
+      }
       if (!LIVE_TEAM_SYNC && effectiveCanEdit && draftDatabase && chosenHash !== draftHash) {
         void saveUserDraft(effectiveCurrentUser.email, chosenDatabase)
           .then((draftResult) => {
