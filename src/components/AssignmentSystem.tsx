@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import type { ElementType, MouseEvent, ReactNode } from "react";
+import type { ElementType, HTMLAttributes, MouseEvent, ReactNode } from "react";
 import type { GoogleAccountUser } from "../types";
 import {
   type AssignableModuleInfo,
@@ -214,13 +214,14 @@ export function AssignableModule({
   as = "section",
   className = "",
   module,
-  children
+  children,
+  ...surfaceProps
 }: {
   as?: ElementType;
   className?: string;
   module: AssignableModuleInfo;
   children: ReactNode;
-}) {
+} & HTMLAttributes<HTMLElement>) {
   const context = useContext(AssignmentContext);
   const assignment = context?.assignmentForModule(module.moduleId) || null;
   const focused = Boolean(context?.focusedAssignment?.moduleId === module.moduleId);
@@ -229,6 +230,7 @@ export function AssignableModule({
 
   return (
     <Component
+      {...surfaceProps}
       className={`${className} assignable-module ${focused ? "assignment-focus" : ""} ${selected ? "assignment-selected" : ""}`}
       data-module-id={module.moduleId}
       data-module-title={module.moduleTitle}

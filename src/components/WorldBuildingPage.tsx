@@ -27,6 +27,7 @@ import { DriveImageSourceControls } from "./DriveImageSourceControls";
 import { Icon } from "./Icon";
 import { ImageAdjustModal } from "./ImageAdjustModal";
 import { ImageManagerModal, type ImageManagerSlotDraft } from "./ImageManagerModal";
+import { useRealtimeCollaboration } from "./RealtimeCollaborationContext";
 import { StoryReaderModal, type StoryReaderSection, type StoryReaderStep } from "./StoryReaderModal";
 
 interface WorldBuildingPageProps {
@@ -79,6 +80,8 @@ interface ImageAdjustTarget {
   imageFit: ImageFitSettings;
   previewFrame?: { width: number; height: number };
 }
+
+type WorldCategoryConfig = (typeof worldBuildingCategories)[number];
 
 const relationTypeOptions = [
   { label: "Character", type: "character" },
@@ -413,23 +416,13 @@ export function WorldBuildingPage({
           const entries = normalizedWorldBuilding[category.id] || [];
           const lastEdited = latestEdited(entries);
           return (
-            <button
+            <WorldCategoryCard
               key={category.id}
-              className="world-building-category-card"
-              onClick={() => openCategory(category.id)}
-            >
-              <span className="world-building-category-icon">
-                <Icon name={category.icon} className="h-7 w-7" />
-              </span>
-              <span>
-                <strong className="font-display">{category.title}</strong>
-                <small>{category.description}</small>
-              </span>
-              <span className="world-building-card-meta">
-                <span>{entries.length} entries</span>
-                {lastEdited && <span>Last edited {lastEdited}</span>}
-              </span>
-            </button>
+              category={category}
+              entriesCount={entries.length}
+              lastEdited={lastEdited}
+              onOpen={() => openCategory(category.id)}
+            />
           );
         })}
       </section>
@@ -882,6 +875,53 @@ function WorldSearchPanel({
   );
 }
 
+function WorldCategoryCard({
+  category,
+  entriesCount,
+  lastEdited,
+  onOpen
+}: {
+  category: WorldCategoryConfig;
+  entriesCount: number;
+  lastEdited?: string;
+  onOpen: () => void;
+}) {
+  const realtime = useRealtimeCollaboration();
+  const realtimeTarget = {
+    type: "world" as const,
+    id: `world-category:${category.id}`,
+    label: category.title,
+    module: "World Building"
+  };
+  const hoveringUsers = realtime.usersHoveringTarget(realtimeTarget);
+
+  return (
+    <button
+      className={`world-building-category-card realtime-hover-surface ${hoveringUsers.length ? "realtime-hover-active" : ""}`}
+      onClick={onOpen}
+      onMouseEnter={() => realtime.setHoverTarget(realtimeTarget)}
+      onMouseLeave={() => realtime.setHoverTarget(null)}
+    >
+      {hoveringUsers.length > 0 && (
+        <span className="realtime-hover-badge">
+          {hoveringUsers.length === 1 ? `${hoveringUsers[0].name} is here` : `${hoveringUsers.length} people here`}
+        </span>
+      )}
+      <span className="world-building-category-icon">
+        <Icon name={category.icon} className="h-7 w-7" />
+      </span>
+      <span>
+        <strong className="font-display">{category.title}</strong>
+        <small>{category.description}</small>
+      </span>
+      <span className="world-building-card-meta">
+        <span>{entriesCount} entries</span>
+        {lastEdited && <span>Last edited {lastEdited}</span>}
+      </span>
+    </button>
+  );
+}
+
 function WorldEntryCard({
   entry,
   relatedCount,
@@ -897,8 +937,26 @@ function WorldEntryCard({
   onOpen: () => void;
   onTagClick: (tag: string) => void;
 }) {
+  const realtime = useRealtimeCollaboration();
+  const realtimeTarget = {
+    type: "world" as const,
+    id: `${entry.category}:${entry.id}`,
+    label: entry.title,
+    module: "World Building"
+  };
+  const hoveringUsers = realtime.usersHoveringTarget(realtimeTarget);
+
   return (
-    <article className="world-building-entry-card">
+    <article
+      className={`world-building-entry-card realtime-hover-surface ${hoveringUsers.length ? "realtime-hover-active" : ""}`}
+      onMouseEnter={() => realtime.setHoverTarget(realtimeTarget)}
+      onMouseLeave={() => realtime.setHoverTarget(null)}
+    >
+      {hoveringUsers.length > 0 && (
+        <span className="realtime-hover-badge">
+          {hoveringUsers.length === 1 ? `${hoveringUsers[0].name} is here` : `${hoveringUsers.length} people here`}
+        </span>
+      )}
       <button className="world-building-entry-card-main" onClick={onOpen}>
         <div className="world-building-entry-thumb">
           {entry.image ? (

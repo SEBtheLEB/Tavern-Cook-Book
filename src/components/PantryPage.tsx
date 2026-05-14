@@ -17,6 +17,7 @@ import { CustomSelect } from "./CustomSelect";
 import { DriveImageSourceControls } from "./DriveImageSourceControls";
 import { Icon } from "./Icon";
 import { ImageManagerModal, type ImageManagerSlotDraft } from "./ImageManagerModal";
+import { useRealtimeCollaboration } from "./RealtimeCollaborationContext";
 
 interface PantryPageProps {
   entries: LoreEntry[];
@@ -424,18 +425,12 @@ export function PantryPage({
             </div>
             <div className="pantry-grid">
               {visibleIngredients.map((ingredient) => (
-                <button
+                <PantryIngredientCard
                   key={ingredient.id}
-                  className={`pantry-card ${selectedIngredient?.id === ingredient.id ? "active" : ""}`}
-                  onClick={() => selectIngredient(ingredient)}
-                >
-                  <IngredientImage ingredient={ingredient} />
-                  <strong>{ingredient.name}</strong>
-                  <small>{ingredient.category}</small>
-                  <footer>
-                    <em>{ingredient.usedInRecipes.length} recipes</em>
-                  </footer>
-                </button>
+                  ingredient={ingredient}
+                  selected={selectedIngredient?.id === ingredient.id}
+                  onSelect={() => selectIngredient(ingredient)}
+                />
               ))}
             </div>
           </div>
@@ -514,22 +509,13 @@ export function PantryPage({
                     {!collapsed && (
                       <div className="pantry-grid meals">
                         {group.meals.length ? group.meals.map((meal) => (
-                          <button
+                          <PantryMealCard
                             key={meal.id}
-                            className={`pantry-card meal ${selectedMeal?.id === meal.id ? "active" : ""}`}
-                            onClick={() => selectMeal(meal)}
-                          >
-                            <span className="pantry-card-icon">
-                              <Icon name={group.icon} className="h-5 w-5" />
-                            </span>
-                            <strong>{meal.title}</strong>
-                            <small>{meal.type}</small>
-                            <p>{meal.summary || "No meal summary yet."}</p>
-                            <footer>
-                              <span>{meal.requirements.length || meal.ingredients.length} requirements</span>
-                              <em>{meal.stations.join(", ") || "Station TBD"}</em>
-                            </footer>
-                          </button>
+                            meal={meal}
+                            groupIcon={group.icon}
+                            selected={selectedMeal?.id === meal.id}
+                            onSelect={() => selectMeal(meal)}
+                          />
                         )) : (
                           <div className="pantry-empty-category">No recipes in this group yet.</div>
                         )}
@@ -573,6 +559,92 @@ export function PantryPage({
         </section>
       )}
     </section>
+  );
+}
+
+function PantryIngredientCard({
+  ingredient,
+  selected,
+  onSelect
+}: {
+  ingredient: PantryIngredient;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  const realtime = useRealtimeCollaboration();
+  const realtimeTarget = {
+    type: "module" as const,
+    id: `pantry:ingredient:${ingredient.id}`,
+    label: ingredient.name,
+    module: "The Pantry"
+  };
+  const hoveringUsers = realtime.usersHoveringTarget(realtimeTarget);
+
+  return (
+    <button
+      className={`pantry-card realtime-hover-surface ${selected ? "active" : ""} ${hoveringUsers.length ? "realtime-hover-active" : ""}`}
+      onClick={onSelect}
+      onMouseEnter={() => realtime.setHoverTarget(realtimeTarget)}
+      onMouseLeave={() => realtime.setHoverTarget(null)}
+    >
+      {hoveringUsers.length > 0 && (
+        <span className="realtime-hover-badge">
+          {hoveringUsers.length === 1 ? `${hoveringUsers[0].name} is here` : `${hoveringUsers.length} people here`}
+        </span>
+      )}
+      <IngredientImage ingredient={ingredient} />
+      <strong>{ingredient.name}</strong>
+      <small>{ingredient.category}</small>
+      <footer>
+        <em>{ingredient.usedInRecipes.length} recipes</em>
+      </footer>
+    </button>
+  );
+}
+
+function PantryMealCard({
+  meal,
+  groupIcon,
+  selected,
+  onSelect
+}: {
+  meal: PantryMeal;
+  groupIcon: string;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  const realtime = useRealtimeCollaboration();
+  const realtimeTarget = {
+    type: "module" as const,
+    id: `pantry:meal:${meal.id}`,
+    label: meal.title,
+    module: "The Pantry"
+  };
+  const hoveringUsers = realtime.usersHoveringTarget(realtimeTarget);
+
+  return (
+    <button
+      className={`pantry-card meal realtime-hover-surface ${selected ? "active" : ""} ${hoveringUsers.length ? "realtime-hover-active" : ""}`}
+      onClick={onSelect}
+      onMouseEnter={() => realtime.setHoverTarget(realtimeTarget)}
+      onMouseLeave={() => realtime.setHoverTarget(null)}
+    >
+      {hoveringUsers.length > 0 && (
+        <span className="realtime-hover-badge">
+          {hoveringUsers.length === 1 ? `${hoveringUsers[0].name} is here` : `${hoveringUsers.length} people here`}
+        </span>
+      )}
+      <span className="pantry-card-icon">
+        <Icon name={groupIcon} className="h-5 w-5" />
+      </span>
+      <strong>{meal.title}</strong>
+      <small>{meal.type}</small>
+      <p>{meal.summary || "No meal summary yet."}</p>
+      <footer>
+        <span>{meal.requirements.length || meal.ingredients.length} requirements</span>
+        <em>{meal.stations.join(", ") || "Station TBD"}</em>
+      </footer>
+    </button>
   );
 }
 

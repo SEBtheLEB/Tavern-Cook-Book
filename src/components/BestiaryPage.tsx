@@ -1661,6 +1661,7 @@ function CreatureArtVaultPage({
     [vault, activeSectionId, slotSearch, slotFilter]
   );
   const activeSection = vault.sections.find((section) => section.id === activeSectionId);
+  const realtime = useRealtimeCollaboration();
 
   const commitVault = (nextVault: CharacterArtVault) => {
     const normalized = normalizeCreatureArtVault(nextVault);
@@ -2156,13 +2157,28 @@ function CreatureArtVaultPage({
                   const ref = { sectionId: section.id, slotId: slot.id };
                   const status = artVaultSlotStatus(slot);
                   const menuOpen = slotMenuRef?.sectionId === ref.sectionId && slotMenuRef.slotId === ref.slotId;
+                  const assignmentModule = creatureArtVaultSlotModule(creature, section, slot, assignmentCategoryPrefix);
+                  const realtimeTarget = {
+                    type: "art-slot" as const,
+                    id: assignmentModule.moduleId,
+                    label: assignmentModule.moduleTitle,
+                    module: "Art Vault"
+                  };
+                  const hoveringUsers = realtime.usersHoveringTarget(realtimeTarget);
                   return (
                     <AssignableModule
                       key={slot.id}
                       as="article"
-                      className={`character-art-vault-slot-card ${status} ${menuOpen ? "menu-open" : ""}`}
-                      module={creatureArtVaultSlotModule(creature, section, slot, assignmentCategoryPrefix)}
+                      className={`character-art-vault-slot-card realtime-hover-surface ${status} ${menuOpen ? "menu-open" : ""} ${hoveringUsers.length ? "realtime-hover-active" : ""}`}
+                      module={assignmentModule}
+                      onMouseEnter={() => realtime.setHoverTarget(realtimeTarget)}
+                      onMouseLeave={() => realtime.setHoverTarget(null)}
                     >
+                      {hoveringUsers.length > 0 && (
+                        <span className="realtime-hover-badge">
+                          {hoveringUsers.length === 1 ? `${hoveringUsers[0].name} is here` : `${hoveringUsers.length} people here`}
+                        </span>
+                      )}
                       <span className={`character-art-vault-status ${status}`}>{artVaultStatusText(slot.status)}</span>
                       <button className="character-art-vault-kebab" onClick={() => setSlotMenuRef(menuOpen ? null : ref)} title="Slot actions">...</button>
                       {menuOpen && (

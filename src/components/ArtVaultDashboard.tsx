@@ -7,6 +7,7 @@ import {
 } from "../utils/artVaultDashboard";
 import { ArtBinderPage, type ArtBinderInitialFilter, type ArtBinderKind } from "./ArtBinderPage";
 import { Icon } from "./Icon";
+import { useRealtimeCollaboration } from "./RealtimeCollaborationContext";
 
 interface ArtVaultDashboardProps {
   database: LoreDatabase;
@@ -122,19 +123,7 @@ export function ArtVaultDashboard({
           {stats.needsUpload.length ? (
             <div className="global-art-vault-queue">
               {stats.needsUpload.map((item) => (
-                <button key={item.id} className="global-art-vault-queue-item" onClick={() => openItem(item)}>
-                  <span className="global-art-vault-queue-icon">
-                    <Icon name={kindIcon(item.kind)} className="h-4 w-4" />
-                  </span>
-                  <span>
-                    <strong>{item.title}</strong>
-                    <small>{item.subtitle} / {kindLabel(item.kind)}</small>
-                  </span>
-                  <span className="global-art-vault-mini-progress">
-                    <i style={{ width: `${item.percent}%` }} />
-                  </span>
-                  <em>{item.missing} missing</em>
-                </button>
+                <ArtVaultQueueItem key={item.id} item={item} onOpen={() => openItem(item)} />
               ))}
             </div>
           ) : (
@@ -198,8 +187,26 @@ type ArtVaultDestinationChoice =
   | { type: "route"; kind: Exclude<ArtBinderKind, "all">; label: string };
 
 function GroupCard({ group, onChoose }: { group: ArtVaultDashboardGroup; onChoose: () => void }) {
+  const realtime = useRealtimeCollaboration();
+  const realtimeTarget = {
+    type: "module" as const,
+    id: `art-vault:group:${group.id}`,
+    label: group.label,
+    module: "Art Vault"
+  };
+  const hoveringUsers = realtime.usersHoveringTarget(realtimeTarget);
+
   return (
-    <article className="global-art-vault-group-card">
+    <article
+      className={`global-art-vault-group-card realtime-hover-surface ${hoveringUsers.length ? "realtime-hover-active" : ""}`}
+      onMouseEnter={() => realtime.setHoverTarget(realtimeTarget)}
+      onMouseLeave={() => realtime.setHoverTarget(null)}
+    >
+      {hoveringUsers.length > 0 && (
+        <span className="realtime-hover-badge">
+          {hoveringUsers.length === 1 ? `${hoveringUsers[0].name} is here` : `${hoveringUsers.length} people here`}
+        </span>
+      )}
       <div className="global-art-vault-group-top">
         <span>
           <Icon name={group.icon} className="h-5 w-5" />
@@ -220,6 +227,43 @@ function GroupCard({ group, onChoose }: { group: ArtVaultDashboardGroup; onChoos
         </button>
       </footer>
     </article>
+  );
+}
+
+function ArtVaultQueueItem({ item, onOpen }: { item: ArtVaultDashboardItem; onOpen: () => void }) {
+  const realtime = useRealtimeCollaboration();
+  const realtimeTarget = {
+    type: "art-slot" as const,
+    id: `art-vault:item:${item.id}`,
+    label: item.title,
+    module: "Art Vault"
+  };
+  const hoveringUsers = realtime.usersHoveringTarget(realtimeTarget);
+
+  return (
+    <button
+      className={`global-art-vault-queue-item realtime-hover-surface ${hoveringUsers.length ? "realtime-hover-active" : ""}`}
+      onClick={onOpen}
+      onMouseEnter={() => realtime.setHoverTarget(realtimeTarget)}
+      onMouseLeave={() => realtime.setHoverTarget(null)}
+    >
+      {hoveringUsers.length > 0 && (
+        <span className="realtime-hover-badge">
+          {hoveringUsers.length === 1 ? `${hoveringUsers[0].name} is here` : `${hoveringUsers.length} people here`}
+        </span>
+      )}
+      <span className="global-art-vault-queue-icon">
+        <Icon name={kindIcon(item.kind)} className="h-4 w-4" />
+      </span>
+      <span>
+        <strong>{item.title}</strong>
+        <small>{item.subtitle} / {kindLabel(item.kind)}</small>
+      </span>
+      <span className="global-art-vault-mini-progress">
+        <i style={{ width: `${item.percent}%` }} />
+      </span>
+      <em>{item.missing} missing</em>
+    </button>
   );
 }
 
@@ -315,8 +359,27 @@ function RouteButton({
   detail: string;
   onClick: () => void;
 }) {
+  const realtime = useRealtimeCollaboration();
+  const realtimeTarget = {
+    type: "module" as const,
+    id: `art-vault:route:${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+    label,
+    module: "Art Vault"
+  };
+  const hoveringUsers = realtime.usersHoveringTarget(realtimeTarget);
+
   return (
-    <button className="global-art-vault-route" onClick={onClick}>
+    <button
+      className={`global-art-vault-route realtime-hover-surface ${hoveringUsers.length ? "realtime-hover-active" : ""}`}
+      onClick={onClick}
+      onMouseEnter={() => realtime.setHoverTarget(realtimeTarget)}
+      onMouseLeave={() => realtime.setHoverTarget(null)}
+    >
+      {hoveringUsers.length > 0 && (
+        <span className="realtime-hover-badge">
+          {hoveringUsers.length === 1 ? `${hoveringUsers[0].name} is here` : `${hoveringUsers.length} people here`}
+        </span>
+      )}
       <Icon name={icon} className="h-5 w-5" />
       <span>
         <strong>{label}</strong>

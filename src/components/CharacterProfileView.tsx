@@ -42,6 +42,7 @@ import { ImageManagerModal, type ImageManagerSlotDraft } from "./ImageManagerMod
 import { AssignableModule } from "./AssignmentSystem";
 import { Icon } from "./Icon";
 import { LoreKeywordText } from "./LoreKeywordText";
+import { useRealtimeCollaboration } from "./RealtimeCollaborationContext";
 import { RichLoreText, RichTextEditor } from "./RichText";
 import { FavoriteButton } from "./FavoriteButton";
 import { StoryReaderModal, type StoryReaderSection, type StoryReaderStep } from "./StoryReaderModal";
@@ -1964,6 +1965,7 @@ function CharacterArtVaultView({
     "";
   const role = fieldText(entry, ["Gameplay Role", "Role"]) || entry.type || "Character";
   const category = fieldText(entry, ["Character Category", "Primary Category"]) || entry.category || "Characters";
+  const realtime = useRealtimeCollaboration();
 
   useEffect(() => {
     if (!focusedAssignment?.targetRoute.includes(":art-vault:")) return;
@@ -2607,13 +2609,28 @@ function CharacterArtVaultView({
                   const ref = { sectionId: section.id, slotId: slot.id };
                   const status = artVaultSlotStatus(slot);
                   const menuOpen = slotMenuRef?.sectionId === ref.sectionId && slotMenuRef.slotId === ref.slotId;
+                  const assignmentModule = characterArtVaultSlotModule(entry, section, slot);
+                  const realtimeTarget = {
+                    type: "art-slot" as const,
+                    id: assignmentModule.moduleId,
+                    label: assignmentModule.moduleTitle,
+                    module: "Art Vault"
+                  };
+                  const hoveringUsers = realtime.usersHoveringTarget(realtimeTarget);
                   return (
                     <AssignableModule
                       key={slot.id}
                       as="article"
-                      className={`character-art-vault-slot-card ${status} ${menuOpen ? "menu-open" : ""}`}
-                      module={characterArtVaultSlotModule(entry, section, slot)}
+                      className={`character-art-vault-slot-card realtime-hover-surface ${status} ${menuOpen ? "menu-open" : ""} ${hoveringUsers.length ? "realtime-hover-active" : ""}`}
+                      module={assignmentModule}
+                      onMouseEnter={() => realtime.setHoverTarget(realtimeTarget)}
+                      onMouseLeave={() => realtime.setHoverTarget(null)}
                     >
+                      {hoveringUsers.length > 0 && (
+                        <span className="realtime-hover-badge">
+                          {hoveringUsers.length === 1 ? `${hoveringUsers[0].name} is here` : `${hoveringUsers.length} people here`}
+                        </span>
+                      )}
                       <span className={`character-art-vault-status ${status}`}>{artVaultSlotStatusLabel(slot)}</span>
                       <button className="character-art-vault-kebab" onClick={() => openSlotActions(ref)} title="Slot actions">
                         ...
