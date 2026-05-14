@@ -18934,6 +18934,7 @@ iframe[src*="accounts.google.com"] {
   display: inline-flex;
   min-height: 54px;
   min-width: 54px;
+  max-width: 142px;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
@@ -18943,7 +18944,21 @@ iframe[src*="accounts.google.com"] {
     radial-gradient(circle at 28% 10%, rgba(99, 230, 190, 0.2), transparent 56%),
     rgba(0, 0, 0, 0.18);
   color: #d9fff4;
+  cursor: pointer;
   padding: 0.45rem 0.7rem;
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+
+.sidebar-live-sync-status:hover:not(:disabled) {
+  border-color: rgba(153, 255, 226, 0.78);
+  background: rgba(33, 154, 127, 0.2);
+  box-shadow: 0 0 18px rgba(94, 234, 212, 0.22);
+  transform: translateY(-1px);
+}
+
+.sidebar-live-sync-status:disabled {
+  cursor: wait;
+  opacity: 0.78;
 }
 
 .sidebar-live-sync-status.working svg {
@@ -18951,8 +18966,28 @@ iframe[src*="accounts.google.com"] {
 }
 
 .sidebar-live-sync-status span {
+  display: grid;
+  min-width: 0;
+  gap: 0.05rem;
+  text-align: left;
+}
+
+.sidebar-live-sync-status strong {
   font-size: 0.82rem;
   font-weight: 800;
+  line-height: 1;
+}
+
+.sidebar-live-sync-status small {
+  display: block;
+  max-width: 92px;
+  overflow: hidden;
+  color: rgba(217, 255, 244, 0.78);
+  font-size: 0.64rem;
+  font-weight: 700;
+  line-height: 1.05;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sidebar-live-roster {

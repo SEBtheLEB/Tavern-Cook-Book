@@ -1184,6 +1184,64 @@ export default function App() {
     }
   };
 
+  const forceSaveTeamDatabase = async () => {
+    if (!LIVE_TEAM_SYNC || !currentUser || readOnly || hostedViewer) return;
+    const databaseToSave = databaseRef.current;
+    const databaseToSaveHash = databaseSyncHash(databaseToSave);
+    const pending = savePendingTeamChange(databaseToSave);
+    pendingTeamChangeHashRef.current = pending.hash;
+    setCloudSync((current) => ({
+      ...current,
+      phase: "saving",
+      message: "Saving this cookbook to the team database now..."
+    }));
+
+    try {
+      const result = await savePublishedDatabase(currentUser.email, databaseToSave);
+      if (!result.ok || !result.envelope?.payload.database) {
+        setCloudSync({
+          phase: result.error?.includes("sign-in token") ? "needsAuth" : "offline",
+          message: result.error || "Team save failed. Sign in again or check cloud sync settings.",
+          lastSavedAt: cloudSync.lastSavedAt,
+          configured: result.configured
+        });
+        return;
+      }
+
+      const savedDatabase = result.envelope.payload.database;
+      const savedHash = databaseSyncHash(savedDatabase);
+      remoteLoadRef.current = true;
+      setDatabase(savedDatabase, { source: "remote" });
+      saveDatabase(savedDatabase);
+      window.setTimeout(() => {
+        remoteLoadRef.current = false;
+      }, 0);
+      setPublishedDatabase(savedDatabase);
+      setPublishedReady(true);
+      lastPublishedDatabaseRef.current = savedDatabase;
+      lastPublishedHashRef.current = savedHash;
+      lastDraftHashRef.current = savedHash;
+      lastDraftUpdatedAtRef.current = result.envelope.updatedAt;
+      savePublishedSyncState(savedDatabase, result.envelope.updatedAt);
+      pendingTeamChangeHashRef.current = "";
+      clearPendingTeamChange(databaseToSaveHash);
+      clearPendingTeamChange(savedHash);
+      setCloudSync({
+        phase: "saved",
+        message: `Live team changes saved at ${new Date(result.envelope.updatedAt).toLocaleTimeString()}.`,
+        lastSavedAt: result.envelope.updatedAt,
+        configured: true
+      });
+    } catch (error) {
+      setCloudSync({
+        phase: "offline",
+        message: error instanceof Error ? error.message : "Team save failed. Local browser save is still active.",
+        lastSavedAt: cloudSync.lastSavedAt,
+        configured: true
+      });
+    }
+  };
+
   const rememberExplicitRemoval = (changeId: string) => {
     setExplicitRemovalIds((current) => current.includes(changeId) ? current : [...current, changeId]);
   };
@@ -1920,6 +1978,7 @@ export default function App() {
           onOpenTavernScribe={() => setTavernScribeOpen(true)}
           onOpenQuestDashboard={openQuestDashboard}
           onOpenPushChanges={LIVE_TEAM_SYNC ? undefined : openPushReview}
+          onForceLiveSync={forceSaveTeamDatabase}
           questCount={currentQuestCount}
           pendingPublishCount={pendingPublishCount}
           canAccessSettings={canAccessSettings}

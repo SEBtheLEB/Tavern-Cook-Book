@@ -20,6 +20,7 @@ interface SidebarProps {
   onOpenTavernScribe?: () => void;
   onOpenQuestDashboard?: () => void;
   onOpenPushChanges?: () => void;
+  onForceLiveSync?: () => void;
   questCount?: number;
   pendingPublishCount?: number;
   canAccessSettings?: boolean;
@@ -55,6 +56,7 @@ export function Sidebar({
   onOpenTavernScribe,
   onOpenQuestDashboard,
   onOpenPushChanges,
+  onForceLiveSync,
   questCount = 0,
   pendingPublishCount = 0,
   canAccessSettings = false,
@@ -443,18 +445,24 @@ export function Sidebar({
               </button>
             )}
             {!readOnly && !onOpenPushChanges && (
-              <div
+              <button
                 className={`sidebar-live-sync-status ${syncWorking ? "working" : ""}`}
-                title={collapsed ? "Live sync is on" : syncLabel || "Live sync is on"}
-                aria-label="Live sync is on"
-                role="status"
+                title={collapsed ? syncLabel || "Live sync is on" : "Click to save this cookbook to team sync now"}
+                aria-label={syncLabel || "Live sync is on"}
+                onClick={onForceLiveSync}
+                disabled={syncWorking || !onForceLiveSync}
                 onMouseEnter={(event) => showCollapsedTooltip(syncLabel || "Live sync is on", event)}
                 onMouseMove={moveCollapsedTooltip}
                 onMouseLeave={hideCollapsedTooltip}
               >
                 <Icon name={syncWorking ? "RefreshCw" : "Users"} className="h-5 w-5" />
-                {!collapsed && <span>Live Sync</span>}
-              </div>
+                {!collapsed && (
+                  <span>
+                    <strong>{syncWorking ? "Syncing" : "Live Sync"}</strong>
+                    <small>{syncLabel || "Ready"}</small>
+                  </span>
+                )}
+              </button>
             )}
             {liveRosterUsers.length > 0 && (
               <div className={`sidebar-live-roster ${collapsed ? "collapsed" : ""}`}>
