@@ -11,8 +11,10 @@ import {
   findUnsafeDriveSettings,
   getDriveSettings,
   isDriveConfigured,
+  normalizeDriveSettings,
   saveDriveSettings
 } from "../utils/driveSettings";
+import { saveRemoteAppSettings } from "../utils/cloudSync";
 import { estimateStorageBytes, formatBytes, migrateDatabase, sanitizeDatabaseForPersistence } from "../utils/storage";
 import { loadAccessUsers, saveAccessUsers } from "../utils/accessControl";
 import { openGoogleDriveFolderPicker } from "../utils/googlePicker";
@@ -54,6 +56,7 @@ export function SettingsPage({
   const [message, setMessage] = useState("");
   const [health, setHealth] = useState<HealthState | null>(null);
   const [driveSettings, setDriveSettingsState] = useState<DriveSettings>(() => appSyncSettings.driveSettings || getDriveSettings());
+  const [driveSettingsSaving, setDriveSettingsSaving] = useState(false);
   const [accessUsers, setAccessUsers] = useState<AccessUserPermission[]>(() => loadAccessUsers());
   const [newAccessEmail, setNewAccessEmail] = useState("");
   const [newAccessRole, setNewAccessRole] = useState<AccessRole>("viewer");
@@ -161,6 +164,45 @@ export function SettingsPage({
     setDriveSettingsState((current) => ({ ...current, [key]: value }));
   };
 
+  const commitDriveSettings = async (nextDriveSettings: DriveSettings, successMessage: string) => {
+    const normalizedDriveSettings = normalizeDriveSettings(nextDriveSettings);
+    const findings = findUnsafeDriveSettings(normalizedDriveSettings);
+    if (findings.length) {
+      setMessage(
+        `Drive settings were not saved. ${findings.map((finding) => `${finding.label} ${finding.reason}`).join("; ")}.`
+      );
+      return false;
+    }
+
+    const nextAppSyncSettings = {
+      ...appSyncSettings,
+      driveSettings: normalizedDriveSettings
+    };
+
+    setDriveSettingsSaving(true);
+    try {
+      saveDriveSettings(normalizedDriveSettings);
+      setDriveSettingsState(normalizedDriveSettings);
+      onAppSyncSettingsChange(nextAppSyncSettings);
+
+      const remoteResult = await saveRemoteAppSettings(currentUser.email, nextAppSyncSettings);
+      if (!remoteResult.ok) {
+        setMessage(
+          `Drive settings saved in this browser, but the team copy did not update: ${remoteResult.error || "remote settings save failed"}.`
+        );
+        return false;
+      }
+
+      setMessage(successMessage);
+      return true;
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not save Google Drive settings.");
+      return false;
+    } finally {
+      setDriveSettingsSaving(false);
+    }
+  };
+
   const chooseDriveSettingsFolder = async (key: keyof Pick<DriveSettings, "defaultTalesFolderId" | "defaultCharactersFolderId" | "defaultWorldArtFolderId" | "defaultMarketingArtFolderId" | "defaultArtVaultFolderId">) => {
     if (!isDriveConfigured(driveSettings)) {
       setMessage("Save your Google API Key and OAuth Client ID first, then choose folders from Google Drive.");
@@ -168,35 +210,26 @@ export function SettingsPage({
     }
 
     try {
-      saveDriveSettings(driveSettings);
+      const preparedDriveSettings = normalizeDriveSettings(driveSettings);
+      saveDriveSettings(preparedDriveSettings);
+      setDriveSettingsState(preparedDriveSettings);
       const folder = await openGoogleDriveFolderPicker("Choose Default Drive Folder");
       if (!folder) return;
-      updateDriveSetting(key, folder.id);
-      setMessage(`Selected "${folder.name}" for ${folderSettingLabel(key)}. Save Drive Settings to keep it.`);
+      const nextDriveSettings = normalizeDriveSettings({ ...preparedDriveSettings, [key]: folder.id });
+      await commitDriveSettings(
+        nextDriveSettings,
+        `Selected "${folder.name}" for ${folderSettingLabel(key)} and saved it for the team.`
+      );
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not choose a Google Drive folder.");
     }
   };
 
   const saveCurrentDriveSettings = () => {
-    const findings = findUnsafeDriveSettings(driveSettings);
-    if (findings.length) {
-      setMessage(
-        `Drive settings were not saved. ${findings.map((finding) => `${finding.label} ${finding.reason}`).join("; ")}.`
-      );
-      return;
-    }
-
-    try {
-      saveDriveSettings(driveSettings);
-      onAppSyncSettingsChange({
-        ...appSyncSettings,
-        driveSettings
-      });
-      setMessage("Google Drive settings saved for the team. STL Workshop and this app can reuse them now.");
-    } catch {
-      setMessage("Could not save Google Drive settings in this browser.");
-    }
+    void commitDriveSettings(
+      driveSettings,
+      "Google Drive settings saved for the team. STL Workshop and this app can reuse them now."
+    );
   };
 
   const testDriveSetup = () => {
@@ -537,7 +570,7 @@ export function SettingsPage({
             <li>API key restricted to this website/domain</li>
             <li>API key restricted to only required Google APIs</li>
             <li>OAuth JavaScript origins restricted to this app domain</li>
-            <li>Drive scope limited to Drive file, metadata, and read access required for picker previews</li>
+            <li>OAuth Drive scope allows creating folders and placing files in the selected Art Vault folder</li>
             <li>Shared Drive folder permissions configured manually in Google Drive</li>
           </ul>
         </div>
@@ -559,44 +592,44 @@ export function SettingsPage({
           <DriveSettingsInput
             label="Default Tales of the Tavern Drive Folder ID"
             value={driveSettings.defaultTalesFolderId}
-            placeholder="Main lore bible Drive folder ID"
+            placeholder="Main lore bible Drive folder ID or link"
             onChange={(value) => updateDriveSetting("defaultTalesFolderId", value)}
             onPickFolder={() => chooseDriveSettingsFolder("defaultTalesFolderId")}
           />
           <DriveSettingsInput
             label="Default Characters Folder ID"
             value={driveSettings.defaultCharactersFolderId}
-            placeholder="Characters art/reference folder ID"
+            placeholder="Characters art/reference folder ID or link"
             onChange={(value) => updateDriveSetting("defaultCharactersFolderId", value)}
             onPickFolder={() => chooseDriveSettingsFolder("defaultCharactersFolderId")}
           />
           <DriveSettingsInput
             label="Default World Art Folder ID"
             value={driveSettings.defaultWorldArtFolderId}
-            placeholder="World art/reference folder ID"
+            placeholder="World art/reference folder ID or link"
             onChange={(value) => updateDriveSetting("defaultWorldArtFolderId", value)}
             onPickFolder={() => chooseDriveSettingsFolder("defaultWorldArtFolderId")}
           />
           <DriveSettingsInput
             label="Default Marketing Art Folder ID"
             value={driveSettings.defaultMarketingArtFolderId}
-            placeholder="Marketing art folder ID"
+            placeholder="Marketing art folder ID or link"
             onChange={(value) => updateDriveSetting("defaultMarketingArtFolderId", value)}
             onPickFolder={() => chooseDriveSettingsFolder("defaultMarketingArtFolderId")}
           />
           <DriveSettingsInput
             label="Default Art Vault Parent Folder ID"
             value={driveSettings.defaultArtVaultFolderId}
-            placeholder="Parent folder where the app creates Art Vault"
+            placeholder="Parent folder ID or link where the app creates Art Vault"
             onChange={(value) => updateDriveSetting("defaultArtVaultFolderId", value)}
             onPickFolder={() => chooseDriveSettingsFolder("defaultArtVaultFolderId")}
           />
         </div>
 
         <div className="mt-4 flex flex-wrap gap-3">
-          <button className="button-frame inline-flex items-center gap-2 rounded px-4 py-2" onClick={saveCurrentDriveSettings}>
+          <button className="button-frame inline-flex items-center gap-2 rounded px-4 py-2" onClick={saveCurrentDriveSettings} disabled={driveSettingsSaving}>
             <Icon name="Save" className="h-4 w-4" />
-            Save Drive Settings
+            {driveSettingsSaving ? "Saving..." : "Save Drive Settings"}
           </button>
           <button className="button-frame inline-flex items-center gap-2 rounded px-4 py-2" onClick={testDriveSetup}>
             <Icon name="Activity" className="h-4 w-4" />

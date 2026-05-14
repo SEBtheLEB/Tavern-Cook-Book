@@ -90,14 +90,31 @@ export function securityFindingsMessage(findings: DriveSettingsSecurityFinding[]
 export function normalizeDriveSettings(value: unknown): DriveSettings {
   const settings = typeof value === "object" && value !== null ? value as Partial<DriveSettings> : {};
   return {
-    googleApiKey: String(settings.googleApiKey ?? ""),
-    googleOAuthClientId: String(settings.googleOAuthClientId ?? ""),
-    defaultTalesFolderId: String(settings.defaultTalesFolderId ?? ""),
-    defaultCharactersFolderId: String(settings.defaultCharactersFolderId ?? ""),
-    defaultWorldArtFolderId: String(settings.defaultWorldArtFolderId ?? ""),
-    defaultMarketingArtFolderId: String(settings.defaultMarketingArtFolderId ?? ""),
-    defaultArtVaultFolderId: String(settings.defaultArtVaultFolderId ?? "")
+    googleApiKey: String(settings.googleApiKey ?? "").trim(),
+    googleOAuthClientId: String(settings.googleOAuthClientId ?? "").trim(),
+    defaultTalesFolderId: normalizeDriveFolderId(settings.defaultTalesFolderId),
+    defaultCharactersFolderId: normalizeDriveFolderId(settings.defaultCharactersFolderId),
+    defaultWorldArtFolderId: normalizeDriveFolderId(settings.defaultWorldArtFolderId),
+    defaultMarketingArtFolderId: normalizeDriveFolderId(settings.defaultMarketingArtFolderId),
+    defaultArtVaultFolderId: normalizeDriveFolderId(settings.defaultArtVaultFolderId)
   };
+}
+
+export function normalizeDriveFolderId(value: unknown) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+
+  const folderPathMatch = raw.match(/\/folders\/([a-zA-Z0-9_-]+)/);
+  if (folderPathMatch?.[1]) {
+    return folderPathMatch[1];
+  }
+
+  const queryIdMatch = raw.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (queryIdMatch?.[1]) {
+    return queryIdMatch[1];
+  }
+
+  return raw;
 }
 
 function unsafeDriveSettingReason(value: string) {

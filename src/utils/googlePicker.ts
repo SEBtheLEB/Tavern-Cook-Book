@@ -5,10 +5,8 @@ const GOOGLE_IDENTITY_SCRIPT_ID = "google-identity-services";
 const GOOGLE_IDENTITY_SCRIPT_SRC = "https://accounts.google.com/gsi/client";
 const GOOGLE_PICKER_SCRIPT_ID = "google-api-loader";
 const GOOGLE_PICKER_SCRIPT_SRC = "https://apis.google.com/js/api.js";
-const DRIVE_FILE_SCOPE = "https://www.googleapis.com/auth/drive.file";
-const DRIVE_METADATA_SCOPE = "https://www.googleapis.com/auth/drive.metadata.readonly";
-const DRIVE_READONLY_SCOPE = "https://www.googleapis.com/auth/drive.readonly";
-const DRIVE_SCOPES = `${DRIVE_FILE_SCOPE} ${DRIVE_METADATA_SCOPE} ${DRIVE_READONLY_SCOPE}`;
+const DRIVE_FULL_SCOPE = "https://www.googleapis.com/auth/drive";
+const DRIVE_SCOPES = DRIVE_FULL_SCOPE;
 const GOOGLE_DRIVE_FOLDER_MIME_TYPE = "application/vnd.google-apps.folder";
 const MULTIPART_UPLOAD_LIMIT = 5 * 1024 * 1024;
 const MAX_BROWSER_UPLOAD_SIZE = 100 * 1024 * 1024;
@@ -314,7 +312,7 @@ export function clearDriveImageBlobUrlCache(fileId?: string) {
 
 function hasRequiredDriveScopes(scopes: string) {
   const granted = new Set(scopes.split(/\s+/).filter(Boolean));
-  return granted.has(DRIVE_FILE_SCOPE) && granted.has(DRIVE_METADATA_SCOPE) && granted.has(DRIVE_READONLY_SCOPE);
+  return granted.has(DRIVE_FULL_SCOPE);
 }
 
 function notifyGoogleDriveAuthenticated() {
