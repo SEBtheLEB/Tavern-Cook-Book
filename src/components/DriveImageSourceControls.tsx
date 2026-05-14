@@ -29,6 +29,7 @@ interface DriveImageSourceControlsProps {
   showUploadState?: boolean;
   uploadAssetState?: "wip" | "final";
   showManualFallback?: boolean;
+  resolveUploadFolder?: () => Promise<GoogleDriveFolder | null>;
   onChange: (imageUrl: string) => void;
   onPick?: (imageUrl: string, file: GooglePickerFile) => void;
   onUpload?: (imageUrl: string, file: UploadedDriveFile, folder: GoogleDriveFolder, assetState: "wip" | "final") => void;
@@ -51,6 +52,7 @@ export function DriveImageSourceControls({
   showUploadState = false,
   uploadAssetState = "wip",
   showManualFallback = true,
+  resolveUploadFolder,
   onChange,
   onPick,
   onUpload,
@@ -62,15 +64,15 @@ export function DriveImageSourceControls({
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [selectedUploadState, setSelectedUploadState] = useState<"wip" | "final">(uploadAssetState);
-  const [folder, setFolder] = useState<GoogleDriveFolder>(() => defaultDriveFolder(defaultFolderId, defaultFolderLink, defaultFolderName));
+  const [folder, setFolder] = useState<GoogleDriveFolder>(() => defaultDriveFolder(defaultFolderId, defaultFolderLink, defaultFolderName, !resolveUploadFolder));
 
   useEffect(() => {
     setManualValue(value);
   }, [value]);
 
   useEffect(() => {
-    setFolder(defaultDriveFolder(defaultFolderId, defaultFolderLink, defaultFolderName));
-  }, [defaultFolderId, defaultFolderLink, defaultFolderName]);
+    setFolder(defaultDriveFolder(defaultFolderId, defaultFolderLink, defaultFolderName, !resolveUploadFolder));
+  }, [defaultFolderId, defaultFolderLink, defaultFolderName, resolveUploadFolder]);
 
   useEffect(() => {
     setSelectedUploadState(uploadAssetState);
@@ -124,9 +126,24 @@ export function DriveImageSourceControls({
   };
 
   const beginUpload = async () => {
-    const uploadFolder = folder.id ? folder : await chooseFolder();
-    if (!uploadFolder?.id) return;
+    if (!folder.id && !resolveUploadFolder) {
+      const uploadFolder = await chooseFolder();
+      if (!uploadFolder?.id) return;
+    }
     fileInputRef.current?.click();
+  };
+
+  const resolveFolderForUpload = async () => {
+    if (folder.id) return folder;
+    if (resolveUploadFolder) {
+      setMessage("Preparing Art Vault folder in Google Drive...");
+      const resolvedFolder = await resolveUploadFolder();
+      if (!resolvedFolder?.id) return null;
+      setFolder(resolvedFolder);
+      onFolderChange?.(resolvedFolder);
+      return resolvedFolder;
+    }
+    return chooseFolder();
   };
 
   const uploadSelectedFile = async (file: File | undefined) => {
@@ -136,7 +153,7 @@ export function DriveImageSourceControls({
       return;
     }
 
-    const uploadFolder = folder.id ? folder : await chooseFolder();
+    const uploadFolder = await resolveFolderForUpload();
     if (!uploadFolder?.id) return;
 
     setBusy(true);
@@ -248,9 +265,9 @@ export function DriveImageSourceControls({
   );
 }
 
-function defaultDriveFolder(defaultFolderId?: string, defaultFolderLink?: string, defaultFolderName?: string): GoogleDriveFolder {
+function defaultDriveFolder(defaultFolderId?: string, defaultFolderLink?: string, defaultFolderName?: string, allowSettingsFallback = true): GoogleDriveFolder {
   const settings = getDriveSettings();
-  const folderId = defaultFolderId || settings.defaultTalesFolderId || settings.defaultWorldArtFolderId || settings.defaultCharactersFolderId;
+  const folderId = defaultFolderId || (allowSettingsFallback ? settings.defaultTalesFolderId || settings.defaultWorldArtFolderId || settings.defaultCharactersFolderId : "");
   return {
     id: folderId || "",
     name: defaultFolderName || (folderId ? "Default Drive folder" : ""),

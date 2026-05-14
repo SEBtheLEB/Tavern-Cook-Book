@@ -161,7 +161,7 @@ export function SettingsPage({
     setDriveSettingsState((current) => ({ ...current, [key]: value }));
   };
 
-  const chooseDriveSettingsFolder = async (key: keyof Pick<DriveSettings, "defaultTalesFolderId" | "defaultCharactersFolderId" | "defaultWorldArtFolderId" | "defaultMarketingArtFolderId">) => {
+  const chooseDriveSettingsFolder = async (key: keyof Pick<DriveSettings, "defaultTalesFolderId" | "defaultCharactersFolderId" | "defaultWorldArtFolderId" | "defaultMarketingArtFolderId" | "defaultArtVaultFolderId">) => {
     if (!isDriveConfigured(driveSettings)) {
       setMessage("Save your Google API Key and OAuth Client ID first, then choose folders from Google Drive.");
       return;
@@ -209,7 +209,8 @@ export function SettingsPage({
       driveSettings.defaultTalesFolderId,
       driveSettings.defaultCharactersFolderId,
       driveSettings.defaultWorldArtFolderId,
-      driveSettings.defaultMarketingArtFolderId
+      driveSettings.defaultMarketingArtFolderId,
+      driveSettings.defaultArtVaultFolderId
     ].some((field) => !field.trim());
 
     setMessage(
@@ -536,7 +537,7 @@ export function SettingsPage({
             <li>API key restricted to this website/domain</li>
             <li>API key restricted to only required Google APIs</li>
             <li>OAuth JavaScript origins restricted to this app domain</li>
-            <li>Drive scope limited to drive.file</li>
+            <li>Drive scope limited to Drive file, metadata, and read access required for picker previews</li>
             <li>Shared Drive folder permissions configured manually in Google Drive</li>
           </ul>
         </div>
@@ -582,6 +583,13 @@ export function SettingsPage({
             placeholder="Marketing art folder ID"
             onChange={(value) => updateDriveSetting("defaultMarketingArtFolderId", value)}
             onPickFolder={() => chooseDriveSettingsFolder("defaultMarketingArtFolderId")}
+          />
+          <DriveSettingsInput
+            label="Default Art Vault Parent Folder ID"
+            value={driveSettings.defaultArtVaultFolderId}
+            placeholder="Parent folder where the app creates Art Vault"
+            onChange={(value) => updateDriveSetting("defaultArtVaultFolderId", value)}
+            onPickFolder={() => chooseDriveSettingsFolder("defaultArtVaultFolderId")}
           />
         </div>
 
@@ -685,9 +693,10 @@ function DriveSettingsInput({
   );
 }
 
-function folderSettingLabel(key: keyof Pick<DriveSettings, "defaultTalesFolderId" | "defaultCharactersFolderId" | "defaultWorldArtFolderId" | "defaultMarketingArtFolderId">) {
+function folderSettingLabel(key: keyof Pick<DriveSettings, "defaultTalesFolderId" | "defaultCharactersFolderId" | "defaultWorldArtFolderId" | "defaultMarketingArtFolderId" | "defaultArtVaultFolderId">) {
   if (key === "defaultCharactersFolderId") return "Default Characters Folder";
   if (key === "defaultWorldArtFolderId") return "Default World Art Folder";
   if (key === "defaultMarketingArtFolderId") return "Default Marketing Art Folder";
+  if (key === "defaultArtVaultFolderId") return "Default Art Vault Parent Folder";
   return "Default Tales Folder";
 }

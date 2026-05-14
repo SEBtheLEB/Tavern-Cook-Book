@@ -9,6 +9,7 @@ import {
   normalizeCreatureArtVault
 } from "../utils/bestiary";
 import { normalizeArtVault } from "../utils/entries";
+import { resolveArtVaultDriveFolder, type ArtVaultDriveFolderContext } from "../utils/artVaultDriveFolders";
 import { googleDriveFolderLink, openGoogleDriveFolderPicker, type GoogleDriveFolder } from "../utils/googlePicker";
 import { googleDriveWebViewLink, normalizeImageFit } from "../utils/imageFit";
 import { loadSpriteSheetAssets } from "../utils/spriteSheets";
@@ -202,6 +203,32 @@ export function ArtBinderPage({
     const folder = await openGoogleDriveFolderPicker(`Choose folder for ${card.subject.title} / ${card.section.title}`);
     if (!folder) return;
     onDatabaseChange(updateDatabaseSectionFolder(database, card, folder));
+  };
+
+  const openFolderForSection = async (card: ArtBinderSlotCard) => {
+    const existingFolder = folderTargetForCard(card);
+    if (existingFolder?.id) {
+      window.open(existingFolder.link || googleDriveFolderLink(existingFolder.id), "_blank", "noopener,noreferrer");
+      return;
+    }
+    if (readOnly) return;
+
+    try {
+      const folder = await resolveArtVaultDriveFolder(artBinderDriveContext(card));
+      onDatabaseChange(updateDatabaseSectionFolder(database, card, folder));
+      window.open(folder.url || googleDriveFolderLink(folder.id), "_blank", "noopener,noreferrer");
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Could not open or create this Art Vault folder.");
+    }
+  };
+
+  const openCategoryFolderGroup = (group: ArtBinderFolderGroup) => {
+    const sectionCards = uniqueSectionCards(group.cards);
+    if (sectionCards.length === 1) {
+      void openFolderForSection(sectionCards[0]);
+      return;
+    }
+    setFolderGroup({ category: group.category, cards: sectionCards });
   };
 
   const clearFolderForSection = (card: ArtBinderSlotCard) => {
@@ -437,10 +464,10 @@ export function ArtBinderPage({
                       </button>
                       <button
                         className="art-binder-set-folder-button"
-                        onClick={() => setFolderGroup({ category: group.category, cards: uniqueSectionCards(group.cards) })}
+                        onClick={() => openCategoryFolderGroup(group)}
                       >
                         <Icon name="FolderOpen" className="h-4 w-4" />
-                        Set Folders
+                        Open Folder
                       </button>
                     </>
                   )}
@@ -487,6 +514,7 @@ export function ArtBinderPage({
         <ArtBinderFolderModal
           category={folderGroup.category}
           cards={folderGroup.cards}
+          onOpenFolder={openFolderForSection}
           onChooseFolder={chooseFolderForSection}
           onClearFolder={clearFolderForSection}
           onClose={() => setFolderGroup(null)}
@@ -746,9 +774,10 @@ function artBinderImageManagerSlot(card: ArtBinderSlotCard) {
     webViewLink: card.slot.image?.webViewLink,
     frameWidth: card.subject.kind === "environment" ? 320 : 240,
     frameHeight: card.subject.kind === "environment" ? 200 : 240,
-    defaultFolderId: card.section.driveFolderId || "",
-    defaultFolderLink: card.section.driveFolderLink || (card.section.driveFolderId ? googleDriveFolderLink(card.section.driveFolderId) : ""),
-    defaultFolderName: card.section.driveFolderName || (card.section.driveFolderId ? `${card.subject.title} / ${card.section.title}` : ""),
+    defaultFolderId: card.section.driveFolderId || card.slot.image?.driveFolderId || "",
+    defaultFolderLink: card.section.driveFolderLink || card.slot.image?.driveFolderLink || (card.section.driveFolderId ? googleDriveFolderLink(card.section.driveFolderId) : ""),
+    defaultFolderName: card.section.driveFolderName || card.slot.image?.driveFolderName || (card.section.driveFolderId ? `${card.subject.title} / ${card.section.title}` : ""),
+    resolveUploadFolder: () => resolveArtVaultDriveFolder(artBinderDriveContext(card)),
     uploadNameContext: {
       subjectName: card.subject.title,
       categoryName: card.section.title,
@@ -759,6 +788,27 @@ function artBinderImageManagerSlot(card: ArtBinderSlotCard) {
     showAssetState: true,
     assetState: artBinderAssetState(card.slot) === "final" ? "final" as const : "wip" as const,
     spriteAnimation: card.slot.image?.spriteAnimation
+  };
+}
+
+function artBinderDriveContext(card: ArtBinderSlotCard): ArtVaultDriveFolderContext {
+  return {
+    sourceType: card.subject.source,
+    groupName: card.subject.groupLabel || kindLabel(card.subject.kind),
+    subjectName: card.subject.source === "bestiary-category"
+      ? `${card.subject.groupLabel || card.subject.title} Category Vault`
+      : card.subject.title,
+    categoryName: card.section.title
+  };
+}
+
+function folderTargetForCard(card: ArtBinderSlotCard) {
+  const id = card.section.driveFolderId || card.slot.image?.driveFolderId || "";
+  if (!id.trim()) return null;
+  return {
+    id,
+    link: card.section.driveFolderLink || card.slot.image?.driveFolderLink || googleDriveFolderLink(id),
+    name: card.section.driveFolderName || card.slot.image?.driveFolderName || `${card.subject.title} / ${card.section.title}`
   };
 }
 
@@ -1100,9 +1150,7 @@ function updateDatabaseSlotImage(database: LoreDatabase, card: ArtBinderSlotCard
   return {
     ...database,
     entries: database.entries.map((entry) =>
-      entry.id === card.subject.id
-        ? updateEnvironmentImageSlot(entry, card.slot.id, imageSlot)
-        : entry
+      entry.id === card.subject.id ? updateEnvironmentImageSlotAndFolder(entry, card, imageSlot) : entry
     )
   };
 }
@@ -1113,6 +1161,9 @@ function updateArtVaultSlotImage(vault: { sections: ArtVaultSection[] }, card: A
       section.id === card.section.id
         ? {
             ...section,
+            driveFolderId: imageSlot.defaultFolderId || section.driveFolderId,
+            driveFolderLink: imageSlot.defaultFolderLink || section.driveFolderLink,
+            driveFolderName: imageSlot.defaultFolderName || section.driveFolderName,
             slots: section.slots.map((slot) =>
               slot.id === card.slot.id
                 ? {
@@ -1275,6 +1326,17 @@ function updateEnvironmentImageSlot(entry: LoreEntry, slotId: string, imageSlot:
   return entry;
 }
 
+function updateEnvironmentImageSlotAndFolder(entry: LoreEntry, card: ArtBinderSlotCard, imageSlot: ImageManagerSlotDraft): LoreEntry {
+  const updatedEntry = updateEnvironmentImageSlot(entry, card.slot.id, imageSlot);
+  if (!imageSlot.defaultFolderId) return updatedEntry;
+  return updateEnvironmentSectionFolder(updatedEntry, card.section.id, {
+    id: imageSlot.defaultFolderId,
+    url: imageSlot.defaultFolderLink || googleDriveFolderLink(imageSlot.defaultFolderId),
+    name: imageSlot.defaultFolderName || `${card.subject.title} / ${card.section.title}`,
+    mimeType: "application/vnd.google-apps.folder"
+  });
+}
+
 function driveFileIdFromUrl(value: string) {
   const direct = value.match(/drive\.google\.com\/file\/d\/([^/?#]+)/i);
   if (direct?.[1]) return direct[1];
@@ -1425,12 +1487,14 @@ function isCharacterEntry(entry: LoreEntry) {
 function ArtBinderFolderModal({
   category,
   cards,
+  onOpenFolder,
   onChooseFolder,
   onClearFolder,
   onClose
 }: {
   category: string;
   cards: ArtBinderSlotCard[];
+  onOpenFolder: (card: ArtBinderSlotCard) => void;
   onChooseFolder: (card: ArtBinderSlotCard) => void;
   onClearFolder: (card: ArtBinderSlotCard) => void;
   onClose: () => void;
@@ -1442,7 +1506,7 @@ function ArtBinderFolderModal({
           <div>
             <p>Category Upload Routing</p>
             <h2 className="font-display">{category}</h2>
-            <span>Choose a Drive folder for each subject in this category. For example, Gwen dialogue sprites can go into Gwen's folder while Tohm's dialogue sprites use Tohm's folder.</span>
+            <span>Open the auto-created Drive folder for each subject. Uploads are routed to Art Vault / shelf / subject / category.</span>
           </div>
           <button className="character-codex-icon-button" onClick={onClose} title="Close folder routing">
             <Icon name="X" className="h-5 w-5" />
@@ -1457,13 +1521,16 @@ function ArtBinderFolderModal({
                 <span>{card.subject.subtitle} / {card.section.title}</span>
               </div>
               <div className="art-binder-folder-current">
-                <span>{card.section.driveFolderName || card.section.driveFolderId || "No folder set"}</span>
+                <span>{card.section.driveFolderName || card.section.driveFolderId || "Auto-created on first open or upload"}</span>
                 {card.section.driveFolderId && <small>{card.section.driveFolderId}</small>}
               </div>
               <div className="art-binder-folder-actions">
-                <button className="button-frame" onClick={() => onChooseFolder(card)}>
+                <button className="button-frame" onClick={() => onOpenFolder(card)}>
                   <Icon name="FolderOpen" className="h-4 w-4" />
-                  Choose Folder
+                  Open Folder
+                </button>
+                <button onClick={() => onChooseFolder(card)}>
+                  Choose Different
                 </button>
                 <button onClick={() => onClearFolder(card)} disabled={!card.section.driveFolderId}>
                   Clear

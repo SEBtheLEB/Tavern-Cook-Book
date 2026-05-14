@@ -356,6 +356,85 @@ export async function getDriveFileMetadata(fileId: string, token = accessToken):
   return response.json() as Promise<UploadedDriveFile>;
 }
 
+export async function getOrCreateGoogleDriveFolder(name: string, parentFolderId: string): Promise<GoogleDriveFolder> {
+  const trimmedName = cleanDriveFolderName(name);
+  const trimmedParentId = parentFolderId.trim();
+  if (!trimmedName) throw new Error("Missing Google Drive folder name.");
+  if (!trimmedParentId) throw new Error("Choose a parent Google Drive folder first.");
+
+  const token = await authenticateGoogleDrive();
+  const existing = await findGoogleDriveFolder(trimmedName, trimmedParentId, token);
+  return existing || createGoogleDriveFolder(trimmedName, trimmedParentId, token);
+}
+
+export async function getOrCreateGoogleDriveFolderPath(parentFolderId: string, folderNames: string[]): Promise<GoogleDriveFolder> {
+  const cleanNames = folderNames.map(cleanDriveFolderName).filter(Boolean);
+  if (!cleanNames.length) throw new Error("Missing Google Drive folder path.");
+
+  let parentId = parentFolderId.trim();
+  let currentFolder: GoogleDriveFolder | null = null;
+  for (const folderName of cleanNames) {
+    currentFolder = await getOrCreateGoogleDriveFolder(folderName, parentId);
+    parentId = currentFolder.id;
+  }
+
+  if (!currentFolder) throw new Error("Could not prepare the Google Drive folder.");
+  return currentFolder;
+}
+
+async function findGoogleDriveFolder(name: string, parentFolderId: string, token: string): Promise<GoogleDriveFolder | null> {
+  const params = new URLSearchParams({
+    corpora: "allDrives",
+    includeItemsFromAllDrives: "true",
+    supportsAllDrives: "true",
+    spaces: "drive",
+    pageSize: "1",
+    fields: "files(id,name,mimeType,webViewLink)"
+  });
+  params.set("q", [
+    "trashed=false",
+    `mimeType = '${GOOGLE_DRIVE_FOLDER_MIME_TYPE}'`,
+    `'${driveQueryValue(parentFolderId)}' in parents`,
+    `name = '${driveQueryValue(name)}'`
+  ].join(" and "));
+
+  const response = await fetch(`https://www.googleapis.com/drive/v3/files?${params.toString()}${driveApiKeyParam()}`, {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+  if (!response.ok) throw await driveError(response, "Could not check Google Drive folders.");
+  const payload = await response.json() as { files?: DriveBrowserItem[] };
+  const folder = Array.isArray(payload.files) ? payload.files.find((item) => item?.id) : null;
+  return folder ? driveBrowserItemToSelection("folder", folder) as GoogleDriveFolder : null;
+}
+
+async function createGoogleDriveFolder(name: string, parentFolderId: string, token: string): Promise<GoogleDriveFolder> {
+  const response = await fetch(
+    `https://www.googleapis.com/drive/v3/files?fields=id,name,mimeType,webViewLink&supportsAllDrives=true${driveApiKeyParam()}`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json; charset=UTF-8"
+      },
+      body: JSON.stringify({
+        name,
+        mimeType: GOOGLE_DRIVE_FOLDER_MIME_TYPE,
+        parents: [parentFolderId]
+      })
+    }
+  );
+  if (!response.ok) throw await driveError(response, "Could not create the Google Drive folder.");
+  const folder = await response.json() as DriveBrowserItem;
+  return {
+    id: folder.id,
+    name: folder.name || name,
+    mimeType: folder.mimeType || GOOGLE_DRIVE_FOLDER_MIME_TYPE,
+    url: folder.webViewLink || googleDriveFolderLink(folder.id)
+  };
+}
+
 export async function moveDriveFileToFolder(fileId: string, targetFolderId: string): Promise<MovedDriveFile> {
   const trimmedFileId = fileId.trim();
   const trimmedFolderId = targetFolderId.trim();
@@ -776,6 +855,14 @@ function buildDriveBrowserQuery(mode: DriveBrowserMode, search: string) {
 
 function driveQueryValue(value: string) {
   return value.trim().replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+}
+
+function cleanDriveFolderName(value: unknown) {
+  return String(value || "")
+    .replace(/[\\/:*?"<>|]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 160);
 }
 
 function driveBrowserItemToSelection(mode: DriveBrowserMode, item: DriveBrowserItem) {

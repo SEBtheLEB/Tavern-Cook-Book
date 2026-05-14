@@ -7,6 +7,7 @@ export interface DriveSettings {
   defaultCharactersFolderId: string;
   defaultWorldArtFolderId: string;
   defaultMarketingArtFolderId: string;
+  defaultArtVaultFolderId: string;
 }
 
 export interface DriveSettingsSecurityFinding {
@@ -21,7 +22,8 @@ const driveSettingLabels: Record<keyof DriveSettings, string> = {
   defaultTalesFolderId: "Default Tales of the Tavern Drive Folder ID",
   defaultCharactersFolderId: "Default Characters Folder ID",
   defaultWorldArtFolderId: "Default World Art Folder ID",
-  defaultMarketingArtFolderId: "Default Marketing Art Folder ID"
+  defaultMarketingArtFolderId: "Default Marketing Art Folder ID",
+  defaultArtVaultFolderId: "Default Art Vault Parent Folder ID"
 };
 
 export function createEmptyDriveSettings(): DriveSettings {
@@ -31,7 +33,8 @@ export function createEmptyDriveSettings(): DriveSettings {
     defaultTalesFolderId: "",
     defaultCharactersFolderId: "",
     defaultWorldArtFolderId: "",
-    defaultMarketingArtFolderId: ""
+    defaultMarketingArtFolderId: "",
+    defaultArtVaultFolderId: ""
   };
 }
 
@@ -92,7 +95,8 @@ export function normalizeDriveSettings(value: unknown): DriveSettings {
     defaultTalesFolderId: String(settings.defaultTalesFolderId ?? ""),
     defaultCharactersFolderId: String(settings.defaultCharactersFolderId ?? ""),
     defaultWorldArtFolderId: String(settings.defaultWorldArtFolderId ?? ""),
-    defaultMarketingArtFolderId: String(settings.defaultMarketingArtFolderId ?? "")
+    defaultMarketingArtFolderId: String(settings.defaultMarketingArtFolderId ?? ""),
+    defaultArtVaultFolderId: String(settings.defaultArtVaultFolderId ?? "")
   };
 }
 

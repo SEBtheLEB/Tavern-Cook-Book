@@ -26,6 +26,7 @@ import {
   normalizeCreatureArtVault
 } from "../utils/bestiary";
 import { isDriveConfigured, getDriveSettings, showDriveSetupMessage } from "../utils/driveSettings";
+import { artVaultFolderTarget, resolveArtVaultDriveFolder, type ArtVaultDriveFolderContext } from "../utils/artVaultDriveFolders";
 import { nowIso, slugify } from "../utils/entries";
 import {
   googleDriveFolderLink,
@@ -1811,39 +1812,24 @@ function CreatureArtVaultPage({
     setSlotDraft(null);
   };
 
-  const chooseVaultUploadFolder = async () => {
-    if (!isDriveConfigured()) {
-      showDriveSetupMessage();
-      return null;
+  const chooseSectionUploadFolder = async (sectionId: string) => {
+    const section = vault.sections.find((candidate) => candidate.id === sectionId);
+    if (!section) return;
+    const existing = uploadFolderForSection(section);
+    if (existing.id.trim() && section.driveFolderId) {
+      window.open(existing.link || googleDriveFolderLink(existing.id), "_blank", "noopener,noreferrer");
+      return;
     }
     try {
-      const folder = await openGoogleDriveFolderPicker("Choose Creature Art Upload Folder");
-      if (!folder) return null;
-      const target = { id: folder.id, link: folder.url, name: folder.name };
-      setVaultUploadFolder(target);
-      setMessage(`Upload target set to "${folder.name}".`);
-      return target;
+      setMessage(`Preparing ${section.title} folder in Google Drive...`);
+      const folder = artVaultFolderTarget(await resolveArtVaultDriveFolder(creatureArtVaultDriveContext(creature, section, activitySubjectType)));
+      setVaultUploadFolder(folder);
+      commitVault(updateVaultSectionDriveFolder(vault, sectionId, folder));
+      window.open(folder.link || googleDriveFolderLink(folder.id), "_blank", "noopener,noreferrer");
+      setMessage(`Opened "${folder.name}" in Google Drive.`);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not choose a Google Drive folder.");
-      return null;
+      setMessage(error instanceof Error ? error.message : "Could not open or create this Drive folder.");
     }
-  };
-
-  const chooseSectionUploadFolder = async (sectionId: string) => {
-    const folder = await chooseVaultUploadFolder();
-    if (!folder) return;
-    commitVault({
-      sections: vault.sections.map((section) =>
-        section.id === sectionId
-          ? {
-              ...section,
-              driveFolderId: folder.id,
-              driveFolderLink: folder.link,
-              driveFolderName: folder.name
-            }
-          : section
-      )
-    });
   };
 
   const uploadFolderForSection = (section?: ArtVaultSection) => {
@@ -1862,11 +1848,7 @@ function CreatureArtVaultPage({
       return;
     }
     const match = findVaultSlot(vault, ref);
-    const targetFolder = uploadFolderForSection(match?.section);
-    if (!targetFolder.id.trim()) {
-      const folder = await chooseVaultUploadFolder();
-      if (!folder) return;
-    }
+    if (!match) return;
     setUploadTarget(ref);
     uploadInputRef.current?.click();
   };
@@ -1886,10 +1868,9 @@ function CreatureArtVaultPage({
     setMessage(`Uploading "${file.name}" to Google Drive...`);
     try {
       const actionType = match.slot.image ? "replace" : "upload";
-      const targetFolder = uploadFolderForSection(match.section);
-      const targetFolderId = targetFolder.id.trim();
-      if (!targetFolderId) throw new Error("Choose a Google Drive folder before uploading.");
-      const uploaded = await uploadImageToDrive(file, targetFolderId, {
+      const targetFolder = artVaultFolderTarget(await resolveArtVaultDriveFolder(creatureArtVaultDriveContext(creature, match.section, activitySubjectType)));
+      const vaultWithFolder = updateVaultSectionDriveFolder(vault, match.section.id, targetFolder);
+      const uploaded = await uploadImageToDrive(file, targetFolder.id, {
         naming: {
           subjectName: creature.name,
           categoryName: match.section.title,
@@ -1899,7 +1880,7 @@ function CreatureArtVaultPage({
         }
       });
       const image = uploadedDriveFileToVaultImage(uploaded, match.slot.id, match.slot.requirementType, match.slot.notes, currentUser, targetFolder);
-      commitVault(assignImageToVaultSlot(vault, ref, image));
+      commitVault(assignImageToVaultSlot(vaultWithFolder, ref, image));
       recordArtVaultActivity({
         actionType,
         slotName: match.slot.label,
@@ -2136,8 +2117,8 @@ function CreatureArtVaultPage({
                 <button
                   className={`character-art-vault-section-folder ${section.driveFolderId ? "connected" : ""}`}
                   onClick={() => chooseSectionUploadFolder(section.id)}
-                  title={section.driveFolderId ? `Uploads in this section go to ${section.driveFolderName || section.driveFolderId}` : "Choose Drive folder for this section"}
-                  aria-label={`Choose Drive folder for ${section.title}`}
+                  title={section.driveFolderId ? `Open ${section.driveFolderName || section.driveFolderId} in Google Drive` : "Create and open Drive folder for this section"}
+                  aria-label={`Open Drive folder for ${section.title}`}
                 >
                   <Icon name="FolderOpen" className="h-4 w-4" />
                 </button>
@@ -2304,7 +2285,7 @@ function CreatureArtVaultPage({
                 <div className="character-art-vault-assigned-metadata">
                   <InfoLine label="Assigned Image" value={slotDraft.image?.title || "No art assigned"} />
                   <InfoLine label="Drive File ID" value={slotDraft.image?.driveFileId || "No Drive file ID"} />
-                  <InfoLine label="Upload Folder" value={uploadFolderForSection(vault.sections.find((section) => section.id === slotDraft.sectionId)).name || uploadFolderForSection(vault.sections.find((section) => section.id === slotDraft.sectionId)).id || "Choose folder before upload"} />
+                  <InfoLine label="Upload Folder" value={uploadFolderForSection(vault.sections.find((section) => section.id === slotDraft.sectionId)).name || uploadFolderForSection(vault.sections.find((section) => section.id === slotDraft.sectionId)).id || "Auto-created on upload"} />
                 </div>
               </div>
             </div>
@@ -2317,7 +2298,7 @@ function CreatureArtVaultPage({
                 </button>
                 <button className="character-codex-action-button" onClick={() => chooseSectionUploadFolder(slotDraft.sectionId)}>
                   <Icon name="FolderOpen" className="h-4 w-4" />
-                  Choose Folder
+                  Open Folder
                 </button>
                 <button className="character-codex-action-button" onClick={() => importDriveArtToSlot({ sectionId: slotDraft.sectionId, slotId: slotDraft.slotId })}>
                   <Icon name="Import" className="h-4 w-4" />
@@ -3188,6 +3169,18 @@ function updateVaultSection(vault: CharacterArtVault, sectionId: string, patch: 
   };
 }
 
+function updateVaultSectionDriveFolder(
+  vault: CharacterArtVault,
+  sectionId: string,
+  folder: { id?: string; link?: string; name?: string }
+) {
+  return updateVaultSection(vault, sectionId, {
+    driveFolderId: folder.id || "",
+    driveFolderLink: folder.link || "",
+    driveFolderName: folder.name || ""
+  });
+}
+
 function saveVaultSlotDraft(vault: CharacterArtVault, draft: VaultSlotDraft): CharacterArtVault {
   const moving = draft.targetSectionId !== draft.sectionId;
   const updatedSlot = (slot: ArtVaultSlot): ArtVaultSlot => ({
@@ -3354,6 +3347,20 @@ function driveFolderTargetForCreature(
       ? categoryFolder?.name || `${creature.category || "Bestiary"} Drive Folder`
       : "Default Tales Folder";
   return { id, link, name };
+}
+
+function creatureArtVaultDriveContext(
+  creature: BestiaryCreature,
+  section: ArtVaultSection,
+  subjectType = "creature"
+): ArtVaultDriveFolderContext {
+  const category = creature.category || creature.type || "Bestiary";
+  return {
+    sourceType: subjectType,
+    groupName: category,
+    subjectName: subjectType === "creature-category" ? `${category} Category Vault` : creature.name,
+    categoryName: section.title
+  };
 }
 
 function driveFolderForCreature(creature: BestiaryCreature, categoryFolder?: BestiaryDriveFolderTarget | null) {

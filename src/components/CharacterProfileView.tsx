@@ -16,6 +16,7 @@ import type {
   LoreEntry
 } from "../types";
 import { isDriveConfigured, showDriveSetupMessage } from "../utils/driveSettings";
+import { artVaultFolderTarget, resolveArtVaultDriveFolder, type ArtVaultDriveFolderContext } from "../utils/artVaultDriveFolders";
 import {
   isDefaultCharacterArtBoardCategoryId,
   normalizeArtVault,
@@ -2145,14 +2146,23 @@ function CharacterArtVaultView({
       showDriveSetupMessage();
       throw new Error("Google Drive is not connected yet.");
     }
-    const targetFolderId = (folderId || vaultUploadFolder.id || entry.driveFolderId).trim();
-    if (!targetFolderId) {
-      throw new Error("Set a Drive folder for this character before uploading art.");
+    const activeSection = slotDraft ? vault.sections.find((section) => section.id === slotDraft.sectionId) : undefined;
+    const resolvedFolder = activeSection && !folderId
+      ? artVaultFolderTarget(await resolveArtVaultDriveFolder(characterArtVaultDriveContext(entry, activeSection)))
+      : null;
+    const targetFolder = resolvedFolder || {
+      id: (folderId || vaultUploadFolder.id || entry.driveFolderId).trim(),
+      link: vaultUploadFolder.link || entry.driveFolderLink || googleDriveFolderLink(folderId || vaultUploadFolder.id || entry.driveFolderId || ""),
+      name: vaultUploadFolder.name || entry.title
+    };
+    if (!targetFolder.id) throw new Error("Set the Default Art Vault Parent Folder ID in Settings before uploading art.");
+    if (activeSection && resolvedFolder) {
+      saveVault(updateVaultSectionDriveFolder(vault, activeSection.id, resolvedFolder));
     }
-    const uploadedFile = await uploadImageToDrive(file, targetFolderId, {
+    const uploadedFile = await uploadImageToDrive(file, targetFolder.id, {
       naming: {
         subjectName: entry.title,
-        categoryName: "Art Vault",
+        categoryName: activeSection?.title || "Art Vault",
         slotName: slotLabel || slotDraft?.label || "Vault Slot",
         sourceType: "Character",
         state: assetState
@@ -2182,39 +2192,24 @@ function CharacterArtVaultView({
     setVaultMessage(`Linked "${item.title || "gallery art"}" to "${match.slot.label}".`);
   };
 
-  const chooseVaultUploadFolder = async () => {
-    if (!isDriveConfigured()) {
-      showDriveSetupMessage();
-      return null;
+  const chooseSectionUploadFolder = async (sectionId: string) => {
+    const section = vault.sections.find((candidate) => candidate.id === sectionId);
+    if (!section) return;
+    const existing = uploadFolderForSection(section);
+    if (existing.id.trim() && section.driveFolderId) {
+      window.open(existing.link || googleDriveFolderLink(existing.id), "_blank", "noopener,noreferrer");
+      return;
     }
     try {
-      const folder = await openGoogleDriveFolderPicker("Choose Art Vault Upload Folder");
-      if (!folder) return null;
-      const target = { id: folder.id, link: folder.url, name: folder.name };
-      setVaultUploadFolder(target);
-      setVaultMessage(`Upload target set to "${folder.name}".`);
-      return target;
+      setVaultMessage(`Preparing ${section.title} folder in Google Drive...`);
+      const folder = artVaultFolderTarget(await resolveArtVaultDriveFolder(characterArtVaultDriveContext(entry, section)));
+      setVaultUploadFolder(folder);
+      saveVault(updateVaultSectionDriveFolder(vault, sectionId, folder));
+      window.open(folder.link || googleDriveFolderLink(folder.id), "_blank", "noopener,noreferrer");
+      setVaultMessage(`Opened "${folder.name}" in Google Drive.`);
     } catch (error) {
-      setVaultMessage(error instanceof Error ? error.message : "Could not choose a Drive folder.");
-      return null;
+      setVaultMessage(error instanceof Error ? error.message : "Could not open or create this Drive folder.");
     }
-  };
-
-  const chooseSectionUploadFolder = async (sectionId: string) => {
-    const folder = await chooseVaultUploadFolder();
-    if (!folder) return;
-    saveVault({
-      sections: vault.sections.map((section) =>
-        section.id === sectionId
-          ? {
-              ...section,
-              driveFolderId: folder.id,
-              driveFolderLink: folder.link,
-              driveFolderName: folder.name
-            }
-          : section
-      )
-    });
   };
 
   const uploadFolderForSection = (section?: ArtVaultSection) => {
@@ -2232,11 +2227,7 @@ function CharacterArtVaultView({
       return;
     }
     const match = findVaultSlot(vault, ref);
-    const targetFolder = uploadFolderForSection(match?.section);
-    if (!targetFolder.id.trim()) {
-      const folder = await chooseVaultUploadFolder();
-      if (!folder) return;
-    }
+    if (!match) return;
     setUploadTarget(ref);
     vaultUploadInputRef.current?.click();
   };
@@ -2256,10 +2247,9 @@ function CharacterArtVaultView({
     setVaultMessage(`Uploading "${file.name}" to Google Drive...`);
     try {
       const actionType = match.slot.image ? "replace" : "upload";
-      const targetFolder = uploadFolderForSection(match.section);
-      const targetFolderId = targetFolder.id.trim();
-      if (!targetFolderId) throw new Error("Choose a Google Drive folder before uploading.");
-      const uploadedFile = await uploadImageToDrive(file, targetFolderId, {
+      const targetFolder = artVaultFolderTarget(await resolveArtVaultDriveFolder(characterArtVaultDriveContext(entry, match.section)));
+      const vaultWithFolder = updateVaultSectionDriveFolder(vault, match.section.id, targetFolder);
+      const uploadedFile = await uploadImageToDrive(file, targetFolder.id, {
         naming: {
           subjectName: entry.title,
           categoryName: match.section.title,
@@ -2277,7 +2267,7 @@ function CharacterArtVaultView({
         targetFolder
       );
       const vaultImage = uploadedDriveFileToVaultImage(uploadedFile, match.slot.id, match.slot.requirementType, match.slot.notes, currentUser, targetFolder);
-      saveVault(assignImageToVaultSlot(vault, ref, vaultImage), {
+      saveVault(assignImageToVaultSlot(vaultWithFolder, ref, vaultImage), {
         artGallery: galleryWithItemIfMissing(artGallery, uploadedItem)
       });
       recordArtVaultActivity({
@@ -2583,8 +2573,8 @@ function CharacterArtVaultView({
                 <button
                   className={`character-art-vault-section-folder ${section.driveFolderId ? "connected" : ""}`}
                   onClick={() => chooseSectionUploadFolder(section.id)}
-                  title={section.driveFolderId ? `Uploads in this section go to ${section.driveFolderName || section.driveFolderId}` : "Choose Drive folder for this section"}
-                  aria-label={`Choose Drive folder for ${section.title}`}
+                  title={section.driveFolderId ? `Open ${section.driveFolderName || section.driveFolderId} in Google Drive` : "Create and open Drive folder for this section"}
+                  aria-label={`Open Drive folder for ${section.title}`}
                 >
                   <Icon name="FolderOpen" className="h-4 w-4" />
                 </button>
@@ -2772,9 +2762,9 @@ function CharacterArtVaultView({
           imageFit={slotDraft.image.imageFit}
           aspectRatio="4 / 3"
           previewFrame={slotImageAdjustFrame}
-          driveFolderId={uploadFolderForSection(vault.sections.find((section) => section.id === slotDraft.sectionId)).id}
-          driveFolderLink={uploadFolderForSection(vault.sections.find((section) => section.id === slotDraft.sectionId)).link}
-          driveFolderName={uploadFolderForSection(vault.sections.find((section) => section.id === slotDraft.sectionId)).name}
+          driveFolderId={vault.sections.find((section) => section.id === slotDraft.sectionId)?.driveFolderId || ""}
+          driveFolderLink={vault.sections.find((section) => section.id === slotDraft.sectionId)?.driveFolderLink || ""}
+          driveFolderName={vault.sections.find((section) => section.id === slotDraft.sectionId)?.driveFolderName || ""}
           onSave={saveSlotImageAdjustment}
           onCancel={() => {
             setSlotImageAdjustOpen(false);
@@ -3020,7 +3010,7 @@ function CharacterArtVaultSlotModal({
             <div className="character-art-vault-assigned-metadata">
               <InfoRow label="Assigned Image" value={draft.image?.title || "No art assigned"} />
               <InfoRow label="Drive File ID" value={draft.image?.driveFileId || "No Drive file ID"} />
-              <InfoRow label="Upload Folder" value={uploadFolder.name || uploadFolder.id || "Choose folder before upload"} />
+              <InfoRow label="Upload Folder" value={uploadFolder.name || uploadFolder.id || "Auto-created on upload"} />
               <InfoRow label="Date Added" value={formatGalleryDate(draft.image?.dateAdded || "")} />
             </div>
           </div>
@@ -3035,7 +3025,7 @@ function CharacterArtVaultSlotModal({
             </button>
             <button className="character-codex-action-button" onClick={onChooseUploadFolder}>
               <Icon name="FolderOpen" className="h-4 w-4" />
-              Choose Folder
+              Open Folder
             </button>
             <button className="character-codex-action-button" onClick={onImport}>
               <Icon name="Import" className="h-4 w-4" />
@@ -4508,6 +4498,15 @@ function artVaultSectionIcon(title: string) {
   return "Archive";
 }
 
+function characterArtVaultDriveContext(entry: LoreEntry, section: ArtVaultSection): ArtVaultDriveFolderContext {
+  return {
+    sourceType: "character",
+    groupName: "Characters",
+    subjectName: entry.title,
+    categoryName: section.title
+  };
+}
+
 function artVaultSlotMatches(slot: ArtVaultSlot, search: string, filter: string) {
   const normalizedFilter = filter.toLowerCase();
   const status = artVaultSlotStatus(slot);
@@ -4667,6 +4666,25 @@ function assignImageToVaultSlot(vault: CharacterArtVault, ref: VaultSlotRef, ima
                 ? { ...slot, image: { ...image, slotId: slot.id }, status: "uploaded" }
                 : slot
             )
+          }
+        : section
+    )
+  };
+}
+
+function updateVaultSectionDriveFolder(
+  vault: CharacterArtVault,
+  sectionId: string,
+  folder: { id?: string; link?: string; name?: string }
+): CharacterArtVault {
+  return {
+    sections: vault.sections.map((section) =>
+      section.id === sectionId
+        ? {
+            ...section,
+            driveFolderId: folder.id || "",
+            driveFolderLink: folder.link || "",
+            driveFolderName: folder.name || ""
           }
         : section
     )

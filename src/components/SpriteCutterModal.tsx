@@ -33,6 +33,7 @@ export interface SpriteCutterSlotContext {
   defaultFolderLink?: string;
   defaultFolderName?: string;
   uploadNameContext?: DriveUploadNameContext;
+  resolveUploadFolder?: () => Promise<GoogleDriveFolder | null>;
   spriteAnimation?: SpriteAnimationSlotReference;
 }
 
@@ -42,6 +43,9 @@ interface SpriteCutterModalProps {
   onAdd: (patch: {
     imageUrl: string;
     webViewLink: string;
+    defaultFolderId?: string;
+    defaultFolderLink?: string;
+    defaultFolderName?: string;
     spriteAnimation: SpriteAnimationSlotReference;
   }) => void;
 }
@@ -314,6 +318,9 @@ export function SpriteCutterModal({ slot, onClose, onAdd }: SpriteCutterModalPro
     onAdd({
       imageUrl: updatedAsset.thumbnailUrl || updatedAsset.driveUrl,
       webViewLink: updatedAsset.driveUrl || googleDriveWebViewLink(updatedAsset.driveFileId),
+      defaultFolderId: updatedAsset.folderId,
+      defaultFolderLink: updatedAsset.folderLink,
+      defaultFolderName: updatedAsset.folderName,
       spriteAnimation: {
         mode: "spriteAnimation",
         spriteSheetAssetId: updatedAsset.id,
@@ -362,6 +369,7 @@ export function SpriteCutterModal({ slot, onClose, onAdd }: SpriteCutterModalPro
             defaultFolderId={draft.folderId}
             defaultFolderLink={draft.folderLink}
             defaultFolderName={draft.folderName}
+            resolveUploadFolder={slot.resolveUploadFolder}
             uploadAssetState={draft.uploadState}
             showUploadState
             uploadFileName={(file) => buildSpriteSheetUploadFileName({ category: draft.category, assetName: draft.assetName, animationName: settings.animationName }, file.name)}

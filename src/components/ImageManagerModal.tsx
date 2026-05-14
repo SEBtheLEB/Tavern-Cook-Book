@@ -10,7 +10,7 @@ import {
   normalizeImageFit,
   resolveImageSourceUrl
 } from "../utils/imageFit";
-import type { DriveUploadNameContext } from "../utils/googlePicker";
+import type { DriveUploadNameContext, GoogleDriveFolder } from "../utils/googlePicker";
 import { CustomSelect } from "./CustomSelect";
 import { DriveImageSourceControls } from "./DriveImageSourceControls";
 import { loadSpriteSheetAssets } from "../utils/spriteSheets";
@@ -33,6 +33,7 @@ export interface ImageManagerSlot {
   defaultFolderLink?: string;
   defaultFolderName?: string;
   uploadNameContext?: DriveUploadNameContext;
+  resolveUploadFolder?: () => Promise<GoogleDriveFolder | null>;
   showAssetState?: boolean;
   assetState?: "wip" | "final";
   spriteAnimation?: SpriteAnimationSlotReference;
@@ -245,6 +246,12 @@ function ManagedImageSlotCard({
           }}
           showUploadState={slot.showAssetState}
           uploadAssetState={slot.assetState || "wip"}
+          resolveUploadFolder={slot.resolveUploadFolder}
+          onFolderChange={(folder) => onChange({
+            defaultFolderId: folder.id,
+            defaultFolderLink: folder.url,
+            defaultFolderName: folder.name
+          })}
           onUploadAssetStateChange={(assetState) => onChange({ assetState })}
           onChange={(imageUrl) => {
             const resolved = resolveImageSourceUrl(imageUrl);
