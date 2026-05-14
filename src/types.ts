@@ -1,4 +1,6 @@
-﻿export type ThemeMode = "light" | "dream";
+import type { AssignmentRecord, QuestCategory, TeamMember, UserProfile } from "./utils/assignments";
+
+export type ThemeMode = "light" | "dream";
 
 export type EntryStatus =
   | "Canon"
@@ -438,6 +440,10 @@ export interface LoreDatabase {
   bestiary: BestiaryCreature[];
   bestiaryCategoryVaults: BestiaryCategoryArtVault[];
   worldBuilding: WorldBuildingData;
+  assignments: AssignmentRecord[];
+  teamMembers: TeamMember[];
+  userProfiles: UserProfile[];
+  questCategories: QuestCategory[];
   backups: LoreBackup[];
   lastAiBackupId?: string;
   branding: {

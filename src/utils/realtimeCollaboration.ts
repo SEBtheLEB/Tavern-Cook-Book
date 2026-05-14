@@ -96,6 +96,10 @@ export function mergeDatabaseChange(
       next.bestiaryCategoryVaults || [],
       remote.bestiaryCategoryVaults || []
     ),
+    assignments: mergeRecordArray(previous.assignments || [], next.assignments || [], remote.assignments || []),
+    teamMembers: mergeRecordArray(previous.teamMembers || [], next.teamMembers || [], remote.teamMembers || []),
+    userProfiles: mergeUserProfiles(previous.userProfiles || [], next.userProfiles || [], remote.userProfiles || []),
+    questCategories: mergeRecordArray(previous.questCategories || [], next.questCategories || [], remote.questCategories || []),
     branding: sameValue(previous.branding, next.branding) ? remote.branding : next.branding,
     worldBuilding
   });
@@ -145,4 +149,24 @@ function mergeRecordArray<T extends { id: string }>(previousItems: T[], nextItem
 
 function sameValue(left: unknown, right: unknown) {
   return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function mergeUserProfiles(
+  previousItems: Array<{ userId: string; email: string }>,
+  nextItems: Array<{ userId: string; email: string }>,
+  remoteItems: Array<{ userId: string; email: string }>
+) {
+  return mergeRecordArray(
+    previousItems.map(withUserProfileMergeId),
+    nextItems.map(withUserProfileMergeId),
+    remoteItems.map(withUserProfileMergeId)
+  ).map(({ __mergeId, ...profile }) => profile);
+}
+
+function withUserProfileMergeId<T extends { userId: string; email: string }>(profile: T) {
+  return {
+    ...profile,
+    id: profile.userId || profile.email,
+    __mergeId: profile.userId || profile.email
+  };
 }

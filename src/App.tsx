@@ -94,6 +94,9 @@ import {
 import type { RealtimeTarget, RealtimeUserSummary } from "./utils/realtimeCollaboration";
 import {
   type AssignmentRecord,
+  type QuestCategory,
+  type TeamMember,
+  type UserProfile,
   getAssignments,
   getAssignmentsForUser,
   getQuestCategories,
@@ -244,10 +247,13 @@ export default function App() {
   const [worldBuildingFocus, setWorldBuildingFocus] = useState<WorldBuildingFocusTarget | null>(null);
   const [assignMode, setAssignMode] = useState(false);
   const [focusedAssignment, setFocusedAssignment] = useState<AssignmentRecord | null>(null);
-  const [assignments, setAssignments] = useState(() => getAssignments());
-  const [teamMembers, setTeamMembers] = useState(() => getTeamMembers());
-  const [userProfiles, setUserProfiles] = useState(() => getUserProfiles());
-  const [questCategories, setQuestCategories] = useState(() => getQuestCategories());
+  const [assignments, setAssignmentsState] = useState<AssignmentRecord[]>(() => {
+    const localAssignments = getAssignments();
+    return localAssignments.length ? localAssignments : database.assignments || [];
+  });
+  const [teamMembers, setTeamMembersState] = useState<TeamMember[]>(() => getTeamMembers());
+  const [userProfiles, setUserProfilesState] = useState<UserProfile[]>(() => getUserProfiles());
+  const [questCategories, setQuestCategoriesState] = useState<QuestCategory[]>(() => getQuestCategories());
   const [favorites, setFavorites] = useState(() => loadFavorites());
   const [publishedDatabase, setPublishedDatabase] = useState<LoreDatabase>(() => createStarterDatabase());
   const [publishedReady, setPublishedReady] = useState(false);
@@ -737,6 +743,76 @@ export default function App() {
   useEffect(() => {
     saveQuestCategories(questCategories);
   }, [questCategories]);
+
+  useEffect(() => {
+    const sharedAssignments = assignmentBundleFromDatabase(database);
+    const localAssignments = { assignments, teamMembers, userProfiles, questCategories };
+    if (assignmentBundleHash(sharedAssignments) === assignmentBundleHash(localAssignments)) return;
+
+    if (
+      currentUser?.role === "admin" &&
+      canWriteTeamDatabase &&
+      !readOnly &&
+      !sharedAssignments.assignments.length &&
+      localAssignments.assignments.length
+    ) {
+      setDatabase((current) => ({
+        ...current,
+        ...localAssignments
+      }));
+      return;
+    }
+
+    setAssignmentsState(sharedAssignments.assignments);
+    setTeamMembersState(sharedAssignments.teamMembers);
+    setUserProfilesState(sharedAssignments.userProfiles);
+    setQuestCategoriesState(sharedAssignments.questCategories);
+  }, [
+    database.assignments,
+    database.teamMembers,
+    database.userProfiles,
+    database.questCategories,
+    currentUser?.role,
+    canWriteTeamDatabase,
+    readOnly,
+    setDatabase
+  ]);
+
+  const saveAssignmentBundleToDatabase = useCallback((patch: Partial<AssignmentSyncBundle>) => {
+    if (readOnly) return;
+    setDatabase((current) => ({
+      ...current,
+      assignments,
+      teamMembers,
+      userProfiles,
+      questCategories,
+      ...patch
+    }));
+  }, [assignments, teamMembers, userProfiles, questCategories, readOnly, setDatabase]);
+
+  const setAssignments = useCallback((next: AssignmentRecord[]) => {
+    saveAssignments(next);
+    setAssignmentsState(next);
+    saveAssignmentBundleToDatabase({ assignments: next });
+  }, [saveAssignmentBundleToDatabase]);
+
+  const setTeamMembers = useCallback((next: TeamMember[]) => {
+    saveTeamMembers(next);
+    setTeamMembersState(next);
+    saveAssignmentBundleToDatabase({ teamMembers: next });
+  }, [saveAssignmentBundleToDatabase]);
+
+  const setUserProfiles = useCallback((next: UserProfile[]) => {
+    saveUserProfiles(next);
+    setUserProfilesState(next);
+    saveAssignmentBundleToDatabase({ userProfiles: next });
+  }, [saveAssignmentBundleToDatabase]);
+
+  const setQuestCategories = useCallback((next: QuestCategory[]) => {
+    saveQuestCategories(next);
+    setQuestCategoriesState(next);
+    saveAssignmentBundleToDatabase({ questCategories: next });
+  }, [saveAssignmentBundleToDatabase]);
 
   useEffect(() => {
     saveAppSyncSettings(appSyncSettings);
@@ -2823,6 +2899,21 @@ function clearPendingTeamChange(savedHash = "") {
   } catch {
     // Clearing this marker is best-effort.
   }
+}
+
+type AssignmentSyncBundle = Pick<LoreDatabase, "assignments" | "teamMembers" | "userProfiles" | "questCategories">;
+
+function assignmentBundleFromDatabase(database: LoreDatabase): AssignmentSyncBundle {
+  return {
+    assignments: database.assignments || [],
+    teamMembers: database.teamMembers || [],
+    userProfiles: database.userProfiles || [],
+    questCategories: database.questCategories || []
+  };
+}
+
+function assignmentBundleHash(bundle: AssignmentSyncBundle) {
+  return JSON.stringify(bundle);
 }
 
 function SyncConflictModal({

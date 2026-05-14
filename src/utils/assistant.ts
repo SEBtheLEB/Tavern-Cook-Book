@@ -1053,6 +1053,10 @@ const setDatabaseValue = (
           bestiaryCategoryVaults: [],
           worldBuilding: createEmptyWorldBuilding(),
           backups: [],
+          assignments: [],
+          teamMembers: [],
+          userProfiles: [],
+          questCategories: [],
           branding: { studioName: "STL Productionz" }
         }).entries[0] as LoreEntry;
         if (!safeSetDeepValue(next as unknown as Record<string, unknown>, action.path, action.newValue)) return entry;
@@ -1074,6 +1078,10 @@ const setDatabaseValue = (
           bestiaryCategoryVaults: [],
           worldBuilding: createEmptyWorldBuilding(),
           backups: [],
+          assignments: [],
+          teamMembers: [],
+          userProfiles: [],
+          questCategories: [],
           branding: { studioName: "STL Productionz" }
         }).bestiary[0] as BestiaryCreature;
         if (!safeSetDeepValue(next as unknown as Record<string, unknown>, action.path, action.newValue)) return creature;
@@ -1111,6 +1119,10 @@ const setDatabaseValue = (
           bestiaryCategoryVaults: [vault],
           worldBuilding: createEmptyWorldBuilding(),
           backups: [],
+          assignments: [],
+          teamMembers: [],
+          userProfiles: [],
+          questCategories: [],
           branding: { studioName: "STL Productionz" }
         }).bestiaryCategoryVaults[0] as BestiaryCategoryArtVault;
         if (!safeSetDeepValue(next as unknown as Record<string, unknown>, action.path, action.newValue)) return vault;
@@ -1466,6 +1478,10 @@ const applyAction = (database: LoreDatabase, action: AssistantAction): LoreDatab
         bestiaryCategoryVaults: [],
         worldBuilding: createEmptyWorldBuilding(),
         backups: [],
+        assignments: [],
+        teamMembers: [],
+        userProfiles: [],
+        questCategories: [],
         branding: { studioName: "STL Productionz" }
       }).entries[0] as LoreEntry;
       if (!safeSetDeepValue(next as unknown as Record<string, unknown>, action.field, action.newValue)) return entry;
@@ -1714,6 +1730,10 @@ export const undoLastAiChange = (database: LoreDatabase): LoreDatabase | null =>
       bestiaryCategoryVaults: database.bestiaryCategoryVaults || [],
       worldBuilding: database.worldBuilding || createEmptyWorldBuilding(),
       backups: [],
+      assignments: [],
+      teamMembers: [],
+      userProfiles: [],
+      questCategories: [],
       branding: database.branding
     }).entries,
     bestiary: backup.bestiary
@@ -1724,6 +1744,10 @@ export const undoLastAiChange = (database: LoreDatabase): LoreDatabase | null =>
           bestiaryCategoryVaults: backup.bestiaryCategoryVaults || database.bestiaryCategoryVaults || [],
           worldBuilding: backup.worldBuilding || database.worldBuilding || createEmptyWorldBuilding(),
           backups: [],
+          assignments: [],
+          teamMembers: [],
+          userProfiles: [],
+          questCategories: [],
           branding: database.branding
         }).bestiary
       : database.bestiary,

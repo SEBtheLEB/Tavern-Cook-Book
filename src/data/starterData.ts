@@ -2,6 +2,7 @@ import type { BestiaryCategoryArtVault, BestiaryCreature, LoreDatabase, LoreEntr
 import { normalizeEntry, slugify } from "../utils/entries";
 import { createBestiaryCategoryArtVaultRecord, normalizeBestiaryCreature } from "../utils/bestiary";
 import { createStarterWorldBuilding } from "../utils/worldBuilding";
+import { defaultQuestCategories, defaultTeamMembers } from "../utils/assignments";
 
 const stamp = "2026-05-07T00:00:00.000Z";
 
@@ -3629,6 +3630,10 @@ export const createStarterDatabase = (): LoreDatabase => ({
   bestiary: starterBestiary.map((item) => JSON.parse(JSON.stringify(item)) as BestiaryCreature),
   bestiaryCategoryVaults: starterBestiaryCategoryVaults.map((item) => JSON.parse(JSON.stringify(item)) as BestiaryCategoryArtVault),
   worldBuilding: createStarterWorldBuilding(starterEntries, starterBestiary),
+  assignments: [],
+  teamMembers: defaultTeamMembers.map((item) => JSON.parse(JSON.stringify(item))),
+  userProfiles: [],
+  questCategories: defaultQuestCategories.map((item) => JSON.parse(JSON.stringify(item))),
   backups: [],
   branding: {
     studioName: "STL Productionz"

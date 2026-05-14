@@ -127,11 +127,11 @@ export const defaultTeamMembers: TeamMember[] = [
 ];
 
 export function getAssignments() {
-  return readArray<AssignmentRecord>(ASSIGNMENTS_KEY).map(normalizeAssignment).filter(Boolean) as AssignmentRecord[];
+  return normalizeAssignments(readArray<AssignmentRecord>(ASSIGNMENTS_KEY));
 }
 
 export function saveAssignments(assignments: AssignmentRecord[]) {
-  writeJson(ASSIGNMENTS_KEY, assignments.map(normalizeAssignment).filter(Boolean));
+  writeJson(ASSIGNMENTS_KEY, normalizeAssignments(assignments));
 }
 
 export function createAssignment(
@@ -211,22 +211,19 @@ export function saveTeamMembers(members: TeamMember[]) {
 }
 
 export function getQuestCategories() {
-  const saved = readArray<QuestCategory>(QUEST_CATEGORIES_KEY).map(normalizeQuestCategory).filter(Boolean) as QuestCategory[];
-  const byId = new Map<string, QuestCategory>();
-  [...defaultQuestCategories, ...saved].forEach((category) => byId.set(category.id, category));
-  return [...byId.values()].sort((left, right) => left.order - right.order);
+  return normalizeQuestCategories(readArray<QuestCategory>(QUEST_CATEGORIES_KEY));
 }
 
 export function saveQuestCategories(categories: QuestCategory[]) {
-  writeJson(QUEST_CATEGORIES_KEY, categories.map(normalizeQuestCategory).filter(Boolean));
+  writeJson(QUEST_CATEGORIES_KEY, normalizeQuestCategories(categories));
 }
 
 export function getUserProfiles() {
-  return readArray<UserProfile>(USER_PROFILES_KEY).map(normalizeUserProfile).filter(Boolean) as UserProfile[];
+  return normalizeUserProfiles(readArray<UserProfile>(USER_PROFILES_KEY));
 }
 
 export function saveUserProfiles(profiles: UserProfile[]) {
-  writeJson(USER_PROFILES_KEY, profiles.map(normalizeUserProfile).filter(Boolean));
+  writeJson(USER_PROFILES_KEY, normalizeUserProfiles(profiles));
 }
 
 export function getCurrentUserProfile(user: GoogleAccountUser, members = getTeamMembers(), profiles = getUserProfiles()): UserProfile {
@@ -295,6 +292,10 @@ export function slugifyAssignment(value: string) {
     .slice(0, 80) || `category-${Date.now()}`;
 }
 
+export function normalizeAssignments(assignments: unknown[]) {
+  return assignments.map(normalizeAssignment).filter((assignment): assignment is AssignmentRecord => Boolean(assignment));
+}
+
 function normalizeAssignment(value: unknown): AssignmentRecord | null {
   if (!value || typeof value !== "object") return null;
   const item = value as Partial<AssignmentRecord>;
@@ -326,7 +327,7 @@ function normalizeAssignment(value: unknown): AssignmentRecord | null {
   };
 }
 
-function normalizeTeamMembers(members: unknown[]) {
+export function normalizeTeamMembers(members: unknown[]) {
   const byId = new Map<string, TeamMember>();
   members
     .map(normalizeTeamMember)
@@ -336,6 +337,17 @@ function normalizeTeamMembers(members: unknown[]) {
     if (!byId.has(member.id)) byId.set(member.id, member);
   });
   return [...byId.values()];
+}
+
+export function normalizeQuestCategories(categories: unknown[]) {
+  const saved = categories.map(normalizeQuestCategory).filter((category): category is QuestCategory => Boolean(category));
+  const byId = new Map<string, QuestCategory>();
+  [...defaultQuestCategories, ...saved].forEach((category) => byId.set(category.id, category));
+  return [...byId.values()].sort((left, right) => left.order - right.order);
+}
+
+export function normalizeUserProfiles(profiles: unknown[]) {
+  return profiles.map(normalizeUserProfile).filter((profile): profile is UserProfile => Boolean(profile));
 }
 
 function normalizeTeamMember(value: unknown): TeamMember | null {

@@ -16,6 +16,7 @@ import {
   sanitizeBestiaryCategoryArtVaultForPersistence,
   sanitizeBestiaryCreatureForPersistence
 } from "./bestiary";
+import { normalizeAssignments, normalizeQuestCategories, normalizeTeamMembers, normalizeUserProfiles } from "./assignments";
 import { cloneDatabase, normalizeEntry, nowIso } from "./entries";
 import { normalizeImageFit } from "./imageFit";
 import { createStarterWorldBuilding, normalizeWorldBuilding, sanitizeWorldBuildingForPersistence } from "./worldBuilding";
@@ -210,6 +211,18 @@ export const migrateDatabase = (value: unknown): LoreDatabase => {
   let worldBuilding = incoming.worldBuilding
     ? normalizeWorldBuilding(incoming.worldBuilding)
     : createStarterWorldBuilding(entries, bestiary);
+  const assignments = Array.isArray(incoming.assignments)
+    ? normalizeAssignments(incoming.assignments)
+    : starter.assignments || [];
+  const teamMembers = Array.isArray(incoming.teamMembers)
+    ? normalizeTeamMembers(incoming.teamMembers)
+    : starter.teamMembers || [];
+  const userProfiles = Array.isArray(incoming.userProfiles)
+    ? normalizeUserProfiles(incoming.userProfiles)
+    : starter.userProfiles || [];
+  const questCategories = Array.isArray(incoming.questCategories)
+    ? normalizeQuestCategories(incoming.questCategories)
+    : starter.questCategories || [];
 
   if (needsLoreExpansion) {
     entries = mergeLoreExpansionEntries(entries, starter.entries);
@@ -229,6 +242,10 @@ export const migrateDatabase = (value: unknown): LoreDatabase => {
     bestiary,
     bestiaryCategoryVaults,
     worldBuilding,
+    assignments,
+    teamMembers,
+    userProfiles,
+    questCategories,
     backups: Array.isArray(incoming.backups)
       ? incoming.backups
           .filter((backup) => backup && Array.isArray((backup as LoreBackup).entries))
@@ -522,6 +539,10 @@ export const sanitizeDatabaseForPersistence = (database: LoreDatabase): LoreData
     sanitizeBestiaryCategoryArtVaultForPersistence(normalizeBestiaryCategoryArtVault(vault, vault.categoryName, database.bestiary || []))
   ),
   worldBuilding: sanitizeWorldBuildingForPersistence(database.worldBuilding),
+  assignments: normalizeAssignments(database.assignments || []),
+  teamMembers: normalizeTeamMembers(database.teamMembers || []),
+  userProfiles: normalizeUserProfiles(database.userProfiles || []),
+  questCategories: normalizeQuestCategories(database.questCategories || []),
   backups: (database.backups || []).map((backup) => {
     const sanitizedBackup: LoreBackup = {
       ...backup,
