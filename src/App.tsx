@@ -189,9 +189,10 @@ interface AdminBaselineReview {
 }
 
 const EXPLICIT_REMOVALS_KEY = "tavern-cook-book:explicit-removals";
+const PENDING_TEAM_CHANGE_KEY = "tavern-cook-book:pending-team-change";
 const LIVE_TEAM_SYNC = true;
 const REALTIME_DATABASE_SYNC = false;
-const LIVE_SYNC_AUTOSAVE_DELAY_MS = 900;
+const LIVE_SYNC_AUTOSAVE_DELAY_MS = 250;
 const LIVE_SYNC_POLL_MS = 1200;
 const LIVE_BACKUP_SAVE_DELAY_MS = 12_000;
 
@@ -285,6 +286,7 @@ export default function App() {
   const lastPublishedHashRef = useRef("");
   const lastPublishedDatabaseRef = useRef<LoreDatabase>(createStarterDatabase());
   const lastDraftUpdatedAtRef = useRef("");
+  const pendingTeamChangeHashRef = useRef(loadPendingTeamChange().hash);
   const syncSettingsSaveTimerRef = useRef<number | null>(null);
   const currentRole = currentUser?.role || "viewer";
   const canEdit = roleCanEdit(currentRole);
@@ -304,7 +306,11 @@ export default function App() {
     databaseRef.current = next;
     setLocalDatabase(next);
     if (options.source === "remote") return;
-  }, [hostedViewer, readOnly]);
+    if (LIVE_TEAM_SYNC && currentUser && !hostedViewer && !readOnly) {
+      const pending = savePendingTeamChange(next);
+      pendingTeamChangeHashRef.current = pending.hash;
+    }
+  }, [currentUser?.email, hostedViewer, readOnly]);
   useEffect(() => {
     databaseRef.current = database;
   }, [database]);
@@ -420,7 +426,11 @@ export default function App() {
     if (!publishedReady) return;
     if (!currentUser || readOnly || hostedViewer || remoteLoadRef.current || realtimeRemoteLoadRef.current) return;
     const nextHash = databaseSyncHash(database);
-    if (nextHash === lastDraftHashRef.current) return;
+    if (nextHash === lastDraftHashRef.current && nextHash !== pendingTeamChangeHashRef.current) return;
+    if (LIVE_TEAM_SYNC) {
+      const pending = savePendingTeamChange(database);
+      pendingTeamChangeHashRef.current = pending.hash;
+    }
 
     setCloudSync((current) => ({
       ...current,
@@ -429,9 +439,11 @@ export default function App() {
     }));
 
     const timer = window.setTimeout(() => {
+      const databaseToSave = databaseRef.current;
+      const databaseToSaveHash = databaseSyncHash(databaseToSave);
       const save = LIVE_TEAM_SYNC
-        ? savePublishedDatabase(currentUser.email, database)
-        : saveUserDraft(currentUser.email, database);
+        ? savePublishedDatabase(currentUser.email, databaseToSave)
+        : saveUserDraft(currentUser.email, databaseToSave);
 
       void save
         .then((result) => {
@@ -452,6 +464,11 @@ export default function App() {
             lastPublishedDatabaseRef.current = savedDatabase;
             lastPublishedHashRef.current = savedHash;
             savePublishedSyncState(savedDatabase, result.envelope.updatedAt);
+            if (pendingTeamChangeHashRef.current === savedHash || pendingTeamChangeHashRef.current === databaseToSaveHash) {
+              pendingTeamChangeHashRef.current = "";
+              clearPendingTeamChange(databaseToSaveHash);
+              clearPendingTeamChange(savedHash);
+            }
           }
           lastDraftHashRef.current = savedHash;
           lastDraftUpdatedAtRef.current = result.envelope.updatedAt;
@@ -602,7 +619,18 @@ export default function App() {
           if (remotePublishedHash === lastPublishedHashRef.current) return;
 
           if (LIVE_TEAM_SYNC) {
-            const localHash = databaseSyncHash(database);
+            const localHash = databaseSyncHash(databaseRef.current);
+            const pendingHash = pendingTeamChangeHashRef.current || loadPendingTeamChange().hash;
+            if (pendingHash && localHash === pendingHash) {
+              setCloudSync((current) => ({
+                ...current,
+                message: "Saving your latest edit before loading team changes."
+              }));
+              return;
+            }
+            if (lastDraftUpdatedAtRef.current && !isSyncDateAfter(result.envelope.updatedAt, lastDraftUpdatedAtRef.current)) {
+              return;
+            }
             if (!readOnly && localHash !== lastDraftHashRef.current) {
               setCloudSync((current) => ({
                 ...current,
@@ -749,9 +777,7 @@ export default function App() {
   useEffect(() => {
     if (!currentUser || hostedViewer) return;
     let cancelled = false;
-    const localDatabase = currentUser.role === "admin"
-      ? initialLocalDatabaseRef.current || database
-      : database;
+    const localDatabase = initialLocalDatabaseRef.current || database;
 
     const loadRemoteState = async () => {
       setPublishedReady(false);
@@ -801,9 +827,17 @@ export default function App() {
       const draftEnvelope = !LIVE_TEAM_SYNC && canEdit && draftResult?.ok ? draftResult.envelope : null;
       const remotePublishedHash = databaseSyncHash(remotePublished);
       const localDatabaseHash = databaseSyncHash(localDatabase);
+      const pendingTeamChange = loadPendingTeamChange();
+      const shouldKeepPendingLocalChange =
+        LIVE_TEAM_SYNC &&
+        canEdit &&
+        Boolean(pendingTeamChange.hash) &&
+        pendingTeamChange.hash === localDatabaseHash &&
+        (!publishedEnvelope || isSyncDateAfter(pendingTeamChange.updatedAt, publishedEnvelope.updatedAt));
       const shouldReviewAdminBaseline =
         LIVE_TEAM_SYNC &&
         currentUser.role === "admin" &&
+        !shouldKeepPendingLocalChange &&
         !adminBaselinePromptedRef.current &&
         publishedEnvelope &&
         localDatabaseHash !== remotePublishedHash &&
@@ -830,7 +864,7 @@ export default function App() {
         ? mergeDraftOntoPublished(draftDatabase, remotePublished, explicitRemovalSet)
         : null;
       const chosenDatabase = LIVE_TEAM_SYNC
-        ? (publishedEnvelope ? remotePublished : localDatabase)
+        ? (shouldKeepPendingLocalChange ? localDatabase : (publishedEnvelope ? remotePublished : localDatabase))
         : mergedDraft?.database || draftDatabase || (publishedEnvelope ? remotePublished : localDatabase);
       const chosenHash = databaseSyncHash(chosenDatabase);
 
@@ -846,14 +880,19 @@ export default function App() {
         remoteLoadRef.current = false;
       }, 0);
 
-      lastDraftHashRef.current = chosenHash;
+      if (shouldKeepPendingLocalChange) {
+        pendingTeamChangeHashRef.current = pendingTeamChange.hash;
+      }
+      lastDraftHashRef.current = shouldKeepPendingLocalChange ? remotePublishedHash : chosenHash;
       lastDraftUpdatedAtRef.current = LIVE_TEAM_SYNC
         ? publishedEnvelope?.updatedAt || ""
         : latestSyncDate(publishedEnvelope?.updatedAt || "", draftEnvelope?.updatedAt || "");
       setCloudSync({
         phase: publishedEnvelope || draftEnvelope ? "saved" : "idle",
         message: LIVE_TEAM_SYNC
-          ? publishedEnvelope
+          ? shouldKeepPendingLocalChange
+            ? "Loaded your latest browser edit and saving it to the team."
+            : publishedEnvelope
             ? `Loaded live team database saved ${new Date(publishedEnvelope.updatedAt).toLocaleString()}.`
             : "Live sync is ready. Your next edit will save for the team."
           : mergedDraft?.privateCount
@@ -2206,6 +2245,12 @@ function latestSyncDate(left = "", right = "") {
   return new Date(left).getTime() >= new Date(right).getTime() ? left : right;
 }
 
+function isSyncDateAfter(left = "", right = "") {
+  if (!left) return false;
+  if (!right) return true;
+  return new Date(left).getTime() > new Date(right).getTime();
+}
+
 function mergeDraftOntoPublished(
   draftDatabase: LoreDatabase,
   publishedDatabase: LoreDatabase,
@@ -2627,6 +2672,43 @@ function saveExplicitRemovalIds(ids: string[]) {
     localStorage.setItem(EXPLICIT_REMOVALS_KEY, JSON.stringify([...new Set(ids)]));
   } catch {
     // Explicit removals only affect the push review; the app can keep working without this cache.
+  }
+}
+
+function loadPendingTeamChange() {
+  try {
+    const raw = localStorage.getItem(PENDING_TEAM_CHANGE_KEY);
+    const parsed = raw ? JSON.parse(raw) as { hash?: unknown; updatedAt?: unknown } : {};
+    return {
+      hash: typeof parsed.hash === "string" ? parsed.hash : "",
+      updatedAt: typeof parsed.updatedAt === "string" ? parsed.updatedAt : ""
+    };
+  } catch {
+    return { hash: "", updatedAt: "" };
+  }
+}
+
+function savePendingTeamChange(database: LoreDatabase) {
+  const pending = {
+    hash: databaseSyncHash(database),
+    updatedAt: new Date().toISOString()
+  };
+  try {
+    localStorage.setItem(PENDING_TEAM_CHANGE_KEY, JSON.stringify(pending));
+  } catch {
+    // The local database itself is still saved separately; this marker only protects refresh/load decisions.
+  }
+  return pending;
+}
+
+function clearPendingTeamChange(savedHash: string) {
+  try {
+    const pending = loadPendingTeamChange();
+    if (!pending.hash || pending.hash === savedHash) {
+      localStorage.removeItem(PENDING_TEAM_CHANGE_KEY);
+    }
+  } catch {
+    // Clearing this marker is best-effort.
   }
 }
 
