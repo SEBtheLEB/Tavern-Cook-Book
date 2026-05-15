@@ -3475,7 +3475,7 @@ function categoryToView(category: string): ActiveView {
 }
 
 function normalizeArtBinderKind(value: string): ArtBinderKind {
-  if (value === "character" || value === "bestiary" || value === "environment") return value;
+  if (value === "character" || value === "bestiary" || value === "environment" || value === "pantry") return value;
   return "all";
 }
 

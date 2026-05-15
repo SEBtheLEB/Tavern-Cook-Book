@@ -95,6 +95,9 @@ function artVaultParentFolderId() {
 function artVaultShelfPath(context: ArtVaultDriveFolderContext) {
   const source = String(context.sourceType || "").toLowerCase();
   if (source.includes("character")) return ["Characters"];
+  if (source.includes("pantry") || source.includes("food") || source.includes("inventory")) {
+    return ["Pantry", context.groupName || context.subjectType || "Food & Inventory"];
+  }
   if (source.includes("environment") || source.includes("world")) {
     return ["Environment", context.groupName || context.subjectType || "World"];
   }

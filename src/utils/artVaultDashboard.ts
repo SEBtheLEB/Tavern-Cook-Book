@@ -14,12 +14,12 @@ export interface ArtVaultDashboardItem extends ArtVaultCompletion {
   id: string;
   title: string;
   subtitle: string;
-  kind: "character" | "bestiary" | "environment";
+  kind: "character" | "bestiary" | "pantry" | "environment";
   sourceId: string;
 }
 
 export interface ArtVaultDashboardGroup extends ArtVaultCompletion {
-  id: "characters" | "bestiary" | "environment";
+  id: "characters" | "bestiary" | "pantry" | "environment";
   label: string;
   description: string;
   icon: string;
@@ -47,6 +47,9 @@ export function buildArtVaultDashboardStats(database: LoreDatabase): ArtVaultDas
     ...(database.bestiary || []).map(creatureToDashboardItem),
     ...(database.bestiaryCategoryVaults || []).map(categoryVaultToDashboardItem)
   ];
+  const pantryItems = database.entries
+    .filter((entry) => entry.category === "Food & Inventory")
+    .map(pantryToDashboardItem);
   const environmentItems = database.entries
     .filter((entry) => entry.category === "World")
     .map(environmentToDashboardItem);
@@ -69,6 +72,14 @@ export function buildArtVaultDashboardStats(database: LoreDatabase): ArtVaultDas
       ...sumCompletion(bestiaryItems)
     },
     {
+      id: "pantry",
+      label: "The Pantry",
+      description: "Inventory icons, prepared ingredient variants, menu cards, recipe images, and food UI art.",
+      icon: "Soup",
+      items: pantryItems,
+      ...sumCompletion(pantryItems)
+    },
+    {
       id: "environment",
       label: "Environment",
       description: "World/location cover art, map markers, reference galleries, and environmental screenshots.",
@@ -79,7 +90,7 @@ export function buildArtVaultDashboardStats(database: LoreDatabase): ArtVaultDas
   ];
 
   const totals = sumCompletion(groups);
-  const needsUpload = [...characterItems, ...bestiaryItems, ...environmentItems]
+  const needsUpload = [...characterItems, ...bestiaryItems, ...pantryItems, ...environmentItems]
     .filter((item) => item.missing > 0)
     .sort((left, right) => right.missing - left.missing || left.title.localeCompare(right.title))
     .slice(0, 12);
@@ -122,6 +133,27 @@ function categoryVaultToDashboardItem(vault: BestiaryCategoryArtVault): ArtVault
     subtitle: `${normalized.categoryName} Category Vault`,
     kind: "bestiary",
     ...vaultCompletion(normalized.artVault)
+  };
+}
+
+function pantryToDashboardItem(entry: LoreEntry): ArtVaultDashboardItem {
+  const slots = [
+    Boolean(entry.media.iconImage || entry.fields?.imageUrl),
+    Boolean(entry.media.mainImage)
+  ];
+  const filled = slots.filter(Boolean).length;
+  const total = slots.length;
+  return {
+    id: `pantry-${entry.id}`,
+    sourceId: entry.id,
+    title: entry.title,
+    subtitle: entry.type || "Food & Inventory",
+    kind: "pantry",
+    total,
+    filled,
+    missing: total - filled,
+    approved: 0,
+    percent: completionPercent(filled, total)
   };
 }
 

@@ -1,5 +1,5 @@
 ﻿import { useEffect, useMemo, useRef, useState } from "react";
-import type { ActiveView, ArtVaultImageMetadata, ArtVaultSection, ArtVaultSlot, BestiaryCategoryArtVault, LoreDatabase, LoreEntry, SpriteAnimationSlotReference } from "../types";
+import type { ActiveView, ArtVaultImageMetadata, ArtVaultSection, ArtVaultSlot, BestiaryCategoryArtVault, BestiaryCreature, LoreDatabase, LoreEntry, SpriteAnimationSlotReference } from "../types";
 import type { AssignableModuleInfo, AssignmentRecord } from "../utils/assignments";
 import { statusLabel } from "../utils/assignments";
 import {
@@ -8,7 +8,8 @@ import {
   normalizeBestiaryCategoryArtVault,
   normalizeCreatureArtVault
 } from "../utils/bestiary";
-import { normalizeArtVault } from "../utils/entries";
+import { createBlankEntry, normalizeArtVault } from "../utils/entries";
+import { buildPantryModel, type PantryIngredient, type PantryPrepVariant } from "../utils/pantry";
 import {
   artVaultDriveFolderPathLabel,
   repairArtVaultDriveFolderHierarchy,
@@ -32,7 +33,7 @@ import { useRealtimeCollaboration } from "./RealtimeCollaborationContext";
 import { SpriteAnimation } from "./SpriteAnimation";
 import { useAssignments } from "./AssignmentSystem";
 
-export type ArtBinderKind = "all" | "character" | "bestiary" | "environment";
+export type ArtBinderKind = "all" | "character" | "bestiary" | "environment" | "pantry";
 
 export interface ArtBinderInitialFilter {
   kind?: ArtBinderKind;
@@ -44,7 +45,7 @@ export interface ArtBinderInitialFilter {
 interface ArtBinderSubject {
   id: string;
   kind: Exclude<ArtBinderKind, "all">;
-  source: "character" | "creature" | "bestiary-category" | "environment";
+  source: "character" | "creature" | "bestiary-category" | "environment" | "pantry";
   title: string;
   subtitle: string;
   groupKey: string;
@@ -105,11 +106,16 @@ const kindOptions: { value: ArtBinderKind; label: string }[] = [
   { value: "all", label: "All" },
   { value: "character", label: "Characters" },
   { value: "bestiary", label: "Bestiary" },
+  { value: "pantry", label: "Pantry" },
   { value: "environment", label: "Environment" }
 ];
 
 const binderStatusOptions = ["All", "Missing", "WIP", "Final", "Needs Revision"];
 const ART_BINDER_SESSION_KEY = "tavern-cook-book:art-binder-session";
+const APP_UI_SECTION_ID = "app-buttons-ui";
+const APP_UI_SECTION_TITLE = "App Buttons & UI Slots";
+const CHARACTER_APP_IMAGE_SLOTS = ["characterPortrait", "characterHoverImage", "mainImage", "iconImage", "dialogueSpriteImage", "ingameSpriteImage"] as const;
+const CREATURE_APP_IMAGE_SLOTS = ["slotImage", "hoverImage", "image", "expandedImage"] as const;
 
 export function ArtBinderPage({
   database,
@@ -224,6 +230,10 @@ export function ArtBinderPage({
     }
     if (subject.kind === "bestiary") {
       onNavigate("bestiary");
+      return;
+    }
+    if (subject.kind === "pantry") {
+      onNavigate("food");
       return;
     }
     onNavigate("world");
@@ -423,6 +433,10 @@ export function ArtBinderPage({
 
   const renameCategory = async (group: ArtBinderFolderGroup) => {
     if (readOnly) return;
+    if (group.category === APP_UI_SECTION_TITLE) {
+      window.alert("App Buttons & UI Slots is connected to live app image fields, so it cannot be renamed from the Art Binder.");
+      return;
+    }
     const cardsToRename = uniqueSectionCards(group.cards).filter((card) => card.subject.source !== "environment");
     if (!cardsToRename.length) {
       window.alert("This category is generated from environment media and cannot be renamed from the Art Binder yet.");
@@ -498,6 +512,10 @@ export function ArtBinderPage({
 
   const deleteCategory = (group: ArtBinderFolderGroup) => {
     if (readOnly) return;
+    if (group.category === APP_UI_SECTION_TITLE) {
+      window.alert("App Buttons & UI Slots is connected to live app image fields, so it cannot be removed from the Art Binder.");
+      return;
+    }
     const cardsToDelete = uniqueSectionCards(group.cards).filter((card) => card.subject.source !== "environment");
     if (!cardsToDelete.length) {
       window.alert("This category is generated from environment media and cannot be removed from the Art Binder yet.");
@@ -867,7 +885,7 @@ function buildArtBinderSubjects(database: LoreDatabase): ArtBinderSubject[] {
       subtitle: entry.type || "Character",
       groupKey: "character-all",
       groupLabel: "Characters",
-      sections: normalizeArtVault(entry.artVault).sections
+      sections: withAppUiSection(normalizeArtVault(entry.artVault).sections, characterAppUiSection(entry))
     }));
 
   const creatures = (database.bestiary || []).map((creature) => ({
@@ -886,8 +904,14 @@ function buildArtBinderSubjects(database: LoreDatabase): ArtBinderSubject[] {
       behavior: creature.behavior,
       status: creature.status
     },
-    sections: normalizeCreatureArtVault(creature.artVault).sections
+    sections: withAppUiSection(normalizeCreatureArtVault(creature.artVault).sections, creatureAppUiSection(creature))
   }));
+
+  const pantryModel = buildPantryModel(database.entries || [], database.bestiary || []);
+  const pantryItems = [
+    ...pantryModel.ingredients.map((ingredient) => pantryIngredientSubject(ingredient, database.entries)),
+    ...pantryModel.meals.map((meal) => pantryMealSubject(meal.entry))
+  ];
 
   const savedCategoryVaults = database.bestiaryCategoryVaults || [];
   const savedCategoryVaultIds = new Set(savedCategoryVaults.map((vault) => vault.id));
@@ -931,7 +955,186 @@ function buildArtBinderSubjects(database: LoreDatabase): ArtBinderSubject[] {
       sections: environmentSections(entry)
     }));
 
-  return [...characters, ...creatures, ...categoryVaults, ...environments];
+  return [...characters, ...creatures, ...categoryVaults, ...pantryItems, ...environments];
+}
+
+function characterAppUiSection(entry: LoreEntry): ArtVaultSection {
+  return createAppUiSection(entry, [
+    appUiSlot("characterPortrait", "Character Button / Portrait", entry.media.characterPortrait, "App Character Button", entry.media.imageFits?.characterPortrait, 0),
+    appUiSlot("characterHoverImage", "Character Button Hover", entry.media.characterHoverImage, "App Character Button", entry.media.imageFits?.characterHoverImage, 1),
+    appUiSlot("mainImage", "Main Page Image", entry.media.mainImage, "App Page Image", entry.media.imageFits?.mainImage, 2),
+    appUiSlot("iconImage", "Small App Icon", entry.media.iconImage, "App Icon", entry.media.imageFits?.iconImage, 3),
+    appUiSlot("dialogueSpriteImage", "Dialogue Sprite", entry.media.dialogueSpriteImage, "Dialogue UI Art", entry.media.imageFits?.dialogueSpriteImage, 4),
+    appUiSlot("ingameSpriteImage", "In-Game Sprite", entry.media.ingameSpriteImage, "Gameplay UI Art", entry.media.imageFits?.ingameSpriteImage, 5)
+  ]);
+}
+
+function creatureAppUiSection(creature: BestiaryCreature): ArtVaultSection {
+  const dropIconSlots = (creature.drops?.icons || []).map((icon, index) =>
+    appUiSlot(`dropIcon:${icon.id}`, `Drop Icon: ${icon.label}`, icon.image, "Bestiary Drop Icon", undefined, 4 + index)
+  );
+  return createAppUiSection(creature, [
+    appUiSlot("slotImage", "Bestiary Button / Archive Slot", creature.slotImage, "Bestiary App Button", creature.slotImageFit, 0),
+    appUiSlot("hoverImage", "Bestiary Button Hover / Alternate", creature.hoverImage, "Bestiary App Button", creature.hoverImageFit, 1),
+    appUiSlot("image", "Bestiary Detail Image", creature.image, "Bestiary Detail UI", creature.imageFit, 2),
+    appUiSlot("expandedImage", "Expanded Bestiary Image", creature.expandedImage, "Bestiary Detail UI", creature.expandedImageFit, 3),
+    ...dropIconSlots
+  ]);
+}
+
+function pantryIngredientSubject(ingredient: PantryIngredient, entries: LoreEntry[]): ArtBinderSubject {
+  const entry = ingredient.entry || entries.find((candidate) => normalizeLooseName(candidate.title) === normalizeLooseName(ingredient.name));
+  const variantSlots = ingredient.prepVariants.map((variant, index) => pantryVariantSlot(variant, entries, index + 1));
+  return {
+    id: entry?.id || `pantry-virtual-${slugify(ingredient.name)}`,
+    kind: "pantry",
+    source: "pantry",
+    title: ingredient.name,
+    subtitle: ingredient.category || "Pantry Item",
+    groupKey: artBinderGroupKey("pantry", ingredient.baseName || ingredient.category || "Pantry"),
+    groupLabel: ingredient.baseName || ingredient.category || "Pantry",
+    driveTaxonomy: {
+      category: "Food & Inventory",
+      type: ingredient.category,
+      status: ingredient.rarity
+    },
+    sections: [pantryIngredientAppUiSection(ingredient, entry, variantSlots)]
+  };
+}
+
+function pantryMealSubject(entry: LoreEntry): ArtBinderSubject {
+  const groupLabel = String(entry.fields?.pantryMealGroup || entry.type || "Meals / Recipes");
+  return {
+    id: entry.id,
+    kind: "pantry",
+    source: "pantry",
+    title: entry.title,
+    subtitle: entry.type || "Meal / Recipe",
+    groupKey: artBinderGroupKey("pantry", groupLabel),
+    groupLabel,
+    driveTaxonomy: {
+      category: "Food & Inventory",
+      type: entry.type,
+      status: entry.status
+    },
+    sections: [pantryMealAppUiSection(entry)]
+  };
+}
+
+function pantryIngredientAppUiSection(ingredient: PantryIngredient, entry: LoreEntry | undefined, variantSlots: ArtVaultSlot[]): ArtVaultSection {
+  const imageUrl = ingredient.imageUrl || imageUrlFromEntry(entry);
+  return createAppUiSection(entry || {}, [
+    appUiSlot("pantryInventoryImage", "Pantry Slot / Inventory Icon", imageUrl, "Pantry App Slot", entry?.media.imageFits?.iconImage, 0),
+    ...variantSlots
+  ], "Icons for pantry cards, prepared variants, and inventory slots.");
+}
+
+function pantryMealAppUiSection(entry: LoreEntry): ArtVaultSection {
+  return createAppUiSection(entry, [
+    appUiSlot("pantryInventoryImage", "Menu / Recipe Card Image", imageUrlFromEntry(entry), "Pantry Recipe App Slot", entry.media.imageFits?.iconImage, 0),
+    appUiSlot("pantryMainImage", "Recipe Detail Image", entry.media.mainImage, "Pantry Recipe Detail", entry.media.imageFits?.mainImage, 1)
+  ], "Images for meal cards, recipe cards, and pantry recipe detail views.");
+}
+
+function pantryVariantSlot(variant: PantryPrepVariant, entries: LoreEntry[], order: number): ArtVaultSlot {
+  const entry = entries.find((candidate) => normalizeLooseName(candidate.title) === normalizeLooseName(variant.name));
+  return appUiSlot(
+    `pantryVariant:${slugify(variant.name)}`,
+    variant.name,
+    imageUrlFromEntry(entry),
+    variant.resultType || "Prepared Ingredient",
+    entry?.media.imageFits?.iconImage,
+    order,
+    variant.notes
+  );
+}
+
+function createAppUiSection(subject: { fields?: Record<string, unknown>; driveFolderId?: string; driveFolderLink?: string }, slots: ArtVaultSlot[], description = "Images used by app buttons, hover states, inventory slots, cards, and detail panels. Updating these slots updates the matching app image fields."): ArtVaultSection {
+  const fields = subject.fields || {};
+  const folderId = stringField(fields, artBinderFolderField(APP_UI_SECTION_ID, "id")) || subject.driveFolderId || "";
+  const folderLink = stringField(fields, artBinderFolderField(APP_UI_SECTION_ID, "link")) || subject.driveFolderLink || "";
+  const folderName = stringField(fields, artBinderFolderField(APP_UI_SECTION_ID, "name"));
+  return {
+    id: APP_UI_SECTION_ID,
+    title: APP_UI_SECTION_TITLE,
+    description,
+    order: 0,
+    driveFolderId: folderId,
+    driveFolderLink: folderLink,
+    driveFolderName: folderName,
+    slots
+  };
+}
+
+function appUiSlot(
+  id: string,
+  label: string,
+  imageUrl: string | undefined,
+  requirementType: string,
+  imageFit: ArtVaultImageMetadata["imageFit"] | undefined,
+  order: number,
+  notes = ""
+): ArtVaultSlot {
+  const resolvedImage = resolveImageSourceUrl(String(imageUrl || ""));
+  return {
+    id,
+    label,
+    requirementType,
+    status: resolvedImage ? "uploaded" : "empty",
+    image: resolvedImage ? {
+      id: `${id}-app-ui-image`,
+      title: label,
+      category: APP_UI_SECTION_TITLE,
+      slotId: id,
+      driveFileId: driveFileIdFromUrl(resolvedImage),
+      thumbnailUrl: resolvedImage,
+      webViewLink: resolvedImage,
+      dateAdded: "",
+      uploadStatus: "linked",
+      notes,
+      imageFit: normalizeImageFit(imageFit)
+    } : null,
+    notes,
+    order
+  };
+}
+
+function withAppUiSection(sections: ArtVaultSection[], appSection: ArtVaultSection): ArtVaultSection[] {
+  const existingIndex = sections.findIndex((section) => isAppUiSection(section));
+  if (existingIndex < 0) {
+    return [appSection, ...sections].map((section, order) => ({ ...section, order }));
+  }
+  return sections.map((section, index) =>
+    index === existingIndex ? mergeAppUiSection(section, appSection, index) : section
+  );
+}
+
+function mergeAppUiSection(existing: ArtVaultSection, appSection: ArtVaultSection, order: number): ArtVaultSection {
+  const generatedSlots = new Map(appSection.slots.map((slot) => [slot.id, slot]));
+  const mergedSlots = appSection.slots.map((generatedSlot, slotOrder) => {
+    const existingSlot = existing.slots.find((slot) => slot.id === generatedSlot.id);
+    return {
+      ...(existingSlot || generatedSlot),
+      ...generatedSlot,
+      image: generatedSlot.image || existingSlot?.image || null,
+      notes: generatedSlot.notes || existingSlot?.notes || "",
+      order: slotOrder
+    };
+  });
+  const extraSlots = existing.slots
+    .filter((slot) => !generatedSlots.has(slot.id))
+    .map((slot, index) => ({ ...slot, order: mergedSlots.length + index }));
+  return {
+    ...existing,
+    id: APP_UI_SECTION_ID,
+    title: APP_UI_SECTION_TITLE,
+    description: appSection.description || existing.description,
+    order,
+    driveFolderId: existing.driveFolderId || appSection.driveFolderId,
+    driveFolderLink: existing.driveFolderLink || appSection.driveFolderLink,
+    driveFolderName: existing.driveFolderName || appSection.driveFolderName,
+    slots: [...mergedSlots, ...extraSlots]
+  };
 }
 
 function environmentSections(entry: LoreEntry): ArtVaultSection[] {
@@ -1406,11 +1609,7 @@ function updateDatabaseSlotImage(database: LoreDatabase, card: ArtBinderSlotCard
       ...database,
       entries: database.entries.map((entry) =>
         entry.id === card.subject.id
-          ? {
-              ...entry,
-              artVault: updateArtVaultSlotImage(normalizeArtVault(entry.artVault), card, imageSlot),
-              updatedAt: new Date().toISOString()
-            }
+          ? updateCharacterSlotImage(entry, card, imageSlot)
           : entry
       )
     };
@@ -1421,11 +1620,7 @@ function updateDatabaseSlotImage(database: LoreDatabase, card: ArtBinderSlotCard
       ...database,
       bestiary: (database.bestiary || []).map((creature) =>
         creature.id === card.subject.id
-          ? {
-              ...creature,
-              artVault: updateArtVaultSlotImage(normalizeCreatureArtVault(creature.artVault), card, imageSlot),
-              updatedAt: new Date().toISOString()
-            }
+          ? updateCreatureSlotImage(creature, card, imageSlot)
           : creature
       )
     };
@@ -1450,6 +1645,10 @@ function updateDatabaseSlotImage(database: LoreDatabase, card: ArtBinderSlotCard
     };
   }
 
+  if (card.subject.source === "pantry") {
+    return updatePantrySlotImage(database, card, imageSlot);
+  }
+
   return {
     ...database,
     entries: database.entries.map((entry) =>
@@ -1458,9 +1657,146 @@ function updateDatabaseSlotImage(database: LoreDatabase, card: ArtBinderSlotCard
   };
 }
 
-function updateArtVaultSlotImage(vault: { sections: ArtVaultSection[] }, card: ArtBinderSlotCard, imageSlot: ImageManagerSlotDraft) {
+function updateCharacterSlotImage(entry: LoreEntry, card: ArtBinderSlotCard, imageSlot: ImageManagerSlotDraft): LoreEntry {
+  const nextEntry = isAppUiSection(card.section) && isCharacterAppImageSlot(card.slot.id)
+    ? updateCharacterAppImageSlot(entry, card.slot.id, imageSlot)
+    : entry;
   return {
-    sections: vault.sections.map((section) =>
+    ...nextEntry,
+    artVault: updateArtVaultSlotImage(normalizeArtVault(nextEntry.artVault), card, imageSlot),
+    updatedAt: new Date().toISOString()
+  };
+}
+
+function updateCreatureSlotImage(creature: BestiaryCreature, card: ArtBinderSlotCard, imageSlot: ImageManagerSlotDraft): BestiaryCreature {
+  const nextCreature = isAppUiSection(card.section)
+    ? updateCreatureAppImageSlot(creature, card.slot.id, imageSlot)
+    : creature;
+  return {
+    ...nextCreature,
+    artVault: updateArtVaultSlotImage(normalizeCreatureArtVault(nextCreature.artVault), card, imageSlot),
+    updatedAt: new Date().toISOString()
+  };
+}
+
+function updateCharacterAppImageSlot(entry: LoreEntry, slotId: (typeof CHARACTER_APP_IMAGE_SLOTS)[number], imageSlot: ImageManagerSlotDraft): LoreEntry {
+  return {
+    ...entry,
+    media: {
+      ...entry.media,
+      [slotId]: imageSlot.imageUrl,
+      imageFits: {
+        ...(entry.media.imageFits || {}),
+        [slotId]: normalizeImageFit(imageSlot.imageFit)
+      }
+    }
+  };
+}
+
+function updateCreatureAppImageSlot(creature: BestiaryCreature, slotId: string, imageSlot: ImageManagerSlotDraft): BestiaryCreature {
+  const imageFit = normalizeImageFit(imageSlot.imageFit);
+  if (isCreatureAppImageSlot(slotId)) {
+    if (slotId === "slotImage") return { ...creature, slotImage: imageSlot.imageUrl, slotImageFit: imageFit };
+    if (slotId === "hoverImage") return { ...creature, hoverImage: imageSlot.imageUrl, hoverImageFit: imageFit };
+    if (slotId === "expandedImage") return { ...creature, expandedImage: imageSlot.imageUrl, expandedImageFit: imageFit };
+    return { ...creature, image: imageSlot.imageUrl, imageFit };
+  }
+  if (slotId.startsWith("dropIcon:")) {
+    const iconId = slotId.slice("dropIcon:".length);
+    return {
+      ...creature,
+      drops: {
+        ...creature.drops,
+        icons: (creature.drops.icons || []).map((icon) =>
+          icon.id === iconId ? { ...icon, image: imageSlot.imageUrl } : icon
+        )
+      }
+    };
+  }
+  return creature;
+}
+
+function updatePantrySlotImage(database: LoreDatabase, card: ArtBinderSlotCard, imageSlot: ImageManagerSlotDraft): LoreDatabase {
+  const targetTitle = card.slot.id.startsWith("pantryVariant:")
+    ? card.slot.label
+    : card.subject.title;
+  const existing = findPantryEntry(database.entries, card.subject.id, targetTitle);
+  const nextEntry = buildPantryImageEntry(existing, targetTitle, card, imageSlot);
+  return {
+    ...database,
+    entries: existing
+      ? database.entries.map((entry) => (entry.id === existing.id ? nextEntry : entry))
+      : [nextEntry, ...database.entries]
+  };
+}
+
+function updatePantrySectionFolder(database: LoreDatabase, card: ArtBinderSlotCard, folder: GoogleDriveFolder | null): LoreDatabase {
+  const existing = findPantryEntry(database.entries, card.subject.id, card.subject.title);
+  const base = existing || createBlankEntry("Food & Inventory", "Ingredient");
+  const nextEntry: LoreEntry = {
+    ...base,
+    id: existing?.id || `ingredient-${slugify(card.subject.title)}`,
+    title: existing?.title || card.subject.title,
+    category: "Food & Inventory",
+    type: existing?.type || card.subject.subtitle || "Ingredient",
+    fields: {
+      ...base.fields,
+      pantryCategory: String(base.fields?.pantryCategory || card.subject.subtitle || "Ingredient"),
+      [artBinderFolderField(APP_UI_SECTION_ID, "id")]: folder?.id || "",
+      [artBinderFolderField(APP_UI_SECTION_ID, "link")]: folder?.url || "",
+      [artBinderFolderField(APP_UI_SECTION_ID, "name")]: folder?.name || ""
+    },
+    updatedAt: new Date().toISOString()
+  };
+  return {
+    ...database,
+    entries: existing
+      ? database.entries.map((entry) => (entry.id === existing.id ? nextEntry : entry))
+      : [nextEntry, ...database.entries]
+  };
+}
+
+function buildPantryImageEntry(existing: LoreEntry | undefined, title: string, card: ArtBinderSlotCard, imageSlot: ImageManagerSlotDraft): LoreEntry {
+  const base = existing || createBlankEntry("Food & Inventory", card.slot.requirementType || "Ingredient");
+  const imageFit = normalizeImageFit(imageSlot.imageFit);
+  const driveFileId = driveFileIdFromUrl(imageSlot.imageUrl || imageSlot.webViewLink || "");
+  const isMainImage = card.slot.id === "pantryMainImage";
+  return {
+    ...base,
+    id: existing?.id || `ingredient-${slugify(title)}`,
+    title,
+    category: "Food & Inventory",
+    type: existing?.type || card.slot.requirementType || "Ingredient",
+    status: existing?.status || "Idea",
+    tags: unique([...(existing?.tags || []), card.slot.id.startsWith("pantryVariant:") ? "Prepared Variant" : "Pantry Art"].filter(Boolean)),
+    summary: existing?.summary || card.slot.notes || base.summary,
+    internalLore: existing?.internalLore || base.internalLore,
+    fields: {
+      ...base.fields,
+      pantryCategory: String(base.fields?.pantryCategory || card.slot.requirementType || card.subject.subtitle || "Ingredient"),
+      imageUrl: isMainImage ? String(base.fields?.imageUrl || "") : imageSlot.imageUrl,
+      imageDriveFileId: isMainImage ? String(base.fields?.imageDriveFileId || "") : driveFileId,
+      imageDriveViewLink: isMainImage ? String(base.fields?.imageDriveViewLink || "") : imageSlot.webViewLink || (driveFileId ? googleDriveWebViewLink(driveFileId) : imageSlot.imageUrl),
+      [artBinderFolderField(APP_UI_SECTION_ID, "id")]: imageSlot.defaultFolderId || String(base.fields?.[artBinderFolderField(APP_UI_SECTION_ID, "id")] || ""),
+      [artBinderFolderField(APP_UI_SECTION_ID, "link")]: imageSlot.defaultFolderLink || String(base.fields?.[artBinderFolderField(APP_UI_SECTION_ID, "link")] || ""),
+      [artBinderFolderField(APP_UI_SECTION_ID, "name")]: imageSlot.defaultFolderName || String(base.fields?.[artBinderFolderField(APP_UI_SECTION_ID, "name")] || "")
+    },
+    media: {
+      ...base.media,
+      iconImage: isMainImage ? base.media.iconImage : imageSlot.imageUrl,
+      mainImage: isMainImage ? imageSlot.imageUrl : base.media.mainImage,
+      imageFits: {
+        ...(base.media.imageFits || {}),
+        [isMainImage ? "mainImage" : "iconImage"]: imageFit
+      }
+    },
+    updatedAt: new Date().toISOString()
+  };
+}
+
+function updateArtVaultSlotImage(vault: { sections: ArtVaultSection[] }, card: ArtBinderSlotCard, imageSlot: ImageManagerSlotDraft) {
+  const hasSection = vault.sections.some((section) => section.id === card.section.id);
+  const sections = vault.sections.map((section) =>
       section.id === card.section.id
         ? {
             ...section,
@@ -1468,19 +1804,37 @@ function updateArtVaultSlotImage(vault: { sections: ArtVaultSection[] }, card: A
             driveFolderLink: imageSlot.defaultFolderLink || section.driveFolderLink,
             driveFolderName: imageSlot.defaultFolderName || section.driveFolderName,
             slots: section.slots.map((slot) =>
-              slot.id === card.slot.id
-                ? {
-                    ...slot,
-                    status: imageSlot.imageUrl ? (imageSlot.assetState === "final" ? "approved" : "uploaded") : "empty",
-                    image: imageSlot.imageUrl
-                      ? artBinderSlotImageMetadata(slot, card, imageSlot)
-                      : null
-                  }
-                : slot
+              slot.id === card.slot.id ? artBinderSlotWithImage(slot, card, imageSlot) : slot
             )
           }
         : section
-    )
+    );
+  if (hasSection || !isAppUiSection(card.section)) return { sections };
+
+  return {
+    sections: [
+      {
+        ...card.section,
+        driveFolderId: imageSlot.defaultFolderId || card.section.driveFolderId,
+        driveFolderLink: imageSlot.defaultFolderLink || card.section.driveFolderLink,
+        driveFolderName: imageSlot.defaultFolderName || card.section.driveFolderName,
+        slots: card.section.slots.map((slot) =>
+          slot.id === card.slot.id ? artBinderSlotWithImage(slot, card, imageSlot) : slot
+        ),
+        order: 0
+      },
+      ...sections.map((section, order) => ({ ...section, order: order + 1 }))
+    ]
+  };
+}
+
+function artBinderSlotWithImage(slot: ArtVaultSlot, card: ArtBinderSlotCard, imageSlot: ImageManagerSlotDraft): ArtVaultSlot {
+  return {
+    ...slot,
+    status: imageSlot.imageUrl ? (imageSlot.assetState === "final" ? "approved" : "uploaded") : "empty",
+    image: imageSlot.imageUrl
+      ? artBinderSlotImageMetadata(slot, card, imageSlot)
+      : null
   };
 }
 
@@ -1544,6 +1898,10 @@ function updateDatabaseSectionFolder(database: LoreDatabase, card: ArtBinderSlot
     };
   }
 
+  if (card.subject.source === "pantry") {
+    return updatePantrySectionFolder(database, card, folder);
+  }
+
   return {
     ...database,
     entries: database.entries.map((entry) =>
@@ -1553,8 +1911,8 @@ function updateDatabaseSectionFolder(database: LoreDatabase, card: ArtBinderSlot
 }
 
 function updateArtVaultSectionFolder(vault: { sections: ArtVaultSection[] }, card: ArtBinderSlotCard, folder: GoogleDriveFolder | null) {
-  return {
-    sections: vault.sections.map((section) =>
+  const hasSection = vault.sections.some((section) => section.id === card.section.id);
+  const sections = vault.sections.map((section) =>
       section.id === card.section.id
         ? {
             ...section,
@@ -1563,7 +1921,19 @@ function updateArtVaultSectionFolder(vault: { sections: ArtVaultSection[] }, car
             driveFolderName: folder?.name || ""
           }
         : section
-    )
+    );
+  if (hasSection || !isAppUiSection(card.section)) return { sections };
+  return {
+    sections: [
+      {
+        ...card.section,
+        driveFolderId: folder?.id || "",
+        driveFolderLink: folder?.url || "",
+        driveFolderName: folder?.name || "",
+        order: 0
+      },
+      ...sections.map((section, order) => ({ ...section, order: order + 1 }))
+    ]
   };
 }
 
@@ -1777,6 +2147,40 @@ function stringField(fields: Record<string, unknown>, key: string) {
   return typeof value === "string" ? value : "";
 }
 
+function imageUrlFromEntry(entry?: LoreEntry) {
+  if (!entry) return "";
+  return resolveImageSourceUrl(String(
+    entry.media.iconImage ||
+    entry.media.mainImage ||
+    entry.media.characterPortrait ||
+    entry.media.galleryImages[0] ||
+    entry.fields?.imageUrl ||
+    entry.fields?.thumbnailUrl ||
+    ""
+  ));
+}
+
+function findPantryEntry(entries: LoreEntry[], subjectId: string, title: string) {
+  return entries.find((entry) => entry.id === subjectId) ||
+    entries.find((entry) => entry.category === "Food & Inventory" && normalizeLooseName(entry.title) === normalizeLooseName(title));
+}
+
+function normalizeLooseName(value: string) {
+  return String(value || "").trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function isAppUiSection(section: Pick<ArtVaultSection, "id" | "title">) {
+  return section.id === APP_UI_SECTION_ID || section.title.trim().toLowerCase() === APP_UI_SECTION_TITLE.toLowerCase();
+}
+
+function isCharacterAppImageSlot(slotId: string): slotId is (typeof CHARACTER_APP_IMAGE_SLOTS)[number] {
+  return CHARACTER_APP_IMAGE_SLOTS.includes(slotId as (typeof CHARACTER_APP_IMAGE_SLOTS)[number]);
+}
+
+function isCreatureAppImageSlot(slotId: string): slotId is (typeof CREATURE_APP_IMAGE_SLOTS)[number] {
+  return CREATURE_APP_IMAGE_SLOTS.includes(slotId as (typeof CREATURE_APP_IMAGE_SLOTS)[number]);
+}
+
 function artBinderGroupKey(kind: Exclude<ArtBinderKind, "all">, label: string) {
   return `${kind}-${slugify(label || kind)}`;
 }
@@ -1793,6 +2197,7 @@ function slugify(value: string) {
 function kindLabel(kind: ArtBinderSubject["kind"]) {
   if (kind === "character") return "Character";
   if (kind === "bestiary") return "Bestiary";
+  if (kind === "pantry") return "Pantry";
   return "Environment";
 }
 
@@ -1838,7 +2243,7 @@ function artBinderInitialFilterSignature(filter: ArtBinderInitialFilter | null |
 }
 
 function normalizeArtBinderKind(value: unknown): ArtBinderKind {
-  if (value === "character" || value === "bestiary" || value === "environment") return value;
+  if (value === "character" || value === "bestiary" || value === "environment" || value === "pantry") return value;
   return "all";
 }
 

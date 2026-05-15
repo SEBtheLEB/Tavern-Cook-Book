@@ -64,6 +64,10 @@ export function ArtVaultDashboard({
       onNavigate("bestiary");
       return;
     }
+    if (item.kind === "pantry") {
+      onNavigate("food");
+      return;
+    }
 
     const entry = database.entries.find((candidate) => candidate.id === item.sourceId);
     if (entry) onOpenEntry(entry);
@@ -158,6 +162,7 @@ export function ArtVaultDashboard({
             <RouteButton icon="BookOpen" label="The Art Binder" detail="Open the shared category board for all assets." onClick={() => openBinder(null)} />
             <RouteButton icon="Users" label="Character Assets" detail="Choose Art Binder or the character page." onClick={() => setDestinationChoice({ type: "route", kind: "character", label: "Characters" })} />
             <RouteButton icon="Swords" label="Bestiary Assets" detail="Choose Art Binder or the Bestiary page." onClick={() => setDestinationChoice({ type: "route", kind: "bestiary", label: "Bestiary" })} />
+            <RouteButton icon="Soup" label="Pantry Assets" detail="Choose Art Binder or the Pantry page." onClick={() => setDestinationChoice({ type: "route", kind: "pantry", label: "The Pantry" })} />
             <RouteButton icon="Map" label="Environment Assets" detail="Choose Art Binder or the World page." onClick={() => setDestinationChoice({ type: "route", kind: "environment", label: "Environment" })} />
           </div>
         </div>
@@ -333,30 +338,35 @@ function destinationKind(choice: ArtVaultDestinationChoice): Exclude<ArtBinderKi
 function groupIdToKind(id: ArtVaultDashboardGroup["id"]): Exclude<ArtBinderKind, "all"> {
   if (id === "characters") return "character";
   if (id === "bestiary") return "bestiary";
+  if (id === "pantry") return "pantry";
   return "environment";
 }
 
 function itemKindToBinderKind(kind: ArtVaultDashboardItem["kind"]): Exclude<ArtBinderKind, "all"> {
   if (kind === "character") return "character";
   if (kind === "bestiary") return "bestiary";
+  if (kind === "pantry") return "pantry";
   return "environment";
 }
 
 function kindToView(kind: Exclude<ArtBinderKind, "all">): ActiveView {
   if (kind === "character") return "characters";
   if (kind === "bestiary") return "bestiary";
+  if (kind === "pantry") return "food";
   return "world";
 }
 
 function sourcePageLabel(kind: Exclude<ArtBinderKind, "all">) {
   if (kind === "character") return "Characters Page";
   if (kind === "bestiary") return "Bestiary Page";
+  if (kind === "pantry") return "Pantry Page";
   return "World Page";
 }
 
 function kindIconForBinder(kind: Exclude<ArtBinderKind, "all">) {
   if (kind === "character") return "Users";
   if (kind === "bestiary") return "Swords";
+  if (kind === "pantry") return "Soup";
   return "Map";
 }
 
@@ -404,11 +414,13 @@ function RouteButton({
 function kindIcon(kind: ArtVaultDashboardItem["kind"]) {
   if (kind === "character") return "Users";
   if (kind === "bestiary") return "Swords";
+  if (kind === "pantry") return "Soup";
   return "Map";
 }
 
 function kindLabel(kind: ArtVaultDashboardItem["kind"]) {
   if (kind === "character") return "Character";
   if (kind === "bestiary") return "Bestiary";
+  if (kind === "pantry") return "Pantry";
   return "Environment";
 }

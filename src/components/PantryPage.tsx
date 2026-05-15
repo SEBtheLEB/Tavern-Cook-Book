@@ -12,7 +12,7 @@ import {
 } from "../utils/pantry";
 import { createBlankEntry } from "../utils/entries";
 import { googleDriveFolderLink, openGoogleDriveFolderPicker, type GoogleDriveFolder } from "../utils/googlePicker";
-import { googleDriveWebViewLink } from "../utils/imageFit";
+import { googleDriveWebViewLink, resolveImageSourceUrl } from "../utils/imageFit";
 import { CustomSelect } from "./CustomSelect";
 import { DriveAwareImage } from "./DriveAwareImage";
 import { DriveImageSourceControls } from "./DriveImageSourceControls";
@@ -622,6 +622,7 @@ function PantryMealCard({
     module: "The Pantry"
   };
   const hoveringUsers = realtime.usersHoveringTarget(realtimeTarget);
+  const imageUrl = mealImageUrl(meal.entry);
 
   return (
     <button
@@ -635,9 +636,11 @@ function PantryMealCard({
           {hoveringUsers.length === 1 ? `${hoveringUsers[0].name} is here` : `${hoveringUsers.length} people here`}
         </span>
       )}
-      <span className="pantry-card-icon">
-        <Icon name={groupIcon} className="h-5 w-5" />
-      </span>
+      {imageUrl ? <MealImage imageUrl={imageUrl} /> : (
+        <span className="pantry-card-icon">
+          <Icon name={groupIcon} className="h-5 w-5" />
+        </span>
+      )}
       <strong>{meal.title}</strong>
       <small>{meal.type}</small>
       <p>{meal.summary || "No meal summary yet."}</p>
@@ -887,6 +890,7 @@ function MealDetail({
     }
     onOpenEntry(meal.entry);
   };
+  const imageUrl = mealImageUrl(meal.entry);
 
   return (
     <div className="pantry-detail-content">
@@ -904,7 +908,14 @@ function MealDetail({
             </button>
           )}
         </div>
-        <h2 className="font-display">{meal.title}</h2>
+        <div className="pantry-detail-identity">
+          {imageUrl ? <MealImage imageUrl={imageUrl} /> : (
+            <span className="pantry-ingredient-image">
+              <Icon name="Soup" className="h-6 w-6" />
+            </span>
+          )}
+          <h2 className="font-display">{meal.title}</h2>
+        </div>
         <div>
           <span>{meal.type}</span>
           <span>{pantryMealGroups.find((group) => group.id === meal.group)?.title || "Recipe"}</span>
@@ -1270,6 +1281,25 @@ function IngredientImage({ ingredient }: { ingredient: PantryIngredient }) {
       )}
     </span>
   );
+}
+
+function MealImage({ imageUrl }: { imageUrl: string }) {
+  return (
+    <span className="pantry-ingredient-image has-image">
+      <DriveAwareImage src={imageUrl} alt="" loading="lazy" />
+    </span>
+  );
+}
+
+function mealImageUrl(entry: LoreEntry) {
+  return resolveImageSourceUrl(String(
+    entry.media.iconImage ||
+    entry.media.mainImage ||
+    entry.media.galleryImages[0] ||
+    entry.fields?.imageUrl ||
+    entry.fields?.thumbnailUrl ||
+    ""
+  ));
 }
 
 function EmptyPantryDetail() {
