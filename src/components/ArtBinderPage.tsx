@@ -185,6 +185,7 @@ export function ArtBinderPage({
   const subjectOptions = subjects.filter((subject) => kindFilter === "all" || subject.kind === kindFilter);
   const subjectGroups = buildSubjectGroups(subjectOptions, kindFilter);
   const specificSubjectOptions = subjectOptions.filter((subject) => subjectGroupFilter === "all" || subject.groupKey === subjectGroupFilter);
+  const selectedShelfSubject = subjectFilter === "all" ? null : specificSubjectOptions.find((subject) => subject.id === subjectFilter) || null;
   const selectedGroupLabel = subjectGroupFilter === "all"
     ? subjectGroups.find((group) => group.key === "all")?.label || "All Subjects"
     : subjectGroups.find((group) => group.key === subjectGroupFilter)?.label || "Selected Subject";
@@ -225,6 +226,11 @@ export function ArtBinderPage({
   const selectSubjectGroup = (groupKey: string) => {
     setSubjectGroupFilter(groupKey);
     setSubjectFilter("all");
+    setCategoryFilter("all");
+  };
+
+  const selectShelfSubject = (subjectId: string) => {
+    setSubjectFilter(subjectId);
     setCategoryFilter("all");
   };
 
@@ -646,27 +652,74 @@ export function ArtBinderPage({
       <section className="art-binder-subject-board">
         <div className="art-binder-subject-board-heading">
           <div>
-            <p>Choose Subject</p>
-            <h2 className="font-display">Broad Asset Shelves</h2>
+            <p>{subjectGroupFilter === "all" ? "Choose Shelf" : "Choose Board"}</p>
+            <h2 className="font-display">
+              {subjectGroupFilter === "all" ? "Broad Asset Shelves" : `${selectedGroupLabel} Shelf`}
+            </h2>
           </div>
-          <span>Pick a broad shelf first, like Slimes, Bosses, or Characters. Then narrow down to one specific creature or person.</span>
+          <span>
+            {subjectGroupFilter === "all"
+              ? "Pick one broad shelf first. Pantry, Bestiary, and other matching assets share the same shelf."
+              : selectedShelfSubject
+                ? `Viewing ${selectedShelfSubject.title}. Use this selector to jump to another board in the same shelf.`
+                : `Choose a specific board inside ${selectedGroupLabel}, or keep the whole shelf open.`}
+          </span>
         </div>
-        <div className="art-binder-subject-buttons">
-          {subjectGroups.map((group) => (
-            <button
-              key={group.key}
-              className={subjectGroupFilter === group.key ? "active" : ""}
-              onClick={() => selectSubjectGroup(group.key)}
-            >
-              <Icon name={group.icon} className="h-5 w-5" />
-              <span>
-                <strong>{group.label}</strong>
-                <small>{group.description}</small>
-              </span>
-              <em>{group.count}</em>
-            </button>
-          ))}
-        </div>
+        {subjectGroupFilter === "all" ? (
+          <div className="art-binder-subject-buttons">
+            {subjectGroups.map((group) => (
+              <button
+                key={group.key}
+                className={subjectGroupFilter === group.key ? "active" : ""}
+                onClick={() => selectSubjectGroup(group.key)}
+              >
+                <Icon name={group.icon} className="h-5 w-5" />
+                <span>
+                  <strong>{group.label}</strong>
+                  <small>{group.description}</small>
+                </span>
+                <em>{group.count}</em>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="art-binder-shelf-selector">
+            <div className="art-binder-shelf-toolbar">
+              <button onClick={() => selectSubjectGroup("all")}>
+                <Icon name="ChevronDown" className="h-4 w-4 rotate-90" />
+                All Shelves
+              </button>
+              <span>{specificSubjectOptions.length} board{specificSubjectOptions.length === 1 ? "" : "s"} in this shelf</span>
+            </div>
+            <div className="art-binder-subject-buttons art-binder-shelf-subjects">
+              <button
+                className={subjectFilter === "all" ? "active" : ""}
+                onClick={() => selectShelfSubject("all")}
+              >
+                <Icon name="Archive" className="h-5 w-5" />
+                <span>
+                  <strong>All {selectedGroupLabel}</strong>
+                  <small>Show every subject and app slot in this shelf together.</small>
+                </span>
+                <em>{specificSubjectOptions.length}</em>
+              </button>
+              {specificSubjectOptions.map((subject) => (
+                <button
+                  key={subject.id}
+                  className={subjectFilter === subject.id ? "active" : ""}
+                  onClick={() => selectShelfSubject(subject.id)}
+                >
+                  <Icon name={subjectIcon(subject)} className="h-5 w-5" />
+                  <span>
+                    <strong>{subject.title}</strong>
+                    <small>{shelfSubjectDescription(subject)}</small>
+                  </span>
+                  <em>{subjectSlotCount(subject)}</em>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </section>
 
       <main className="art-binder-categories">
@@ -1318,7 +1371,7 @@ function artBinderDriveContext(card: ArtBinderSlotCard): ArtVaultDriveFolderCont
     subjectBehavior: card.subject.driveTaxonomy?.behavior,
     subjectStatus: card.subject.driveTaxonomy?.status,
     subjectName: card.subject.source === "bestiary-category"
-      ? `${card.subject.groupLabel || card.subject.title} Category Vault`
+      ? `${bestiaryCategoryNameForSubject(card.subject)} Category Vault`
       : card.subject.title,
     categoryName: card.section.title
   };
@@ -1453,10 +1506,11 @@ function updateDatabaseArtBinderSection(
 
   if (card.subject.source === "bestiary-category") {
     const existing = database.bestiaryCategoryVaults || [];
+    const categoryName = bestiaryCategoryNameForSubject(card.subject);
     const current =
       existing.find((vault) => vault.id === card.subject.id) ||
-      createBestiaryCategoryArtVaultRecord(card.subject.groupLabel, database.bestiary || []);
-    const normalized = normalizeBestiaryCategoryArtVault(current, current.categoryName || card.subject.groupLabel, database.bestiary || []);
+      createBestiaryCategoryArtVaultRecord(categoryName, database.bestiary || []);
+    const normalized = normalizeBestiaryCategoryArtVault(current, current.categoryName || categoryName, database.bestiary || []);
     const updated = {
       ...normalized,
       artVault: updateArtVaultSection(normalized.artVault, card.section.id, updater),
@@ -1506,10 +1560,11 @@ function addArtBinderCategoryToSubject(database: LoreDatabase, subject: ArtBinde
 
   if (subject.source === "bestiary-category") {
     const existing = database.bestiaryCategoryVaults || [];
+    const categoryName = bestiaryCategoryNameForSubject(subject);
     const current =
       existing.find((vault) => vault.id === subject.id) ||
-      createBestiaryCategoryArtVaultRecord(subject.groupLabel, database.bestiary || []);
-    const normalized = normalizeBestiaryCategoryArtVault(current, current.categoryName || subject.groupLabel, database.bestiary || []);
+      createBestiaryCategoryArtVaultRecord(categoryName, database.bestiary || []);
+    const normalized = normalizeBestiaryCategoryArtVault(current, current.categoryName || categoryName, database.bestiary || []);
     const updated = {
       ...normalized,
       artVault: addSectionToVault(normalized.artVault, title, firstSlotLabel),
@@ -1559,10 +1614,11 @@ function removeArtBinderCategoryFromSubject(database: LoreDatabase, card: ArtBin
 
   if (card.subject.source === "bestiary-category") {
     const existing = database.bestiaryCategoryVaults || [];
+    const categoryName = bestiaryCategoryNameForSubject(card.subject);
     const current =
       existing.find((vault) => vault.id === card.subject.id) ||
-      createBestiaryCategoryArtVaultRecord(card.subject.groupLabel, database.bestiary || []);
-    const normalized = normalizeBestiaryCategoryArtVault(current, current.categoryName || card.subject.groupLabel, database.bestiary || []);
+      createBestiaryCategoryArtVaultRecord(categoryName, database.bestiary || []);
+    const normalized = normalizeBestiaryCategoryArtVault(current, current.categoryName || categoryName, database.bestiary || []);
     const updated = {
       ...normalized,
       artVault: removeSectionFromVault(normalized.artVault, card.section.id),
@@ -1689,10 +1745,11 @@ function updateDatabaseSlotImage(database: LoreDatabase, card: ArtBinderSlotCard
 
   if (card.subject.source === "bestiary-category") {
     const existing = database.bestiaryCategoryVaults || [];
+    const categoryName = bestiaryCategoryNameForSubject(card.subject);
     const current =
       existing.find((vault) => vault.id === card.subject.id) ||
-      createBestiaryCategoryArtVaultRecord(card.subject.groupLabel, database.bestiary || []);
-    const normalized = normalizeBestiaryCategoryArtVault(current, current.categoryName || card.subject.groupLabel, database.bestiary || []);
+      createBestiaryCategoryArtVaultRecord(categoryName, database.bestiary || []);
+    const normalized = normalizeBestiaryCategoryArtVault(current, current.categoryName || categoryName, database.bestiary || []);
     const updated = {
       ...normalized,
       artVault: updateArtVaultSlotImage(normalized.artVault, card, imageSlot),
@@ -1942,10 +1999,11 @@ function updateDatabaseSectionFolder(database: LoreDatabase, card: ArtBinderSlot
 
   if (card.subject.source === "bestiary-category") {
     const existing = database.bestiaryCategoryVaults || [];
+    const categoryName = bestiaryCategoryNameForSubject(card.subject);
     const current =
       existing.find((vault) => vault.id === card.subject.id) ||
-      createBestiaryCategoryArtVaultRecord(card.subject.groupLabel, database.bestiary || []);
-    const normalized = normalizeBestiaryCategoryArtVault(current, current.categoryName || card.subject.groupLabel, database.bestiary || []);
+      createBestiaryCategoryArtVaultRecord(categoryName, database.bestiary || []);
+    const normalized = normalizeBestiaryCategoryArtVault(current, current.categoryName || categoryName, database.bestiary || []);
     const updated = {
       ...normalized,
       artVault: updateArtVaultSectionFolder(normalized.artVault, card, folder),
@@ -2120,11 +2178,22 @@ function buildSubjectGroups(subjects: ArtBinderSubject[], kindFilter: ArtBinderK
     groups.set(subject.groupKey, {
       key: subject.groupKey,
       label,
-      description: subjectGroupDescription(subject),
-      icon: subjectGroupIcon(subject.kind, label),
+      description: "",
+      icon: "",
       count: (current?.count || 0) + 1
     });
   });
+
+  const shelfGroups = [...groups.values()]
+    .map((group) => {
+      const shelfSubjects = subjects.filter((subject) => subject.groupKey === group.key);
+      return {
+        ...group,
+        description: subjectGroupDescription(group.label, shelfSubjects),
+        icon: subjectGroupIcon(group.label, shelfSubjects)
+      };
+    })
+    .sort((a, b) => a.label.localeCompare(b.label));
 
   return [
     {
@@ -2134,30 +2203,57 @@ function buildSubjectGroups(subjects: ArtBinderSubject[], kindFilter: ArtBinderK
       icon: "Archive",
       count: subjects.length
     },
-    ...[...groups.values()].sort((a, b) => a.label.localeCompare(b.label))
+    ...shelfGroups
   ];
 }
 
-function subjectGroupDescription(subject: ArtBinderSubject) {
-  if (subject.kind === "bestiary") return `General art plus every ${subject.groupLabel.toLowerCase()} subject in the Bestiary.`;
-  if (subject.kind === "character") return "All character art boards, with a specific character picker after this.";
-  if (subject.kind === "pantry") return `Pantry app slots grouped under ${subject.groupLabel.toLowerCase()}.`;
-  return `Environment boards grouped by ${subject.groupLabel.toLowerCase()}.`;
+function subjectGroupDescription(label: string, subjects: ArtBinderSubject[]) {
+  const kinds = unique(subjects.map((subject) => kindLabel(subject.kind)));
+  if (kinds.length > 1) return `${label} boards across ${joinList(kinds)}. Choose a subject inside to open its slots.`;
+  if (subjects[0]?.kind === "character") return "All character art boards, with a specific character picker after this.";
+  if (subjects[0]?.kind === "bestiary") return `Bestiary art boards for every ${label.toLowerCase()} subject.`;
+  if (subjects[0]?.kind === "pantry") return `Pantry app slots and prepared item art for ${label.toLowerCase()}.`;
+  return `Environment boards grouped by ${label.toLowerCase()}.`;
 }
 
-function subjectGroupIcon(kind: ArtBinderSubject["kind"], label: string) {
+function subjectGroupIcon(label: string, subjects: ArtBinderSubject[]) {
   const normalized = label.toLowerCase();
-  if (kind === "character") return "Users";
-  if (kind === "environment") return "Map";
-  if (kind === "pantry" && normalized.includes("meal")) return "Soup";
-  if (kind === "pantry" && normalized.includes("spice")) return "Wheat";
-  if (kind === "pantry" && normalized.includes("produce")) return "Leaf";
+  if (subjects.some((subject) => subject.kind === "character") && subjects.every((subject) => subject.kind === "character")) return "Users";
+  if (subjects.some((subject) => subject.kind === "environment") && subjects.every((subject) => subject.kind === "environment")) return "Map";
+  if (normalized.includes("meal")) return "Soup";
+  if (normalized.includes("spice")) return "Wheat";
+  if (normalized.includes("produce") || normalized.includes("plant")) return "Leaf";
   if (normalized.includes("slime")) return "Droplets";
   if (normalized.includes("boss")) return "Crown";
   if (normalized.includes("skell") || normalized.includes("undead")) return "Skull";
   if (normalized.includes("boar") || normalized.includes("wild")) return "PawPrint";
   if (normalized.includes("insect") || normalized.includes("bug")) return "Bug";
   return "Swords";
+}
+
+function subjectIcon(subject: ArtBinderSubject) {
+  if (subject.kind === "character") return "UserRound";
+  if (subject.kind === "environment") return "Map";
+  if (subject.kind === "pantry") return subject.subtitle.toLowerCase().includes("meal") ? "Soup" : "Wheat";
+  if (subject.source === "bestiary-category") return "FolderOpen";
+  return "Swords";
+}
+
+function shelfSubjectDescription(subject: ArtBinderSubject) {
+  const slots = subjectSlotCount(subject);
+  const kind = kindLabel(subject.kind);
+  const source = subject.source === "bestiary-category" ? "Category Vault" : subject.subtitle;
+  return `${kind} / ${source} / ${slots} slot${slots === 1 ? "" : "s"}`;
+}
+
+function subjectSlotCount(subject: ArtBinderSubject) {
+  return subject.sections.reduce((total, section) => total + section.slots.length, 0);
+}
+
+function joinList(values: string[]) {
+  if (values.length <= 1) return values[0] || "this board";
+  if (values.length === 2) return `${values[0]} and ${values[1]}`;
+  return `${values.slice(0, -1).join(", ")}, and ${values[values.length - 1]}`;
 }
 
 function groupCardsByCategory(cards: ArtBinderSlotCard[]) {
@@ -2246,8 +2342,12 @@ function isCreatureAppImageSlot(slotId: string): slotId is (typeof CREATURE_APP_
   return CREATURE_APP_IMAGE_SLOTS.includes(slotId as (typeof CREATURE_APP_IMAGE_SLOTS)[number]);
 }
 
-function artBinderGroupKey(kind: Exclude<ArtBinderKind, "all">, label: string) {
-  return `${kind}-${slugify(label || kind)}`;
+function artBinderGroupKey(_kind: Exclude<ArtBinderKind, "all">, label: string) {
+  return `shelf-${slugify(label || "assets")}`;
+}
+
+function bestiaryCategoryNameForSubject(subject: ArtBinderSubject) {
+  return subject.driveTaxonomy?.category || subject.subtitle.replace(/\s+Category Vault$/i, "") || subject.title || subject.groupLabel;
 }
 
 function slugify(value: string) {

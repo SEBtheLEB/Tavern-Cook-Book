@@ -79,6 +79,15 @@ export const mainNavigation: ViewConfig[] = [
     icon: "Swords"
   },
   {
+    id: "artVault",
+    label: "Art Vault",
+    description: "Team art dashboard, Art Binder shelves, missing assets, and upload boards.",
+    tooltip:
+      "Open the team Art Vault page, choose an Art Binder shelf, and manage asset slots without leaving the app page flow.",
+    category: "Production",
+    icon: "Palette"
+  },
+  {
     id: "marketing",
     label: "Marketing",
     description: "Spoiler-safe descriptions, post ideas, platform-safe copy, and public lore.",

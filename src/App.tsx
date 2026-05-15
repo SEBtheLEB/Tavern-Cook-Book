@@ -1219,10 +1219,11 @@ export default function App() {
   }, [currentUser?.email, currentUser?.role, hostedViewer, explicitRemovalSet]);
 
   useEffect(() => {
-    if (!readOnly || !artVaultDashboardOpen) return;
+    if (!readOnly || (!artVaultDashboardOpen && activeView !== "artVault")) return;
     setArtVaultDashboardOpen(false);
     setArtBinderFilter(null);
-  }, [readOnly, artVaultDashboardOpen]);
+    if (activeView === "artVault") setActiveView("dashboard");
+  }, [readOnly, artVaultDashboardOpen, activeView]);
 
   useEffect(() => {
     if (canAccessSettings) return;
@@ -2016,7 +2017,11 @@ export default function App() {
     setSelectedEntry(null);
     setSelectedReferenceKeyword("");
     setKeywordPopup("");
-    setArtVaultDashboardOpen(false);
+    setArtVaultDashboardOpen(view === "artVault");
+    if (view !== "artVault") {
+      setArtBinderOpen(false);
+      setArtBinderFilter(null);
+    }
     setFavoritesOpen(false);
     setQuestDashboardOpen(false);
     setProfileOpen(false);
@@ -2125,6 +2130,7 @@ export default function App() {
       });
       setArtBinderOpen(true);
       setArtVaultDashboardOpen(true);
+      setActiveView("artVault");
     }
 
     window.setTimeout(() => scrollToAssignmentModule(assignment.moduleId), 350);
@@ -2234,6 +2240,23 @@ export default function App() {
     setActiveView("search");
   };
 
+  const openArtVaultDashboard = () => {
+    if (readOnly) return;
+    setDetailReturnTarget(null);
+    setSelectedEntry(null);
+    setSelectedReferenceKeyword("");
+    setKeywordPopup("");
+    setFavoritesOpen(false);
+    setQuestDashboardOpen(false);
+    setProfileOpen(false);
+    setSelectedBestiaryCreatureId("");
+    setArtBinderOpen(false);
+    setArtBinderFilter(null);
+    setArtVaultDashboardOpen(true);
+    setActiveView("artVault");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const openArtBinder = (filter: ArtBinderInitialFilter | null = null) => {
     if (readOnly) return;
     setSelectedEntry(null);
@@ -2246,6 +2269,7 @@ export default function App() {
     setArtBinderFilter(filter);
     setArtBinderOpen(true);
     setArtVaultDashboardOpen(true);
+    setActiveView("artVault");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -2406,9 +2430,7 @@ export default function App() {
             onSearchQueryChange={setSearchQuery}
             onSubmitSearch={submitSearch}
             onCreateEntry={createEntry}
-            onOpenArtVaultDashboard={!readOnly ? () => {
-              openArtBinder(null);
-            } : undefined}
+            onOpenArtVaultDashboard={!readOnly ? openArtVaultDashboard : undefined}
             onOpenFavorites={openFavorites}
             onOpenMobileNav={() => setMobileNavOpen(true)}
             readOnly={readOnly}
@@ -2447,7 +2469,7 @@ export default function App() {
               onOpenCreature={openFavoriteCreature}
               onToggleFavorite={toggleFavoriteById}
             />
-          ) : artVaultDashboardOpen && !readOnly ? (
+          ) : activeView === "artVault" && !readOnly ? (
             <ArtVaultDashboard
               database={database}
               readOnly={readOnly}
@@ -2609,7 +2631,7 @@ export default function App() {
                 />
               )}
 
-              {!["dashboard", "storyJourney", "story", "spriteAnimator", "search", "timeline", "secrets", "settings", "bestiary", "world", "food", "ingredients", "recipes"].includes(activeView) && (
+              {!["dashboard", "storyJourney", "story", "spriteAnimator", "search", "timeline", "secrets", "settings", "bestiary", "world", "food", "ingredients", "recipes", "artVault"].includes(activeView) && (
                 <HubPage
                   view={activeConfig}
                   entries={viewEntries}

@@ -74,6 +74,7 @@ export function Sidebar({
   const hiddenViewSet = useMemo(() => new Set(hiddenViewIds), [hiddenViewIds]);
   const navigation = mainNavigation.filter((item) => {
     if (!canAccessSettings && item.id === "settings") return false;
+    if (readOnly && item.id === "artVault") return false;
     if (!canAccessSettings && hiddenViewSet.has(item.id)) return false;
     return true;
   });

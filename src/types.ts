@@ -29,6 +29,7 @@ export type ActiveView =
   | "characters"
   | "world"
   | "bestiary"
+  | "artVault"
   | "marketing"
   | "archive"
   | "settings"
