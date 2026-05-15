@@ -24,7 +24,7 @@ import {
   type GoogleDriveFolder
 } from "../utils/googlePicker";
 import { googleDriveThumbnailUrl, googleDriveWebViewLink, imageFitToStyle, normalizeImageFit, resolveImageSourceUrl } from "../utils/imageFit";
-import { resolveSpriteAnimationSlot } from "../utils/spriteAnimationSlots";
+import { normalizeSpriteAnimationSlotReference, resolveSpriteAnimationSlot } from "../utils/spriteAnimationSlots";
 import { CustomSelect } from "./CustomSelect";
 import { DriveAwareImage } from "./DriveAwareImage";
 import { Icon } from "./Icon";
@@ -971,7 +971,7 @@ function ArtBinderCard({
       )}
       <div className="art-binder-card-image">
         {card.slot.image?.spriteAnimation ? (
-          <ArtBinderSpriteAnimation reference={card.slot.image.spriteAnimation} imageFit={card.slot.image.imageFit} />
+          <ArtBinderSpriteAnimation reference={card.slot.image.spriteAnimation} imageFit={card.slot.image.imageFit} fallbackImageSrc={previewImageSrc} />
         ) : previewImageSrc ? (
           <DriveAwareImage src={previewImageSrc} alt="" />
         ) : (
@@ -1432,9 +1432,18 @@ function imageSlotFromUrl(id: string, label: string, imageUrl?: string): ArtVaul
 }
 
 
-function ArtBinderSpriteAnimation({ reference, imageFit }: { reference: SpriteAnimationSlotReference; imageFit?: ArtVaultImageMetadata["imageFit"] }) {
+function ArtBinderSpriteAnimation({
+  reference,
+  imageFit,
+  fallbackImageSrc
+}: {
+  reference: SpriteAnimationSlotReference;
+  imageFit?: ArtVaultImageMetadata["imageFit"];
+  fallbackImageSrc?: string;
+}) {
   const resolved = resolveSpriteAnimationSlot(reference);
   if (!resolved.asset || !resolved.preset || !resolved.reference) {
+    if (fallbackImageSrc) return <DriveAwareImage src={fallbackImageSrc} alt="" style={imageFitToStyle(imageFit)} />;
     return <Icon name="Gamepad2" className="h-8 w-8" />;
   }
   const fitStyle = imageFitToStyle(imageFit);
@@ -2295,7 +2304,7 @@ function artBinderSlotImageMetadata(slot: ArtVaultSlot, card: ArtBinderSlotCard,
     driveFolderId: imageSlot.defaultFolderId || card.section.driveFolderId || slot.image?.driveFolderId || "",
     driveFolderLink: imageSlot.defaultFolderLink || card.section.driveFolderLink || slot.image?.driveFolderLink || "",
     driveFolderName: imageSlot.defaultFolderName || card.section.driveFolderName || slot.image?.driveFolderName || "",
-    spriteAnimation: imageSlot.spriteAnimation
+    spriteAnimation: normalizeSpriteAnimationSlotReference(imageSlot.spriteAnimation)
   };
 }
 

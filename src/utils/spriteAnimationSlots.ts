@@ -1,4 +1,9 @@
 import type {
+  ArtVaultImageMetadata,
+  ArtVaultSection,
+  ArtVaultSlot,
+  CharacterArtVault,
+  LoreDatabase,
   SpriteAnimationPresetSnapshot,
   SpriteAnimationSheetSnapshot,
   SpriteAnimationSlotReference
@@ -37,10 +42,10 @@ export function normalizeSpriteAnimationSlotReference(value: unknown): SpriteAni
   const spriteSheet = normalizeSpriteSheetSnapshot(source.spriteSheet, spriteSheetAssetId);
   const preset = normalizeSpritePresetSnapshot(source.preset, spriteSheetAssetId, animationPresetId);
   const localAsset = !spriteSheet || !preset
-    ? loadSpriteSheetsSafely().find((asset) => asset.id === spriteSheetAssetId) || null
+    ? findLocalSpriteSheetAsset(spriteSheetAssetId)
     : null;
   const localPreset = !preset
-    ? localAsset?.animationPresets.find((item) => item.id === animationPresetId) || null
+    ? findLocalSpriteAnimationPreset(localAsset, animationPresetId)
     : null;
 
   return {
@@ -62,7 +67,7 @@ export function resolveSpriteAnimationSlot(value: unknown): {
   const reference = normalizeSpriteAnimationSlotReference(value);
   if (!reference) return { asset: null, preset: null, reference: undefined };
 
-  const localAsset = loadSpriteSheetsSafely().find((asset) => asset.id === reference.spriteSheetAssetId) || null;
+  const localAsset = findLocalSpriteSheetAsset(reference.spriteSheetAssetId);
   const snapshotAsset = reference.spriteSheet
     ? normalizeSpriteSheetAsset({
         ...reference.spriteSheet,
@@ -77,6 +82,32 @@ export function resolveSpriteAnimationSlot(value: unknown): {
   const preset = localPreset || snapshotPreset || asset?.animationPresets.find((item) => item.id === reference.animationPresetId) || null;
 
   return { asset, preset, reference };
+}
+
+export function hydrateDatabaseSpriteAnimationSnapshots(database: LoreDatabase): { database: LoreDatabase; changed: boolean } {
+  let changed = false;
+  const entries = (database.entries || []).map((entry) => {
+    const hydratedVault = hydrateArtVault(entry.artVault);
+    if (!hydratedVault.changed) return entry;
+    changed = true;
+    return { ...entry, artVault: hydratedVault.vault || entry.artVault };
+  });
+  const bestiary = (database.bestiary || []).map((creature) => {
+    const hydratedVault = hydrateArtVault(creature.artVault);
+    if (!hydratedVault.changed) return creature;
+    changed = true;
+    return { ...creature, artVault: hydratedVault.vault || creature.artVault };
+  });
+  const bestiaryCategoryVaults = (database.bestiaryCategoryVaults || []).map((vault) => {
+    const hydratedVault = hydrateArtVault(vault.artVault);
+    if (!hydratedVault.changed) return vault;
+    changed = true;
+    return { ...vault, artVault: hydratedVault.vault || vault.artVault };
+  });
+
+  return changed
+    ? { database: { ...database, entries, bestiary, bestiaryCategoryVaults }, changed: true }
+    : { database, changed: false };
 }
 
 function snapshotSpriteSheetAsset(asset: SpriteSheetAsset): SpriteAnimationSheetSnapshot {
@@ -169,6 +200,65 @@ function loadSpriteSheetsSafely() {
   } catch {
     return [];
   }
+}
+
+function findLocalSpriteSheetAsset(spriteSheetAssetId: string) {
+  const assets = loadSpriteSheetsSafely();
+  const embeddedDriveFileId = driveFileIdFromSpriteSheetAssetId(spriteSheetAssetId);
+  return assets.find((asset) =>
+    asset.id === spriteSheetAssetId ||
+    (embeddedDriveFileId && asset.driveFileId === embeddedDriveFileId)
+  ) || null;
+}
+
+function findLocalSpriteAnimationPreset(asset: SpriteSheetAsset | null, animationPresetId: string) {
+  if (!asset) return null;
+  return asset.animationPresets.find((preset) => preset.id === animationPresetId) ||
+    (asset.animationPresets.length === 1 ? asset.animationPresets[0] : null);
+}
+
+function driveFileIdFromSpriteSheetAssetId(spriteSheetAssetId: string) {
+  const match = spriteSheetAssetId.match(/^sprite-sheet-(.+)-\d+$/);
+  return match?.[1] || "";
+}
+
+function hydrateArtVault(vault: CharacterArtVault | undefined): { vault: CharacterArtVault | undefined; changed: boolean } {
+  if (!vault?.sections?.length) return { vault, changed: false };
+  let changed = false;
+  const sections = vault.sections.map((section) => {
+    const hydrated = hydrateSection(section);
+    if (hydrated.changed) changed = true;
+    return hydrated.section;
+  });
+  return changed ? { vault: { ...vault, sections }, changed: true } : { vault, changed: false };
+}
+
+function hydrateSection(section: ArtVaultSection): { section: ArtVaultSection; changed: boolean } {
+  let changed = false;
+  const slots = (section.slots || []).map((slot) => {
+    const hydrated = hydrateSlot(slot);
+    if (hydrated.changed) changed = true;
+    return hydrated.slot;
+  });
+  return changed ? { section: { ...section, slots }, changed: true } : { section, changed: false };
+}
+
+function hydrateSlot(slot: ArtVaultSlot): { slot: ArtVaultSlot; changed: boolean } {
+  const hydrated = hydrateImage(slot.image);
+  if (!hydrated.changed) return { slot, changed: false };
+  return { slot: { ...slot, image: hydrated.image }, changed: true };
+}
+
+function hydrateImage(image: ArtVaultImageMetadata | null): { image: ArtVaultImageMetadata | null; changed: boolean } {
+  if (!image?.spriteAnimation) return { image, changed: false };
+  const normalized = normalizeSpriteAnimationSlotReference(image.spriteAnimation);
+  if (!normalized) return { image, changed: false };
+  if (sameValue(normalized, image.spriteAnimation)) return { image, changed: false };
+  return { image: { ...image, spriteAnimation: normalized }, changed: true };
+}
+
+function sameValue(left: unknown, right: unknown) {
+  return JSON.stringify(left) === JSON.stringify(right);
 }
 
 function text(value: unknown) {

@@ -86,6 +86,7 @@ import {
 import { isDesktopBrowserAuthRequest } from "./utils/desktopShell";
 import { isFavorite as favoriteIncludes, loadFavorites, saveFavorites, toggleFavorite } from "./utils/favorites";
 import { listenForLauncherProgressRequests, listenForLauncherSession } from "./utils/launcherBridge";
+import { hydrateDatabaseSpriteAnimationSnapshots } from "./utils/spriteAnimationSlots";
 import {
   applySelectedPublishChanges,
   buildPublishChanges,
@@ -445,6 +446,7 @@ export default function App() {
   const lastPublishedDatabaseRef = useRef<LoreDatabase>(createStarterDatabase());
   const lastDraftUpdatedAtRef = useRef("");
   const pendingTeamChangeHashRef = useRef(getFreshPendingTeamChange().hash);
+  const spriteSnapshotRepairHashRef = useRef("");
   const syncSettingsSaveTimerRef = useRef<number | null>(null);
   const sessionUiStateRef = useRef<AppSessionUiState | null>(null);
   const restoredSessionScrollRef = useRef(false);
@@ -584,6 +586,25 @@ export default function App() {
       setStorageWarning(result.ok ? "" : result.message || "The app could not save this change.");
     }
   }, [database, readOnly]);
+
+  useEffect(() => {
+    if (!currentUser || hostedViewer || readOnly || !publishedReady) return;
+    const currentHash = databaseSyncHash(database);
+    if (spriteSnapshotRepairHashRef.current === currentHash) return;
+
+    const repaired = hydrateDatabaseSpriteAnimationSnapshots(database);
+    spriteSnapshotRepairHashRef.current = currentHash;
+    if (!repaired.changed) return;
+
+    const repairedHash = databaseSyncHash(repaired.database);
+    spriteSnapshotRepairHashRef.current = repairedHash;
+    setCloudSync((current) => ({
+      ...current,
+      phase: "saving",
+      message: "Repairing shared sprite animation data..."
+    }));
+    setDatabase(repaired.database);
+  }, [database, currentUser?.email, hostedViewer, readOnly, publishedReady, setDatabase]);
 
   useEffect(() => {
     if (!publishedReady) return;

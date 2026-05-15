@@ -139,7 +139,7 @@ export function ImageManagerModal({ title, subtitle, slots, onClose, onSave, onA
 
         <div className="image-manager-slot-list">
           {draftSlots.map((slot) => (
-            <ManagedImageSlotCard key={slot.id} slot={slot} onChange={(patch) => updateSlot(slot.id, patch)} onOpenSpriteCutter={() => setSpriteSlotId(slot.id)} />
+            <ManagedImageSlotCard key={slot.id} slot={slot} onChange={(patch, options) => updateSlot(slot.id, patch, options)} onOpenSpriteCutter={() => setSpriteSlotId(slot.id)} />
           ))}
         </div>
 
@@ -191,7 +191,7 @@ function ManagedImageSlotCard({
       <div className="image-manager-slot-preview-wrap">
         <div className="image-manager-slot-preview" style={frameStyle}>
           {slot.spriteAnimation ? (
-            <ManagedSpriteAnimationPreview reference={slot.spriteAnimation} imageFit={slot.imageFit} />
+            <ManagedSpriteAnimationPreview reference={slot.spriteAnimation} imageFit={slot.imageFit} fallbackImageUrl={slot.imageUrl} />
           ) : slot.imageUrl ? (
             <DriveAwareImage src={slot.imageUrl} alt="" style={imageFitToStyle(slot.imageFit)} />
           ) : (
@@ -287,14 +287,14 @@ function ManagedImageSlotCard({
         />
 
         <div className="image-manager-fit-grid">
-          <ImageManagerRange label="Scale" min={0.25} max={3} step={0.05} value={slot.imageFit.scale} onChange={(scale) => onChange({ imageFit: normalizeImageFit({ ...slot.imageFit, scale }) })} />
-          <ImageManagerRange label="X" min={-100} max={100} step={1} value={slot.imageFit.x} onChange={(x) => onChange({ imageFit: normalizeImageFit({ ...slot.imageFit, x }) })} />
-          <ImageManagerRange label="Y" min={-100} max={100} step={1} value={slot.imageFit.y} onChange={(y) => onChange({ imageFit: normalizeImageFit({ ...slot.imageFit, y }) })} />
+          <ImageManagerRange label="Scale" min={0.25} max={3} step={0.05} value={slot.imageFit.scale} onChange={(scale) => onChange({ imageFit: normalizeImageFit({ ...slot.imageFit, scale }) }, { autoSave: true })} />
+          <ImageManagerRange label="X" min={-100} max={100} step={1} value={slot.imageFit.x} onChange={(x) => onChange({ imageFit: normalizeImageFit({ ...slot.imageFit, x }) }, { autoSave: true })} />
+          <ImageManagerRange label="Y" min={-100} max={100} step={1} value={slot.imageFit.y} onChange={(y) => onChange({ imageFit: normalizeImageFit({ ...slot.imageFit, y }) }, { autoSave: true })} />
           <label className="image-manager-field">
             <span>Fit</span>
             <CustomSelect
               value={slot.imageFit.mode}
-              onChange={(mode) => onChange({ imageFit: normalizeImageFit({ ...slot.imageFit, mode }) })}
+              onChange={(mode) => onChange({ imageFit: normalizeImageFit({ ...slot.imageFit, mode }) }, { autoSave: true })}
               options={[
                 { value: "contain", label: "Contain" },
                 { value: "cover", label: "Cover" },
@@ -303,7 +303,7 @@ function ManagedImageSlotCard({
               ]}
             />
           </label>
-          <button className="character-codex-action-button" onClick={() => onChange({ imageFit: defaultImageFit })}>
+          <button className="character-codex-action-button" onClick={() => onChange({ imageFit: defaultImageFit }, { autoSave: true })}>
             Reset Fit
           </button>
         </div>
@@ -349,9 +349,18 @@ function normalizeSlot(slot: ImageManagerSlot): ImageManagerSlotDraft {
   };
 }
 
-function ManagedSpriteAnimationPreview({ reference, imageFit }: { reference: SpriteAnimationSlotReference; imageFit?: ImageFitSettings }) {
+function ManagedSpriteAnimationPreview({
+  reference,
+  imageFit,
+  fallbackImageUrl
+}: {
+  reference: SpriteAnimationSlotReference;
+  imageFit?: ImageFitSettings;
+  fallbackImageUrl?: string;
+}) {
   const resolved = resolveSpriteAnimationSlot(reference);
   if (!resolved.asset || !resolved.preset || !resolved.reference) {
+    if (fallbackImageUrl) return <DriveAwareImage src={fallbackImageUrl} alt="" style={imageFitToStyle(imageFit)} />;
     return (
       <div className="image-manager-empty-preview">
         <Icon name="Gamepad2" className="h-8 w-8" />
