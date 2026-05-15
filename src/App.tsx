@@ -30,7 +30,7 @@ import { searchEntries } from "./utils/search";
 import { richTextToPlainText } from "./utils/richText";
 import { AssignmentProvider } from "./components/AssignmentSystem";
 import { ArtVaultDashboard } from "./components/ArtVaultDashboard";
-import type { ArtBinderInitialFilter, ArtBinderKind } from "./components/ArtBinderPage";
+import type { ArtBinderInitialFilter, ArtBinderKind, ArtBinderSessionState } from "./components/ArtBinderPage";
 import { AccessGate } from "./components/AccessGate";
 import { AssistantPanel } from "./components/AssistantPanel";
 import { BestiaryPage } from "./components/BestiaryPage";
@@ -181,6 +181,7 @@ interface AppSessionUiState {
   artVaultDashboardOpen: boolean;
   artBinderOpen: boolean;
   artBinderFilter: ArtBinderInitialFilter | null;
+  artBinderSessionState: ArtBinderSessionState | null;
   favoritesOpen: boolean;
   questDashboardOpen: boolean;
   profileOpen: boolean;
@@ -238,6 +239,7 @@ function loadAppSessionUiState(): AppSessionUiState | null {
       artVaultDashboardOpen: Boolean(parsed.artVaultDashboardOpen),
       artBinderOpen: Boolean(parsed.artBinderOpen),
       artBinderFilter: normalizeSessionArtBinderFilter(parsed.artBinderFilter),
+      artBinderSessionState: normalizeSessionArtBinderState(parsed.artBinderSessionState),
       favoritesOpen: Boolean(parsed.favoritesOpen),
       questDashboardOpen: Boolean(parsed.questDashboardOpen),
       profileOpen: Boolean(parsed.profileOpen),
@@ -281,6 +283,23 @@ function normalizeSessionArtBinderFilter(value: unknown): ArtBinderInitialFilter
     groupKey: typeof source.groupKey === "string" ? source.groupKey : undefined,
     subjectId: typeof source.subjectId === "string" ? source.subjectId : undefined,
     category: typeof source.category === "string" ? source.category : undefined
+  };
+}
+
+function normalizeSessionArtBinderState(value: unknown): ArtBinderSessionState | null {
+  if (!value || typeof value !== "object") return null;
+  const source = value as Partial<ArtBinderSessionState>;
+  const statusFilter = String(source.statusFilter || "");
+  return {
+    kindFilter: normalizeArtBinderKind(String(source.kindFilter || "")),
+    subjectGroupFilter: typeof source.subjectGroupFilter === "string" ? source.subjectGroupFilter : "all",
+    subjectFilter: typeof source.subjectFilter === "string" ? source.subjectFilter : "all",
+    categoryFilter: typeof source.categoryFilter === "string" ? source.categoryFilter : "all",
+    statusFilter: ["All", "Missing", "WIP", "Final", "Needs Revision"].includes(statusFilter) ? statusFilter : "All",
+    search: typeof source.search === "string" ? source.search : "",
+    collapsedCategories: Array.isArray(source.collapsedCategories)
+      ? source.collapsedCategories.filter((category): category is string => typeof category === "string")
+      : []
   };
 }
 
@@ -367,6 +386,7 @@ export default function App() {
   const [artVaultDashboardOpen, setArtVaultDashboardOpen] = useState(Boolean(initialSessionUi?.artVaultDashboardOpen));
   const [artBinderOpen, setArtBinderOpen] = useState(Boolean(initialSessionUi?.artBinderOpen || initialSessionUi?.artBinderFilter));
   const [artBinderFilter, setArtBinderFilter] = useState<ArtBinderInitialFilter | null>(initialSessionUi?.artBinderFilter || null);
+  const [artBinderSessionState, setArtBinderSessionState] = useState<ArtBinderSessionState | null>(initialSessionUi?.artBinderSessionState || null);
   const [detailReturnTarget, setDetailReturnTarget] = useState<DetailReturnTarget | null>(null);
   const [favoritesOpen, setFavoritesOpen] = useState(Boolean(initialSessionUi?.favoritesOpen));
   const [questDashboardOpen, setQuestDashboardOpen] = useState(Boolean(initialSessionUi?.questDashboardOpen));
@@ -1385,6 +1405,7 @@ export default function App() {
       artVaultDashboardOpen,
       artBinderOpen,
       artBinderFilter,
+      artBinderSessionState,
       favoritesOpen,
       questDashboardOpen,
       profileOpen,
@@ -1409,6 +1430,7 @@ export default function App() {
     artVaultDashboardOpen,
     artBinderOpen,
     artBinderFilter,
+    artBinderSessionState,
     favoritesOpen,
     questDashboardOpen,
     profileOpen,
@@ -1418,8 +1440,10 @@ export default function App() {
   useEffect(() => {
     if (hostedViewer) return;
     let scrollFrame = 0;
+    const pendingInitialScrollY = initialSessionUi?.scrollY || 0;
     const saveCurrentScroll = () => {
       if (!sessionUiStateRef.current) return;
+      if (pendingInitialScrollY > 0 && !restoredSessionScrollRef.current) return;
       sessionUiStateRef.current = {
         ...sessionUiStateRef.current,
         scrollY: window.scrollY
@@ -1440,21 +1464,41 @@ export default function App() {
       window.removeEventListener("scroll", handleScroll);
       window.removeEventListener("beforeunload", saveCurrentScroll);
     };
-  }, [hostedViewer]);
+  }, [hostedViewer, initialSessionUi?.scrollY]);
 
   useEffect(() => {
     const targetScrollY = initialSessionUi?.scrollY || 0;
     if (restoredSessionScrollRef.current || !currentUser || targetScrollY <= 0) return;
-    restoredSessionScrollRef.current = true;
+    let cancelled = false;
     let attempts = 0;
+    let restoreTimer = 0;
     const restoreScroll = () => {
+      if (cancelled || restoredSessionScrollRef.current) return;
       attempts += 1;
-      window.scrollTo({ top: targetScrollY, behavior: "auto" });
-      if (attempts < 8 && Math.abs(window.scrollY - targetScrollY) > 8) {
-        window.setTimeout(restoreScroll, 175);
+      const documentHeight = Math.max(
+        document.documentElement.scrollHeight,
+        document.body.scrollHeight
+      );
+      const maxScrollY = Math.max(0, documentHeight - window.innerHeight);
+      const reachableScrollY = Math.min(targetScrollY, maxScrollY);
+      window.scrollTo({ top: reachableScrollY, behavior: "auto" });
+      const restoredCloseEnough = Math.abs(window.scrollY - reachableScrollY) <= 8;
+      const contentCanReachTarget = maxScrollY >= targetScrollY - 8;
+      if (restoredCloseEnough && (contentCanReachTarget || attempts >= 40)) {
+        restoredSessionScrollRef.current = true;
+        return;
       }
+      if (attempts < 40) {
+        restoreTimer = window.setTimeout(restoreScroll, 175);
+        return;
+      }
+      restoredSessionScrollRef.current = true;
     };
-    window.setTimeout(restoreScroll, 75);
+    restoreTimer = window.setTimeout(restoreScroll, 75);
+    return () => {
+      cancelled = true;
+      if (restoreTimer) window.clearTimeout(restoreTimer);
+    };
   }, [currentUser, initialSessionUi?.scrollY, publishedReady, activeView, artVaultDashboardOpen, artBinderOpen, selectedEntry?.id]);
 
   const updateDatabase = (next: LoreDatabase) => {
@@ -2198,6 +2242,7 @@ export default function App() {
     setFavoritesOpen(false);
     setQuestDashboardOpen(false);
     setProfileOpen(false);
+    setArtBinderSessionState(null);
     setArtBinderFilter(filter);
     setArtBinderOpen(true);
     setArtVaultDashboardOpen(true);
@@ -2411,6 +2456,7 @@ export default function App() {
               onOpenEntry={openEntry}
               initialBinderFilter={artBinderFilter}
               initialBinderOpen={artBinderOpen}
+              initialBinderSessionState={artBinderSessionState}
               onClearBinderFilter={() => {
                 setArtBinderFilter(null);
                 setArtBinderOpen(false);
@@ -2418,7 +2464,9 @@ export default function App() {
               onBinderVisibilityChange={(open, filter) => {
                 setArtBinderOpen(open);
                 setArtBinderFilter(filter);
+                if (open) setArtBinderSessionState(null);
               }}
+              onBinderSessionStateChange={setArtBinderSessionState}
             />
           ) : selectedCharacterEntry ? (
             <CharacterDetailPage

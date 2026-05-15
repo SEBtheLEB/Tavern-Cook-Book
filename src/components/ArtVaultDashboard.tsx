@@ -5,7 +5,7 @@ import {
   type ArtVaultDashboardGroup,
   type ArtVaultDashboardItem
 } from "../utils/artVaultDashboard";
-import { ArtBinderPage, type ArtBinderInitialFilter, type ArtBinderKind } from "./ArtBinderPage";
+import { ArtBinderPage, type ArtBinderInitialFilter, type ArtBinderKind, type ArtBinderSessionState } from "./ArtBinderPage";
 import { Icon } from "./Icon";
 import { useRealtimeCollaboration } from "./RealtimeCollaborationContext";
 
@@ -17,8 +17,10 @@ interface ArtVaultDashboardProps {
   onOpenEntry: (entry: LoreEntry) => void;
   initialBinderFilter?: ArtBinderInitialFilter | null;
   initialBinderOpen?: boolean;
+  initialBinderSessionState?: ArtBinderSessionState | null;
   onClearBinderFilter?: () => void;
   onBinderVisibilityChange?: (open: boolean, filter: ArtBinderInitialFilter | null) => void;
+  onBinderSessionStateChange?: (state: ArtBinderSessionState) => void;
 }
 
 export function ArtVaultDashboard({
@@ -29,8 +31,10 @@ export function ArtVaultDashboard({
   onOpenEntry,
   initialBinderFilter = null,
   initialBinderOpen = false,
+  initialBinderSessionState = null,
   onClearBinderFilter,
-  onBinderVisibilityChange
+  onBinderVisibilityChange,
+  onBinderSessionStateChange
 }: ArtVaultDashboardProps) {
   const stats = useMemo(() => buildArtVaultDashboardStats(database), [database]);
   const [binderFilter, setBinderFilter] = useState<ArtBinderInitialFilter | null>(initialBinderFilter);
@@ -73,6 +77,8 @@ export function ArtVaultDashboard({
         readOnly={readOnly}
         onDatabaseChange={onDatabaseChange}
         initialFilter={binderFilter}
+        initialSessionState={initialBinderSessionState}
+        onSessionStateChange={onBinderSessionStateChange}
         onBack={() => {
           setShowBinder(false);
           setBinderFilter(null);

@@ -84,12 +84,14 @@ interface ArtBinderPageProps {
   readOnly: boolean;
   onDatabaseChange: (database: LoreDatabase) => void;
   initialFilter?: ArtBinderInitialFilter | null;
+  initialSessionState?: ArtBinderSessionState | null;
+  onSessionStateChange?: (state: ArtBinderSessionState) => void;
   onBack: () => void;
   onNavigate: (view: ActiveView) => void;
   onOpenEntry: (entry: LoreEntry) => void;
 }
 
-interface ArtBinderSessionState {
+export interface ArtBinderSessionState {
   kindFilter: ArtBinderKind;
   subjectGroupFilter: string;
   subjectFilter: string;
@@ -114,19 +116,21 @@ export function ArtBinderPage({
   readOnly,
   onDatabaseChange,
   initialFilter = null,
+  initialSessionState = null,
+  onSessionStateChange,
   onBack,
   onNavigate,
   onOpenEntry
 }: ArtBinderPageProps) {
   const assignmentContext = useAssignments();
   const subjects = useMemo(() => buildArtBinderSubjects(database), [database]);
+  const initialFilterSignature = artBinderInitialFilterSignature(initialFilter);
   const sessionStateRef = useRef<ArtBinderSessionState | null | undefined>(undefined);
   if (sessionStateRef.current === undefined) {
-    sessionStateRef.current = loadArtBinderSessionState();
+    sessionStateRef.current = initialSessionState || (!initialFilterSignature ? loadArtBinderSessionState() : null);
   }
   const savedSessionState = sessionStateRef.current;
   const initialSubject = subjects.find((subject) => subject.id === initialFilter?.subjectId);
-  const initialFilterSignature = artBinderInitialFilterSignature(initialFilter);
   const appliedInitialFilterRef = useRef(savedSessionState ? initialFilterSignature : "");
   const [kindFilter, setKindFilter] = useState<ArtBinderKind>(savedSessionState?.kindFilter || initialFilter?.kind || "all");
   const [subjectGroupFilter, setSubjectGroupFilter] = useState(savedSessionState?.subjectGroupFilter || initialFilter?.groupKey || initialSubject?.groupKey || "all");
@@ -154,7 +158,7 @@ export function ArtBinderPage({
   }, [initialFilter, subjects]);
 
   useEffect(() => {
-    saveArtBinderSessionState({
+    const nextSessionState = {
       kindFilter,
       subjectGroupFilter,
       subjectFilter,
@@ -162,8 +166,10 @@ export function ArtBinderPage({
       statusFilter,
       search,
       collapsedCategories: Array.from(collapsedCategories)
-    });
-  }, [kindFilter, subjectGroupFilter, subjectFilter, categoryFilter, statusFilter, search, collapsedCategories]);
+    };
+    saveArtBinderSessionState(nextSessionState);
+    onSessionStateChange?.(nextSessionState);
+  }, [kindFilter, subjectGroupFilter, subjectFilter, categoryFilter, statusFilter, search, collapsedCategories, onSessionStateChange]);
 
   const visibleSubjects = subjects.filter((subject) =>
     (kindFilter === "all" || subject.kind === kindFilter) &&
