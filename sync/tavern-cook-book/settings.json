@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-05-15T00:08:59.094Z",
+  "updatedAt": "2026-05-15T00:09:05.199Z",
   "updatedBy": "stlprodz1101@gmail.com",
   "payload": {
     "visibility": {
@@ -33,7 +33,7 @@
       "googleOAuthClientId": "55508806253-p292f7oom6s1do0f9er1unfhi0mjjaen.apps.googleusercontent.com",
       "defaultTalesFolderId": "1FcmPITLSZkg_XEHLtpaN6wVRkQlMnMIY",
       "defaultCharactersFolderId": "",
-      "defaultWorldArtFolderId": "",
+      "defaultWorldArtFolderId": "1FcmPITLSZkg_XEHLtpaN6wVRkQlMnMIY",
       "defaultMarketingArtFolderId": "",
       "defaultArtVaultFolderId": ""
     }
