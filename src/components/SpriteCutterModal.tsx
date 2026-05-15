@@ -1,7 +1,17 @@
 ﻿import { useEffect, useMemo, useState, type SyntheticEvent } from "react";
-import type { ImageFitSettings, SpriteAnimationSlotReference } from "../types";
+import type { ImageFitSettings, SpriteAnimationFrameImage, SpriteAnimationSlotReference } from "../types";
 import { extractGoogleDriveFileId, googleDriveThumbnailUrl, googleDriveWebViewLink, resolveImageSourceUrl } from "../utils/imageFit";
-import type { GoogleDriveFolder, GooglePickerFile, UploadedDriveFile, DriveUploadNameContext } from "../utils/googlePicker";
+import {
+  authenticateGoogleDrive,
+  fetchDriveImageBlobUrl,
+  getOrCreateGoogleDriveFolderPath,
+  googleDriveFolderLink,
+  uploadImageToDrive,
+  type GoogleDriveFolder,
+  type GooglePickerFile,
+  type UploadedDriveFile,
+  type DriveUploadNameContext
+} from "../utils/googlePicker";
 import {
   buildFrameSequence,
   buildSpriteSheetUploadFileName,
@@ -16,7 +26,7 @@ import {
   type SpriteAnimationPreset,
   type SpriteSheetAsset
 } from "../utils/spriteSheets";
-import { createSpriteAnimationSlotReference } from "../utils/spriteAnimationSlots";
+import { createSpriteAnimationSlotReference, type SpriteAnimationSlotAssets } from "../utils/spriteAnimationSlots";
 import { CustomSelect } from "./CustomSelect";
 import { DriveAwareImage } from "./DriveAwareImage";
 import { DriveImageSourceControls } from "./DriveImageSourceControls";
@@ -107,6 +117,7 @@ export function SpriteCutterModal({ slot, onClose, onAdd }: SpriteCutterModalPro
   const [message, setMessage] = useState(initial.asset ? "Grid is ready. Adjust the slicing values, then click Slice." : "Choose or upload a sprite sheet first.");
   const [autoFitGrid, setAutoFitGrid] = useState(!initialPreset);
   const [playback, setPlayback] = useState<"autoplay" | "hover">(slot.spriteAnimation?.playback || "autoplay");
+  const [savingAnimation, setSavingAnimation] = useState(false);
 
   useEffect(() => {
     if (!initial.asset) return;
@@ -292,11 +303,14 @@ export function SpriteCutterModal({ slot, onClose, onAdd }: SpriteCutterModalPro
     setMessage("Sliced. Click Play to test it, then Add Animation when you like it.");
   };
 
-  const addAnimationToSlot = () => {
+  const addAnimationToSlot = async () => {
+    if (savingAnimation) return;
     if (!selectedAsset || !activePreset || sliceDirty) {
       setMessage("Click Slice first so the animation preset matches the visible grid.");
       return;
     }
+    setSavingAnimation(true);
+    setMessage("Preparing sliced animation frames for Google Drive...");
     const now = new Date().toISOString();
     const savedPreset = normalizeSpriteAnimationPreset({
       ...activePreset,
@@ -312,19 +326,31 @@ export function SpriteCutterModal({ slot, onClose, onAdd }: SpriteCutterModalPro
         ? selectedAsset.animationPresets.map((preset) => (preset.id === savedPreset.id ? savedPreset : preset))
         : [...selectedAsset.animationPresets, savedPreset]
     });
-    persistAssets(assets.some((asset) => asset.id === updatedAsset.id)
-      ? assets.map((asset) => (asset.id === updatedAsset.id ? updatedAsset : asset))
-      : [updatedAsset, ...assets]
-    );
-    onAdd({
-      imageUrl: updatedAsset.thumbnailUrl || updatedAsset.driveUrl,
-      webViewLink: updatedAsset.driveUrl || googleDriveWebViewLink(updatedAsset.driveFileId),
-      defaultFolderId: updatedAsset.folderId,
-      defaultFolderLink: updatedAsset.folderLink,
-      defaultFolderName: updatedAsset.folderName,
-      spriteAnimation: createSpriteAnimationSlotReference(updatedAsset, savedPreset, playback, true)
-    });
-    onClose();
+    try {
+      const frameAssets = await uploadSpriteAnimationFrames(
+        slot,
+        updatedAsset,
+        savedPreset,
+        selectedImageUrl,
+        (completed, total) => setMessage(`Uploading sliced frame ${completed} of ${total} to Google Drive...`)
+      );
+      persistAssets(assets.some((asset) => asset.id === updatedAsset.id)
+        ? assets.map((asset) => (asset.id === updatedAsset.id ? updatedAsset : asset))
+        : [updatedAsset, ...assets]
+      );
+      onAdd({
+        imageUrl: updatedAsset.thumbnailUrl || updatedAsset.driveUrl,
+        webViewLink: updatedAsset.driveUrl || googleDriveWebViewLink(updatedAsset.driveFileId),
+        defaultFolderId: updatedAsset.folderId,
+        defaultFolderLink: updatedAsset.folderLink,
+        defaultFolderName: updatedAsset.folderName,
+        spriteAnimation: createSpriteAnimationSlotReference(updatedAsset, savedPreset, playback, true, frameAssets)
+      });
+      onClose();
+    } catch (error) {
+      setSavingAnimation(false);
+      setMessage(error instanceof Error ? error.message : "Could not upload the sliced animation frames.");
+    }
   };
 
   return (
@@ -512,15 +538,63 @@ export function SpriteCutterModal({ slot, onClose, onAdd }: SpriteCutterModalPro
           <span>{playback === "autoplay" ? "This slot will autoplay and loop by default." : "This slot will play only while hovered."}</span>
           <div>
             <button className="character-codex-action-button" onClick={onClose}>Cancel</button>
-            <button className="button-frame character-codex-action-button" onClick={addAnimationToSlot} disabled={!activePreset || sliceDirty}>
+            <button className="button-frame character-codex-action-button" onClick={addAnimationToSlot} disabled={!activePreset || sliceDirty || savingAnimation}>
               <Icon name="Plus" className="h-4 w-4" />
-              Add Animation to Slot
+              {savingAnimation ? "Uploading Frames..." : "Add Animation to Slot"}
             </button>
           </div>
         </footer>
       </section>
     </div>
   );
+}
+
+async function uploadSpriteAnimationFrames(
+  slot: SpriteCutterSlotContext,
+  asset: SpriteSheetAsset,
+  preset: SpriteAnimationPreset,
+  sourceUrl: string,
+  onProgress?: (completed: number, total: number) => void
+): Promise<SpriteAnimationSlotAssets> {
+  const parentFolderId = asset.folderId || slot.defaultFolderId || "";
+  if (!parentFolderId) {
+    throw new Error("Set or create the Google Drive folder for this art category before adding sprite animations.");
+  }
+
+  await authenticateGoogleDrive();
+  const frameFolderName = spriteAnimationFrameFolderName(slot, asset, preset);
+  const frameFolder = await getOrCreateGoogleDriveFolderPath(parentFolderId, ["Sprite Frames", frameFolderName]);
+  const sourceFileId = asset.driveFileId || extractGoogleDriveFileId(sourceUrl);
+  const sheetImageUrl = sourceFileId ? await fetchDriveImageBlobUrl(sourceFileId) : sourceUrl;
+  if (!sheetImageUrl) throw new Error("Choose or upload a sprite sheet before adding the animation.");
+
+  const image = await loadImageForCanvas(sheetImageUrl);
+  const frameIndexes = animationFrameIndexes(preset);
+  if (!frameIndexes.length) throw new Error("No frames were found in this animation range.");
+
+  const frameImages: SpriteAnimationFrameImage[] = [];
+  for (let index = 0; index < frameIndexes.length; index += 1) {
+    const frameIndex = frameIndexes[index];
+    const fileName = spriteAnimationFrameFileName(slot, asset, preset, frameIndex);
+    const file = await createSpriteAnimationFrameFile(image, preset, frameIndex, fileName);
+    const uploaded = await uploadImageToDrive(file, frameFolder.id, { fileName });
+    const driveFileId = uploaded.id;
+    frameImages.push({
+      frameIndex,
+      driveFileId,
+      thumbnailUrl: googleDriveThumbnailUrl(driveFileId),
+      webViewLink: uploaded.webViewLink || googleDriveWebViewLink(driveFileId),
+      fileName: uploaded.name || fileName
+    });
+    onProgress?.(index + 1, frameIndexes.length);
+  }
+
+  return {
+    frameImages,
+    frameFolderId: frameFolder.id,
+    frameFolderLink: frameFolder.url || googleDriveFolderLink(frameFolder.id),
+    frameFolderName: frameFolder.name || frameFolderName
+  };
 }
 
 function SpriteCutterGrid({ settings, zoom, currentFrame }: { settings: SpriteEditorSettings; zoom: number; currentFrame: number }) {
@@ -577,6 +651,113 @@ function frameHoldValue(frameHoldCounts: Record<string, number> | undefined, fra
   const parsed = Math.round(Number(frameHoldCounts?.[String(frame)]));
   if (!Number.isFinite(parsed)) return 1;
   return Math.min(12, Math.max(1, parsed));
+}
+
+function animationFrameIndexes(preset: SpriteAnimationPreset) {
+  const indexes: number[] = [];
+  for (let frame = preset.startFrame; frame <= preset.endFrame; frame += 1) {
+    if (frame >= 0 && frame < preset.totalFrames) indexes.push(frame);
+  }
+  return indexes;
+}
+
+function loadImageForCanvas(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.crossOrigin = "anonymous";
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Could not load the sprite sheet for slicing. Re-select the sheet from Google Drive and try again."));
+    image.src = src;
+  });
+}
+
+async function createSpriteAnimationFrameFile(
+  image: HTMLImageElement,
+  preset: SpriteAnimationPreset,
+  frameIndex: number,
+  fileName: string
+) {
+  const { sourceX, sourceY } = frameBounds(frameIndex, preset.columns, preset.frameWidth, preset.frameHeight);
+  const canvas = document.createElement("canvas");
+  canvas.width = preset.frameWidth;
+  canvas.height = preset.frameHeight;
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("Your browser could not create the sprite frame canvas.");
+  context.imageSmoothingEnabled = false;
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  context.drawImage(
+    image,
+    sourceX,
+    sourceY,
+    preset.frameWidth,
+    preset.frameHeight,
+    0,
+    0,
+    preset.frameWidth,
+    preset.frameHeight
+  );
+  const blob = await canvasToPngBlob(canvas);
+  return new File([blob], fileName, { type: "image/png" });
+}
+
+function canvasToPngBlob(canvas: HTMLCanvasElement): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    try {
+      canvas.toBlob((blob) => {
+        if (blob) resolve(blob);
+        else reject(new Error("Could not export the sliced sprite frame. Re-select the sheet from Google Drive and try again."));
+      }, "image/png");
+    } catch {
+      reject(new Error("Could not export the sliced sprite frame. Re-select the sheet from Google Drive and try again."));
+    }
+  });
+}
+
+function spriteAnimationFrameFolderName(slot: SpriteCutterSlotContext, asset: SpriteSheetAsset, preset: SpriteAnimationPreset) {
+  const parts = dedupeNameParts([
+    cleanDriveNameSegment(slot.uploadNameContext?.subjectName || asset.name || slot.label),
+    cleanDriveNameSegment(preset.animationName || slot.uploadNameContext?.slotName || slot.label),
+    "Frames"
+  ]);
+  return parts.join(" - ") || "Sprite Animation Frames";
+}
+
+function spriteAnimationFrameFileName(
+  slot: SpriteCutterSlotContext,
+  asset: SpriteSheetAsset,
+  preset: SpriteAnimationPreset,
+  frameIndex: number
+) {
+  const tokens = dedupeNameParts([
+    driveFileNameToken(slot.uploadNameContext?.subjectName || asset.name || slot.label),
+    driveFileNameToken(preset.animationName || slot.uploadNameContext?.slotName || slot.label),
+    "Frame",
+    String(frameIndex + 1).padStart(3, "0")
+  ]);
+  return `${tokens.join("_") || "Sprite_Frame"}.png`;
+}
+
+function cleanDriveNameSegment(value: unknown) {
+  return String(value || "")
+    .replace(/[<>:"/\\|?*\u0000-\u001F]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function driveFileNameToken(value: unknown) {
+  return cleanDriveNameSegment(value).replace(/[^a-z0-9]+/gi, "_").replace(/^_+|_+$/g, "");
+}
+
+function dedupeNameParts(parts: string[]) {
+  const seen = new Set<string>();
+  return parts.filter((part) => {
+    const normalized = part.trim();
+    if (!normalized) return false;
+    const key = normalized.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function normalizeEditorSettings(settings: SpriteEditorSettings): SpriteEditorSettings {

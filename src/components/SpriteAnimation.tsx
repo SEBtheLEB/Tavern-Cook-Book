@@ -1,4 +1,5 @@
 ﻿import { useEffect, useMemo, useRef, useState } from "react";
+import type { SpriteAnimationFrameImage } from "../types";
 import type { SpriteAnimationPreset, SpriteSheetAsset } from "../utils/spriteSheets";
 import { buildFrameSequence, frameBounds } from "../utils/spriteSheets";
 import { useDriveAwareImageSrc } from "./DriveAwareImage";
@@ -13,6 +14,7 @@ interface SpriteAnimationProps {
   playOnce?: boolean;
   fpsOverride?: number;
   frameOverride?: number | null;
+  frameImages?: SpriteAnimationFrameImage[];
   className?: string;
   onFrameChange?: (frameIndex: number) => void;
 }
@@ -27,6 +29,7 @@ export function SpriteAnimation({
   playOnce,
   fpsOverride,
   frameOverride = null,
+  frameImages = [],
   className = "",
   onFrameChange
 }: SpriteAnimationProps) {
@@ -78,6 +81,16 @@ export function SpriteAnimation({
     return () => cancelAnimationFrame(animationFrame);
   }, [active, fpsOverride, preset.fps, sequence, shouldLoop, shouldPlayOnce]);
 
+  const frameImageByIndex = useMemo(() => {
+    const map = new Map<number, SpriteAnimationFrameImage>();
+    frameImages.forEach((image) => {
+      if (Number.isFinite(image.frameIndex)) map.set(image.frameIndex, image);
+    });
+    return map;
+  }, [frameImages]);
+  const frameImage = frameImageByIndex.get(frame);
+  const frameImageUrl = frameImage ? frameImage.thumbnailUrl || frameImage.webViewLink : "";
+  const frameImageSrc = useDriveAwareImageSrc(frameImageUrl).imageSrc;
   const imageUrl = useDriveAwareImageSrc(spriteSheet.thumbnailUrl || spriteSheet.driveUrl).imageSrc;
   const { sourceX, sourceY } = frameBounds(frame, preset.columns, preset.frameWidth, preset.frameHeight);
   const scale = Math.max(0.25, preset.scale || 1);
@@ -100,16 +113,20 @@ export function SpriteAnimation({
       }}
       aria-label={`${spriteSheet.name} ${preset.animationName} animation`}
     >
-      <div
-        className="sprite-animation-frame"
-        style={{
-          width,
-          height,
-          backgroundImage: imageUrl ? `url(${imageUrl})` : undefined,
-          backgroundSize: `${preset.columns * preset.frameWidth * scale}px ${preset.rows * preset.frameHeight * scale}px`,
-          backgroundPosition: `-${sourceX * scale}px -${sourceY * scale}px`
-        }}
-      />
+      {frameImageSrc ? (
+        <img className="sprite-animation-frame-image" src={frameImageSrc} alt="" draggable={false} style={{ width, height }} />
+      ) : (
+        <div
+          className="sprite-animation-frame"
+          style={{
+            width,
+            height,
+            backgroundImage: imageUrl ? `url(${imageUrl})` : undefined,
+            backgroundSize: `${preset.columns * preset.frameWidth * scale}px ${preset.rows * preset.frameHeight * scale}px`,
+            backgroundPosition: `-${sourceX * scale}px -${sourceY * scale}px`
+          }}
+        />
+      )}
     </div>
   );
 }

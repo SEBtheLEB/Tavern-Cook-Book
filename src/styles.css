@@ -18603,6 +18603,13 @@ body > .picker-dialog-bg {
   image-rendering: pixelated;
 }
 
+.sprite-animation-frame-image {
+  display: block;
+  flex: 0 0 auto;
+  object-fit: fill;
+  image-rendering: pixelated;
+}
+
 .sprite-timeline-wrap {
   min-height: 220px;
   border: 1px solid var(--card-border);

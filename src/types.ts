@@ -175,6 +175,14 @@ export interface SpriteAnimationPresetSnapshot {
   updatedAt: string;
 }
 
+export interface SpriteAnimationFrameImage {
+  frameIndex: number;
+  driveFileId: string;
+  thumbnailUrl: string;
+  webViewLink: string;
+  fileName: string;
+}
+
 export interface SpriteAnimationSlotReference {
   mode: "spriteAnimation";
   spriteSheetAssetId: string;
@@ -183,6 +191,10 @@ export interface SpriteAnimationSlotReference {
   loop: boolean;
   spriteSheet?: SpriteAnimationSheetSnapshot;
   preset?: SpriteAnimationPresetSnapshot;
+  frameImages?: SpriteAnimationFrameImage[];
+  frameFolderId?: string;
+  frameFolderLink?: string;
+  frameFolderName?: string;
 }
 
 export interface CharacterArtGalleryItem {

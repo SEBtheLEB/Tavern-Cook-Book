@@ -4,6 +4,7 @@ import type {
   ArtVaultSlot,
   CharacterArtVault,
   LoreDatabase,
+  SpriteAnimationFrameImage,
   SpriteAnimationPresetSnapshot,
   SpriteAnimationSheetSnapshot,
   SpriteAnimationSlotReference
@@ -16,11 +17,19 @@ import {
   type SpriteSheetAsset
 } from "./spriteSheets";
 
+export interface SpriteAnimationSlotAssets {
+  frameImages?: SpriteAnimationFrameImage[];
+  frameFolderId?: string;
+  frameFolderLink?: string;
+  frameFolderName?: string;
+}
+
 export function createSpriteAnimationSlotReference(
   asset: SpriteSheetAsset,
   preset: SpriteAnimationPreset,
   playback: SpriteAnimationSlotReference["playback"],
-  loop = true
+  loop = true,
+  assets: SpriteAnimationSlotAssets = {}
 ): SpriteAnimationSlotReference {
   return {
     mode: "spriteAnimation",
@@ -29,7 +38,11 @@ export function createSpriteAnimationSlotReference(
     playback,
     loop,
     spriteSheet: snapshotSpriteSheetAsset(asset),
-    preset: snapshotSpriteAnimationPreset(preset, asset.id)
+    preset: snapshotSpriteAnimationPreset(preset, asset.id),
+    frameImages: normalizeSpriteAnimationFrameImages(assets.frameImages),
+    frameFolderId: text(assets.frameFolderId),
+    frameFolderLink: persistentUrl(assets.frameFolderLink),
+    frameFolderName: text(assets.frameFolderName)
   };
 }
 
@@ -55,8 +68,23 @@ export function normalizeSpriteAnimationSlotReference(value: unknown): SpriteAni
     playback: source.playback === "hover" ? "hover" : "autoplay",
     loop: source.loop !== false,
     spriteSheet: spriteSheet || (localAsset ? snapshotSpriteSheetAsset(localAsset) : undefined),
-    preset: preset || (localPreset ? snapshotSpriteAnimationPreset(localPreset, spriteSheetAssetId) : undefined)
+    preset: preset || (localPreset ? snapshotSpriteAnimationPreset(localPreset, spriteSheetAssetId) : undefined),
+    frameImages: normalizeSpriteAnimationFrameImages(source.frameImages),
+    frameFolderId: text(source.frameFolderId),
+    frameFolderLink: persistentUrl(source.frameFolderLink),
+    frameFolderName: text(source.frameFolderName)
   };
+}
+
+export function normalizeSpriteAnimationFrameImages(value: unknown): SpriteAnimationFrameImage[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const byFrame = new Map<number, SpriteAnimationFrameImage>();
+  value.forEach((item) => {
+    const normalized = normalizeSpriteAnimationFrameImage(item);
+    if (normalized) byFrame.set(normalized.frameIndex, normalized);
+  });
+  const frames = Array.from(byFrame.values()).sort((left, right) => left.frameIndex - right.frameIndex);
+  return frames.length ? frames : undefined;
 }
 
 export function resolveSpriteAnimationSlot(value: unknown): {
@@ -192,6 +220,24 @@ function normalizeSpritePresetSnapshot(
     id: text((value as Partial<SpriteAnimationPresetSnapshot>).id) || animationPresetId,
     spriteSheetAssetId
   }, spriteSheetAssetId), spriteSheetAssetId);
+}
+
+function normalizeSpriteAnimationFrameImage(value: unknown): SpriteAnimationFrameImage | null {
+  if (!value || typeof value !== "object") return null;
+  const source = value as Partial<SpriteAnimationFrameImage>;
+  const frameIndex = Math.round(Number(source.frameIndex));
+  const driveFileId = text(source.driveFileId);
+  const thumbnailUrl = persistentUrl(source.thumbnailUrl);
+  const webViewLink = persistentUrl(source.webViewLink);
+  const fileName = text(source.fileName);
+  if (!Number.isFinite(frameIndex) || frameIndex < 0 || (!driveFileId && !thumbnailUrl && !webViewLink)) return null;
+  return {
+    frameIndex,
+    driveFileId,
+    thumbnailUrl,
+    webViewLink,
+    fileName
+  };
 }
 
 function loadSpriteSheetsSafely() {

@@ -381,6 +381,7 @@ function ManagedSpriteAnimationPreview({
           autoplay={resolved.reference.playback === "autoplay"}
           playOnHover={resolved.reference.playback === "hover"}
           loopWhileHovering={resolved.reference.loop}
+          frameImages={resolved.reference.frameImages}
         />
       </div>
       <span>{resolved.reference.playback === "hover" ? "Plays on hover" : "Auto-looping"}</span>
