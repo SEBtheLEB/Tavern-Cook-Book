@@ -34,6 +34,14 @@ export function normalizeSpriteAnimationSlotReference(value: unknown): SpriteAni
   const spriteSheetAssetId = text(source.spriteSheetAssetId);
   const animationPresetId = text(source.animationPresetId);
   if (!spriteSheetAssetId || !animationPresetId) return undefined;
+  const spriteSheet = normalizeSpriteSheetSnapshot(source.spriteSheet, spriteSheetAssetId);
+  const preset = normalizeSpritePresetSnapshot(source.preset, spriteSheetAssetId, animationPresetId);
+  const localAsset = !spriteSheet || !preset
+    ? loadSpriteSheetsSafely().find((asset) => asset.id === spriteSheetAssetId) || null
+    : null;
+  const localPreset = !preset
+    ? localAsset?.animationPresets.find((item) => item.id === animationPresetId) || null
+    : null;
 
   return {
     mode: "spriteAnimation",
@@ -41,8 +49,8 @@ export function normalizeSpriteAnimationSlotReference(value: unknown): SpriteAni
     animationPresetId,
     playback: source.playback === "hover" ? "hover" : "autoplay",
     loop: source.loop !== false,
-    spriteSheet: normalizeSpriteSheetSnapshot(source.spriteSheet, spriteSheetAssetId),
-    preset: normalizeSpritePresetSnapshot(source.preset, spriteSheetAssetId, animationPresetId)
+    spriteSheet: spriteSheet || (localAsset ? snapshotSpriteSheetAsset(localAsset) : undefined),
+    preset: preset || (localPreset ? snapshotSpriteAnimationPreset(localPreset, spriteSheetAssetId) : undefined)
   };
 }
 
