@@ -15,4 +15,5 @@ Use `docs/imported-chat-history/build-tavern-cook-book-app.transcript.md` when e
 
 ## Publish Preference
 
-- After completing a requested project change, commit the work, push it to GitHub, and deploy it to Vercel production unless the user explicitly says not to.
+- After completing a requested project change, commit the work and push it to GitHub.
+- Rely on the connected Vercel Git integration to deploy from the GitHub push. Do not run a manual Vercel CLI production deploy unless the user explicitly asks for one.
