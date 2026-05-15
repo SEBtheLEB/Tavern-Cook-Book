@@ -41,6 +41,11 @@ export interface MovedDriveFile extends UploadedDriveFile {
   alreadyInFolder: boolean;
 }
 
+export interface DriveFolderRenameResult {
+  checkedCount: number;
+  renamedCount: number;
+}
+
 export interface DriveUploadNameContext {
   subjectName?: string;
   categoryName?: string;
@@ -372,6 +377,57 @@ export async function getDriveFileMetadata(fileId: string, token = accessToken):
   return response.json() as Promise<UploadedDriveFile>;
 }
 
+export async function renameGoogleDriveItem(itemId: string, name: string): Promise<UploadedDriveFile> {
+  const trimmedItemId = itemId.trim();
+  const nextName = cleanDriveItemName(name);
+  if (!trimmedItemId) throw new Error("Missing Drive item ID.");
+  if (!nextName) throw new Error("Missing Drive item name.");
+
+  const token = await authenticateGoogleDrive();
+  const response = await fetchDriveWithTimeout(
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(trimmedItemId)}?fields=id,name,mimeType,thumbnailLink,webViewLink&supportsAllDrives=true${driveApiKeyParam()}`,
+    {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json; charset=UTF-8"
+      },
+      body: JSON.stringify({ name: nextName })
+    },
+    "Google Drive took too long while renaming the item."
+  );
+  if (!response.ok) throw await driveError(response, "Could not rename the Google Drive item.");
+  return response.json() as Promise<UploadedDriveFile>;
+}
+
+export async function renameGoogleDriveFilesInFolderBySegment(
+  folderId: string,
+  oldSegment: string,
+  newSegment: string
+): Promise<DriveFolderRenameResult> {
+  const trimmedFolderId = folderId.trim();
+  if (!trimmedFolderId) throw new Error("Missing Drive folder ID.");
+
+  const replacements = driveFileNameReplacements(oldSegment, newSegment);
+  if (!replacements.length) return { checkedCount: 0, renamedCount: 0 };
+
+  const token = await authenticateGoogleDrive();
+  const files = await listGoogleDriveFilesInFolder(trimmedFolderId, token);
+  let renamedCount = 0;
+
+  for (const file of files) {
+    let nextName = file.name || "";
+    for (const replacement of replacements) {
+      nextName = replaceAllExact(nextName, replacement.from, replacement.to);
+    }
+    if (!nextName || nextName === file.name) continue;
+    await renameGoogleDriveItem(file.id, nextName);
+    renamedCount += 1;
+  }
+
+  return { checkedCount: files.length, renamedCount };
+}
+
 export async function getOrCreateGoogleDriveFolder(name: string, parentFolderId: string, token = ""): Promise<GoogleDriveFolder> {
   const trimmedName = cleanDriveFolderName(name);
   const trimmedParentId = parentFolderId.trim();
@@ -457,6 +513,44 @@ async function createGoogleDriveFolder(name: string, parentFolderId: string, tok
   };
 }
 
+async function listGoogleDriveFilesInFolder(folderId: string, token: string): Promise<DriveBrowserItem[]> {
+  const files: DriveBrowserItem[] = [];
+  let pageToken = "";
+
+  do {
+    const params = new URLSearchParams({
+      corpora: "allDrives",
+      includeItemsFromAllDrives: "true",
+      supportsAllDrives: "true",
+      spaces: "drive",
+      pageSize: "100",
+      fields: "nextPageToken,files(id,name,mimeType,thumbnailLink,webViewLink)"
+    });
+    params.set("q", [
+      "trashed=false",
+      `mimeType != '${GOOGLE_DRIVE_FOLDER_MIME_TYPE}'`,
+      `'${driveQueryValue(folderId)}' in parents`
+    ].join(" and "));
+    if (pageToken) params.set("pageToken", pageToken);
+
+    const response = await fetchDriveWithTimeout(
+      `https://www.googleapis.com/drive/v3/files?${params.toString()}${driveApiKeyParam()}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      },
+      "Google Drive took too long while checking uploaded files."
+    );
+    if (!response.ok) throw await driveError(response, "Could not check files in the Google Drive folder.");
+    const payload = await response.json() as DriveBrowserListResponse;
+    files.push(...(Array.isArray(payload.files) ? payload.files.filter((item) => item?.id) : []));
+    pageToken = payload.nextPageToken || "";
+  } while (pageToken);
+
+  return files;
+}
+
 async function fetchDriveWithTimeout(input: RequestInfo | URL, init: RequestInit, timeoutMessage: string) {
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), 30_000);
@@ -480,10 +574,10 @@ async function fetchDriveWithTimeout(input: RequestInfo | URL, init: RequestInit
   }
 }
 
-export async function moveDriveFileToFolder(fileId: string, targetFolderId: string): Promise<MovedDriveFile> {
-  const trimmedFileId = fileId.trim();
+export async function moveGoogleDriveItemToFolder(itemId: string, targetFolderId: string): Promise<MovedDriveFile> {
+  const trimmedFileId = itemId.trim();
   const trimmedFolderId = targetFolderId.trim();
-  if (!trimmedFileId) throw new Error("Missing Drive file ID.");
+  if (!trimmedFileId) throw new Error("Missing Drive item ID.");
   if (!trimmedFolderId) throw new Error("Choose a destination Drive folder first.");
 
   const token = await authenticateGoogleDrive();
@@ -495,7 +589,7 @@ export async function moveDriveFileToFolder(fileId: string, targetFolderId: stri
       }
     }
   );
-  if (!metadataResponse.ok) throw await driveError(metadataResponse, "Could not read Drive file location.");
+  if (!metadataResponse.ok) throw await driveError(metadataResponse, "Could not read Drive item location.");
 
   const metadata = await metadataResponse.json() as UploadedDriveFile & { parents?: string[] };
   const parents = Array.isArray(metadata.parents) ? metadata.parents.filter(Boolean) : [];
@@ -521,9 +615,13 @@ export async function moveDriveFileToFolder(fileId: string, targetFolderId: stri
       body: JSON.stringify({})
     }
   );
-  if (!response.ok) throw await driveError(response, "Could not move Drive file into the selected folder.");
+  if (!response.ok) throw await driveError(response, "Could not move Drive item into the selected folder.");
   const moved = await response.json() as UploadedDriveFile & { parents?: string[] };
   return { ...moved, moved: true, alreadyInFolder: false };
+}
+
+export async function moveDriveFileToFolder(fileId: string, targetFolderId: string): Promise<MovedDriveFile> {
+  return moveGoogleDriveItemToFolder(fileId, targetFolderId);
 }
 
 export function addUploadedDriveImageToCharacter(
@@ -908,6 +1006,37 @@ function cleanDriveFolderName(value: unknown) {
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 160);
+}
+
+function cleanDriveItemName(value: unknown) {
+  return String(value || "")
+    .replace(/[\\/:*?"<>|]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 160);
+}
+
+function driveFileNameReplacements(oldSegment: string, newSegment: string) {
+  const oldClean = cleanDriveItemName(oldSegment);
+  const newClean = cleanDriveItemName(newSegment);
+  const oldToken = uploadNameToken(oldSegment);
+  const newToken = uploadNameToken(newSegment);
+  const candidates = [
+    { from: oldToken, to: newToken },
+    { from: oldClean, to: newClean }
+  ];
+  const seen = new Set<string>();
+  return candidates.filter((replacement) => {
+    if (!replacement.from || !replacement.to || replacement.from === replacement.to) return false;
+    const key = `${replacement.from}\u0000${replacement.to}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function replaceAllExact(value: string, from: string, to: string) {
+  return value.split(from).join(to);
 }
 
 function driveBrowserItemToSelection(mode: DriveBrowserMode, item: DriveBrowserItem) {

@@ -9,9 +9,20 @@ import {
   normalizeCreatureArtVault
 } from "../utils/bestiary";
 import { normalizeArtVault } from "../utils/entries";
-import { resolveArtVaultDriveFolder, type ArtVaultDriveFolderContext } from "../utils/artVaultDriveFolders";
-import { googleDriveFolderLink, openGoogleDriveFolderPicker, type GoogleDriveFolder } from "../utils/googlePicker";
-import { googleDriveWebViewLink, normalizeImageFit } from "../utils/imageFit";
+import {
+  artVaultDriveFolderPathLabel,
+  repairArtVaultDriveFolderHierarchy,
+  resolveArtVaultDriveFolder,
+  type ArtVaultDriveFolderContext
+} from "../utils/artVaultDriveFolders";
+import {
+  googleDriveFolderLink,
+  openGoogleDriveFolderPicker,
+  renameGoogleDriveFilesInFolderBySegment,
+  renameGoogleDriveItem,
+  type GoogleDriveFolder
+} from "../utils/googlePicker";
+import { googleDriveThumbnailUrl, googleDriveWebViewLink, normalizeImageFit, resolveImageSourceUrl } from "../utils/imageFit";
 import { loadSpriteSheetAssets } from "../utils/spriteSheets";
 import { CustomSelect } from "./CustomSelect";
 import { DriveAwareImage } from "./DriveAwareImage";
@@ -38,6 +49,14 @@ interface ArtBinderSubject {
   subtitle: string;
   groupKey: string;
   groupLabel: string;
+  driveTaxonomy?: {
+    category?: string;
+    type?: string;
+    threatLevel?: string;
+    habitat?: string;
+    behavior?: string;
+    status?: string;
+  };
   sections: ArtVaultSection[];
 }
 
@@ -259,11 +278,42 @@ export function ArtBinderPage({
       }
       onDatabaseChange(nextDatabase);
       patchFolderGroupFolders(createdFolders);
+      const examplePath = missingCards[0] ? artVaultDriveFolderPathLabel(artBinderDriveContext(missingCards[0])) : "Art Vault / shelf / subject / category";
       window.alert(
-        `Created ${createdFolders.size} Art Vault folder${createdFolders.size === 1 ? "" : "s"} for "${group.category}".\n\nHierarchy: Art Vault / shelf / subject / category.`
+        `Created ${createdFolders.size} Art Vault folder${createdFolders.size === 1 ? "" : "s"} for "${group.category}".\n\nExample hierarchy: ${examplePath}.`
       );
     } catch (error) {
       window.alert(error instanceof Error ? error.message : "Could not create the Art Vault folders for this category.");
+    } finally {
+      setFolderActionBusy((current) => current === busyKey ? null : current);
+    }
+  };
+
+  const fixCategoryFolderHierarchy = async (group: ArtBinderFolderGroup) => {
+    if (readOnly) return;
+    const sectionCards = uniqueSectionCards(group.cards);
+    if (!sectionCards.length) return;
+
+    const busyKey = categoryRepairBusyKey(group.category);
+    setFolderActionBusy(busyKey);
+    try {
+      let nextDatabase = database;
+      const repairedFolders = new Map<string, GoogleDriveFolder>();
+      for (const card of sectionCards) {
+        const context = artBinderDriveContext(card);
+        const folder = card.section.driveFolderId?.trim()
+          ? await repairArtVaultDriveFolderHierarchy(context, card.section.driveFolderId)
+          : await resolveArtVaultDriveFolder(context);
+        nextDatabase = updateDatabaseSectionFolder(nextDatabase, card, folder);
+        repairedFolders.set(artBinderSectionKey(card), folder);
+      }
+      onDatabaseChange(nextDatabase);
+      patchFolderGroupFolders(repairedFolders);
+      window.alert(
+        `Checked ${repairedFolders.size} Art Vault folder${repairedFolders.size === 1 ? "" : "s"} for "${group.category}".\n\nExpected hierarchy: ${artVaultDriveFolderPathLabel(artBinderDriveContext(sectionCards[0]))}.`
+      );
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Could not repair this Art Vault folder hierarchy.");
     } finally {
       setFolderActionBusy((current) => current === busyKey ? null : current);
     }
@@ -325,7 +375,7 @@ export function ArtBinderPage({
     });
   };
 
-  const renameCategory = (group: ArtBinderFolderGroup) => {
+  const renameCategory = async (group: ArtBinderFolderGroup) => {
     if (readOnly) return;
     const cardsToRename = uniqueSectionCards(group.cards).filter((card) => card.subject.source !== "environment");
     if (!cardsToRename.length) {
@@ -334,13 +384,45 @@ export function ArtBinderPage({
     }
     const nextTitle = window.prompt("Rename Art Binder category", group.category)?.trim();
     if (!nextTitle || nextTitle === group.category) return;
-    onDatabaseChange(updateDatabaseRenameArtBinderCategory(database, cardsToRename, nextTitle));
-    setCategoryFilter((current) => current === group.category ? nextTitle : current);
-    setCollapsedCategories((current) => {
-      const next = new Set(current);
-      if (next.delete(group.category)) next.add(nextTitle);
-      return next;
-    });
+
+    const busyKey = categoryRenameBusyKey(group.category);
+    setFolderActionBusy(busyKey);
+    try {
+      let renamedFolders = 0;
+      let renamedFiles = 0;
+      const folderUpdates = new Map<string, GoogleDriveFolder>();
+
+      for (const card of cardsToRename) {
+        if (!card.section.driveFolderId?.trim()) continue;
+        const renamed = await renameGoogleDriveItem(card.section.driveFolderId, nextTitle);
+        const folder = {
+          id: renamed.id,
+          name: renamed.name || nextTitle,
+          mimeType: renamed.mimeType || "application/vnd.google-apps.folder",
+          url: renamed.webViewLink || googleDriveFolderLink(renamed.id)
+        };
+        folderUpdates.set(artBinderSectionKey(card), folder);
+        renamedFolders += 1;
+        const fileRenameResult = await renameGoogleDriveFilesInFolderBySegment(card.section.driveFolderId, group.category, nextTitle);
+        renamedFiles += fileRenameResult.renamedCount;
+      }
+
+      onDatabaseChange(updateDatabaseRenameArtBinderCategory(database, cardsToRename, nextTitle));
+      patchFolderGroupFolders(folderUpdates);
+      setCategoryFilter((current) => current === group.category ? nextTitle : current);
+      setCollapsedCategories((current) => {
+        const next = new Set(current);
+        if (next.delete(group.category)) next.add(nextTitle);
+        return next;
+      });
+      if (renamedFolders || renamedFiles) {
+        window.alert(`Renamed "${group.category}" to "${nextTitle}". Updated ${renamedFolders} Drive folder${renamedFolders === 1 ? "" : "s"} and ${renamedFiles} uploaded file name${renamedFiles === 1 ? "" : "s"}.`);
+      }
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Could not rename the Art Vault Drive folders.");
+    } finally {
+      setFolderActionBusy((current) => current === busyKey ? null : current);
+    }
   };
 
   const addSlotToCategory = (group: ArtBinderFolderGroup) => {
@@ -509,6 +591,8 @@ export function ArtBinderPage({
           const isCollapsed = collapsedCategories.has(group.category);
           const folderStats = categoryFolderStats(group);
           const folderBusy = folderActionBusy === categoryFolderBusyKey(group.category);
+          const repairBusy = folderActionBusy === categoryRepairBusyKey(group.category);
+          const renameBusy = folderActionBusy === categoryRenameBusyKey(group.category);
           return (
             <section key={group.category} className={`art-binder-category ${isCollapsed ? "collapsed" : ""}`}>
               <header>
@@ -523,9 +607,9 @@ export function ArtBinderPage({
                   <span>{group.cards.length} slot{group.cards.length === 1 ? "" : "s"}</span>
                   {!readOnly && (
                     <>
-                      <button className="art-binder-set-folder-button" onClick={() => renameCategory(group)}>
+                      <button className="art-binder-set-folder-button" onClick={() => void renameCategory(group)} disabled={renameBusy || folderBusy || repairBusy}>
                         <Icon name="Edit3" className="h-4 w-4" />
-                        Rename
+                        {renameBusy ? "Renaming..." : "Rename"}
                       </button>
                       <button className="art-binder-set-folder-button" onClick={() => addSlotToCategory(group)}>
                         <Icon name="Plus" className="h-4 w-4" />
@@ -538,10 +622,18 @@ export function ArtBinderPage({
                       <button
                         className="art-binder-set-folder-button"
                         onClick={() => handleCategoryFolderAction(group)}
-                        disabled={folderBusy}
+                        disabled={folderBusy || repairBusy || renameBusy}
                       >
                         <Icon name={folderStats.missing > 0 ? "Plus" : "FolderOpen"} className="h-4 w-4" />
                         {folderBusy ? "Working..." : categoryFolderActionLabel(folderStats)}
+                      </button>
+                      <button
+                        className="art-binder-set-folder-button"
+                        onClick={() => void fixCategoryFolderHierarchy(group)}
+                        disabled={folderBusy || repairBusy || renameBusy}
+                      >
+                        <Icon name="Wrench" className="h-4 w-4" />
+                        {repairBusy ? "Fixing..." : "Fix Folders"}
                       </button>
                     </>
                   )}
@@ -627,6 +719,7 @@ function ArtBinderCard({
     module: "Art Binder"
   };
   const hoveringUsers = realtime.usersHoveringTarget(realtimeTarget);
+  const previewImageSrc = card.slot.image?.thumbnailUrl || card.slot.image?.webViewLink || "";
 
   return (
     <article
@@ -666,8 +759,8 @@ function ArtBinderCard({
       <div className="art-binder-card-image">
         {card.slot.image?.spriteAnimation ? (
           <ArtBinderSpriteAnimation reference={card.slot.image.spriteAnimation} />
-        ) : card.slot.image?.thumbnailUrl ? (
-          <DriveAwareImage src={card.slot.image.thumbnailUrl} alt="" />
+        ) : previewImageSrc ? (
+          <DriveAwareImage src={previewImageSrc} alt="" />
         ) : (
           <Icon name="Image" className="h-8 w-8" />
         )}
@@ -726,6 +819,14 @@ function buildArtBinderSubjects(database: LoreDatabase): ArtBinderSubject[] {
     subtitle: creature.type || "Creature",
     groupKey: artBinderGroupKey("bestiary", creature.category || creature.type || "Creatures"),
     groupLabel: creature.category || creature.type || "Creatures",
+    driveTaxonomy: {
+      category: creature.category,
+      type: creature.type,
+      threatLevel: creature.threatLevel,
+      habitat: creature.habitat,
+      behavior: creature.behavior,
+      status: creature.status
+    },
     sections: normalizeCreatureArtVault(creature.artVault).sections
   }));
 
@@ -745,6 +846,10 @@ function buildArtBinderSubjects(database: LoreDatabase): ArtBinderSubject[] {
       subtitle: `${normalized.categoryName} Category Vault`,
       groupKey: artBinderGroupKey("bestiary", normalized.categoryName),
       groupLabel: normalized.categoryName,
+      driveTaxonomy: {
+        category: normalized.categoryName,
+        type: normalized.categoryName
+      },
       sections: normalized.artVault.sections
     };
   });
@@ -759,6 +864,11 @@ function buildArtBinderSubjects(database: LoreDatabase): ArtBinderSubject[] {
       subtitle: entry.type || "World",
       groupKey: artBinderGroupKey("environment", entry.type || "World"),
       groupLabel: entry.type || "World",
+      driveTaxonomy: {
+        category: entry.category,
+        type: entry.type,
+        status: entry.status
+      },
       sections: environmentSections(entry)
     }));
 
@@ -870,6 +980,12 @@ function artBinderDriveContext(card: ArtBinderSlotCard): ArtVaultDriveFolderCont
   return {
     sourceType: card.subject.source,
     groupName: card.subject.groupLabel || kindLabel(card.subject.kind),
+    subjectCategory: card.subject.driveTaxonomy?.category || card.subject.groupLabel,
+    subjectType: card.subject.driveTaxonomy?.type || card.subject.subtitle,
+    subjectThreatLevel: card.subject.driveTaxonomy?.threatLevel,
+    subjectHabitat: card.subject.driveTaxonomy?.habitat,
+    subjectBehavior: card.subject.driveTaxonomy?.behavior,
+    subjectStatus: card.subject.driveTaxonomy?.status,
     subjectName: card.subject.source === "bestiary-category"
       ? `${card.subject.groupLabel || card.subject.title} Category Vault`
       : card.subject.title,
@@ -915,6 +1031,14 @@ function categoryFolderBusyKey(category: string) {
   return `category:${category}`;
 }
 
+function categoryRepairBusyKey(category: string) {
+  return `repair-category:${category}`;
+}
+
+function categoryRenameBusyKey(category: string) {
+  return `rename-category:${category}`;
+}
+
 function sectionFolderBusyKey(card: ArtBinderSlotCard) {
   return `section:${artBinderSectionKey(card)}`;
 }
@@ -923,9 +1047,14 @@ function updateDatabaseRenameArtBinderCategory(database: LoreDatabase, cards: Ar
   return updateDatabaseArtBinderSections(database, cards, (section) => ({
     ...section,
     title: nextTitle,
+    driveFolderName: section.driveFolderId ? nextTitle : section.driveFolderName,
     slots: section.slots.map((slot) => ({
       ...slot,
-      image: slot.image ? { ...slot.image, category: nextTitle } : slot.image
+      image: slot.image ? {
+        ...slot.image,
+        category: nextTitle,
+        driveFolderName: slot.image.driveFolderId ? nextTitle : slot.image.driveFolderName
+      } : slot.image
     }))
   }));
 }
@@ -1363,22 +1492,25 @@ function updateArtVaultSectionFolder(vault: { sections: ArtVaultSection[] }, car
 
 function artBinderSlotImageMetadata(slot: ArtVaultSlot, card: ArtBinderSlotCard, imageSlot: ImageManagerSlotDraft): ArtVaultImageMetadata {
   const driveFileId = driveFileIdFromUrl(imageSlot.imageUrl || imageSlot.webViewLink || "");
+  const thumbnailUrl = driveFileId
+    ? googleDriveThumbnailUrl(driveFileId)
+    : resolveImageSourceUrl(imageSlot.imageUrl || imageSlot.webViewLink || "");
   return {
     id: slot.image?.id || `binder-${card.subject.id}-${slot.id}-${Date.now()}`,
     title: slot.label,
     category: card.section.title,
     slotId: slot.id,
     driveFileId,
-    thumbnailUrl: imageSlot.imageUrl,
+    thumbnailUrl,
     webViewLink: imageSlot.webViewLink || (driveFileId ? googleDriveWebViewLink(driveFileId) : imageSlot.imageUrl),
     dateAdded: slot.image?.dateAdded || new Date().toISOString(),
     uploadStatus: imageSlot.assetState === "final" ? "final" : (driveFileId ? "imported-from-drive" : "linked"),
     assetState: imageSlot.assetState === "final" ? "final" : "wip",
     notes: slot.image?.notes || slot.notes || "",
     imageFit: normalizeImageFit(imageSlot.imageFit),
-    driveFolderId: slot.image?.driveFolderId || imageSlot.defaultFolderId || card.section.driveFolderId || "",
-    driveFolderLink: slot.image?.driveFolderLink || imageSlot.defaultFolderLink || card.section.driveFolderLink || "",
-    driveFolderName: slot.image?.driveFolderName || imageSlot.defaultFolderName || card.section.driveFolderName || "",
+    driveFolderId: imageSlot.defaultFolderId || card.section.driveFolderId || slot.image?.driveFolderId || "",
+    driveFolderLink: imageSlot.defaultFolderLink || card.section.driveFolderLink || slot.image?.driveFolderLink || "",
+    driveFolderName: imageSlot.defaultFolderName || card.section.driveFolderName || slot.image?.driveFolderName || "",
     spriteAnimation: imageSlot.spriteAnimation
   };
 }
@@ -1615,7 +1747,7 @@ function ArtBinderFolderModal({
           <div>
             <p>Category Upload Routing</p>
             <h2 className="font-display">{category}</h2>
-            <span>Open the auto-created Drive folder for each subject. Uploads are routed to Art Vault / shelf / subject / category.</span>
+            <span>Open the auto-created Drive folder for each subject. Uploads are routed through the Art Vault hierarchy for characters, wildlife, enemies, and environments.</span>
           </div>
           <button className="character-codex-icon-button" onClick={onClose} title="Close folder routing">
             <Icon name="X" className="h-5 w-5" />
