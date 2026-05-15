@@ -11199,6 +11199,30 @@ button,
   padding: 10px 12px;
 }
 
+.art-binder-card-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.art-binder-card-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 30px;
+  border-radius: 8px;
+  padding: 5px 8px;
+  white-space: nowrap;
+}
+
+.art-binder-card-actions button.danger {
+  border-color: var(--danger-border);
+  color: var(--danger-ink);
+  background: color-mix(in srgb, var(--danger-bg) 62%, var(--field-bg));
+}
+
 .art-binder-status.filled,
 .art-binder-status.approved,
 .art-binder-status.final {
@@ -11291,12 +11315,18 @@ button,
   line-height: 1.45;
 }
 
-.art-binder-rename-modal {
+.art-binder-rename-modal,
+.art-binder-slot-edit-modal {
   grid-template-rows: auto auto;
   width: min(620px, 96vw);
 }
 
-.art-binder-rename-form {
+.art-binder-slot-edit-modal {
+  width: min(760px, 96vw);
+}
+
+.art-binder-rename-form,
+.art-binder-slot-edit-form {
   display: grid;
   gap: 14px;
 }
@@ -11324,12 +11354,29 @@ button,
   text-transform: none;
 }
 
-.art-binder-rename-field input:focus {
+.art-binder-rename-field textarea {
+  width: 100%;
+  min-height: 110px;
+  resize: vertical;
+  border: 1px solid color-mix(in srgb, var(--gold) 34%, var(--panel-border));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--field-bg) 88%, transparent);
+  color: var(--app-ink);
+  padding: 10px 12px;
+  outline: none;
+  letter-spacing: 0;
+  line-height: 1.45;
+  text-transform: none;
+}
+
+.art-binder-rename-field input:focus,
+.art-binder-rename-field textarea:focus {
   border-color: var(--gold);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 18%, transparent);
 }
 
-.art-binder-rename-form footer {
+.art-binder-rename-form footer,
+.art-binder-slot-edit-form footer {
   display: flex;
   align-items: center;
   justify-content: flex-end;

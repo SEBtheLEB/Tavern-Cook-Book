@@ -148,6 +148,7 @@ export function ArtBinderPage({
   const [editingCard, setEditingCard] = useState<ArtBinderSlotCard | null>(null);
   const [folderGroup, setFolderGroup] = useState<ArtBinderFolderGroup | null>(null);
   const [renameDraft, setRenameDraft] = useState<{ group: ArtBinderFolderGroup; title: string } | null>(null);
+  const [slotEditDraft, setSlotEditDraft] = useState<{ card: ArtBinderSlotCard; label: string; requirementType: string; notes: string } | null>(null);
   const [folderActionBusy, setFolderActionBusy] = useState<string | null>(null);
 
   useEffect(() => {
@@ -533,6 +534,42 @@ export function ArtBinderPage({
     onDatabaseChange(updateDatabaseAddSlotToCategory(database, cardsToUpdate, slotLabel, requirementType));
   };
 
+  const requestEditSlot = (card: ArtBinderSlotCard) => {
+    if (readOnly) return;
+    setSlotEditDraft({
+      card,
+      label: card.slot.label,
+      requirementType: card.slot.requirementType || card.section.title,
+      notes: card.slot.notes || ""
+    });
+  };
+
+  const saveSlotDetails = () => {
+    if (!slotEditDraft || readOnly) return;
+    const label = slotEditDraft.label.trim();
+    const requirementType = slotEditDraft.requirementType.trim() || slotEditDraft.card.section.title;
+    if (!label) return;
+    onDatabaseChange(updateDatabaseEditArtBinderSlot(database, slotEditDraft.card, {
+      label,
+      requirementType,
+      notes: slotEditDraft.notes.trim()
+    }));
+    setSlotEditDraft(null);
+  };
+
+  const deleteSlot = (card: ArtBinderSlotCard) => {
+    if (readOnly) return;
+    if (isGeneratedAppUiSlot(card)) {
+      window.alert("This slot is connected to a live app image field, so it cannot be deleted from the Art Binder. You can rename it or clear its image assignment instead.");
+      return;
+    }
+    const filledDetail = isSlotFilled(card.slot)
+      ? "\n\nThis slot has assigned art. Deleting the slot only removes the app metadata; it will not delete anything from Google Drive."
+      : "\n\nThis will not delete anything from Google Drive.";
+    if (!window.confirm(`Delete "${card.slot.label}" from ${card.subject.title} / ${card.section.title}?${filledDetail}`)) return;
+    onDatabaseChange(updateDatabaseRemoveArtBinderSlot(database, card));
+  };
+
   const deleteCategory = (group: ArtBinderFolderGroup) => {
     if (readOnly) return;
     if (group.category === APP_UI_SECTION_TITLE) {
@@ -797,6 +834,8 @@ export function ArtBinderPage({
                       assignment={assignmentContext.assignmentForModule(artBinderSlotModule(card).moduleId)}
                       focused={assignmentContext.focusedAssignment?.moduleId === artBinderSlotModule(card).moduleId}
                       onActivate={activateCard}
+                      onEditSlot={requestEditSlot}
+                      onDeleteSlot={deleteSlot}
                       onOpenSubject={openSubject}
                     />
                   ))}
@@ -844,6 +883,19 @@ export function ArtBinderPage({
           onSubmit={() => void renameCategory(renameDraft.group, renameDraft.title)}
         />
       )}
+
+      {slotEditDraft && (
+        <EditArtBinderSlotModal
+          subjectTitle={slotEditDraft.card.subject.title}
+          category={slotEditDraft.card.section.title}
+          label={slotEditDraft.label}
+          requirementType={slotEditDraft.requirementType}
+          notes={slotEditDraft.notes}
+          onChange={(patch) => setSlotEditDraft((current) => current ? { ...current, ...patch } : current)}
+          onClose={() => setSlotEditDraft(null)}
+          onSubmit={saveSlotDetails}
+        />
+      )}
     </section>
   );
 }
@@ -856,6 +908,8 @@ function ArtBinderCard({
   assignment,
   focused,
   onActivate,
+  onEditSlot,
+  onDeleteSlot,
   onOpenSubject
 }: {
   card: ArtBinderSlotCard;
@@ -865,6 +919,8 @@ function ArtBinderCard({
   assignment: AssignmentRecord | null;
   focused: boolean;
   onActivate: (card: ArtBinderSlotCard) => void;
+  onEditSlot: (card: ArtBinderSlotCard) => void;
+  onDeleteSlot: (card: ArtBinderSlotCard) => void;
   onOpenSubject: (subject: ArtBinderSubject) => void;
 }) {
   const module = artBinderSlotModule(card);
@@ -931,14 +987,44 @@ function ArtBinderCard({
       </div>
       <footer>
         <span className={`art-binder-status ${artBinderStatusClass(card.slot)}`}>{artBinderStatus(card.slot)}</span>
-        <button
-          onClick={(event) => {
-            event.stopPropagation();
-            onOpenSubject(card.subject);
-          }}
-        >
-          Open Source
-        </button>
+        <div className="art-binder-card-actions">
+          {!readOnly && (
+            <>
+              <button
+                type="button"
+                title="Edit slot name, type, and notes"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onEditSlot(card);
+                }}
+              >
+                <Icon name="Edit3" className="h-4 w-4" />
+                Edit
+              </button>
+              <button
+                type="button"
+                className="danger"
+                title="Delete slot"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onDeleteSlot(card);
+                }}
+              >
+                <Icon name="Trash2" className="h-4 w-4" />
+                Delete
+              </button>
+            </>
+          )}
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onOpenSubject(card.subject);
+            }}
+          >
+            Open Source
+          </button>
+        </div>
       </footer>
     </article>
   );
@@ -1259,11 +1345,16 @@ function mergeAppUiSection(existing: ArtVaultSection, appSection: ArtVaultSectio
   const generatedSlots = new Map(appSection.slots.map((slot) => [slot.id, slot]));
   const mergedSlots = appSection.slots.map((generatedSlot, slotOrder) => {
     const existingSlot = existing.slots.find((slot) => slot.id === generatedSlot.id);
+    const label = existingSlot?.label?.trim() || generatedSlot.label;
+    const requirementType = existingSlot?.requirementType?.trim() || generatedSlot.requirementType;
     return {
       ...(existingSlot || generatedSlot),
-      ...generatedSlot,
-      image: mergeAppUiSlotImage(generatedSlot.image, existingSlot?.image, title),
-      notes: generatedSlot.notes || existingSlot?.notes || "",
+      id: generatedSlot.id,
+      status: generatedSlot.status,
+      label,
+      requirementType,
+      image: mergeAppUiSlotImage(generatedSlot.image, existingSlot?.image, title, label),
+      notes: existingSlot?.notes ?? generatedSlot.notes ?? "",
       order: slotOrder
     };
   });
@@ -1286,14 +1377,15 @@ function mergeAppUiSection(existing: ArtVaultSection, appSection: ArtVaultSectio
 function mergeAppUiSlotImage(
   generatedImage: ArtVaultImageMetadata | null | undefined,
   existingImage: ArtVaultImageMetadata | null | undefined,
-  categoryTitle: string
+  categoryTitle: string,
+  slotLabel: string
 ) {
   const image = generatedImage
     ? { ...(existingImage || {}), ...generatedImage }
     : existingImage
       ? { ...existingImage }
       : null;
-  return image ? { ...image, category: categoryTitle || image.category || APP_UI_SECTION_TITLE } : null;
+  return image ? { ...image, title: slotLabel || image.title, category: categoryTitle || image.category || APP_UI_SECTION_TITLE } : null;
 }
 
 function environmentSections(entry: LoreEntry): ArtVaultSection[] {
@@ -1496,6 +1588,36 @@ function updateDatabaseRenameArtBinderCategory(database: LoreDatabase, cards: Ar
 
 function updateDatabaseAddSlotToCategory(database: LoreDatabase, cards: ArtBinderSlotCard[], slotLabel: string, requirementType: string): LoreDatabase {
   return updateDatabaseArtBinderSections(database, cards, (section) => addSlotToSection(section, slotLabel, requirementType || section.title));
+}
+
+function updateDatabaseEditArtBinderSlot(
+  database: LoreDatabase,
+  card: ArtBinderSlotCard,
+  patch: Pick<ArtVaultSlot, "label" | "requirementType" | "notes">
+): LoreDatabase {
+  const label = patch.label.trim();
+  const requirementType = patch.requirementType.trim() || card.section.title;
+  return updateDatabaseArtBinderSection(database, card, (section) => ({
+    ...section,
+    slots: section.slots.map((slot) =>
+      slot.id === card.slot.id
+        ? {
+            ...slot,
+            label,
+            requirementType,
+            notes: patch.notes,
+            image: slot.image ? { ...slot.image, title: label, category: section.title } : slot.image
+          }
+        : slot
+    )
+  }));
+}
+
+function updateDatabaseRemoveArtBinderSlot(database: LoreDatabase, card: ArtBinderSlotCard): LoreDatabase {
+  return updateDatabaseArtBinderSection(database, card, (section) => ({
+    ...section,
+    slots: normalizeArtBinderOrders(section.slots.filter((slot) => slot.id !== card.slot.id))
+  }));
 }
 
 function updateDatabaseAddArtBinderCategory(database: LoreDatabase, subjects: ArtBinderSubject[], title: string, firstSlotLabel: string): LoreDatabase {
@@ -2431,6 +2553,19 @@ function isAppUiSection(section: Pick<ArtVaultSection, "id" | "title">) {
   return section.id === APP_UI_SECTION_ID || section.title.trim().toLowerCase() === APP_UI_SECTION_TITLE.toLowerCase();
 }
 
+function isGeneratedAppUiSlot(card: ArtBinderSlotCard) {
+  if (!isAppUiSection(card.section)) return false;
+  const slotId = card.slot.id;
+  return (
+    isCharacterAppImageSlot(slotId) ||
+    isCreatureAppImageSlot(slotId) ||
+    slotId === "pantryInventoryImage" ||
+    slotId === "pantryMainImage" ||
+    slotId.startsWith("dropIcon:") ||
+    slotId.startsWith("pantryVariant:")
+  );
+}
+
 function isCharacterAppImageSlot(slotId: string): slotId is (typeof CHARACTER_APP_IMAGE_SLOTS)[number] {
   return CHARACTER_APP_IMAGE_SLOTS.includes(slotId as (typeof CHARACTER_APP_IMAGE_SLOTS)[number]);
 }
@@ -2632,6 +2767,85 @@ function RenameArtBinderCategoryModal({
             <button type="submit" className="button-frame character-codex-action-button" disabled={!value.trim() || value.trim() === category}>
               <Icon name="Edit3" className="h-4 w-4" />
               Rename
+            </button>
+          </footer>
+        </form>
+      </section>
+    </div>
+  );
+}
+
+function EditArtBinderSlotModal({
+  subjectTitle,
+  category,
+  label,
+  requirementType,
+  notes,
+  onChange,
+  onClose,
+  onSubmit
+}: {
+  subjectTitle: string;
+  category: string;
+  label: string;
+  requirementType: string;
+  notes: string;
+  onChange: (patch: Partial<{ label: string; requirementType: string; notes: string }>) => void;
+  onClose: () => void;
+  onSubmit: () => void;
+}) {
+  return (
+    <div className="art-binder-folder-backdrop" role="dialog" aria-modal="true" aria-label={`Edit slot ${label}`}>
+      <section className="art-binder-folder-modal art-binder-slot-edit-modal">
+        <header>
+          <div>
+            <p>Edit Art Slot</p>
+            <h2 className="font-display">{label || "Untitled Slot"}</h2>
+            <span>{subjectTitle} / {category}</span>
+          </div>
+          <button className="character-codex-icon-button" onClick={onClose} title="Close slot editor">
+            <Icon name="X" className="h-5 w-5" />
+          </button>
+        </header>
+
+        <form
+          className="art-binder-slot-edit-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            onSubmit();
+          }}
+        >
+          <label className="art-binder-rename-field">
+            <span>Slot name</span>
+            <input
+              autoFocus
+              value={label}
+              onChange={(event) => onChange({ label: event.target.value })}
+              placeholder="Slot name"
+            />
+          </label>
+          <label className="art-binder-rename-field">
+            <span>Type / Use</span>
+            <input
+              value={requirementType}
+              onChange={(event) => onChange({ requirementType: event.target.value })}
+              placeholder="Portrait, animation, UI icon..."
+            />
+          </label>
+          <label className="art-binder-rename-field">
+            <span>Notes</span>
+            <textarea
+              value={notes}
+              onChange={(event) => onChange({ notes: event.target.value })}
+              placeholder="Slot notes, instructions, or naming details..."
+            />
+          </label>
+
+          <footer>
+            <button type="button" className="character-codex-action-button" onClick={onClose}>Cancel</button>
+            <button type="submit" className="button-frame character-codex-action-button" disabled={!label.trim()}>
+              <Icon name="Save" className="h-4 w-4" />
+              Save Slot
             </button>
           </footer>
         </form>
