@@ -17,3 +17,4 @@ Use `docs/imported-chat-history/build-tavern-cook-book-app.transcript.md` when e
 
 - After completing a requested project change, commit the work and push it to GitHub.
 - Rely on the connected Vercel Git integration to deploy from the GitHub push. Do not run a manual Vercel CLI production deploy unless the user explicitly asks for one.
+- After every GitHub push, check the Vercel deployment status without creating a manual deployment, then confirm whether the GitHub push deployed successfully, is still pending, failed, or was blocked by limits.
