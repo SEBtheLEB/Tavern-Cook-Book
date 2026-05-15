@@ -137,12 +137,52 @@ export interface ImageFitSettings {
   y: number;
 }
 
+export interface SpriteAnimationSheetSnapshot {
+  id: string;
+  type: "spriteSheet";
+  name: string;
+  category: string;
+  folderId: string;
+  folderLink: string;
+  folderName: string;
+  driveFileId: string;
+  driveUrl: string;
+  thumbnailUrl: string;
+  originalFileName: string;
+  uploadedAt: string;
+  updatedAt: string;
+}
+
+export interface SpriteAnimationPresetSnapshot {
+  id: string;
+  spriteSheetAssetId: string;
+  presetName: string;
+  animationName: string;
+  columns: number;
+  rows: number;
+  frameWidth: number;
+  frameHeight: number;
+  totalFrames: number;
+  startFrame: number;
+  endFrame: number;
+  fps: number;
+  loop: boolean;
+  pingPong: boolean;
+  playOnce: boolean;
+  scale: number;
+  frameHoldCounts?: Record<string, number>;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface SpriteAnimationSlotReference {
   mode: "spriteAnimation";
   spriteSheetAssetId: string;
   animationPresetId: string;
   playback: "autoplay" | "hover";
   loop: boolean;
+  spriteSheet?: SpriteAnimationSheetSnapshot;
+  preset?: SpriteAnimationPresetSnapshot;
 }
 
 export interface CharacterArtGalleryItem {

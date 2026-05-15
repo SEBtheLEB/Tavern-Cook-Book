@@ -19,6 +19,7 @@ import {
 import { normalizeAssignments, normalizeQuestCategories, normalizeTeamMembers, normalizeUserProfiles } from "./assignments";
 import { cloneDatabase, normalizeEntry, nowIso } from "./entries";
 import { normalizeImageFit } from "./imageFit";
+import { normalizeSpriteAnimationSlotReference } from "./spriteAnimationSlots";
 import { createStarterWorldBuilding, normalizeWorldBuilding, sanitizeWorldBuildingForPersistence } from "./worldBuilding";
 
 export const DATABASE_KEY = "tavern-cook-book:data";
@@ -626,7 +627,7 @@ const sanitizeEntryForPersistence = (entry: LoreEntry): LoreEntry => ({
               driveFolderId: typeof slot.image.driveFolderId === "string" ? slot.image.driveFolderId : "",
               driveFolderLink: typeof slot.image.driveFolderLink === "string" ? slot.image.driveFolderLink : "",
               driveFolderName: typeof slot.image.driveFolderName === "string" ? slot.image.driveFolderName : "",
-              spriteAnimation: sanitizeSpriteAnimationForPersistence(slot.image.spriteAnimation)
+              spriteAnimation: normalizeSpriteAnimationSlotReference(slot.image.spriteAnimation)
             }
           : null
       }))
@@ -667,21 +668,6 @@ const sanitizeLooseFieldsForPersistence = (fields: LoreEntry["fields"]): LoreEnt
       typeof value === "string" && isUnsafePersistentUrl(value) ? "" : value
     ])
   );
-
-const sanitizeSpriteAnimationForPersistence = (value: unknown) => {
-  if (!value || typeof value !== "object") return undefined;
-  const source = value as Record<string, unknown>;
-  const spriteSheetAssetId = typeof source.spriteSheetAssetId === "string" ? source.spriteSheetAssetId.trim() : "";
-  const animationPresetId = typeof source.animationPresetId === "string" ? source.animationPresetId.trim() : "";
-  if (!spriteSheetAssetId || !animationPresetId) return undefined;
-  return {
-    mode: "spriteAnimation" as const,
-    spriteSheetAssetId,
-    animationPresetId,
-    playback: source.playback === "hover" ? "hover" as const : "autoplay" as const,
-    loop: source.loop !== false
-  };
-};
 
 const repairScribeFoodEntries = (entries: LoreEntry[]) => {
   const repaired = entries.map(repairMisroutedScribeFoodEntry);

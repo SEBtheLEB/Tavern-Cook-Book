@@ -24,7 +24,7 @@ import {
   type GoogleDriveFolder
 } from "../utils/googlePicker";
 import { googleDriveThumbnailUrl, googleDriveWebViewLink, imageFitToStyle, normalizeImageFit, resolveImageSourceUrl } from "../utils/imageFit";
-import { loadSpriteSheetAssets } from "../utils/spriteSheets";
+import { resolveSpriteAnimationSlot } from "../utils/spriteAnimationSlots";
 import { CustomSelect } from "./CustomSelect";
 import { DriveAwareImage } from "./DriveAwareImage";
 import { Icon } from "./Icon";
@@ -1433,9 +1433,8 @@ function imageSlotFromUrl(id: string, label: string, imageUrl?: string): ArtVaul
 
 
 function ArtBinderSpriteAnimation({ reference, imageFit }: { reference: SpriteAnimationSlotReference; imageFit?: ArtVaultImageMetadata["imageFit"] }) {
-  const asset = loadSpriteSheetAssets().find((item) => item.id === reference.spriteSheetAssetId);
-  const preset = asset?.animationPresets.find((item) => item.id === reference.animationPresetId);
-  if (!asset || !preset) {
+  const resolved = resolveSpriteAnimationSlot(reference);
+  if (!resolved.asset || !resolved.preset || !resolved.reference) {
     return <Icon name="Gamepad2" className="h-8 w-8" />;
   }
   const fitStyle = imageFitToStyle(imageFit);
@@ -1446,11 +1445,11 @@ function ArtBinderSpriteAnimation({ reference, imageFit }: { reference: SpriteAn
         style={{ transform: fitStyle.transform, transformOrigin: fitStyle.transformOrigin }}
       >
         <SpriteAnimation
-          spriteSheet={asset}
-          preset={preset}
-          autoplay={reference.playback === "autoplay"}
-          playOnHover={reference.playback === "hover"}
-          loopWhileHovering={reference.loop}
+          spriteSheet={resolved.asset}
+          preset={resolved.preset}
+          autoplay={resolved.reference.playback === "autoplay"}
+          playOnHover={resolved.reference.playback === "hover"}
+          loopWhileHovering={resolved.reference.loop}
         />
       </div>
     </div>

@@ -13,7 +13,7 @@ import {
 import type { DriveUploadNameContext, GoogleDriveFolder } from "../utils/googlePicker";
 import { CustomSelect } from "./CustomSelect";
 import { DriveImageSourceControls } from "./DriveImageSourceControls";
-import { loadSpriteSheetAssets } from "../utils/spriteSheets";
+import { normalizeSpriteAnimationSlotReference, resolveSpriteAnimationSlot } from "../utils/spriteAnimationSlots";
 import { SpriteAnimation } from "./SpriteAnimation";
 import { SpriteCutterModal } from "./SpriteCutterModal";
 import { Icon } from "./Icon";
@@ -148,8 +148,8 @@ export function ImageManagerModal({ title, subtitle, slots, onClose, onSave, onA
             slot={spriteSlot}
             onClose={() => setSpriteSlotId("")}
             onAdd={(patch) => {
-              updateSlot(spriteSlot.id, patch);
-              setBulkMessage(`Sprite animation added to ${spriteSlot.label}. Click Save All Images to keep it.`);
+              updateSlot(spriteSlot.id, patch, { autoSave: true });
+              setBulkMessage(`Sprite animation saved to ${spriteSlot.label}.`);
               setSpriteSlotId("");
             }}
           />
@@ -350,9 +350,8 @@ function normalizeSlot(slot: ImageManagerSlot): ImageManagerSlotDraft {
 }
 
 function ManagedSpriteAnimationPreview({ reference, imageFit }: { reference: SpriteAnimationSlotReference; imageFit?: ImageFitSettings }) {
-  const asset = loadSpriteSheetAssets().find((item) => item.id === reference.spriteSheetAssetId);
-  const preset = asset?.animationPresets.find((item) => item.id === reference.animationPresetId);
-  if (!asset || !preset) {
+  const resolved = resolveSpriteAnimationSlot(reference);
+  if (!resolved.asset || !resolved.preset || !resolved.reference) {
     return (
       <div className="image-manager-empty-preview">
         <Icon name="Gamepad2" className="h-8 w-8" />
@@ -368,29 +367,16 @@ function ManagedSpriteAnimationPreview({ reference, imageFit }: { reference: Spr
         style={{ transform: fitStyle.transform, transformOrigin: fitStyle.transformOrigin }}
       >
         <SpriteAnimation
-          spriteSheet={asset}
-          preset={preset}
-          autoplay={reference.playback === "autoplay"}
-          playOnHover={reference.playback === "hover"}
-          loopWhileHovering={reference.loop}
+          spriteSheet={resolved.asset}
+          preset={resolved.preset}
+          autoplay={resolved.reference.playback === "autoplay"}
+          playOnHover={resolved.reference.playback === "hover"}
+          loopWhileHovering={resolved.reference.loop}
         />
       </div>
-      <span>{reference.playback === "hover" ? "Plays on hover" : "Auto-looping"}</span>
+      <span>{resolved.reference.playback === "hover" ? "Plays on hover" : "Auto-looping"}</span>
     </div>
   );
-}
-
-function normalizeSpriteAnimationSlotReference(value: unknown): SpriteAnimationSlotReference | undefined {
-  if (!value || typeof value !== "object") return undefined;
-  const source = value as Partial<SpriteAnimationSlotReference>;
-  if (!source.spriteSheetAssetId || !source.animationPresetId) return undefined;
-  return {
-    mode: "spriteAnimation",
-    spriteSheetAssetId: source.spriteSheetAssetId,
-    animationPresetId: source.animationPresetId,
-    playback: source.playback === "hover" ? "hover" : "autoplay",
-    loop: source.loop !== false
-  };
 }
 
 function driveViewLinkFromImage(imageUrl: string) {

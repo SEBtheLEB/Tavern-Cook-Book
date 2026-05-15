@@ -14,6 +14,7 @@
   LoreEntry
 } from "../types";
 import { extractGoogleDriveFileId, googleDriveThumbnailUrl, normalizeImageFit } from "./imageFit";
+import { normalizeSpriteAnimationSlotReference } from "./spriteAnimationSlots";
 
 export const emptyConnections = (): EntryConnections => ({
   characters: [],
@@ -469,22 +470,7 @@ function normalizeArtVaultImage(value: unknown, slotId: string): ArtVaultImageMe
     driveFolderId: typeof image.driveFolderId === "string" ? image.driveFolderId : "",
     driveFolderLink: typeof image.driveFolderLink === "string" ? image.driveFolderLink : "",
     driveFolderName: typeof image.driveFolderName === "string" ? image.driveFolderName : "",
-    spriteAnimation: normalizeSpriteAnimationReference(image.spriteAnimation)
-  };
-}
-
-function normalizeSpriteAnimationReference(value: unknown) {
-  if (!value || typeof value !== "object") return undefined;
-  const source = value as Record<string, unknown>;
-  const spriteSheetAssetId = typeof source.spriteSheetAssetId === "string" ? source.spriteSheetAssetId.trim() : "";
-  const animationPresetId = typeof source.animationPresetId === "string" ? source.animationPresetId.trim() : "";
-  if (!spriteSheetAssetId || !animationPresetId) return undefined;
-  return {
-    mode: "spriteAnimation" as const,
-    spriteSheetAssetId,
-    animationPresetId,
-    playback: source.playback === "hover" ? "hover" as const : "autoplay" as const,
-    loop: source.loop !== false
+    spriteAnimation: normalizeSpriteAnimationSlotReference(image.spriteAnimation)
   };
 }
 

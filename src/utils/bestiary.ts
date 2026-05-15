@@ -20,6 +20,7 @@ import {
   slugify
 } from "./entries";
 import { extractGoogleDriveFileId, googleDriveThumbnailUrl, legacyCreatureFit, normalizeImageFit } from "./imageFit";
+import { normalizeSpriteAnimationSlotReference } from "./spriteAnimationSlots";
 
 const creatureArtVaultBlueprints = [
   {
@@ -601,22 +602,7 @@ function sanitizeArtVaultImage(image: ArtVaultImageMetadata): ArtVaultImageMetad
     driveFolderId: text(image.driveFolderId),
     driveFolderLink: text(image.driveFolderLink),
     driveFolderName: text(image.driveFolderName),
-    spriteAnimation: sanitizeSpriteAnimationReference(image.spriteAnimation)
-  };
-}
-
-function sanitizeSpriteAnimationReference(value: unknown) {
-  if (!value || typeof value !== "object") return undefined;
-  const source = value as Record<string, unknown>;
-  const spriteSheetAssetId = text(source.spriteSheetAssetId);
-  const animationPresetId = text(source.animationPresetId);
-  if (!spriteSheetAssetId || !animationPresetId) return undefined;
-  return {
-    mode: "spriteAnimation" as const,
-    spriteSheetAssetId,
-    animationPresetId,
-    playback: source.playback === "hover" ? "hover" as const : "autoplay" as const,
-    loop: source.loop !== false
+    spriteAnimation: normalizeSpriteAnimationSlotReference(image.spriteAnimation)
   };
 }
 

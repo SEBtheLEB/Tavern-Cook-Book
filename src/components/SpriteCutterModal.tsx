@@ -16,6 +16,7 @@ import {
   type SpriteAnimationPreset,
   type SpriteSheetAsset
 } from "../utils/spriteSheets";
+import { createSpriteAnimationSlotReference } from "../utils/spriteAnimationSlots";
 import { CustomSelect } from "./CustomSelect";
 import { DriveAwareImage } from "./DriveAwareImage";
 import { DriveImageSourceControls } from "./DriveImageSourceControls";
@@ -321,13 +322,7 @@ export function SpriteCutterModal({ slot, onClose, onAdd }: SpriteCutterModalPro
       defaultFolderId: updatedAsset.folderId,
       defaultFolderLink: updatedAsset.folderLink,
       defaultFolderName: updatedAsset.folderName,
-      spriteAnimation: {
-        mode: "spriteAnimation",
-        spriteSheetAssetId: updatedAsset.id,
-        animationPresetId: savedPreset.id,
-        playback,
-        loop: true
-      }
+      spriteAnimation: createSpriteAnimationSlotReference(updatedAsset, savedPreset, playback, true)
     });
     onClose();
   };
