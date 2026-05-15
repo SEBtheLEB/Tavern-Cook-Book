@@ -100,6 +100,7 @@ export function ArtBinderPage({
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(() => new Set());
   const [editingCard, setEditingCard] = useState<ArtBinderSlotCard | null>(null);
   const [folderGroup, setFolderGroup] = useState<ArtBinderFolderGroup | null>(null);
+  const [folderActionBusy, setFolderActionBusy] = useState<string | null>(null);
 
   useEffect(() => {
     if (!initialFilter) return;
@@ -203,22 +204,28 @@ export function ArtBinderPage({
     const folder = await openGoogleDriveFolderPicker(`Choose folder for ${card.subject.title} / ${card.section.title}`);
     if (!folder) return;
     onDatabaseChange(updateDatabaseSectionFolder(database, card, folder));
+    patchFolderGroupFolders(new Map([[artBinderSectionKey(card), folder]]));
   };
 
   const openFolderForSection = async (card: ArtBinderSlotCard) => {
-    const existingFolder = folderTargetForCard(card);
+    const existingFolder = sectionFolderTargetForCard(card);
     if (existingFolder?.id) {
       window.open(existingFolder.link || googleDriveFolderLink(existingFolder.id), "_blank", "noopener,noreferrer");
       return;
     }
     if (readOnly) return;
 
+    const busyKey = sectionFolderBusyKey(card);
+    setFolderActionBusy(busyKey);
     try {
       const folder = await resolveArtVaultDriveFolder(artBinderDriveContext(card));
       onDatabaseChange(updateDatabaseSectionFolder(database, card, folder));
+      patchFolderGroupFolders(new Map([[artBinderSectionKey(card), folder]]));
       window.open(folder.url || googleDriveFolderLink(folder.id), "_blank", "noopener,noreferrer");
     } catch (error) {
       window.alert(error instanceof Error ? error.message : "Could not open or create this Art Vault folder.");
+    } finally {
+      setFolderActionBusy((current) => current === busyKey ? null : current);
     }
   };
 
@@ -231,9 +238,73 @@ export function ArtBinderPage({
     setFolderGroup({ category: group.category, cards: sectionCards });
   };
 
+  const addMissingFoldersForCategory = async (group: ArtBinderFolderGroup) => {
+    if (readOnly) return;
+    const sectionCards = uniqueSectionCards(group.cards);
+    const missingCards = sectionCards.filter((card) => !sectionHasDriveFolder(card));
+    if (!missingCards.length) {
+      openCategoryFolderGroup(group);
+      return;
+    }
+
+    const busyKey = categoryFolderBusyKey(group.category);
+    setFolderActionBusy(busyKey);
+    try {
+      let nextDatabase = database;
+      const createdFolders = new Map<string, GoogleDriveFolder>();
+      for (const card of missingCards) {
+        const folder = await resolveArtVaultDriveFolder(artBinderDriveContext(card));
+        nextDatabase = updateDatabaseSectionFolder(nextDatabase, card, folder);
+        createdFolders.set(artBinderSectionKey(card), folder);
+      }
+      onDatabaseChange(nextDatabase);
+      patchFolderGroupFolders(createdFolders);
+      window.alert(
+        `Created ${createdFolders.size} Art Vault folder${createdFolders.size === 1 ? "" : "s"} for "${group.category}".\n\nHierarchy: Art Vault / shelf / subject / category.`
+      );
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Could not create the Art Vault folders for this category.");
+    } finally {
+      setFolderActionBusy((current) => current === busyKey ? null : current);
+    }
+  };
+
+  const handleCategoryFolderAction = (group: ArtBinderFolderGroup) => {
+    const stats = categoryFolderStats(group);
+    if (stats.missing > 0) {
+      void addMissingFoldersForCategory(group);
+      return;
+    }
+    openCategoryFolderGroup(group);
+  };
+
+  const patchFolderGroupFolders = (foldersByKey: Map<string, GoogleDriveFolder | null>) => {
+    if (!foldersByKey.size) return;
+    setFolderGroup((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        cards: current.cards.map((card) => {
+          const folder = foldersByKey.get(artBinderSectionKey(card));
+          if (folder === undefined) return card;
+          return {
+            ...card,
+            section: {
+              ...card.section,
+              driveFolderId: folder?.id || "",
+              driveFolderLink: folder?.url || "",
+              driveFolderName: folder?.name || ""
+            }
+          };
+        })
+      };
+    });
+  };
+
   const clearFolderForSection = (card: ArtBinderSlotCard) => {
     if (readOnly) return;
     onDatabaseChange(updateDatabaseSectionFolder(database, card, null));
+    patchFolderGroupFolders(new Map([[artBinderSectionKey(card), null]]));
   };
 
   const addCategoryToVisibleSubjects = () => {
@@ -436,6 +507,8 @@ export function ArtBinderPage({
       <main className="art-binder-categories">
         {grouped.map((group) => {
           const isCollapsed = collapsedCategories.has(group.category);
+          const folderStats = categoryFolderStats(group);
+          const folderBusy = folderActionBusy === categoryFolderBusyKey(group.category);
           return (
             <section key={group.category} className={`art-binder-category ${isCollapsed ? "collapsed" : ""}`}>
               <header>
@@ -464,10 +537,11 @@ export function ArtBinderPage({
                       </button>
                       <button
                         className="art-binder-set-folder-button"
-                        onClick={() => openCategoryFolderGroup(group)}
+                        onClick={() => handleCategoryFolderAction(group)}
+                        disabled={folderBusy}
                       >
-                        <Icon name="FolderOpen" className="h-4 w-4" />
-                        Open Folder
+                        <Icon name={folderStats.missing > 0 ? "Plus" : "FolderOpen"} className="h-4 w-4" />
+                        {folderBusy ? "Working..." : categoryFolderActionLabel(folderStats)}
                       </button>
                     </>
                   )}
@@ -517,6 +591,7 @@ export function ArtBinderPage({
           onOpenFolder={openFolderForSection}
           onChooseFolder={chooseFolderForSection}
           onClearFolder={clearFolderForSection}
+          folderActionBusy={folderActionBusy}
           onClose={() => setFolderGroup(null)}
         />
       )}
@@ -802,14 +877,46 @@ function artBinderDriveContext(card: ArtBinderSlotCard): ArtVaultDriveFolderCont
   };
 }
 
-function folderTargetForCard(card: ArtBinderSlotCard) {
-  const id = card.section.driveFolderId || card.slot.image?.driveFolderId || "";
+function sectionFolderTargetForCard(card: ArtBinderSlotCard) {
+  const id = card.section.driveFolderId || "";
   if (!id.trim()) return null;
   return {
     id,
-    link: card.section.driveFolderLink || card.slot.image?.driveFolderLink || googleDriveFolderLink(id),
-    name: card.section.driveFolderName || card.slot.image?.driveFolderName || `${card.subject.title} / ${card.section.title}`
+    link: card.section.driveFolderLink || googleDriveFolderLink(id),
+    name: card.section.driveFolderName || `${card.subject.title} / ${card.section.title}`
   };
+}
+
+function sectionHasDriveFolder(card: ArtBinderSlotCard) {
+  return Boolean(card.section.driveFolderId?.trim());
+}
+
+function categoryFolderStats(group: ArtBinderFolderGroup) {
+  const sectionCards = uniqueSectionCards(group.cards);
+  const connected = sectionCards.filter(sectionHasDriveFolder).length;
+  return {
+    total: sectionCards.length,
+    connected,
+    missing: Math.max(0, sectionCards.length - connected)
+  };
+}
+
+function categoryFolderActionLabel(stats: ReturnType<typeof categoryFolderStats>) {
+  if (!stats.total || stats.connected === 0) return "Add";
+  if (stats.missing > 0) return "Add Missing";
+  return "Open Folder";
+}
+
+function artBinderSectionKey(card: ArtBinderSlotCard) {
+  return `${card.subject.source}:${card.subject.id}:${card.section.id}`;
+}
+
+function categoryFolderBusyKey(category: string) {
+  return `category:${category}`;
+}
+
+function sectionFolderBusyKey(card: ArtBinderSlotCard) {
+  return `section:${artBinderSectionKey(card)}`;
 }
 
 function updateDatabaseRenameArtBinderCategory(database: LoreDatabase, cards: ArtBinderSlotCard[], nextTitle: string): LoreDatabase {
@@ -1490,6 +1597,7 @@ function ArtBinderFolderModal({
   onOpenFolder,
   onChooseFolder,
   onClearFolder,
+  folderActionBusy,
   onClose
 }: {
   category: string;
@@ -1497,6 +1605,7 @@ function ArtBinderFolderModal({
   onOpenFolder: (card: ArtBinderSlotCard) => void;
   onChooseFolder: (card: ArtBinderSlotCard) => void;
   onClearFolder: (card: ArtBinderSlotCard) => void;
+  folderActionBusy: string | null;
   onClose: () => void;
 }) {
   return (
@@ -1514,30 +1623,34 @@ function ArtBinderFolderModal({
         </header>
 
         <div className="art-binder-folder-list">
-          {cards.map((card) => (
-            <article key={`${card.subject.source}-${card.subject.id}-${card.section.id}`} className="art-binder-folder-row">
-              <div>
-                <strong>{card.subject.title}</strong>
-                <span>{card.subject.subtitle} / {card.section.title}</span>
-              </div>
-              <div className="art-binder-folder-current">
-                <span>{card.section.driveFolderName || card.section.driveFolderId || "Auto-created on first open or upload"}</span>
-                {card.section.driveFolderId && <small>{card.section.driveFolderId}</small>}
-              </div>
-              <div className="art-binder-folder-actions">
-                <button className="button-frame" onClick={() => onOpenFolder(card)}>
-                  <Icon name="FolderOpen" className="h-4 w-4" />
-                  Open Folder
-                </button>
-                <button onClick={() => onChooseFolder(card)}>
-                  Choose Different
-                </button>
-                <button onClick={() => onClearFolder(card)} disabled={!card.section.driveFolderId}>
-                  Clear
-                </button>
-              </div>
-            </article>
-          ))}
+          {cards.map((card) => {
+            const connected = sectionHasDriveFolder(card);
+            const busy = folderActionBusy === sectionFolderBusyKey(card);
+            return (
+              <article key={`${card.subject.source}-${card.subject.id}-${card.section.id}`} className="art-binder-folder-row">
+                <div>
+                  <strong>{card.subject.title}</strong>
+                  <span>{card.subject.subtitle} / {card.section.title}</span>
+                </div>
+                <div className="art-binder-folder-current">
+                  <span>{card.section.driveFolderName || card.section.driveFolderId || "Add to create the Drive folder hierarchy"}</span>
+                  {card.section.driveFolderId && <small>{card.section.driveFolderId}</small>}
+                </div>
+                <div className="art-binder-folder-actions">
+                  <button className="button-frame" onClick={() => onOpenFolder(card)} disabled={busy}>
+                    <Icon name={connected ? "FolderOpen" : "Plus"} className="h-4 w-4" />
+                    {busy ? "Working..." : connected ? "Open Folder" : "Add"}
+                  </button>
+                  <button onClick={() => onChooseFolder(card)}>
+                    Choose Different
+                  </button>
+                  <button onClick={() => onClearFolder(card)} disabled={!card.section.driveFolderId}>
+                    Clear
+                  </button>
+                </div>
+              </article>
+            );
+          })}
         </div>
 
         <footer>
