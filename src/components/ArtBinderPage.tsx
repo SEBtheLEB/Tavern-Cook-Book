@@ -19,7 +19,7 @@ import {
 import {
   googleDriveFolderLink,
   openGoogleDriveFolderPicker,
-  renameGoogleDriveFilesInFolderBySegment,
+  renameGoogleDriveFilesInFolderBySegments,
   renameGoogleDriveItem,
   type GoogleDriveFolder
 } from "../utils/googlePicker";
@@ -446,10 +446,6 @@ export function ArtBinderPage({
 
   const renameCategory = async (group: ArtBinderFolderGroup) => {
     if (readOnly) return;
-    if (group.category === APP_UI_SECTION_TITLE) {
-      window.alert("App Buttons & UI Slots is connected to live app image fields, so it cannot be renamed from the Art Binder.");
-      return;
-    }
     const cardsToRename = uniqueSectionCards(group.cards).filter((card) => card.subject.source !== "environment");
     if (!cardsToRename.length) {
       window.alert("This category is generated from environment media and cannot be renamed from the Art Binder yet.");
@@ -486,9 +482,9 @@ export function ArtBinderPage({
           };
           folderUpdates.set(artBinderSectionKey(card), folder);
           renamedFolders += 1;
-          const fileRenameResult = await renameGoogleDriveFilesInFolderBySegment(
+          const fileRenameResult = await renameGoogleDriveFilesInFolderBySegments(
             card.section.driveFolderId,
-            card.section.driveFolderName || group.category,
+            unique([card.section.driveFolderName || "", card.section.title, group.category, ...card.section.slots.map((slot) => slot.image?.category || "")]),
             nextTitle
           );
           renamedFiles += fileRenameResult.renamedCount;
@@ -1099,6 +1095,7 @@ function pantryIngredientSubject(ingredient: PantryIngredient, entries: LoreEntr
   const entry = ingredient.entry || entries.find((candidate) => normalizeLooseName(candidate.title) === normalizeLooseName(ingredient.name));
   const variantSlots = ingredient.prepVariants.map((variant, index) => pantryVariantSlot(variant, entries, index + 1));
   const shelf = pantryIngredientBroadShelf(ingredient);
+  const appSection = pantryIngredientAppUiSection(ingredient, entry, variantSlots);
   return {
     id: entry?.id || `pantry-virtual-${slugify(ingredient.name)}`,
     kind: "pantry",
@@ -1112,12 +1109,13 @@ function pantryIngredientSubject(ingredient: PantryIngredient, entries: LoreEntr
       type: ingredient.category,
       status: ingredient.rarity
     },
-    sections: [pantryIngredientAppUiSection(ingredient, entry, variantSlots)]
+    sections: pantryArtBinderSections(entry, appSection)
   };
 }
 
 function pantryMealSubject(entry: LoreEntry): ArtBinderSubject {
   const groupLabel = "Meals & Recipes";
+  const appSection = pantryMealAppUiSection(entry);
   return {
     id: entry.id,
     kind: "pantry",
@@ -1131,8 +1129,17 @@ function pantryMealSubject(entry: LoreEntry): ArtBinderSubject {
       type: entry.type,
       status: entry.status
     },
-    sections: [pantryMealAppUiSection(entry)]
+    sections: pantryArtBinderSections(entry, appSection)
   };
+}
+
+function pantryArtBinderSections(entry: LoreEntry | undefined, appSection: ArtVaultSection) {
+  return withAppUiSection(appUiStoredSections(entry?.artVault), appSection);
+}
+
+function appUiStoredSections(vault: unknown) {
+  if (!vault || typeof vault !== "object" || !Array.isArray((vault as { sections?: unknown }).sections)) return [];
+  return ((vault as { sections: ArtVaultSection[] }).sections || []).filter(isAppUiSection);
 }
 
 function pantryIngredientAppUiSection(ingredient: PantryIngredient, entry: LoreEntry | undefined, variantSlots: ArtVaultSlot[]): ArtVaultSection {
@@ -1224,13 +1231,14 @@ function withAppUiSection(sections: ArtVaultSection[], appSection: ArtVaultSecti
 }
 
 function mergeAppUiSection(existing: ArtVaultSection, appSection: ArtVaultSection, order: number): ArtVaultSection {
+  const title = existing.title?.trim() || appSection.title;
   const generatedSlots = new Map(appSection.slots.map((slot) => [slot.id, slot]));
   const mergedSlots = appSection.slots.map((generatedSlot, slotOrder) => {
     const existingSlot = existing.slots.find((slot) => slot.id === generatedSlot.id);
     return {
       ...(existingSlot || generatedSlot),
       ...generatedSlot,
-      image: generatedSlot.image || existingSlot?.image || null,
+      image: mergeAppUiSlotImage(generatedSlot.image, existingSlot?.image, title),
       notes: generatedSlot.notes || existingSlot?.notes || "",
       order: slotOrder
     };
@@ -1241,7 +1249,7 @@ function mergeAppUiSection(existing: ArtVaultSection, appSection: ArtVaultSectio
   return {
     ...existing,
     id: APP_UI_SECTION_ID,
-    title: APP_UI_SECTION_TITLE,
+    title,
     description: appSection.description || existing.description,
     order,
     driveFolderId: existing.driveFolderId || appSection.driveFolderId,
@@ -1249,6 +1257,19 @@ function mergeAppUiSection(existing: ArtVaultSection, appSection: ArtVaultSectio
     driveFolderName: existing.driveFolderName || appSection.driveFolderName,
     slots: [...mergedSlots, ...extraSlots]
   };
+}
+
+function mergeAppUiSlotImage(
+  generatedImage: ArtVaultImageMetadata | null | undefined,
+  existingImage: ArtVaultImageMetadata | null | undefined,
+  categoryTitle: string
+) {
+  const image = generatedImage
+    ? { ...(existingImage || {}), ...generatedImage }
+    : existingImage
+      ? { ...existingImage }
+      : null;
+  return image ? { ...image, category: categoryTitle || image.category || APP_UI_SECTION_TITLE } : null;
 }
 
 function environmentSections(entry: LoreEntry): ArtVaultSection[] {
@@ -1481,7 +1502,7 @@ function updateDatabaseArtBinderSection(
         entry.id === card.subject.id
           ? {
               ...entry,
-              artVault: updateArtVaultSection(normalizeArtVault(entry.artVault), card.section.id, updater),
+              artVault: updateArtVaultSection(normalizeArtVault(entry.artVault), card.section.id, updater, card.section),
               updatedAt: new Date().toISOString()
             }
           : entry
@@ -1496,7 +1517,7 @@ function updateDatabaseArtBinderSection(
         creature.id === card.subject.id
           ? {
               ...creature,
-              artVault: updateArtVaultSection(normalizeCreatureArtVault(creature.artVault), card.section.id, updater),
+              artVault: updateArtVaultSection(normalizeCreatureArtVault(creature.artVault), card.section.id, updater, card.section),
               updatedAt: new Date().toISOString()
             }
           : creature
@@ -1513,7 +1534,7 @@ function updateDatabaseArtBinderSection(
     const normalized = normalizeBestiaryCategoryArtVault(current, current.categoryName || categoryName, database.bestiary || []);
     const updated = {
       ...normalized,
-      artVault: updateArtVaultSection(normalized.artVault, card.section.id, updater),
+      artVault: updateArtVaultSection(normalized.artVault, card.section.id, updater, card.section),
       updatedAt: new Date().toISOString()
     };
     return {
@@ -1524,7 +1545,40 @@ function updateDatabaseArtBinderSection(
     };
   }
 
+  if (card.subject.source === "pantry") {
+    return updatePantryArtBinderSection(database, card, updater);
+  }
+
   return database;
+}
+
+function updatePantryArtBinderSection(
+  database: LoreDatabase,
+  card: ArtBinderSlotCard,
+  updater: (section: ArtVaultSection) => ArtVaultSection
+): LoreDatabase {
+  const existing = findPantryEntry(database.entries, card.subject.id, card.subject.title);
+  const base = existing || createBlankEntry("Food & Inventory", card.subject.subtitle || "Ingredient");
+  const nextEntry: LoreEntry = {
+    ...base,
+    id: existing?.id || `ingredient-${slugify(card.subject.title)}`,
+    title: existing?.title || card.subject.title,
+    category: "Food & Inventory",
+    type: existing?.type || card.subject.subtitle || "Ingredient",
+    fields: {
+      ...base.fields,
+      pantryCategory: String(base.fields?.pantryCategory || card.subject.subtitle || "Ingredient")
+    },
+    artVault: updateArtVaultSection({ sections: appUiStoredSections(base.artVault) }, card.section.id, updater, card.section),
+    updatedAt: new Date().toISOString()
+  };
+
+  return {
+    ...database,
+    entries: existing
+      ? database.entries.map((entry) => (entry.id === existing.id ? nextEntry : entry))
+      : [nextEntry, ...database.entries]
+  };
 }
 
 function addArtBinderCategoryToSubject(database: LoreDatabase, subject: ArtBinderSubject, title: string, firstSlotLabel: string): LoreDatabase {
@@ -1635,9 +1689,22 @@ function removeArtBinderCategoryFromSubject(database: LoreDatabase, card: ArtBin
   return database;
 }
 
-function updateArtVaultSection(vault: { sections: ArtVaultSection[] }, sectionId: string, updater: (section: ArtVaultSection) => ArtVaultSection) {
+function updateArtVaultSection(
+  vault: { sections: ArtVaultSection[] },
+  sectionId: string,
+  updater: (section: ArtVaultSection) => ArtVaultSection,
+  fallbackSection?: ArtVaultSection
+) {
+  const hasSection = vault.sections.some((section) => section.id === sectionId);
+  const updatedSections = vault.sections.map((section) => section.id === sectionId ? updater(section) : section);
+  if (!hasSection && fallbackSection) {
+    updatedSections.push(updater({
+      ...fallbackSection,
+      order: vault.sections.reduce((max, section) => Math.max(max, section.order || 0), -1) + 1
+    }));
+  }
   return {
-    sections: vault.sections.map((section) => section.id === sectionId ? updater(section) : section)
+    sections: normalizeArtBinderOrders(updatedSections)
   };
 }
 

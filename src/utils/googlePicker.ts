@@ -405,10 +405,20 @@ export async function renameGoogleDriveFilesInFolderBySegment(
   oldSegment: string,
   newSegment: string
 ): Promise<DriveFolderRenameResult> {
+  return renameGoogleDriveFilesInFolderBySegments(folderId, [oldSegment], newSegment);
+}
+
+export async function renameGoogleDriveFilesInFolderBySegments(
+  folderId: string,
+  oldSegments: string[],
+  newSegment: string
+): Promise<DriveFolderRenameResult> {
   const trimmedFolderId = folderId.trim();
   if (!trimmedFolderId) throw new Error("Missing Drive folder ID.");
 
-  const replacements = driveFileNameReplacements(oldSegment, newSegment);
+  const replacements = uniqueDriveFileNameReplacements(
+    oldSegments.flatMap((oldSegment) => driveFileNameReplacements(oldSegment, newSegment))
+  );
   if (!replacements.length) return { checkedCount: 0, renamedCount: 0 };
 
   const token = await authenticateGoogleDrive();
@@ -1027,6 +1037,17 @@ function driveFileNameReplacements(oldSegment: string, newSegment: string) {
   ];
   const seen = new Set<string>();
   return candidates.filter((replacement) => {
+    if (!replacement.from || !replacement.to || replacement.from === replacement.to) return false;
+    const key = `${replacement.from}\u0000${replacement.to}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function uniqueDriveFileNameReplacements(replacements: Array<{ from: string; to: string }>) {
+  const seen = new Set<string>();
+  return replacements.filter((replacement) => {
     if (!replacement.from || !replacement.to || replacement.from === replacement.to) return false;
     const key = `${replacement.from}\u0000${replacement.to}`;
     if (seen.has(key)) return false;
