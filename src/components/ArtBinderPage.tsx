@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import type { ActiveView, ArtVaultImageMetadata, ArtVaultSection, ArtVaultSlot, BestiaryCategoryArtVault, LoreDatabase, LoreEntry, SpriteAnimationSlotReference } from "../types";
 import type { AssignableModuleInfo, AssignmentRecord } from "../utils/assignments";
 import { statusLabel } from "../utils/assignments";
@@ -89,6 +89,16 @@ interface ArtBinderPageProps {
   onOpenEntry: (entry: LoreEntry) => void;
 }
 
+interface ArtBinderSessionState {
+  kindFilter: ArtBinderKind;
+  subjectGroupFilter: string;
+  subjectFilter: string;
+  categoryFilter: string;
+  statusFilter: string;
+  search: string;
+  collapsedCategories: string[];
+}
+
 const kindOptions: { value: ArtBinderKind; label: string }[] = [
   { value: "all", label: "All" },
   { value: "character", label: "Characters" },
@@ -97,6 +107,7 @@ const kindOptions: { value: ArtBinderKind; label: string }[] = [
 ];
 
 const binderStatusOptions = ["All", "Missing", "WIP", "Final", "Needs Revision"];
+const ART_BINDER_SESSION_KEY = "tavern-cook-book:art-binder-session";
 
 export function ArtBinderPage({
   database,
@@ -109,26 +120,50 @@ export function ArtBinderPage({
 }: ArtBinderPageProps) {
   const assignmentContext = useAssignments();
   const subjects = useMemo(() => buildArtBinderSubjects(database), [database]);
+  const sessionStateRef = useRef<ArtBinderSessionState | null | undefined>(undefined);
+  if (sessionStateRef.current === undefined) {
+    sessionStateRef.current = loadArtBinderSessionState();
+  }
+  const savedSessionState = sessionStateRef.current;
   const initialSubject = subjects.find((subject) => subject.id === initialFilter?.subjectId);
-  const [kindFilter, setKindFilter] = useState<ArtBinderKind>(initialFilter?.kind || "all");
-  const [subjectGroupFilter, setSubjectGroupFilter] = useState(initialFilter?.groupKey || initialSubject?.groupKey || "all");
-  const [subjectFilter, setSubjectFilter] = useState(initialFilter?.subjectId || "all");
-  const [categoryFilter, setCategoryFilter] = useState(initialFilter?.category || "all");
-  const [statusFilter, setStatusFilter] = useState("All");
-  const [search, setSearch] = useState("");
-  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(() => new Set());
+  const initialFilterSignature = artBinderInitialFilterSignature(initialFilter);
+  const appliedInitialFilterRef = useRef(savedSessionState ? initialFilterSignature : "");
+  const [kindFilter, setKindFilter] = useState<ArtBinderKind>(savedSessionState?.kindFilter || initialFilter?.kind || "all");
+  const [subjectGroupFilter, setSubjectGroupFilter] = useState(savedSessionState?.subjectGroupFilter || initialFilter?.groupKey || initialSubject?.groupKey || "all");
+  const [subjectFilter, setSubjectFilter] = useState(savedSessionState?.subjectFilter || initialFilter?.subjectId || "all");
+  const [categoryFilter, setCategoryFilter] = useState(savedSessionState?.categoryFilter || initialFilter?.category || "all");
+  const [statusFilter, setStatusFilter] = useState(savedSessionState?.statusFilter || "All");
+  const [search, setSearch] = useState(savedSessionState?.search || "");
+  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(() => new Set(savedSessionState?.collapsedCategories || []));
   const [editingCard, setEditingCard] = useState<ArtBinderSlotCard | null>(null);
   const [folderGroup, setFolderGroup] = useState<ArtBinderFolderGroup | null>(null);
   const [folderActionBusy, setFolderActionBusy] = useState<string | null>(null);
 
   useEffect(() => {
     if (!initialFilter) return;
+    const signature = artBinderInitialFilterSignature(initialFilter);
+    if (!signature || signature === appliedInitialFilterRef.current) return;
+    appliedInitialFilterRef.current = signature;
     const matchingSubject = subjects.find((subject) => subject.id === initialFilter.subjectId);
     setKindFilter(initialFilter.kind || "all");
     setSubjectGroupFilter(initialFilter.groupKey || matchingSubject?.groupKey || "all");
     setSubjectFilter(initialFilter.subjectId || "all");
     setCategoryFilter(initialFilter.category || "all");
+    setStatusFilter("All");
+    setSearch("");
   }, [initialFilter, subjects]);
+
+  useEffect(() => {
+    saveArtBinderSessionState({
+      kindFilter,
+      subjectGroupFilter,
+      subjectFilter,
+      categoryFilter,
+      statusFilter,
+      search,
+      collapsedCategories: Array.from(collapsedCategories)
+    });
+  }, [kindFilter, subjectGroupFilter, subjectFilter, categoryFilter, statusFilter, search, collapsedCategories]);
 
   const visibleSubjects = subjects.filter((subject) =>
     (kindFilter === "all" || subject.kind === kindFilter) &&
@@ -1753,6 +1788,52 @@ function kindLabel(kind: ArtBinderSubject["kind"]) {
   if (kind === "character") return "Character";
   if (kind === "bestiary") return "Bestiary";
   return "Environment";
+}
+
+function loadArtBinderSessionState(): ArtBinderSessionState | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.sessionStorage.getItem(ART_BINDER_SESSION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<ArtBinderSessionState>;
+    return {
+      kindFilter: normalizeArtBinderKind(parsed.kindFilter),
+      subjectGroupFilter: typeof parsed.subjectGroupFilter === "string" ? parsed.subjectGroupFilter : "all",
+      subjectFilter: typeof parsed.subjectFilter === "string" ? parsed.subjectFilter : "all",
+      categoryFilter: typeof parsed.categoryFilter === "string" ? parsed.categoryFilter : "all",
+      statusFilter: binderStatusOptions.includes(String(parsed.statusFilter || "")) ? String(parsed.statusFilter) : "All",
+      search: typeof parsed.search === "string" ? parsed.search : "",
+      collapsedCategories: Array.isArray(parsed.collapsedCategories)
+        ? parsed.collapsedCategories.filter((category): category is string => typeof category === "string")
+        : []
+    };
+  } catch {
+    return null;
+  }
+}
+
+function saveArtBinderSessionState(state: ArtBinderSessionState) {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(ART_BINDER_SESSION_KEY, JSON.stringify(state));
+  } catch {
+    // Art Binder view state is only for current-tab comfort.
+  }
+}
+
+function artBinderInitialFilterSignature(filter: ArtBinderInitialFilter | null | undefined) {
+  if (!filter) return "";
+  return [
+    filter.kind || "all",
+    filter.groupKey || "",
+    filter.subjectId || "",
+    filter.category || ""
+  ].join("|");
+}
+
+function normalizeArtBinderKind(value: unknown): ArtBinderKind {
+  if (value === "character" || value === "bestiary" || value === "environment") return value;
+  return "all";
 }
 
 function isCharacterEntry(entry: LoreEntry) {

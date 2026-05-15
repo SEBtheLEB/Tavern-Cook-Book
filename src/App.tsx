@@ -164,9 +164,27 @@ interface DetailReturnTarget {
   selectedReferenceKeyword: string;
   favoritesOpen: boolean;
   artVaultDashboardOpen: boolean;
+  artBinderOpen: boolean;
   artBinderFilter: ArtBinderInitialFilter | null;
   questDashboardOpen: boolean;
   profileOpen: boolean;
+  scrollY: number;
+}
+
+interface AppSessionUiState {
+  activeView: ActiveView;
+  selectedEntryId: string | null;
+  selectedBestiaryCreatureId: string;
+  selectedReferenceKeyword: string;
+  searchQuery: string;
+  committedSearch: string;
+  artVaultDashboardOpen: boolean;
+  artBinderOpen: boolean;
+  artBinderFilter: ArtBinderInitialFilter | null;
+  favoritesOpen: boolean;
+  questDashboardOpen: boolean;
+  profileOpen: boolean;
+  worldBuildingFocus: Omit<WorldBuildingFocusTarget, "nonce"> | null;
   scrollY: number;
 }
 
@@ -195,12 +213,111 @@ interface AdminBaselineReview {
 
 const EXPLICIT_REMOVALS_KEY = "tavern-cook-book:explicit-removals";
 const PENDING_TEAM_CHANGE_KEY = "tavern-cook-book:pending-team-change";
+const APP_SESSION_UI_KEY = "tavern-cook-book:session-ui-state";
 const LIVE_TEAM_SYNC = true;
 const REALTIME_DATABASE_SYNC = false;
 const LIVE_SYNC_AUTOSAVE_DELAY_MS = 250;
 const LIVE_SYNC_POLL_MS = 1200;
 const LIVE_BACKUP_SAVE_DELAY_MS = 12_000;
 const PENDING_TEAM_CHANGE_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+
+function loadAppSessionUiState(): AppSessionUiState | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.sessionStorage.getItem(APP_SESSION_UI_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<AppSessionUiState>;
+    const activeView = normalizeSessionActiveView(parsed.activeView);
+    return {
+      activeView,
+      selectedEntryId: typeof parsed.selectedEntryId === "string" ? parsed.selectedEntryId : null,
+      selectedBestiaryCreatureId: typeof parsed.selectedBestiaryCreatureId === "string" ? parsed.selectedBestiaryCreatureId : "",
+      selectedReferenceKeyword: typeof parsed.selectedReferenceKeyword === "string" ? parsed.selectedReferenceKeyword : "",
+      searchQuery: typeof parsed.searchQuery === "string" ? parsed.searchQuery : "",
+      committedSearch: typeof parsed.committedSearch === "string" ? parsed.committedSearch : "",
+      artVaultDashboardOpen: Boolean(parsed.artVaultDashboardOpen),
+      artBinderOpen: Boolean(parsed.artBinderOpen),
+      artBinderFilter: normalizeSessionArtBinderFilter(parsed.artBinderFilter),
+      favoritesOpen: Boolean(parsed.favoritesOpen),
+      questDashboardOpen: Boolean(parsed.questDashboardOpen),
+      profileOpen: Boolean(parsed.profileOpen),
+      worldBuildingFocus: normalizeSessionWorldFocus(parsed.worldBuildingFocus),
+      scrollY: clampSessionScroll(parsed.scrollY)
+    };
+  } catch {
+    return null;
+  }
+}
+
+function saveAppSessionUiState(state: AppSessionUiState) {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(APP_SESSION_UI_KEY, JSON.stringify(state));
+  } catch {
+    // Session state is only a convenience layer; storage failures should never block editing.
+  }
+}
+
+function clearAppSessionUiState() {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.removeItem(APP_SESSION_UI_KEY);
+  } catch {
+    // Ignore session cleanup failures.
+  }
+}
+
+function normalizeSessionActiveView(value: unknown): ActiveView {
+  const candidate = String(value || "");
+  return allViews.some((view) => view.id === candidate) ? candidate as ActiveView : "dashboard";
+}
+
+function normalizeSessionArtBinderFilter(value: unknown): ArtBinderInitialFilter | null {
+  if (!value || typeof value !== "object") return null;
+  const source = value as Partial<ArtBinderInitialFilter>;
+  const kind = normalizeArtBinderKind(String(source.kind || ""));
+  return {
+    kind,
+    groupKey: typeof source.groupKey === "string" ? source.groupKey : undefined,
+    subjectId: typeof source.subjectId === "string" ? source.subjectId : undefined,
+    category: typeof source.category === "string" ? source.category : undefined
+  };
+}
+
+function normalizeSessionWorldFocus(value: unknown): Omit<WorldBuildingFocusTarget, "nonce"> | null {
+  if (!value || typeof value !== "object") return null;
+  const source = value as Partial<WorldBuildingFocusTarget>;
+  if (!isWorldBuildingCategoryId(source.category) || typeof source.entryId !== "string") return null;
+  return {
+    category: source.category,
+    entryId: source.entryId
+  };
+}
+
+function isWorldBuildingCategoryId(value: unknown): value is WorldBuildingFocusTarget["category"] {
+  return [
+    "locations",
+    "cultures",
+    "factions",
+    "timeline",
+    "magicSystems",
+    "foodAndRecipes",
+    "creatureLinks",
+    "characterLinks",
+    "myths",
+    "items",
+    "quests",
+    "rules",
+    "mysteries",
+    "glossary"
+  ].includes(String(value || ""));
+}
+
+function clampSessionScroll(value: unknown) {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue) || numericValue < 0) return 0;
+  return Math.min(numericValue, 2_000_000);
+}
 
 function buildWorkshopProgress(database: LoreDatabase, currentUser: GoogleAccountUser) {
   const totalEntries = database.entries.length + database.bestiary.length;
@@ -221,6 +338,11 @@ export default function App() {
   const hostedViewer = import.meta.env.VITE_READONLY_VIEWER === "true";
   const forcedReadOnly =
     hostedViewer || new URLSearchParams(window.location.search).get("readonly") === "1";
+  const initialSessionUiRef = useRef<AppSessionUiState | null | undefined>(undefined);
+  if (initialSessionUiRef.current === undefined) {
+    initialSessionUiRef.current = hostedViewer ? null : loadAppSessionUiState();
+  }
+  const initialSessionUi = initialSessionUiRef.current;
   const [currentUser, setCurrentUser] = useState<GoogleAccountUser | null>(() => loadGoogleAccount());
   const initialLocalDatabaseRef = useRef<LoreDatabase | null>(null);
   if (!initialLocalDatabaseRef.current) {
@@ -230,22 +352,29 @@ export default function App() {
     hostedViewer || currentUser ? createStarterDatabase() : initialLocalDatabaseRef.current || loadDatabase()
   );
   const [theme, setTheme] = useState<ThemeMode>(() => loadTheme());
-  const [activeView, setActiveView] = useState<ActiveView>("dashboard");
-  const [selectedEntry, setSelectedEntry] = useState<LoreEntry | null>(null);
-  const [selectedBestiaryCreatureId, setSelectedBestiaryCreatureId] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [committedSearch, setCommittedSearch] = useState("");
+  const [activeView, setActiveView] = useState<ActiveView>(() => initialSessionUi?.activeView || "dashboard");
+  const [selectedEntry, setSelectedEntry] = useState<LoreEntry | null>(() =>
+    initialSessionUi?.selectedEntryId
+      ? database.entries.find((entry) => entry.id === initialSessionUi.selectedEntryId) || null
+      : null
+  );
+  const [selectedBestiaryCreatureId, setSelectedBestiaryCreatureId] = useState(initialSessionUi?.selectedBestiaryCreatureId || "");
+  const [searchQuery, setSearchQuery] = useState(initialSessionUi?.searchQuery || "");
+  const [committedSearch, setCommittedSearch] = useState(initialSessionUi?.committedSearch || "");
   const [referenceQuery, setReferenceQuery] = useState("");
-  const [selectedReferenceKeyword, setSelectedReferenceKeyword] = useState("");
+  const [selectedReferenceKeyword, setSelectedReferenceKeyword] = useState(initialSessionUi?.selectedReferenceKeyword || "");
   const [keywordPopup, setKeywordPopup] = useState("");
-  const [artVaultDashboardOpen, setArtVaultDashboardOpen] = useState(false);
-  const [artBinderFilter, setArtBinderFilter] = useState<ArtBinderInitialFilter | null>(null);
+  const [artVaultDashboardOpen, setArtVaultDashboardOpen] = useState(Boolean(initialSessionUi?.artVaultDashboardOpen));
+  const [artBinderOpen, setArtBinderOpen] = useState(Boolean(initialSessionUi?.artBinderOpen || initialSessionUi?.artBinderFilter));
+  const [artBinderFilter, setArtBinderFilter] = useState<ArtBinderInitialFilter | null>(initialSessionUi?.artBinderFilter || null);
   const [detailReturnTarget, setDetailReturnTarget] = useState<DetailReturnTarget | null>(null);
-  const [favoritesOpen, setFavoritesOpen] = useState(false);
-  const [questDashboardOpen, setQuestDashboardOpen] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
+  const [favoritesOpen, setFavoritesOpen] = useState(Boolean(initialSessionUi?.favoritesOpen));
+  const [questDashboardOpen, setQuestDashboardOpen] = useState(Boolean(initialSessionUi?.questDashboardOpen));
+  const [profileOpen, setProfileOpen] = useState(Boolean(initialSessionUi?.profileOpen));
   const [tavernScribeOpen, setTavernScribeOpen] = useState(false);
-  const [worldBuildingFocus, setWorldBuildingFocus] = useState<WorldBuildingFocusTarget | null>(null);
+  const [worldBuildingFocus, setWorldBuildingFocus] = useState<WorldBuildingFocusTarget | null>(
+    initialSessionUi?.worldBuildingFocus ? { ...initialSessionUi.worldBuildingFocus, nonce: Date.now() } : null
+  );
   const [assignMode, setAssignMode] = useState(false);
   const [focusedAssignment, setFocusedAssignment] = useState<AssignmentRecord | null>(null);
   const [assignments, setAssignmentsState] = useState<AssignmentRecord[]>(() => {
@@ -297,6 +426,9 @@ export default function App() {
   const lastDraftUpdatedAtRef = useRef("");
   const pendingTeamChangeHashRef = useRef(getFreshPendingTeamChange().hash);
   const syncSettingsSaveTimerRef = useRef<number | null>(null);
+  const sessionUiStateRef = useRef<AppSessionUiState | null>(null);
+  const restoredSessionScrollRef = useRef(false);
+  const restoredSessionEntryRef = useRef(Boolean(selectedEntry));
   const currentRole = currentUser?.role || "viewer";
   const canEdit = roleCanEdit(currentRole);
   const canAccessSettings = roleCanAccessSettings(currentRole);
@@ -1197,6 +1329,7 @@ export default function App() {
     selectedReferenceKeyword,
     favoritesOpen,
     artVaultDashboardOpen,
+    artBinderOpen,
     artBinderFilter,
     questDashboardOpen,
     profileOpen,
@@ -1226,6 +1359,103 @@ export default function App() {
   const currentQuestCount = currentUser && currentTeamMember
     ? getAssignmentsForUser(assignments, currentTeamMember.id, currentUser.email).filter((assignment) => assignment.status !== "done").length
     : 0;
+
+  useEffect(() => {
+    if (artVaultDashboardOpen || !artBinderOpen) return;
+    setArtBinderOpen(false);
+  }, [artVaultDashboardOpen, artBinderOpen]);
+
+  useEffect(() => {
+    if (restoredSessionEntryRef.current || !initialSessionUi?.selectedEntryId || selectedEntry) return;
+    const restoredEntry = database.entries.find((entry) => entry.id === initialSessionUi.selectedEntryId);
+    if (!restoredEntry) return;
+    restoredSessionEntryRef.current = true;
+    setSelectedEntry(restoredEntry);
+  }, [database.entries, initialSessionUi?.selectedEntryId, selectedEntry]);
+
+  useEffect(() => {
+    if (hostedViewer || !currentUser) return;
+    const sessionState: AppSessionUiState = {
+      activeView,
+      selectedEntryId: selectedEntry?.id || null,
+      selectedBestiaryCreatureId,
+      selectedReferenceKeyword,
+      searchQuery,
+      committedSearch,
+      artVaultDashboardOpen,
+      artBinderOpen,
+      artBinderFilter,
+      favoritesOpen,
+      questDashboardOpen,
+      profileOpen,
+      worldBuildingFocus: worldBuildingFocus
+        ? { category: worldBuildingFocus.category, entryId: worldBuildingFocus.entryId }
+        : null,
+      scrollY: !restoredSessionScrollRef.current && initialSessionUi?.scrollY
+        ? initialSessionUi.scrollY
+        : window.scrollY
+    };
+    sessionUiStateRef.current = sessionState;
+    saveAppSessionUiState(sessionState);
+  }, [
+    hostedViewer,
+    currentUser,
+    activeView,
+    selectedEntry?.id,
+    selectedBestiaryCreatureId,
+    selectedReferenceKeyword,
+    searchQuery,
+    committedSearch,
+    artVaultDashboardOpen,
+    artBinderOpen,
+    artBinderFilter,
+    favoritesOpen,
+    questDashboardOpen,
+    profileOpen,
+    worldBuildingFocus
+  ]);
+
+  useEffect(() => {
+    if (hostedViewer) return;
+    let scrollFrame = 0;
+    const saveCurrentScroll = () => {
+      if (!sessionUiStateRef.current) return;
+      sessionUiStateRef.current = {
+        ...sessionUiStateRef.current,
+        scrollY: window.scrollY
+      };
+      saveAppSessionUiState(sessionUiStateRef.current);
+    };
+    const handleScroll = () => {
+      if (scrollFrame) return;
+      scrollFrame = window.requestAnimationFrame(() => {
+        scrollFrame = 0;
+        saveCurrentScroll();
+      });
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    window.addEventListener("beforeunload", saveCurrentScroll);
+    return () => {
+      if (scrollFrame) window.cancelAnimationFrame(scrollFrame);
+      window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("beforeunload", saveCurrentScroll);
+    };
+  }, [hostedViewer]);
+
+  useEffect(() => {
+    const targetScrollY = initialSessionUi?.scrollY || 0;
+    if (restoredSessionScrollRef.current || !currentUser || targetScrollY <= 0) return;
+    restoredSessionScrollRef.current = true;
+    let attempts = 0;
+    const restoreScroll = () => {
+      attempts += 1;
+      window.scrollTo({ top: targetScrollY, behavior: "auto" });
+      if (attempts < 8 && Math.abs(window.scrollY - targetScrollY) > 8) {
+        window.setTimeout(restoreScroll, 175);
+      }
+    };
+    window.setTimeout(restoreScroll, 75);
+  }, [currentUser, initialSessionUi?.scrollY, publishedReady, activeView, artVaultDashboardOpen, artBinderOpen, selectedEntry?.id]);
 
   const updateDatabase = (next: LoreDatabase) => {
     if (readOnly) return;
@@ -1687,6 +1917,7 @@ export default function App() {
     setSelectedReferenceKeyword(target.selectedReferenceKeyword);
     setFavoritesOpen(target.favoritesOpen);
     setArtVaultDashboardOpen(target.artVaultDashboardOpen);
+    setArtBinderOpen(target.artBinderOpen);
     setArtBinderFilter(target.artBinderFilter);
     setQuestDashboardOpen(target.questDashboardOpen);
     setProfileOpen(target.profileOpen);
@@ -1848,6 +2079,7 @@ export default function App() {
         subjectId: subjectId || assignment.entryId,
         category: encodedCategory ? decodeURIComponent(encodedCategory) : undefined
       });
+      setArtBinderOpen(true);
       setArtVaultDashboardOpen(true);
     }
 
@@ -1967,6 +2199,7 @@ export default function App() {
     setQuestDashboardOpen(false);
     setProfileOpen(false);
     setArtBinderFilter(filter);
+    setArtBinderOpen(true);
     setArtVaultDashboardOpen(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -1986,6 +2219,7 @@ export default function App() {
   };
 
   const signOut = () => {
+    clearAppSessionUiState();
     clearGoogleAccount();
     disableGoogleAutoSelect();
     setCurrentUser(null);
@@ -2176,7 +2410,15 @@ export default function App() {
               onNavigate={navigate}
               onOpenEntry={openEntry}
               initialBinderFilter={artBinderFilter}
-              onClearBinderFilter={() => setArtBinderFilter(null)}
+              initialBinderOpen={artBinderOpen}
+              onClearBinderFilter={() => {
+                setArtBinderFilter(null);
+                setArtBinderOpen(false);
+              }}
+              onBinderVisibilityChange={(open, filter) => {
+                setArtBinderOpen(open);
+                setArtBinderFilter(filter);
+              }}
             />
           ) : selectedCharacterEntry ? (
             <CharacterDetailPage

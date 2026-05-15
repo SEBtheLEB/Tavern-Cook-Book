@@ -16,7 +16,9 @@ interface ArtVaultDashboardProps {
   onNavigate: (view: ActiveView) => void;
   onOpenEntry: (entry: LoreEntry) => void;
   initialBinderFilter?: ArtBinderInitialFilter | null;
+  initialBinderOpen?: boolean;
   onClearBinderFilter?: () => void;
+  onBinderVisibilityChange?: (open: boolean, filter: ArtBinderInitialFilter | null) => void;
 }
 
 export function ArtVaultDashboard({
@@ -26,18 +28,20 @@ export function ArtVaultDashboard({
   onNavigate,
   onOpenEntry,
   initialBinderFilter = null,
-  onClearBinderFilter
+  initialBinderOpen = false,
+  onClearBinderFilter,
+  onBinderVisibilityChange
 }: ArtVaultDashboardProps) {
   const stats = useMemo(() => buildArtVaultDashboardStats(database), [database]);
   const [binderFilter, setBinderFilter] = useState<ArtBinderInitialFilter | null>(initialBinderFilter);
-  const [showBinder, setShowBinder] = useState(Boolean(initialBinderFilter));
+  const [showBinder, setShowBinder] = useState(Boolean(initialBinderOpen || initialBinderFilter));
   const [destinationChoice, setDestinationChoice] = useState<ArtVaultDestinationChoice | null>(null);
 
   useEffect(() => {
-    if (!initialBinderFilter) return;
+    if (!initialBinderOpen && !initialBinderFilter) return;
     setBinderFilter(initialBinderFilter);
     setShowBinder(true);
-  }, [initialBinderFilter]);
+  }, [initialBinderOpen, initialBinderFilter]);
 
   const openItem = (item: ArtVaultDashboardItem) => {
     setDestinationChoice({ type: "item", item });
@@ -47,6 +51,7 @@ export function ArtVaultDashboard({
     setBinderFilter(filter);
     setShowBinder(true);
     setDestinationChoice(null);
+    onBinderVisibilityChange?.(true, filter);
   };
 
   const openSourceForItem = (item: ArtVaultDashboardItem) => {
@@ -71,6 +76,7 @@ export function ArtVaultDashboard({
         onBack={() => {
           setShowBinder(false);
           setBinderFilter(null);
+          onBinderVisibilityChange?.(false, null);
           onClearBinderFilter?.();
         }}
         onNavigate={onNavigate}
