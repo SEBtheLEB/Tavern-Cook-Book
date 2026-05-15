@@ -188,11 +188,16 @@ export function ArtBinderPage({
     onNavigate("world");
   };
 
-  const saveBinderSlotImage = (slots: ImageManagerSlotDraft[]) => {
+  const persistBinderSlotImage = (slots: ImageManagerSlotDraft[]) => {
     if (!editingCard) return;
     const imageSlot = slots[0];
     if (!imageSlot) return;
     onDatabaseChange(updateDatabaseSlotImage(database, editingCard, imageSlot));
+    setEditingCard((current) => current ? artBinderCardWithImageSlot(current, imageSlot) : current);
+  };
+
+  const saveBinderSlotImage = (slots: ImageManagerSlotDraft[]) => {
+    persistBinderSlotImage(slots);
     setEditingCard(null);
   };
 
@@ -387,39 +392,51 @@ export function ArtBinderPage({
 
     const busyKey = categoryRenameBusyKey(group.category);
     setFolderActionBusy(busyKey);
+    onDatabaseChange(updateDatabaseRenameArtBinderCategory(database, cardsToRename, nextTitle));
+    setCategoryFilter((current) => current === group.category ? nextTitle : current);
+    setCollapsedCategories((current) => {
+      const next = new Set(current);
+      if (next.delete(group.category)) next.add(nextTitle);
+      return next;
+    });
+
     try {
       let renamedFolders = 0;
       let renamedFiles = 0;
       const folderUpdates = new Map<string, GoogleDriveFolder>();
+      const failures: string[] = [];
 
       for (const card of cardsToRename) {
         if (!card.section.driveFolderId?.trim()) continue;
-        const renamed = await renameGoogleDriveItem(card.section.driveFolderId, nextTitle);
-        const folder = {
-          id: renamed.id,
-          name: renamed.name || nextTitle,
-          mimeType: renamed.mimeType || "application/vnd.google-apps.folder",
-          url: renamed.webViewLink || googleDriveFolderLink(renamed.id)
-        };
-        folderUpdates.set(artBinderSectionKey(card), folder);
-        renamedFolders += 1;
-        const fileRenameResult = await renameGoogleDriveFilesInFolderBySegment(card.section.driveFolderId, group.category, nextTitle);
-        renamedFiles += fileRenameResult.renamedCount;
+        try {
+          const renamed = await renameGoogleDriveItem(card.section.driveFolderId, nextTitle);
+          const folder = {
+            id: renamed.id,
+            name: renamed.name || nextTitle,
+            mimeType: renamed.mimeType || "application/vnd.google-apps.folder",
+            url: renamed.webViewLink || googleDriveFolderLink(renamed.id)
+          };
+          folderUpdates.set(artBinderSectionKey(card), folder);
+          renamedFolders += 1;
+          const fileRenameResult = await renameGoogleDriveFilesInFolderBySegment(
+            card.section.driveFolderId,
+            card.section.driveFolderName || group.category,
+            nextTitle
+          );
+          renamedFiles += fileRenameResult.renamedCount;
+        } catch (error) {
+          failures.push(`${card.subject.title}: ${error instanceof Error ? error.message : "Drive rename failed."}`);
+        }
       }
 
-      onDatabaseChange(updateDatabaseRenameArtBinderCategory(database, cardsToRename, nextTitle));
       patchFolderGroupFolders(folderUpdates);
-      setCategoryFilter((current) => current === group.category ? nextTitle : current);
-      setCollapsedCategories((current) => {
-        const next = new Set(current);
-        if (next.delete(group.category)) next.add(nextTitle);
-        return next;
-      });
-      if (renamedFolders || renamedFiles) {
+      if (failures.length) {
+        window.alert(`Renamed the Art Binder category locally, but ${failures.length} connected Drive folder${failures.length === 1 ? "" : "s"} could not be renamed.\n\n${failures.slice(0, 5).join("\n")}${failures.length > 5 ? "\n..." : ""}`);
+      } else if (renamedFolders || renamedFiles) {
         window.alert(`Renamed "${group.category}" to "${nextTitle}". Updated ${renamedFolders} Drive folder${renamedFolders === 1 ? "" : "s"} and ${renamedFiles} uploaded file name${renamedFiles === 1 ? "" : "s"}.`);
       }
     } catch (error) {
-      window.alert(error instanceof Error ? error.message : "Could not rename the Art Vault Drive folders.");
+      window.alert(error instanceof Error ? error.message : "Renamed the Art Binder category locally, but could not rename the Art Vault Drive folders.");
     } finally {
       setFolderActionBusy((current) => current === busyKey ? null : current);
     }
@@ -674,6 +691,7 @@ export function ArtBinderPage({
           slots={[artBinderImageManagerSlot(editingCard)]}
           onClose={() => setEditingCard(null)}
           onSave={saveBinderSlotImage}
+          onAutoSave={persistBinderSlotImage}
         />
       )}
       {folderGroup && (
@@ -719,7 +737,7 @@ function ArtBinderCard({
     module: "Art Binder"
   };
   const hoveringUsers = realtime.usersHoveringTarget(realtimeTarget);
-  const previewImageSrc = card.slot.image?.thumbnailUrl || card.slot.image?.webViewLink || "";
+  const previewImageSrc = artBinderImagePreviewSource(card.slot.image);
 
   return (
     <article
@@ -949,12 +967,20 @@ function artBinderSlotModule(card: ArtBinderSlotCard): AssignableModuleInfo {
   };
 }
 
+function artBinderImagePreviewSource(image: ArtVaultImageMetadata | null | undefined) {
+  if (!image) return "";
+  if (image.thumbnailUrl?.trim()) return image.thumbnailUrl;
+  if (image.driveFileId?.trim()) return googleDriveThumbnailUrl(image.driveFileId);
+  if (image.webViewLink?.trim()) return image.webViewLink;
+  return "";
+}
+
 function artBinderImageManagerSlot(card: ArtBinderSlotCard) {
   return {
     id: card.slot.id,
     label: card.slot.label,
     description: `${card.subject.title} / ${card.section.title}`,
-    imageUrl: card.slot.image?.thumbnailUrl || card.slot.image?.webViewLink || "",
+    imageUrl: artBinderImagePreviewSource(card.slot.image),
     imageFit: card.slot.image?.imageFit,
     webViewLink: card.slot.image?.webViewLink,
     frameWidth: card.subject.kind === "environment" ? 320 : 240,
@@ -1414,6 +1440,16 @@ function updateArtVaultSlotImage(vault: { sections: ArtVaultSection[] }, card: A
           }
         : section
     )
+  };
+}
+
+function artBinderCardWithImageSlot(card: ArtBinderSlotCard, imageSlot: ImageManagerSlotDraft): ArtBinderSlotCard {
+  const updatedSection = updateArtVaultSlotImage({ sections: [card.section] }, card, imageSlot).sections[0] || card.section;
+  const updatedSlot = updatedSection.slots.find((slot) => slot.id === card.slot.id) || card.slot;
+  return {
+    ...card,
+    section: updatedSection,
+    slot: updatedSlot
   };
 }
 

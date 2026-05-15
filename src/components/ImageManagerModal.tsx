@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ImageFitSettings, SpriteAnimationSlotReference } from "../types";
 import {
@@ -49,23 +49,30 @@ interface ImageManagerModalProps {
   slots: ImageManagerSlot[];
   onClose: () => void;
   onSave: (slots: ImageManagerSlotDraft[]) => void;
+  onAutoSave?: (slots: ImageManagerSlotDraft[]) => void;
 }
 
-export function ImageManagerModal({ title, subtitle, slots, onClose, onSave }: ImageManagerModalProps) {
+export function ImageManagerModal({ title, subtitle, slots, onClose, onSave, onAutoSave }: ImageManagerModalProps) {
   const portalTarget = document.querySelector(".app-shell") || document.body;
-  const [draftSlots, setDraftSlots] = useState<ImageManagerSlotDraft[]>(() => slots.map(normalizeSlot));
+  const initialDraftSlots = useMemo(() => slots.map(normalizeSlot), [slots]);
+  const draftSlotsRef = useRef<ImageManagerSlotDraft[]>(initialDraftSlots);
+  const slotSignature = slots.map((slot) => slot.id).join("|");
+  const [draftSlots, setDraftSlots] = useState<ImageManagerSlotDraft[]>(() => draftSlotsRef.current);
   const [bulkLink, setBulkLink] = useState("");
   const [bulkMessage, setBulkMessage] = useState("");
   const [spriteSlotId, setSpriteSlotId] = useState("");
 
   useEffect(() => {
-    setDraftSlots(slots.map(normalizeSlot));
-  }, [slots]);
+    const nextSlots = slots.map(normalizeSlot);
+    draftSlotsRef.current = nextSlots;
+    setDraftSlots(nextSlots);
+  }, [slotSignature]);
 
-  const updateSlot = (id: string, patch: Partial<ImageManagerSlotDraft>) => {
-    setDraftSlots((current) =>
-      current.map((slot) => (slot.id === id ? normalizeSlot({ ...slot, ...patch }) : slot))
-    );
+  const updateSlot = (id: string, patch: Partial<ImageManagerSlotDraft>, options: { autoSave?: boolean } = {}) => {
+    const nextSlots = draftSlotsRef.current.map((slot) => (slot.id === id ? normalizeSlot({ ...slot, ...patch }) : slot));
+    draftSlotsRef.current = nextSlots;
+    setDraftSlots(nextSlots);
+    if (options.autoSave) onAutoSave?.(nextSlots);
   };
 
   const spriteSlot = draftSlots.find((slot) => slot.id === spriteSlotId) || null;
@@ -80,7 +87,7 @@ export function ImageManagerModal({ title, subtitle, slots, onClose, onSave }: I
     const webViewLink = driveViewLinkFromImage(resolved);
     setDraftSlots((current) => {
       appliedCount = current.length;
-      return current.map((slot) =>
+      const nextSlots = current.map((slot) =>
         normalizeSlot({
           ...slot,
           imageUrl: resolved,
@@ -88,6 +95,8 @@ export function ImageManagerModal({ title, subtitle, slots, onClose, onSave }: I
           webViewLink
         })
       );
+      draftSlotsRef.current = nextSlots;
+      return nextSlots;
     });
     setBulkLink(resolved);
     setBulkMessage(`Applied this image to ${appliedCount} slot${appliedCount === 1 ? "" : "s"}. Click Save All Images to keep it.`);
@@ -165,7 +174,7 @@ function ManagedImageSlotCard({
   onOpenSpriteCutter
 }: {
   slot: ImageManagerSlotDraft;
-  onChange: (patch: Partial<ImageManagerSlotDraft>) => void;
+  onChange: (patch: Partial<ImageManagerSlotDraft>, options?: { autoSave?: boolean }) => void;
   onOpenSpriteCutter: () => void;
 }) {
   const frameStyle = slot.frameWidth && slot.frameHeight
@@ -224,7 +233,7 @@ function ManagedImageSlotCard({
               <Icon name="Gamepad2" className="h-4 w-4" />
               Make Sprite Animation
             </button>
-            <button className="character-codex-action-button character-codex-danger-button" disabled={!slot.imageUrl} onClick={() => onChange({ imageUrl: "", webViewLink: "", imageFit: defaultImageFit, spriteAnimation: undefined })}>
+            <button className="character-codex-action-button character-codex-danger-button" disabled={!slot.imageUrl} onClick={() => onChange({ imageUrl: "", webViewLink: "", imageFit: defaultImageFit, spriteAnimation: undefined }, { autoSave: true })}>
               Remove
             </button>
           </div>
@@ -259,18 +268,22 @@ function ManagedImageSlotCard({
               imageUrl: resolved,
               webViewLink: driveViewLinkFromImage(resolved),
               spriteAnimation: undefined
-            });
+            }, { autoSave: true });
           }}
           onPick={(imageUrl, file) => onChange({
             imageUrl,
             webViewLink: file.url || googleDriveWebViewLink(file.id),
             spriteAnimation: undefined
-          })}
-          onUpload={(imageUrl, file) => onChange({
+          }, { autoSave: true })}
+          onUpload={(imageUrl, file, folder, assetState) => onChange({
             imageUrl,
             webViewLink: file.webViewLink || googleDriveWebViewLink(file.id),
+            defaultFolderId: folder.id,
+            defaultFolderLink: folder.url,
+            defaultFolderName: folder.name,
+            assetState,
             spriteAnimation: undefined
-          })}
+          }, { autoSave: true })}
         />
 
         <div className="image-manager-fit-grid">
