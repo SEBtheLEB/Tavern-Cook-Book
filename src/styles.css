@@ -11291,6 +11291,53 @@ button,
   line-height: 1.45;
 }
 
+.art-binder-rename-modal {
+  grid-template-rows: auto auto;
+  width: min(620px, 96vw);
+}
+
+.art-binder-rename-form {
+  display: grid;
+  gap: 14px;
+}
+
+.art-binder-rename-field {
+  display: grid;
+  gap: 7px;
+  color: var(--gold);
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.art-binder-rename-field input {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid color-mix(in srgb, var(--gold) 34%, var(--panel-border));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--field-bg) 88%, transparent);
+  color: var(--app-ink);
+  padding: 10px 12px;
+  outline: none;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.art-binder-rename-field input:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 18%, transparent);
+}
+
+.art-binder-rename-form footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  border-top: 1px solid color-mix(in srgb, var(--panel-border) 62%, transparent);
+  padding-top: 12px;
+}
+
 .art-binder-folder-list {
   display: grid;
   gap: 10px;
@@ -18949,9 +18996,18 @@ body > .picker-dialog-bg {
   text-align: center;
 }
 
-.image-manager-sprite-preview .sprite-animation {
+.image-manager-sprite-preview-inner {
   max-width: 100%;
   max-height: calc(100% - 26px);
+  display: grid;
+  place-items: center;
+  will-change: transform;
+  transition: transform 120ms ease;
+}
+
+.image-manager-sprite-preview-inner .sprite-animation {
+  max-width: 100%;
+  max-height: 100%;
 }
 
 .image-manager-sprite-preview span {
@@ -19014,7 +19070,16 @@ body > .picker-dialog-bg {
   overflow: hidden;
 }
 
-.art-binder-sprite-preview .sprite-animation {
+.art-binder-sprite-preview-inner {
+  max-width: 100%;
+  max-height: 100%;
+  display: grid;
+  place-items: center;
+  will-change: transform;
+  transition: transform 120ms ease;
+}
+
+.art-binder-sprite-preview-inner .sprite-animation {
   max-width: 100%;
   max-height: 100%;
 }

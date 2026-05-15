@@ -191,7 +191,7 @@ function ManagedImageSlotCard({
       <div className="image-manager-slot-preview-wrap">
         <div className="image-manager-slot-preview" style={frameStyle}>
           {slot.spriteAnimation ? (
-            <ManagedSpriteAnimationPreview reference={slot.spriteAnimation} />
+            <ManagedSpriteAnimationPreview reference={slot.spriteAnimation} imageFit={slot.imageFit} />
           ) : slot.imageUrl ? (
             <DriveAwareImage src={slot.imageUrl} alt="" style={imageFitToStyle(slot.imageFit)} />
           ) : (
@@ -349,7 +349,7 @@ function normalizeSlot(slot: ImageManagerSlot): ImageManagerSlotDraft {
   };
 }
 
-function ManagedSpriteAnimationPreview({ reference }: { reference: SpriteAnimationSlotReference }) {
+function ManagedSpriteAnimationPreview({ reference, imageFit }: { reference: SpriteAnimationSlotReference; imageFit?: ImageFitSettings }) {
   const asset = loadSpriteSheetAssets().find((item) => item.id === reference.spriteSheetAssetId);
   const preset = asset?.animationPresets.find((item) => item.id === reference.animationPresetId);
   if (!asset || !preset) {
@@ -360,15 +360,21 @@ function ManagedSpriteAnimationPreview({ reference }: { reference: SpriteAnimati
       </div>
     );
   }
+  const fitStyle = imageFitToStyle(imageFit);
   return (
     <div className="image-manager-sprite-preview">
-      <SpriteAnimation
-        spriteSheet={asset}
-        preset={preset}
-        autoplay={reference.playback === "autoplay"}
-        playOnHover={reference.playback === "hover"}
-        loopWhileHovering={reference.loop}
-      />
+      <div
+        className="image-manager-sprite-preview-inner"
+        style={{ transform: fitStyle.transform, transformOrigin: fitStyle.transformOrigin }}
+      >
+        <SpriteAnimation
+          spriteSheet={asset}
+          preset={preset}
+          autoplay={reference.playback === "autoplay"}
+          playOnHover={reference.playback === "hover"}
+          loopWhileHovering={reference.loop}
+        />
+      </div>
       <span>{reference.playback === "hover" ? "Plays on hover" : "Auto-looping"}</span>
     </div>
   );

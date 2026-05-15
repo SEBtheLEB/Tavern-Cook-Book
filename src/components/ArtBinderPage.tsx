@@ -23,7 +23,7 @@ import {
   renameGoogleDriveItem,
   type GoogleDriveFolder
 } from "../utils/googlePicker";
-import { googleDriveThumbnailUrl, googleDriveWebViewLink, normalizeImageFit, resolveImageSourceUrl } from "../utils/imageFit";
+import { googleDriveThumbnailUrl, googleDriveWebViewLink, imageFitToStyle, normalizeImageFit, resolveImageSourceUrl } from "../utils/imageFit";
 import { loadSpriteSheetAssets } from "../utils/spriteSheets";
 import { CustomSelect } from "./CustomSelect";
 import { DriveAwareImage } from "./DriveAwareImage";
@@ -147,6 +147,7 @@ export function ArtBinderPage({
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(() => new Set(savedSessionState?.collapsedCategories || []));
   const [editingCard, setEditingCard] = useState<ArtBinderSlotCard | null>(null);
   const [folderGroup, setFolderGroup] = useState<ArtBinderFolderGroup | null>(null);
+  const [renameDraft, setRenameDraft] = useState<{ group: ArtBinderFolderGroup; title: string } | null>(null);
   const [folderActionBusy, setFolderActionBusy] = useState<string | null>(null);
 
   useEffect(() => {
@@ -444,17 +445,28 @@ export function ArtBinderPage({
     });
   };
 
-  const renameCategory = async (group: ArtBinderFolderGroup) => {
+  const requestRenameCategory = (group: ArtBinderFolderGroup) => {
     if (readOnly) return;
     const cardsToRename = uniqueSectionCards(group.cards).filter((card) => card.subject.source !== "environment");
     if (!cardsToRename.length) {
       window.alert("This category is generated from environment media and cannot be renamed from the Art Binder yet.");
       return;
     }
-    const nextTitle = window.prompt("Rename Art Binder category", group.category)?.trim();
+    setRenameDraft({ group: { category: group.category, cards: cardsToRename }, title: group.category });
+  };
+
+  const renameCategory = async (group: ArtBinderFolderGroup, nextTitleRaw: string) => {
+    if (readOnly) return;
+    const cardsToRename = uniqueSectionCards(group.cards).filter((card) => card.subject.source !== "environment");
+    if (!cardsToRename.length) {
+      window.alert("This category is generated from environment media and cannot be renamed from the Art Binder yet.");
+      return;
+    }
+    const nextTitle = nextTitleRaw.trim();
     if (!nextTitle || nextTitle === group.category) return;
 
     const busyKey = categoryRenameBusyKey(group.category);
+    setRenameDraft(null);
     setFolderActionBusy(busyKey);
     onDatabaseChange(updateDatabaseRenameArtBinderCategory(database, cardsToRename, nextTitle));
     setCategoryFilter((current) => current === group.category ? nextTitle : current);
@@ -498,6 +510,8 @@ export function ArtBinderPage({
         window.alert(`Renamed the Art Binder category locally, but ${failures.length} connected Drive folder${failures.length === 1 ? "" : "s"} could not be renamed.\n\n${failures.slice(0, 5).join("\n")}${failures.length > 5 ? "\n..." : ""}`);
       } else if (renamedFolders || renamedFiles) {
         window.alert(`Renamed "${group.category}" to "${nextTitle}". Updated ${renamedFolders} Drive folder${renamedFolders === 1 ? "" : "s"} and ${renamedFiles} uploaded file name${renamedFiles === 1 ? "" : "s"}.`);
+      } else {
+        window.alert(`Renamed "${group.category}" to "${nextTitle}".`);
       }
     } catch (error) {
       window.alert(error instanceof Error ? error.message : "Renamed the Art Binder category locally, but could not rename the Art Vault Drive folders.");
@@ -739,7 +753,7 @@ export function ArtBinderPage({
                   <span>{group.cards.length} slot{group.cards.length === 1 ? "" : "s"}</span>
                   {!readOnly && (
                     <>
-                      <button className="art-binder-set-folder-button" onClick={() => void renameCategory(group)} disabled={renameBusy || folderBusy || repairBusy}>
+                      <button className="art-binder-set-folder-button" onClick={() => requestRenameCategory(group)} disabled={renameBusy || folderBusy || repairBusy}>
                         <Icon name="Edit3" className="h-4 w-4" />
                         {renameBusy ? "Renaming..." : "Rename"}
                       </button>
@@ -820,6 +834,16 @@ export function ArtBinderPage({
           onClose={() => setFolderGroup(null)}
         />
       )}
+
+      {renameDraft && (
+        <RenameArtBinderCategoryModal
+          category={renameDraft.group.category}
+          value={renameDraft.title}
+          onChange={(title) => setRenameDraft((current) => current ? { ...current, title } : current)}
+          onClose={() => setRenameDraft(null)}
+          onSubmit={() => void renameCategory(renameDraft.group, renameDraft.title)}
+        />
+      )}
     </section>
   );
 }
@@ -891,7 +915,7 @@ function ArtBinderCard({
       )}
       <div className="art-binder-card-image">
         {card.slot.image?.spriteAnimation ? (
-          <ArtBinderSpriteAnimation reference={card.slot.image.spriteAnimation} />
+          <ArtBinderSpriteAnimation reference={card.slot.image.spriteAnimation} imageFit={card.slot.image.imageFit} />
         ) : previewImageSrc ? (
           <DriveAwareImage src={previewImageSrc} alt="" />
         ) : (
@@ -1316,21 +1340,27 @@ function imageSlotFromUrl(id: string, label: string, imageUrl?: string): ArtVaul
 }
 
 
-function ArtBinderSpriteAnimation({ reference }: { reference: SpriteAnimationSlotReference }) {
+function ArtBinderSpriteAnimation({ reference, imageFit }: { reference: SpriteAnimationSlotReference; imageFit?: ArtVaultImageMetadata["imageFit"] }) {
   const asset = loadSpriteSheetAssets().find((item) => item.id === reference.spriteSheetAssetId);
   const preset = asset?.animationPresets.find((item) => item.id === reference.animationPresetId);
   if (!asset || !preset) {
     return <Icon name="Gamepad2" className="h-8 w-8" />;
   }
+  const fitStyle = imageFitToStyle(imageFit);
   return (
     <div className="art-binder-sprite-preview">
-      <SpriteAnimation
-        spriteSheet={asset}
-        preset={preset}
-        autoplay={reference.playback === "autoplay"}
-        playOnHover={reference.playback === "hover"}
-        loopWhileHovering={reference.loop}
-      />
+      <div
+        className="art-binder-sprite-preview-inner"
+        style={{ transform: fitStyle.transform, transformOrigin: fitStyle.transformOrigin }}
+      >
+        <SpriteAnimation
+          spriteSheet={asset}
+          preset={preset}
+          autoplay={reference.playback === "autoplay"}
+          playOnHover={reference.playback === "hover"}
+          loopWhileHovering={reference.loop}
+        />
+      </div>
     </div>
   );
 }
@@ -2548,6 +2578,63 @@ function ArtBinderFolderModal({
         <footer>
           <button className="character-codex-action-button" onClick={onClose}>Done</button>
         </footer>
+      </section>
+    </div>
+  );
+}
+
+function RenameArtBinderCategoryModal({
+  category,
+  value,
+  onChange,
+  onClose,
+  onSubmit
+}: {
+  category: string;
+  value: string;
+  onChange: (value: string) => void;
+  onClose: () => void;
+  onSubmit: () => void;
+}) {
+  return (
+    <div className="art-binder-folder-backdrop" role="dialog" aria-modal="true" aria-label={`Rename ${category}`}>
+      <section className="art-binder-folder-modal art-binder-rename-modal">
+        <header>
+          <div>
+            <p>Rename Art Category</p>
+            <h2 className="font-display">{category}</h2>
+            <span>Renaming updates the Art Binder category locally and renames connected Google Drive folders/files when they are linked.</span>
+          </div>
+          <button className="character-codex-icon-button" onClick={onClose} title="Close rename category">
+            <Icon name="X" className="h-5 w-5" />
+          </button>
+        </header>
+
+        <form
+          className="art-binder-rename-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            onSubmit();
+          }}
+        >
+          <label className="art-binder-rename-field">
+            <span>Category name</span>
+            <input
+              autoFocus
+              value={value}
+              onChange={(event) => onChange(event.target.value)}
+              placeholder="Category name"
+            />
+          </label>
+
+          <footer>
+            <button type="button" className="character-codex-action-button" onClick={onClose}>Cancel</button>
+            <button type="submit" className="button-frame character-codex-action-button" disabled={!value.trim() || value.trim() === category}>
+              <Icon name="Edit3" className="h-4 w-4" />
+              Rename
+            </button>
+          </footer>
+        </form>
       </section>
     </div>
   );
