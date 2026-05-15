@@ -45,14 +45,24 @@ export function CustomSelect({
     const rect = buttonRef.current?.getBoundingClientRect();
     if (!rect) return;
     const gutter = 12;
+    const menuGap = 6;
+    const preferredMaxHeight = 340;
+    const minimumUsefulHeight = 160;
     const width = Math.max(rect.width, 180);
     const left = Math.min(Math.max(gutter, rect.left), Math.max(gutter, window.innerWidth - width - gutter));
-    const top = Math.min(rect.bottom + 6, window.innerHeight - 96);
+    const spaceBelow = window.innerHeight - rect.bottom - gutter;
+    const spaceAbove = rect.top - gutter;
+    const opensUp = spaceBelow < minimumUsefulHeight && spaceAbove > spaceBelow;
+    const availableHeight = (opensUp ? spaceAbove : spaceBelow) - menuGap;
+    const maxHeight = Math.max(120, Math.min(preferredMaxHeight, availableHeight));
+    const top = opensUp
+      ? Math.max(gutter, rect.top - maxHeight - menuGap)
+      : Math.min(rect.bottom + menuGap, window.innerHeight - maxHeight - gutter);
     setMenuRect({
       left,
       top,
       width,
-      maxHeight: Math.max(160, Math.min(340, window.innerHeight - rect.bottom - 18))
+      maxHeight
     });
   };
 
@@ -125,7 +135,8 @@ export function CustomSelect({
             left: menuRect.left,
             top: menuRect.top,
             width: menuRect.width,
-            maxHeight: menuRect.maxHeight
+            maxHeight: menuRect.maxHeight,
+            zIndex: 13000
           }}
         >
           {normalizedOptions.map((option) => (
