@@ -206,6 +206,13 @@ export function ArtBinderPage({
   const selectedAssignmentCards = cards.filter((card) => assignmentContext.isModuleSelected(artBinderSlotModule(card).moduleId));
   const editableVisibleSubjects = visibleSubjects.filter((subject) => subject.source !== "environment");
 
+  useEffect(() => {
+    if (subjectGroupFilter === "all") return;
+    if (subjectGroups.some((group) => group.key === subjectGroupFilter)) return;
+    setSubjectGroupFilter("all");
+    setSubjectFilter("all");
+  }, [subjectGroupFilter, subjectGroups]);
+
   const toggleCategoryCollapse = (category: string) => {
     setCollapsedCategories((current) => {
       const next = new Set(current);
@@ -888,24 +895,27 @@ function buildArtBinderSubjects(database: LoreDatabase): ArtBinderSubject[] {
       sections: withAppUiSection(normalizeArtVault(entry.artVault).sections, characterAppUiSection(entry))
     }));
 
-  const creatures = (database.bestiary || []).map((creature) => ({
-    id: creature.id,
-    kind: "bestiary" as const,
-    source: "creature" as const,
-    title: creature.name,
-    subtitle: creature.type || "Creature",
-    groupKey: artBinderGroupKey("bestiary", creature.category || creature.type || "Creatures"),
-    groupLabel: creature.category || creature.type || "Creatures",
-    driveTaxonomy: {
-      category: creature.category,
-      type: creature.type,
-      threatLevel: creature.threatLevel,
-      habitat: creature.habitat,
-      behavior: creature.behavior,
-      status: creature.status
-    },
-    sections: withAppUiSection(normalizeCreatureArtVault(creature.artVault).sections, creatureAppUiSection(creature))
-  }));
+  const creatures = (database.bestiary || []).map((creature) => {
+    const shelf = bestiaryBroadShelf(creature);
+    return {
+      id: creature.id,
+      kind: "bestiary" as const,
+      source: "creature" as const,
+      title: creature.name,
+      subtitle: creature.type || "Creature",
+      groupKey: artBinderGroupKey("bestiary", shelf),
+      groupLabel: shelf,
+      driveTaxonomy: {
+        category: creature.category,
+        type: creature.type,
+        threatLevel: creature.threatLevel,
+        habitat: creature.habitat,
+        behavior: creature.behavior,
+        status: creature.status
+      },
+      sections: withAppUiSection(normalizeCreatureArtVault(creature.artVault).sections, creatureAppUiSection(creature))
+    };
+  });
 
   const pantryModel = buildPantryModel(database.entries || [], database.bestiary || []);
   const pantryItems = [
@@ -921,14 +931,15 @@ function buildArtBinderSubjects(database: LoreDatabase): ArtBinderSubject[] {
 
   const categoryVaults = [...savedCategoryVaults, ...virtualCategoryVaults].map((vault: BestiaryCategoryArtVault) => {
     const normalized = normalizeBestiaryCategoryArtVault(vault, vault.categoryName, database.bestiary || []);
+    const shelf = bestiaryBroadShelf(normalized.categoryName);
     return {
       id: normalized.id,
       kind: "bestiary" as const,
       source: "bestiary-category" as const,
       title: normalized.title,
       subtitle: `${normalized.categoryName} Category Vault`,
-      groupKey: artBinderGroupKey("bestiary", normalized.categoryName),
-      groupLabel: normalized.categoryName,
+      groupKey: artBinderGroupKey("bestiary", shelf),
+      groupLabel: shelf,
       driveTaxonomy: {
         category: normalized.categoryName,
         type: normalized.categoryName
@@ -982,17 +993,67 @@ function creatureAppUiSection(creature: BestiaryCreature): ArtVaultSection {
   ]);
 }
 
+function hasAnyText(value: string, needles: string[]) {
+  return needles.some((needle) => value.includes(needle));
+}
+
+function bestiaryBroadShelf(source: BestiaryCreature | string) {
+  const value = typeof source === "string"
+    ? source
+    : [
+        source.name,
+        source.category,
+        source.type,
+        source.threatLevel,
+        source.habitat,
+        source.behavior,
+        source.status,
+        source.description,
+        source.overview
+      ].join(" ");
+  const haystack = value.toLowerCase();
+
+  if (hasAnyText(haystack, ["slime"])) return "Slimes";
+  if (hasAnyText(haystack, ["crayhusk", "insect", "bug", "beetle", "scarab", "fly", "moth", "buttle"])) return "Insects";
+  if (hasAnyText(haystack, ["boss", "elite", "queen", "lord", "prawnhusk"])) return "Bosses";
+  if (hasAnyText(haystack, ["undead", "skell", "skeleton", "ghost", "spirit"])) return "Undead & Spirits";
+  if (hasAnyText(haystack, ["corrupt", "dark", "enemy", "hostile", "aggressive", "mas'eel", "maseel"])) return "Enemies";
+  if (hasAnyText(haystack, ["plant", "flora", "fungus", "mushroom", "boga", "root", "herb"])) return "Plants & Fungi";
+  if (hasAnyText(haystack, ["magical", "faery", "fairy", "elemental"])) return "Magical Creatures";
+  return "Wildlife";
+}
+
+function pantryIngredientBroadShelf(ingredient: PantryIngredient) {
+  const haystack = [
+    ingredient.name,
+    ingredient.baseName,
+    ingredient.category,
+    ingredient.summary,
+    ingredient.notes,
+    ingredient.tags.join(" "),
+    ingredient.dropsFrom.map((source) => `${source.creatureName} ${source.creatureType}`).join(" ")
+  ].join(" ").toLowerCase();
+
+  if (hasAnyText(haystack, ["slime"])) return "Slimes";
+  if (hasAnyText(haystack, ["crayhusk", "prawnhusk", "insect", "bug", "beetle", "scarab", "fly", "moth", "buttle"])) return "Insects";
+  if (hasAnyText(haystack, ["boar", "chicken", "fish", "meat", "egg", "wildlife", "beast"])) return "Wildlife";
+  if (hasAnyText(haystack, ["boga", "potato", "turnip", "mushroom", "fungi", "herb", "root", "fruit", "berry", "vegetable", "produce", "plant"])) return "Produce & Plants";
+  if (hasAnyText(haystack, ["spice", "salt", "rock", "mineral", "seasoning"])) return "Spices & Minerals";
+  return "Pantry Ingredients";
+}
+
 function pantryIngredientSubject(ingredient: PantryIngredient, entries: LoreEntry[]): ArtBinderSubject {
   const entry = ingredient.entry || entries.find((candidate) => normalizeLooseName(candidate.title) === normalizeLooseName(ingredient.name));
   const variantSlots = ingredient.prepVariants.map((variant, index) => pantryVariantSlot(variant, entries, index + 1));
+  const shelf = pantryIngredientBroadShelf(ingredient);
   return {
     id: entry?.id || `pantry-virtual-${slugify(ingredient.name)}`,
     kind: "pantry",
     source: "pantry",
     title: ingredient.name,
     subtitle: ingredient.category || "Pantry Item",
-    groupKey: artBinderGroupKey("pantry", ingredient.baseName || ingredient.category || "Pantry"),
-    groupLabel: ingredient.baseName || ingredient.category || "Pantry",
+    groupKey: artBinderGroupKey("pantry", shelf),
+    groupLabel: shelf,
     driveTaxonomy: {
       category: "Food & Inventory",
       type: ingredient.category,
@@ -1003,7 +1064,7 @@ function pantryIngredientSubject(ingredient: PantryIngredient, entries: LoreEntr
 }
 
 function pantryMealSubject(entry: LoreEntry): ArtBinderSubject {
-  const groupLabel = String(entry.fields?.pantryMealGroup || entry.type || "Meals / Recipes");
+  const groupLabel = "Meals & Recipes";
   return {
     id: entry.id,
     kind: "pantry",
@@ -2080,6 +2141,7 @@ function buildSubjectGroups(subjects: ArtBinderSubject[], kindFilter: ArtBinderK
 function subjectGroupDescription(subject: ArtBinderSubject) {
   if (subject.kind === "bestiary") return `General art plus every ${subject.groupLabel.toLowerCase()} subject in the Bestiary.`;
   if (subject.kind === "character") return "All character art boards, with a specific character picker after this.";
+  if (subject.kind === "pantry") return `Pantry app slots grouped under ${subject.groupLabel.toLowerCase()}.`;
   return `Environment boards grouped by ${subject.groupLabel.toLowerCase()}.`;
 }
 
@@ -2087,6 +2149,9 @@ function subjectGroupIcon(kind: ArtBinderSubject["kind"], label: string) {
   const normalized = label.toLowerCase();
   if (kind === "character") return "Users";
   if (kind === "environment") return "Map";
+  if (kind === "pantry" && normalized.includes("meal")) return "Soup";
+  if (kind === "pantry" && normalized.includes("spice")) return "Wheat";
+  if (kind === "pantry" && normalized.includes("produce")) return "Leaf";
   if (normalized.includes("slime")) return "Droplets";
   if (normalized.includes("boss")) return "Crown";
   if (normalized.includes("skell") || normalized.includes("undead")) return "Skull";
