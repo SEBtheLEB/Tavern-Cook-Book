@@ -61,12 +61,17 @@ export function clearDriveSettings() {
 }
 
 export function isDriveConfigured(settings = getDriveSettings()) {
-  return Boolean(settings.googleApiKey.trim() && settings.googleOAuthClientId.trim());
+  return isUsableGoogleOAuthClientId(settings.googleOAuthClientId) && isUsableGoogleApiKey(settings.googleApiKey);
 }
 
 export function showDriveSetupMessage(settings = getDriveSettings()) {
-  if (!isDriveConfigured(settings)) {
-    window.alert("Google Drive is not connected yet. Add your API Key and OAuth Client ID in Settings first.");
+  if (!isUsableGoogleOAuthClientId(settings.googleOAuthClientId)) {
+    window.alert("Google Drive is not connected yet. Add a valid Google OAuth Client ID in Settings first.");
+    return false;
+  }
+
+  if (!isUsableGoogleApiKey(settings.googleApiKey)) {
+    window.alert("The Google API Key field does not look valid. Clear it or replace it with a real Google API key in Settings.");
     return false;
   }
 
@@ -90,7 +95,7 @@ export function securityFindingsMessage(findings: DriveSettingsSecurityFinding[]
 export function normalizeDriveSettings(value: unknown): DriveSettings {
   const settings = typeof value === "object" && value !== null ? value as Partial<DriveSettings> : {};
   return {
-    googleApiKey: String(settings.googleApiKey ?? "").trim(),
+    googleApiKey: normalizeGoogleApiKey(settings.googleApiKey),
     googleOAuthClientId: String(settings.googleOAuthClientId ?? "").trim(),
     defaultTalesFolderId: normalizeDriveFolderId(settings.defaultTalesFolderId),
     defaultCharactersFolderId: normalizeDriveFolderId(settings.defaultCharactersFolderId),
@@ -115,6 +120,22 @@ export function normalizeDriveFolderId(value: unknown) {
   }
 
   return raw;
+}
+
+export function isUsableGoogleApiKey(value: unknown) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return true;
+  return /^AIza[0-9A-Za-z_-]{20,120}$/.test(raw);
+}
+
+export function isUsableGoogleOAuthClientId(value: unknown) {
+  const raw = String(value ?? "").trim();
+  return /^[0-9A-Za-z_-]+\.apps\.googleusercontent\.com$/.test(raw);
+}
+
+function normalizeGoogleApiKey(value: unknown) {
+  const raw = String(value ?? "").trim();
+  return isUsableGoogleApiKey(raw) ? raw : "";
 }
 
 function unsafeDriveSettingReason(value: string) {

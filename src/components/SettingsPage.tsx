@@ -11,6 +11,7 @@ import {
   findUnsafeDriveSettings,
   getDriveSettings,
   isDriveConfigured,
+  isUsableGoogleApiKey,
   normalizeDriveSettings,
   saveDriveSettings
 } from "../utils/driveSettings";
@@ -166,6 +167,7 @@ export function SettingsPage({
 
   const commitDriveSettings = async (nextDriveSettings: DriveSettings, successMessage: string) => {
     const normalizedDriveSettings = normalizeDriveSettings(nextDriveSettings);
+    const ignoredMalformedApiKey = Boolean(nextDriveSettings.googleApiKey.trim()) && !isUsableGoogleApiKey(nextDriveSettings.googleApiKey);
     const findings = findUnsafeDriveSettings(normalizedDriveSettings);
     if (findings.length) {
       setMessage(
@@ -193,7 +195,11 @@ export function SettingsPage({
         return false;
       }
 
-      setMessage(successMessage);
+      setMessage(
+        ignoredMalformedApiKey
+          ? `${successMessage} The Google API Key field was cleared because it did not look like a real Google API key. Drive folder creation can still use your OAuth Client ID.`
+          : successMessage
+      );
       return true;
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not save Google Drive settings.");
@@ -205,7 +211,7 @@ export function SettingsPage({
 
   const chooseDriveSettingsFolder = async (key: keyof Pick<DriveSettings, "defaultTalesFolderId" | "defaultCharactersFolderId" | "defaultWorldArtFolderId" | "defaultMarketingArtFolderId" | "defaultArtVaultFolderId">) => {
     if (!isDriveConfigured(driveSettings)) {
-      setMessage("Save your Google API Key and OAuth Client ID first, then choose folders from Google Drive.");
+      setMessage("Save your Google OAuth Client ID first, then choose folders from Google Drive. The API key is optional for Drive folder creation.");
       return;
     }
 
@@ -234,7 +240,7 @@ export function SettingsPage({
 
   const testDriveSetup = () => {
     if (!isDriveConfigured(driveSettings)) {
-      setMessage("Google Drive is not connected yet. Add your API Key and OAuth Client ID in Settings first.");
+      setMessage("Google Drive is not connected yet. Add your Google OAuth Client ID in Settings first.");
       return;
     }
 
@@ -549,8 +555,8 @@ export function SettingsPage({
           <div>
             <h3 className="font-display text-2xl">Google Drive Integration</h3>
             <p className="mt-2 max-w-3xl text-sm leading-6" style={{ color: "var(--muted-ink)" }}>
-              Add your Google API Key and OAuth Client ID from Google Cloud Console. Admin-saved setup is
-              synced through the shared app settings so STL Workshop and Tavern use the same connection.
+              Add your Google OAuth Client ID from Google Cloud Console. A restricted API key is optional.
+              Admin-saved setup is synced through the shared app settings so STL Workshop and Tavern use the same connection.
             </p>
           </div>
           <span className="rounded-full border px-3 py-1 text-sm" style={{ borderColor: "var(--card-border)", background: "var(--field-bg)" }}>
@@ -567,8 +573,8 @@ export function SettingsPage({
         <div className="mt-4 rounded border p-3" style={{ borderColor: "var(--card-border)", background: "var(--field-bg)" }}>
           <h4 className="font-display text-xl">Drive Security Checklist</h4>
           <ul className="mt-2 grid gap-1 text-sm" style={{ color: "var(--muted-ink)" }}>
-            <li>API key restricted to this website/domain</li>
-            <li>API key restricted to only required Google APIs</li>
+            <li>Optional API key restricted to this website/domain</li>
+            <li>Optional API key restricted to only required Google APIs</li>
             <li>OAuth JavaScript origins restricted to this app domain</li>
             <li>OAuth Drive scope allows creating folders and placing files in the selected Art Vault folder</li>
             <li>Shared Drive folder permissions configured manually in Google Drive</li>
@@ -579,7 +585,7 @@ export function SettingsPage({
           <DriveSettingsInput
             label="Google API Key"
             value={driveSettings.googleApiKey}
-            placeholder="Paste API key from Google Cloud Console"
+            placeholder="Optional restricted API key from Google Cloud Console"
             type="password"
             onChange={(value) => updateDriveSetting("googleApiKey", value)}
           />

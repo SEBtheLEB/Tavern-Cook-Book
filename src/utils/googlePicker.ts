@@ -1,5 +1,5 @@
 import type { CharacterArtGalleryItem } from "../types";
-import { getDriveSettings, isDriveConfigured, showDriveSetupMessage } from "./driveSettings";
+import { getDriveSettings, isDriveConfigured, isUsableGoogleApiKey, showDriveSetupMessage } from "./driveSettings";
 
 const GOOGLE_IDENTITY_SCRIPT_ID = "google-identity-services";
 const GOOGLE_IDENTITY_SCRIPT_SRC = "https://accounts.google.com/gsi/client";
@@ -468,6 +468,11 @@ async function fetchDriveWithTimeout(input: RequestInfo | URL, init: RequestInit
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
       throw new Error(timeoutMessage);
+    }
+    if (error instanceof TypeError) {
+      throw new Error(
+        "Could not reach Google Drive from this browser. Check your internet connection, browser privacy/ad-block settings, and Settings > Google Drive Integration. If the API key field contains pasted text instead of a real key, clear it and save settings."
+      );
     }
     throw error;
   } finally {
@@ -1152,7 +1157,7 @@ async function uploadImageWithResumableUpload(file: File, folderId: string, toke
 
 function driveApiKeyParam() {
   const key = getDriveSettings().googleApiKey.trim();
-  return key ? `&key=${encodeURIComponent(key)}` : "";
+  return key && isUsableGoogleApiKey(key) ? `&key=${encodeURIComponent(key)}` : "";
 }
 
 function cleanDriveFileName(fileName: string | undefined, file: File) {
