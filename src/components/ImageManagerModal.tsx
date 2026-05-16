@@ -18,6 +18,7 @@ import { SpriteAnimation } from "./SpriteAnimation";
 import { SpriteCutterModal } from "./SpriteCutterModal";
 import { Icon } from "./Icon";
 import { DriveAwareImage } from "./DriveAwareImage";
+import { InteractiveImageFitFrame } from "./InteractiveImageFitFrame";
 
 export interface ImageManagerSlot {
   id: string;
@@ -185,22 +186,32 @@ function ManagedImageSlotCard({
       }
     : { aspectRatio: slot.aspectRatio || "4 / 3" };
   const driveLink = slot.webViewLink || driveViewLinkFromImage(slot.imageUrl);
+  const updateImageFit = (imageFit: ImageFitSettings, autoSave = false) => {
+    onChange({ imageFit: normalizeImageFit(imageFit) }, { autoSave });
+  };
 
   return (
     <article className="image-manager-slot-card">
       <div className="image-manager-slot-preview-wrap">
-        <div className="image-manager-slot-preview" style={frameStyle}>
+        <InteractiveImageFitFrame
+          className="image-manager-slot-preview"
+          style={frameStyle}
+          imageFit={slot.imageFit}
+          disabled={!slot.imageUrl && !slot.spriteAnimation}
+          onChange={(imageFit) => updateImageFit(imageFit)}
+          onCommit={(imageFit) => updateImageFit(imageFit, true)}
+        >
           {slot.spriteAnimation ? (
             <ManagedSpriteAnimationPreview reference={slot.spriteAnimation} imageFit={slot.imageFit} fallbackImageUrl={slot.imageUrl} />
           ) : slot.imageUrl ? (
-            <DriveAwareImage src={slot.imageUrl} alt="" style={imageFitToStyle(slot.imageFit)} />
+            <DriveAwareImage src={slot.imageUrl} alt="" draggable={false} style={imageFitToStyle(slot.imageFit)} />
           ) : (
             <div className="image-manager-empty-preview">
               <Icon name="Image" className="h-8 w-8" />
               <span>No image assigned</span>
             </div>
           )}
-        </div>
+        </InteractiveImageFitFrame>
       </div>
 
       <div className="image-manager-slot-controls">
@@ -287,9 +298,6 @@ function ManagedImageSlotCard({
         />
 
         <div className="image-manager-fit-grid">
-          <ImageManagerRange label="Scale" min={0.25} max={3} step={0.05} value={slot.imageFit.scale} onChange={(scale) => onChange({ imageFit: normalizeImageFit({ ...slot.imageFit, scale }) }, { autoSave: true })} />
-          <ImageManagerRange label="X" min={-100} max={100} step={1} value={slot.imageFit.x} onChange={(x) => onChange({ imageFit: normalizeImageFit({ ...slot.imageFit, x }) }, { autoSave: true })} />
-          <ImageManagerRange label="Y" min={-100} max={100} step={1} value={slot.imageFit.y} onChange={(y) => onChange({ imageFit: normalizeImageFit({ ...slot.imageFit, y }) }, { autoSave: true })} />
           <label className="image-manager-field">
             <span>Fit</span>
             <CustomSelect
@@ -309,30 +317,6 @@ function ManagedImageSlotCard({
         </div>
       </div>
     </article>
-  );
-}
-
-function ImageManagerRange({
-  label,
-  min,
-  max,
-  step,
-  value,
-  onChange
-}: {
-  label: string;
-  min: number;
-  max: number;
-  step: number;
-  value: number;
-  onChange: (value: number) => void;
-}) {
-  return (
-    <label className="image-manager-range">
-      <span>{label}</span>
-      <input type="range" min={min} max={max} step={step} value={value} onChange={(event) => onChange(Number(event.target.value))} />
-      <input type="number" min={min} max={max} step={step} value={value} onChange={(event) => onChange(Number(event.target.value))} />
-    </label>
   );
 }
 
@@ -360,7 +344,7 @@ function ManagedSpriteAnimationPreview({
 }) {
   const resolved = resolveSpriteAnimationSlot(reference);
   if (!resolved.asset || !resolved.preset || !resolved.reference) {
-    if (fallbackImageUrl) return <DriveAwareImage src={fallbackImageUrl} alt="" style={imageFitToStyle(imageFit)} />;
+    if (fallbackImageUrl) return <DriveAwareImage src={fallbackImageUrl} alt="" draggable={false} style={imageFitToStyle(imageFit)} />;
     return (
       <div className="image-manager-empty-preview">
         <Icon name="Gamepad2" className="h-8 w-8" />

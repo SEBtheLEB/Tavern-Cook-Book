@@ -3301,6 +3301,20 @@ textarea {
     color-mix(in srgb, var(--modal-bg) 92%, transparent);
 }
 
+.interactive-image-fit-frame:not(.disabled) {
+  cursor: grab;
+  touch-action: none;
+}
+
+.interactive-image-fit-frame.is-dragging {
+  cursor: grabbing;
+}
+
+.interactive-image-fit-frame img {
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
 .image-adjust-preview-frame img {
   width: 100%;
   height: 100%;

@@ -7,6 +7,7 @@ import { isSupportedImage } from "../utils/media";
 import { CustomSelect } from "./CustomSelect";
 import { DriveAwareImage } from "./DriveAwareImage";
 import { Icon } from "./Icon";
+import { InteractiveImageFitFrame } from "./InteractiveImageFitFrame";
 
 interface ImageAdjustModalProps {
   title?: string;
@@ -175,22 +176,25 @@ export function ImageAdjustModal({
         <div className="image-adjust-body">
           <div className="image-adjust-preview-panel">
             <span>Slot Preview</span>
-            <div className="image-adjust-preview-frame" style={previewStyle}>
+            <InteractiveImageFitFrame
+              className="image-adjust-preview-frame"
+              style={previewStyle}
+              imageFit={draftFit}
+              disabled={!draftUrl}
+              onChange={setDraftFit}
+            >
               {draftUrl ? (
-                <DriveAwareImage src={draftUrl} alt="" style={imageFitToStyle(draftFit)} />
+                <DriveAwareImage src={draftUrl} alt="" draggable={false} style={imageFitToStyle(draftFit)} />
               ) : (
                 <div className="image-adjust-empty-preview">
                   <Icon name="Image" className="h-8 w-8" />
                   <small>No image selected</small>
                 </div>
               )}
-            </div>
+            </InteractiveImageFitFrame>
           </div>
 
           <div className="image-adjust-controls">
-            <ImageAdjustRange label="Scale" min={0.25} max={3} step={0.05} value={draftFit.scale} onChange={(scale) => updateFit({ scale })} />
-            <ImageAdjustRange label="X Offset" min={-100} max={100} step={1} value={draftFit.x} onChange={(x) => updateFit({ x })} />
-            <ImageAdjustRange label="Y Offset" min={-100} max={100} step={1} value={draftFit.y} onChange={(y) => updateFit({ y })} />
             <label className="image-adjust-field">
               <span>Fit Mode</span>
               <CustomSelect
@@ -278,29 +282,5 @@ export function ImageAdjustModal({
       </section>
     </div>,
     portalTarget
-  );
-}
-
-function ImageAdjustRange({
-  label,
-  min,
-  max,
-  step,
-  value,
-  onChange
-}: {
-  label: string;
-  min: number;
-  max: number;
-  step: number;
-  value: number;
-  onChange: (value: number) => void;
-}) {
-  return (
-    <label className="image-adjust-range">
-      <span>{label}</span>
-      <input type="range" min={min} max={max} step={step} value={value} onChange={(event) => onChange(Number(event.target.value))} />
-      <input type="number" min={min} max={max} step={step} value={value} onChange={(event) => onChange(Number(event.target.value))} />
-    </label>
   );
 }
