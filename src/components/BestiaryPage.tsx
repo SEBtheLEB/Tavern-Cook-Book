@@ -42,6 +42,7 @@ import {
 } from "../utils/googlePicker";
 import { isSupportedImage, readImageFileForStorage } from "../utils/media";
 import { recordArtVaultActivity } from "../utils/activityLog";
+import { saveImageSourceAsFile } from "../utils/downloads";
 import { extractGoogleDriveFileId, googleDriveThumbnailUrl, imageFitToStyle, normalizeImageFit, resolveImageSourceUrl } from "../utils/imageFit";
 import type { AssignableModuleInfo, AssignmentRecord } from "../utils/assignments";
 import type { StoryReferenceDraftInput } from "../utils/storyReferences";
@@ -2011,18 +2012,21 @@ function CreatureArtVaultPage({
     setSlotMenuRef(null);
   };
 
-  const downloadSlotImage = (slot: ArtVaultSlot) => {
-    const url = slot.image?.thumbnailUrl || slot.image?.webViewLink;
+  const downloadSlotImage = async (slot: ArtVaultSlot) => {
+    const url = slot.image?.downloadUrl || slot.image?.thumbnailUrl || slot.image?.webViewLink;
     if (!url) {
       window.alert("No image has been assigned to this slot yet.");
       return;
     }
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${slot.label || "creature-art"}.jpg`;
-    link.target = "_blank";
-    link.rel = "noopener noreferrer";
-    link.click();
+    try {
+      await saveImageSourceAsFile({
+        url,
+        driveFileId: slot.image?.driveFileId,
+        fileName: slot.image?.fileName || slot.image?.title || slot.label || "creature-art"
+      });
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Could not download this image.");
+    }
     setSlotMenuRef(null);
   };
 

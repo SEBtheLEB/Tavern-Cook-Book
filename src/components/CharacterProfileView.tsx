@@ -34,6 +34,7 @@ import {
 import type { GooglePickerFile, UploadedDriveFile } from "../utils/googlePicker";
 import { recordArtVaultActivity } from "../utils/activityLog";
 import { fileSizeLabel, isSupportedImage, readImageFileForStorage } from "../utils/media";
+import { saveImageSourceAsFile } from "../utils/downloads";
 import { imageFitToStyle, normalizeImageFit } from "../utils/imageFit";
 import type { StoryReferenceDraftInput } from "../utils/storyReferences";
 import type { AssignableModuleInfo, AssignmentRecord } from "../utils/assignments";
@@ -2389,18 +2390,21 @@ function CharacterArtVaultView({
     window.open(slot.image.webViewLink, "_blank", "noopener,noreferrer");
   };
 
-  const downloadSlotImage = (slot: ArtVaultSlot) => {
-    const url = slot.image?.thumbnailUrl || slot.image?.webViewLink;
+  const downloadSlotImage = async (slot: ArtVaultSlot) => {
+    const url = slot.image?.downloadUrl || slot.image?.thumbnailUrl || slot.image?.webViewLink;
     if (!url) {
       window.alert("No image has been assigned to this slot yet.");
       return;
     }
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${slot.label || "character-art"}.jpg`;
-    link.target = "_blank";
-    link.rel = "noopener noreferrer";
-    link.click();
+    try {
+      await saveImageSourceAsFile({
+        url,
+        driveFileId: slot.image?.driveFileId,
+        fileName: slot.image?.fileName || slot.image?.title || slot.label || "character-art"
+      });
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Could not download this image.");
+    }
     setSlotMenuRef(null);
   };
 

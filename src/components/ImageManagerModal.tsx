@@ -15,6 +15,7 @@ import type { DriveUploadNameContext, GoogleDriveFolder } from "../utils/googleP
 import { CustomSelect } from "./CustomSelect";
 import { DriveImageSourceControls } from "./DriveImageSourceControls";
 import { normalizeSpriteAnimationSlotReference, resolveSpriteAnimationSlot } from "../utils/spriteAnimationSlots";
+import { saveImageSourceAsFile } from "../utils/downloads";
 import { SpriteAnimation } from "./SpriteAnimation";
 import { SpriteCutterModal } from "./SpriteCutterModal";
 import { Icon } from "./Icon";
@@ -192,8 +193,27 @@ function ManagedImageSlotCard({
       }
     : { aspectRatio: slot.aspectRatio || "4 / 3" };
   const driveLink = slot.webViewLink || driveViewLinkFromImage(slot.imageUrl);
+  const resolvedSprite = slot.spriteAnimation ? resolveSpriteAnimationSlot(slot.spriteAnimation) : null;
+  const spriteFrameImage = resolvedSprite?.reference?.frameImages?.[0] || null;
+  const downloadUrl = slot.imageUrl || spriteFrameImage?.thumbnailUrl || spriteFrameImage?.webViewLink || slot.webViewLink;
+  const downloadDriveFileId = spriteFrameImage?.driveFileId || extractGoogleDriveFileId(slot.webViewLink || slot.imageUrl || downloadUrl || "");
   const updateImageFit = (imageFit: ImageFitSettings, autoSave = false) => {
     onChange({ imageFit: normalizeImageFit(imageFit) }, { autoSave });
+  };
+  const downloadSlotImage = async () => {
+    if (!downloadUrl) {
+      window.alert("No image has been assigned to this slot yet.");
+      return;
+    }
+    try {
+      await saveImageSourceAsFile({
+        url: downloadUrl,
+        driveFileId: downloadDriveFileId,
+        fileName: slot.label || "image"
+      });
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Could not download this image.");
+    }
   };
 
   return (
@@ -235,17 +255,15 @@ function ManagedImageSlotCard({
               <Icon name="FolderOpen" className="h-4 w-4" />
               Drive
             </button>
-            <a
-              className={`character-codex-action-button ${slot.imageUrl ? "" : "disabled"}`}
-              href={slot.imageUrl || undefined}
-              download={`${slot.label || "image"}.png`}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-disabled={!slot.imageUrl}
+            <button
+              className="character-codex-action-button"
+              type="button"
+              disabled={!downloadUrl}
+              onClick={downloadSlotImage}
             >
               <Icon name="Download" className="h-4 w-4" />
               Download
-            </a>
+            </button>
             <button className="character-codex-action-button" onClick={onOpenSpriteCutter}>
               <Icon name="Gamepad2" className="h-4 w-4" />
               Make Sprite Animation
