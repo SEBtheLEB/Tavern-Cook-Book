@@ -8,6 +8,7 @@ import type {
 } from "../types";
 import { normalizeImageFit } from "./imageFit";
 import { slugify } from "./entries";
+import { normalizeLinkedStoryReferenceIds } from "./storyReferences";
 
 export interface WorldBuildingCategoryConfig {
   id: WorldBuildingCategoryId;
@@ -665,6 +666,8 @@ export const normalizeWorldBuildingEntry = (
     imageFit: normalizeImageFit(source.imageFit),
     fields: normalizeFieldMap(source.fields),
     relatedEntries: normalizeRelatedEntries(source.relatedEntries),
+    linkedStoryReferenceIds: normalizeLinkedStoryReferenceIds(source.linkedStoryReferenceIds),
+    storyReferenceReviews: normalizeStoryReferenceReviews(source.storyReferenceReviews),
     createdAt: stringValue(source.createdAt, now),
     updatedAt: stringValue(source.updatedAt, stringValue(source.createdAt, now))
   };
@@ -696,7 +699,9 @@ export const sanitizeWorldBuildingForPersistence = (value: WorldBuildingData): W
       image: unsafePersistentImage(entry.image) ? "" : entry.image,
       imageFit: normalizeImageFit(entry.imageFit),
       fields: normalizeFieldMap(entry.fields),
-      relatedEntries: normalizeRelatedEntries(entry.relatedEntries)
+      relatedEntries: normalizeRelatedEntries(entry.relatedEntries),
+      linkedStoryReferenceIds: normalizeLinkedStoryReferenceIds(entry.linkedStoryReferenceIds),
+      storyReferenceReviews: normalizeStoryReferenceReviews(entry.storyReferenceReviews)
     }));
   });
   return normalized;
@@ -742,6 +747,16 @@ function normalizeStringArray(value: unknown): string[] {
   if (Array.isArray(value)) return value.map(String).map((item) => item.trim()).filter(Boolean);
   if (typeof value === "string") return value.split(/[,\n]/).map((item) => item.trim()).filter(Boolean);
   return [];
+}
+
+function normalizeStoryReferenceReviews(value: unknown): Record<string, string> | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const reviews = Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .filter(([key, reviewedAt]) => key.trim() && typeof reviewedAt === "string")
+      .map(([key, reviewedAt]) => [key.trim(), reviewedAt])
+  ) as Record<string, string>;
+  return Object.keys(reviews).length ? reviews : undefined;
 }
 
 function stringValue(value: unknown, fallback: string) {

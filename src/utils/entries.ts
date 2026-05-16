@@ -15,6 +15,7 @@
 } from "../types";
 import { extractGoogleDriveFileId, googleDriveThumbnailUrl, normalizeImageFit } from "./imageFit";
 import { normalizeSpriteAnimationSlotReference } from "./spriteAnimationSlots";
+import { normalizeLinkedStoryReferenceIds } from "./storyReferences";
 
 export const emptyConnections = (): EntryConnections => ({
   characters: [],
@@ -551,6 +552,8 @@ export const normalizeEntry = (
     internalLore: input.internalLore || "",
     fields: input.fields || {},
     connections,
+    linkedStoryReferenceIds: normalizeLinkedStoryReferenceIds(input.linkedStoryReferenceIds),
+    storyReferenceReviews: normalizeStoryReferenceReviews(input.storyReferenceReviews),
     notes,
     timeline: input.timeline,
     secret: input.secret,
@@ -589,5 +592,15 @@ function normalizeImageFitMap(value: unknown) {
   return Object.fromEntries(
     Object.entries(value as Record<string, unknown>).map(([key, fit]) => [key, normalizeImageFit(fit)])
   );
+}
+
+function normalizeStoryReferenceReviews(value: unknown): Record<string, string> | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const reviews = Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .filter(([key, reviewedAt]) => key.trim() && typeof reviewedAt === "string")
+      .map(([key, reviewedAt]) => [key.trim(), reviewedAt])
+  ) as Record<string, string>;
+  return Object.keys(reviews).length ? reviews : undefined;
 }
 

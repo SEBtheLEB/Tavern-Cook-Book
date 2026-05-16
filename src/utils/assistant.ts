@@ -1057,6 +1057,8 @@ const setDatabaseValue = (
           teamMembers: [],
           userProfiles: [],
           questCategories: [],
+          storyReferences: [],
+          glossaryTerms: [],
           branding: { studioName: "STL Productionz" }
         }).entries[0] as LoreEntry;
         if (!safeSetDeepValue(next as unknown as Record<string, unknown>, action.path, action.newValue)) return entry;
@@ -1082,6 +1084,8 @@ const setDatabaseValue = (
           teamMembers: [],
           userProfiles: [],
           questCategories: [],
+          storyReferences: [],
+          glossaryTerms: [],
           branding: { studioName: "STL Productionz" }
         }).bestiary[0] as BestiaryCreature;
         if (!safeSetDeepValue(next as unknown as Record<string, unknown>, action.path, action.newValue)) return creature;
@@ -1123,6 +1127,8 @@ const setDatabaseValue = (
           teamMembers: [],
           userProfiles: [],
           questCategories: [],
+          storyReferences: [],
+          glossaryTerms: [],
           branding: { studioName: "STL Productionz" }
         }).bestiaryCategoryVaults[0] as BestiaryCategoryArtVault;
         if (!safeSetDeepValue(next as unknown as Record<string, unknown>, action.path, action.newValue)) return vault;
@@ -1482,6 +1488,8 @@ const applyAction = (database: LoreDatabase, action: AssistantAction): LoreDatab
         teamMembers: [],
         userProfiles: [],
         questCategories: [],
+        storyReferences: [],
+        glossaryTerms: [],
         branding: { studioName: "STL Productionz" }
       }).entries[0] as LoreEntry;
       if (!safeSetDeepValue(next as unknown as Record<string, unknown>, action.field, action.newValue)) return entry;
@@ -1707,7 +1715,9 @@ export const applyAssistantPatch = (
     entries: cloneDatabase(database).entries,
     bestiary: cloneDatabase(database).bestiary || [],
     bestiaryCategoryVaults: cloneDatabase(database).bestiaryCategoryVaults || [],
-    worldBuilding: cloneDatabase(database).worldBuilding || createEmptyWorldBuilding()
+    worldBuilding: cloneDatabase(database).worldBuilding || createEmptyWorldBuilding(),
+    storyReferences: cloneDatabase(database).storyReferences || [],
+    glossaryTerms: cloneDatabase(database).glossaryTerms || []
   };
 
   return {
@@ -1734,6 +1744,8 @@ export const undoLastAiChange = (database: LoreDatabase): LoreDatabase | null =>
       teamMembers: [],
       userProfiles: [],
       questCategories: [],
+      storyReferences: database.storyReferences || [],
+      glossaryTerms: database.glossaryTerms || [],
       branding: database.branding
     }).entries,
     bestiary: backup.bestiary
@@ -1748,6 +1760,8 @@ export const undoLastAiChange = (database: LoreDatabase): LoreDatabase | null =>
           teamMembers: [],
           userProfiles: [],
           questCategories: [],
+          storyReferences: database.storyReferences || [],
+          glossaryTerms: database.glossaryTerms || [],
           branding: database.branding
         }).bestiary
       : database.bestiary,

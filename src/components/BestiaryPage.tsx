@@ -12,7 +12,8 @@ import type {
   BestiaryCreatureStats,
   CharacterArtVault,
   GoogleAccountUser,
-  ImageFitSettings
+  ImageFitSettings,
+  StoryReference
 } from "../types";
 import {
   bestiaryHabitatOptions,
@@ -43,6 +44,7 @@ import { isSupportedImage, readImageFileForStorage } from "../utils/media";
 import { recordArtVaultActivity } from "../utils/activityLog";
 import { extractGoogleDriveFileId, googleDriveThumbnailUrl, imageFitToStyle, normalizeImageFit, resolveImageSourceUrl } from "../utils/imageFit";
 import type { AssignableModuleInfo, AssignmentRecord } from "../utils/assignments";
+import type { StoryReferenceDraftInput } from "../utils/storyReferences";
 import type { ArtBinderInitialFilter } from "./ArtBinderPage";
 import { AssignableModule } from "./AssignmentSystem";
 import { CustomSelect } from "./CustomSelect";
@@ -51,6 +53,7 @@ import { DriveImageSourceControls } from "./DriveImageSourceControls";
 import { FavoriteButton } from "./FavoriteButton";
 import { ImageAdjustModal } from "./ImageAdjustModal";
 import { ImageManagerModal, type ImageManagerSlotDraft } from "./ImageManagerModal";
+import { LinkedStoryReferencesSection } from "./LinkedStoryReferences";
 import { Icon } from "./Icon";
 import { useRealtimeCollaboration } from "./RealtimeCollaborationContext";
 import { StoryReaderModal, type StoryReaderSection, type StoryReaderStep } from "./StoryReaderModal";
@@ -70,6 +73,9 @@ interface BestiaryPageProps {
   onBackToPrevious?: () => void;
   onGoToBestiary?: () => void;
   onOpenArtBinder?: (filter: ArtBinderInitialFilter) => void;
+  storyReferences?: StoryReference[];
+  onCreateStoryReference?: (input: StoryReferenceDraftInput) => StoryReference;
+  onOpenStorySource?: (storyReferenceId: string) => void;
 }
 
 interface VaultSlotRef {
@@ -134,7 +140,10 @@ export function BestiaryPage({
   focusedAssignment = null,
   onBackToPrevious,
   onGoToBestiary,
-  onOpenArtBinder
+  onOpenArtBinder,
+  storyReferences = [],
+  onCreateStoryReference,
+  onOpenStorySource
 }: BestiaryPageProps) {
   const normalizedCreatures = useMemo(
     () => creatures.map((creature) => normalizeBestiaryCreature(creature)),
@@ -756,6 +765,9 @@ export function BestiaryPage({
               }}
               isFavorite={Boolean(isCreatureFavorite?.(displayCreature))}
               onToggleFavorite={() => onToggleCreatureFavorite?.(displayCreature)}
+              storyReferences={storyReferences}
+              onCreateStoryReference={onCreateStoryReference}
+              onOpenStorySource={onOpenStorySource}
             />
           ) : (
             <div className="bestiary-empty detail">
@@ -985,7 +997,10 @@ function CreatureDetails({
   onAdjustImage,
   onOpenFullStory,
   isFavorite,
-  onToggleFavorite
+  onToggleFavorite,
+  storyReferences = [],
+  onCreateStoryReference,
+  onOpenStorySource
 }: {
   creature: BestiaryCreature;
   activePanelTab: CreaturePanelTab;
@@ -1010,6 +1025,9 @@ function CreatureDetails({
   onOpenFullStory: () => void;
   isFavorite: boolean;
   onToggleFavorite?: () => void;
+  storyReferences?: StoryReference[];
+  onCreateStoryReference?: (input: StoryReferenceDraftInput) => StoryReference;
+  onOpenStorySource?: (storyReferenceId: string) => void;
 }) {
   const detailImageSlot: CreatureImageAdjustSlot = expanded ? "expandedImage" : "image";
   const detailImage = creatureImageForSlot(creature, detailImageSlot);
@@ -1111,6 +1129,17 @@ function CreatureDetails({
           )}
         </div>
       </div>
+
+      <LinkedStoryReferencesSection
+        storyReferences={storyReferences}
+        linkedStoryReferenceIds={creature.linkedStoryReferenceIds || []}
+        targetUpdatedAt={creature.updatedAt}
+        readOnly={readOnly}
+        isEditing={editing}
+        onChangeLinkedIds={(linkedStoryReferenceIds) => onChange({ linkedStoryReferenceIds })}
+        onCreateReference={onCreateStoryReference}
+        onOpenStorySource={onOpenStorySource}
+      />
 
       {editing && (
         <div className="bestiary-edit-grid">

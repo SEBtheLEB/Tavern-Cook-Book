@@ -7,12 +7,14 @@ import type {
   ImageFitSettings,
   LoreEntry,
   SecretInfo,
+  StoryReference,
   TimelineInfo,
   WikiFields
 } from "../types";
 import { isSupportedImage, readFileAsDataUrl, readImageFileForStorage } from "../utils/media";
 import { normalizeEntry } from "../utils/entries";
 import { normalizeImageFit } from "../utils/imageFit";
+import type { StoryReferenceDraftInput } from "../utils/storyReferences";
 import { AdjustableImage } from "./AdjustableImage";
 import { CustomSelect } from "./CustomSelect";
 import { DriveAwareImage } from "./DriveAwareImage";
@@ -22,6 +24,7 @@ import { CharacterProfileView } from "./CharacterProfileView";
 import { FavoriteButton } from "./FavoriteButton";
 import { isWikiEntry, WikiLayout } from "./WikiLayout";
 import { LoreKeywordText } from "./LoreKeywordText";
+import { LinkedStoryReferencesSection } from "./LinkedStoryReferences";
 import { RichLoreText, RichTextEditor } from "./RichText";
 
 interface EntryModalProps {
@@ -36,6 +39,9 @@ interface EntryModalProps {
   currentUser: GoogleAccountUser;
   isFavorite?: boolean;
   onToggleFavorite?: () => void;
+  storyReferences?: StoryReference[];
+  onCreateStoryReference?: (input: StoryReferenceDraftInput) => StoryReference;
+  onOpenStorySource?: (storyReferenceId: string) => void;
 }
 
 const statusOptions = [
@@ -290,7 +296,10 @@ export function EntryModal({
   onDelete,
   currentUser,
   isFavorite = false,
-  onToggleFavorite
+  onToggleFavorite,
+  storyReferences = [],
+  onCreateStoryReference,
+  onOpenStorySource
 }: EntryModalProps) {
   const [draft, setDraft] = useState(entry);
   const [isEditing, setIsEditing] = useState(false);
@@ -532,6 +541,9 @@ export function EntryModal({
             currentUser={currentUser}
             isFavorite={isFavorite}
             onToggleFavorite={onToggleFavorite}
+            storyReferences={storyReferences}
+            onCreateStoryReference={onCreateStoryReference}
+            onOpenStorySource={onOpenStorySource}
           />
         </section>
       </div>
@@ -609,6 +621,27 @@ export function EntryModal({
           {isEditing ? (
             <div className="grid gap-5 lg:grid-cols-[1fr_340px]">
               <div className="space-y-5">
+                <section className="soft-panel rounded p-4">
+                  <p className="text-xs uppercase tracking-[0.14em]" style={{ color: "var(--muted-ink)" }}>
+                    Local Notes
+                  </p>
+                  <h3 className="font-display text-xl">Page-Specific Writing</h3>
+                  <p className="mt-1 text-sm" style={{ color: "var(--muted-ink)" }}>
+                    These fields stay on this page. Use linked Story References below for story facts that should update everywhere.
+                  </p>
+                </section>
+
+                <LinkedStoryReferencesSection
+                  storyReferences={storyReferences}
+                  linkedStoryReferenceIds={draft.linkedStoryReferenceIds || []}
+                  targetUpdatedAt={draft.updatedAt}
+                  readOnly={readOnly}
+                  isEditing={isEditing}
+                  onChangeLinkedIds={(linkedStoryReferenceIds) => updateDraft({ linkedStoryReferenceIds })}
+                  onCreateReference={onCreateStoryReference}
+                  onOpenStorySource={onOpenStorySource}
+                />
+
                 <section className="soft-panel rounded p-4">
                   <h3 className="font-display text-xl">Core Details</h3>
                   <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -817,6 +850,15 @@ export function EntryModal({
             </div>
           ) : (
             <div className="space-y-5">
+              <LinkedStoryReferencesSection
+                storyReferences={storyReferences}
+                linkedStoryReferenceIds={draft.linkedStoryReferenceIds || []}
+                targetUpdatedAt={draft.updatedAt}
+                readOnly={readOnly}
+                isEditing={isEditing}
+                onOpenStorySource={onOpenStorySource}
+              />
+
               {isWikiEntry(draft) && (
                 <WikiLayout
                   entry={draft}

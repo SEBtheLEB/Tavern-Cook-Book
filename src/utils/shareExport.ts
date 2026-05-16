@@ -22,6 +22,7 @@ const publicEntry = (entry: LoreEntry) => ({
   internalLore: entry.internalLore,
   fields: entry.fields,
   connections: entry.connections,
+  linkedStoryReferenceIds: entry.linkedStoryReferenceIds,
   notes: entry.notes,
   timeline: entry.timeline,
   secret: entry.secret,
@@ -61,6 +62,7 @@ const publicCreature = (creature: BestiaryCreature) => ({
   habitatInfo: creature.habitatInfo,
   lore: creature.lore,
   productionNotes: creature.productionNotes,
+  linkedStoryReferenceIds: creature.linkedStoryReferenceIds,
   updatedAt: creature.updatedAt
 });
 
@@ -88,6 +90,9 @@ export const createShareableHtml = (database: LoreDatabase) => {
     logoImage: database.branding.logoImage,
     entries: database.entries.map(publicEntry),
     bestiary: (database.bestiary || []).map(publicCreature),
+    worldBuilding: database.worldBuilding,
+    storyReferences: database.storyReferences,
+    glossaryTerms: database.glossaryTerms,
     views: sharedViews,
     dashboardBoxes: dashboardBoxes
       .filter((box) => box.id !== "settings")

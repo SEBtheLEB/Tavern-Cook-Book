@@ -20,15 +20,25 @@ import { normalizeAssignments, normalizeQuestCategories, normalizeTeamMembers, n
 import { cloneDatabase, normalizeEntry, nowIso } from "./entries";
 import { normalizeImageFit } from "./imageFit";
 import { normalizeSpriteAnimationSlotReference } from "./spriteAnimationSlots";
+import {
+  createStarterGlossaryTerms,
+  createStarterStoryReferences,
+  mergeGlossaryTerms,
+  mergeStoryReferences,
+  normalizeGlossaryTerms,
+  normalizeLinkedStoryReferenceIds,
+  normalizeStoryReferences
+} from "./storyReferences";
 import { createStarterWorldBuilding, normalizeWorldBuilding, sanitizeWorldBuildingForPersistence } from "./worldBuilding";
 
 export const DATABASE_KEY = "tavern-cook-book:data";
 export const THEME_KEY = "tavern-cook-book:theme";
 const LEGACY_MODE_KEY = "tavern-cook-book:mode";
 
-export const currentSchemaVersion = 3;
+export const currentSchemaVersion = 4;
 const loreExpansionSchemaVersion = 2;
 const magicalMealCanonSchemaVersion = 3;
+const storyReferenceSchemaVersion = 4;
 
 const loreExpansionEntryTitles = new Set([
   "Gwen",
@@ -198,6 +208,7 @@ export const migrateDatabase = (value: unknown): LoreDatabase => {
   const incoming = value as Partial<LoreDatabase>;
   const needsLoreExpansion = Number(incoming.schemaVersion || 0) < loreExpansionSchemaVersion;
   const needsMagicalMealCanon = Number(incoming.schemaVersion || 0) < magicalMealCanonSchemaVersion;
+  const needsStoryReferences = Number(incoming.schemaVersion || 0) < storyReferenceSchemaVersion;
   let entries = Array.isArray(incoming.entries)
     ? repairScribeFoodEntries(incoming.entries.map((item) => normalizeEntry(item as Partial<LoreEntry>)))
     : starter.entries;
@@ -224,6 +235,12 @@ export const migrateDatabase = (value: unknown): LoreDatabase => {
   const questCategories = Array.isArray(incoming.questCategories)
     ? normalizeQuestCategories(incoming.questCategories)
     : starter.questCategories || [];
+  let storyReferences = Array.isArray(incoming.storyReferences)
+    ? normalizeStoryReferences(incoming.storyReferences)
+    : normalizeStoryReferences(starter.storyReferences);
+  let glossaryTerms = Array.isArray(incoming.glossaryTerms)
+    ? normalizeGlossaryTerms(incoming.glossaryTerms)
+    : normalizeGlossaryTerms(starter.glossaryTerms);
 
   if (needsLoreExpansion) {
     entries = mergeLoreExpansionEntries(entries, starter.entries);
@@ -237,12 +254,19 @@ export const migrateDatabase = (value: unknown): LoreDatabase => {
     worldBuilding = mergeMagicalMealCanonWorldBuilding(worldBuilding, starter.worldBuilding);
   }
 
+  if (needsStoryReferences) {
+    storyReferences = mergeStoryReferences(storyReferences, createStarterStoryReferences());
+    glossaryTerms = mergeGlossaryTerms(glossaryTerms, createStarterGlossaryTerms());
+  }
+
   return {
     schemaVersion: currentSchemaVersion,
     entries,
     bestiary,
     bestiaryCategoryVaults,
     worldBuilding,
+    storyReferences,
+    glossaryTerms,
     assignments,
     teamMembers,
     userProfiles,
@@ -265,6 +289,12 @@ export const migrateDatabase = (value: unknown): LoreDatabase => {
               : undefined,
             worldBuilding: (backup as LoreBackup).worldBuilding
               ? normalizeWorldBuilding((backup as LoreBackup).worldBuilding)
+              : undefined,
+            storyReferences: Array.isArray((backup as LoreBackup).storyReferences)
+              ? normalizeStoryReferences((backup as LoreBackup).storyReferences)
+              : undefined,
+            glossaryTerms: Array.isArray((backup as LoreBackup).glossaryTerms)
+              ? normalizeGlossaryTerms((backup as LoreBackup).glossaryTerms)
               : undefined
           }))
           .slice(0, 12)
@@ -322,6 +352,8 @@ const preserveEntryUserAssets = (currentEntry: LoreEntry, starterEntry: LoreEntr
     artVault: currentEntry.artVault || starterEntry.artVault,
     characterArtBoard: currentEntry.characterArtBoard || starterEntry.characterArtBoard,
     characterRelationships: currentEntry.characterRelationships || starterEntry.characterRelationships,
+    linkedStoryReferenceIds: currentEntry.linkedStoryReferenceIds || starterEntry.linkedStoryReferenceIds,
+    storyReferenceReviews: currentEntry.storyReferenceReviews || starterEntry.storyReferenceReviews,
     driveFolderId: currentEntry.driveFolderId || starterEntry.driveFolderId,
     driveFolderLink: currentEntry.driveFolderLink || starterEntry.driveFolderLink,
     createdAt: currentEntry.createdAt || starterEntry.createdAt,
@@ -358,6 +390,8 @@ const preserveCreatureUserAssets = (currentCreature: BestiaryCreature, starterCr
     hoverImageFit: currentCreature.hoverImageFit || starterCreature.hoverImageFit,
     expandedImageFit: currentCreature.expandedImageFit || starterCreature.expandedImageFit,
     artVault: currentCreature.artVault || starterCreature.artVault,
+    linkedStoryReferenceIds: currentCreature.linkedStoryReferenceIds || starterCreature.linkedStoryReferenceIds,
+    storyReferenceReviews: currentCreature.storyReferenceReviews || starterCreature.storyReferenceReviews,
     driveFolderId: currentCreature.driveFolderId || starterCreature.driveFolderId,
     driveFolderLink: currentCreature.driveFolderLink || starterCreature.driveFolderLink,
     createdAt: currentCreature.createdAt || starterCreature.createdAt,
@@ -459,6 +493,8 @@ const preserveWorldEntryUserAssets = (currentEntry: WorldBuildingEntry, starterE
   id: currentEntry.id || starterEntry.id,
   image: currentEntry.image || starterEntry.image,
   imageFit: currentEntry.imageFit || starterEntry.imageFit,
+  linkedStoryReferenceIds: currentEntry.linkedStoryReferenceIds || starterEntry.linkedStoryReferenceIds,
+  storyReferenceReviews: currentEntry.storyReferenceReviews || starterEntry.storyReferenceReviews,
   createdAt: currentEntry.createdAt || starterEntry.createdAt,
   updatedAt: starterEntry.updatedAt || currentEntry.updatedAt
 });
@@ -520,7 +556,9 @@ export const createBackup = (database: LoreDatabase, label: string): LoreDatabas
     entries: cloneDatabase(database).entries,
     bestiary: cloneDatabase(database).bestiary || [],
     bestiaryCategoryVaults: cloneDatabase(database).bestiaryCategoryVaults || [],
-    worldBuilding: cloneDatabase(database).worldBuilding || createStarterWorldBuilding(database.entries, database.bestiary)
+    worldBuilding: cloneDatabase(database).worldBuilding || createStarterWorldBuilding(database.entries, database.bestiary),
+    storyReferences: cloneDatabase(database).storyReferences || [],
+    glossaryTerms: cloneDatabase(database).glossaryTerms || []
   };
 
   next.backups = [backup, ...(next.backups || [])].slice(0, 12);
@@ -540,6 +578,8 @@ export const sanitizeDatabaseForPersistence = (database: LoreDatabase): LoreData
     sanitizeBestiaryCategoryArtVaultForPersistence(normalizeBestiaryCategoryArtVault(vault, vault.categoryName, database.bestiary || []))
   ),
   worldBuilding: sanitizeWorldBuildingForPersistence(database.worldBuilding),
+  storyReferences: normalizeStoryReferences(database.storyReferences),
+  glossaryTerms: normalizeGlossaryTerms(database.glossaryTerms),
   assignments: normalizeAssignments(database.assignments || []),
   teamMembers: normalizeTeamMembers(database.teamMembers || []),
   userProfiles: normalizeUserProfiles(database.userProfiles || []),
@@ -568,6 +608,14 @@ export const sanitizeDatabaseForPersistence = (database: LoreDatabase): LoreData
       sanitizedBackup.worldBuilding = sanitizeWorldBuildingForPersistence(backup.worldBuilding);
     }
 
+    if (Array.isArray(backup.storyReferences)) {
+      sanitizedBackup.storyReferences = normalizeStoryReferences(backup.storyReferences);
+    }
+
+    if (Array.isArray(backup.glossaryTerms)) {
+      sanitizedBackup.glossaryTerms = normalizeGlossaryTerms(backup.glossaryTerms);
+    }
+
     return sanitizedBackup;
   })
 });
@@ -575,6 +623,8 @@ export const sanitizeDatabaseForPersistence = (database: LoreDatabase): LoreData
 const sanitizeEntryForPersistence = (entry: LoreEntry): LoreEntry => ({
   ...entry,
   fields: sanitizeLooseFieldsForPersistence(entry.fields),
+  linkedStoryReferenceIds: normalizeLinkedStoryReferenceIds(entry.linkedStoryReferenceIds),
+  storyReferenceReviews: sanitizeStoryReferenceReviews(entry.storyReferenceReviews),
   media: {
     ...entry.media,
     iconImage: isUnsafePersistentUrl(entry.media.iconImage) ? "" : String(entry.media.iconImage || ""),
@@ -668,6 +718,16 @@ const sanitizeLooseFieldsForPersistence = (fields: LoreEntry["fields"]): LoreEnt
       typeof value === "string" && isUnsafePersistentUrl(value) ? "" : value
     ])
   );
+
+const sanitizeStoryReferenceReviews = (value: unknown): Record<string, string> | undefined => {
+  if (!value || typeof value !== "object") return undefined;
+  const reviews = Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .filter(([key, reviewedAt]) => key.trim() && typeof reviewedAt === "string")
+      .map(([key, reviewedAt]) => [key.trim(), reviewedAt])
+  ) as Record<string, string>;
+  return Object.keys(reviews).length ? reviews : undefined;
+};
 
 const repairScribeFoodEntries = (entries: LoreEntry[]) => {
   const repaired = entries.map(repairMisroutedScribeFoodEntry);

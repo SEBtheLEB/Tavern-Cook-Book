@@ -3,6 +3,7 @@ import type {
   BestiaryCreature,
   ImageFitSettings,
   LoreEntry,
+  StoryReference,
   WorldBuildingCategoryId,
   WorldBuildingData,
   WorldBuildingEntry,
@@ -20,6 +21,7 @@ import {
 import { imageFitToStyle, normalizeImageFit, resolveImageSourceUrl } from "../utils/imageFit";
 import type { AssignableModuleInfo, AssignmentRecord } from "../utils/assignments";
 import { richTextToPlainText } from "../utils/richText";
+import type { StoryReferenceDraftInput } from "../utils/storyReferences";
 import { AdjustableImage } from "./AdjustableImage";
 import { AssignableModule } from "./AssignmentSystem";
 import { CustomSelect } from "./CustomSelect";
@@ -28,6 +30,7 @@ import { DriveImageSourceControls } from "./DriveImageSourceControls";
 import { Icon } from "./Icon";
 import { ImageAdjustModal } from "./ImageAdjustModal";
 import { ImageManagerModal, type ImageManagerSlotDraft } from "./ImageManagerModal";
+import { LinkedStoryReferencesSection } from "./LinkedStoryReferences";
 import { useRealtimeCollaboration } from "./RealtimeCollaborationContext";
 import { StoryReaderModal, type StoryReaderSection, type StoryReaderStep } from "./StoryReaderModal";
 
@@ -41,6 +44,9 @@ interface WorldBuildingPageProps {
   onOpenCreature: (creature: BestiaryCreature) => void;
   focusedAssignment?: AssignmentRecord | null;
   focusTarget?: WorldBuildingFocusTarget | null;
+  storyReferences?: StoryReference[];
+  onCreateStoryReference?: (input: StoryReferenceDraftInput) => StoryReference;
+  onOpenStorySource?: (storyReferenceId: string) => void;
 }
 
 type WorldMode = "dashboard" | "category" | "detail";
@@ -117,7 +123,10 @@ export function WorldBuildingPage({
   onOpenEntry,
   onOpenCreature,
   focusedAssignment = null,
-  focusTarget = null
+  focusTarget = null,
+  storyReferences = [],
+  onCreateStoryReference,
+  onOpenStorySource
 }: WorldBuildingPageProps) {
   const normalizedWorldBuilding = useMemo(() => normalizeWorldBuilding(worldBuilding), [worldBuilding]);
   const [mode, setMode] = useState<WorldMode>("dashboard");
@@ -654,6 +663,19 @@ export function WorldBuildingPage({
             )}
           </div>
         </section>
+
+        <LinkedStoryReferencesSection
+          storyReferences={storyReferences}
+          linkedStoryReferenceIds={activeEntry.linkedStoryReferenceIds || []}
+          targetUpdatedAt={activeEntry.updatedAt}
+          readOnly={readOnly}
+          isEditing={isEditing}
+          onChangeLinkedIds={(linkedStoryReferenceIds) =>
+            setEntryDraft((current) => current ? { ...current, linkedStoryReferenceIds, updatedAt: new Date().toISOString() } : current)
+          }
+          onCreateReference={onCreateStoryReference}
+          onOpenStorySource={onOpenStorySource}
+        />
 
         <section className="world-building-detail-grid">
           {config.sections.map((section) => (

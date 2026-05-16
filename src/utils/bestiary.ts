@@ -21,6 +21,7 @@ import {
 } from "./entries";
 import { extractGoogleDriveFileId, googleDriveThumbnailUrl, legacyCreatureFit, normalizeImageFit } from "./imageFit";
 import { normalizeSpriteAnimationSlotReference } from "./spriteAnimationSlots";
+import { normalizeLinkedStoryReferenceIds } from "./storyReferences";
 
 const creatureArtVaultBlueprints = [
   {
@@ -406,6 +407,8 @@ export const normalizeBestiaryCreature = (input: Partial<BestiaryCreature>): Bes
     soundNotes: text(input.soundNotes),
     gameplayPurpose: text(input.gameplayPurpose),
     productionNotes: text(input.productionNotes),
+    linkedStoryReferenceIds: normalizeLinkedStoryReferenceIds(input.linkedStoryReferenceIds),
+    storyReferenceReviews: normalizeStoryReferenceReviews(input.storyReferenceReviews),
     artVault: normalizeCreatureArtVault(input.artVault),
     driveFolderId: text(input.driveFolderId),
     driveFolderLink: text(input.driveFolderLink),
@@ -432,6 +435,8 @@ export const sanitizeBestiaryCreatureForPersistence = (creature: BestiaryCreatur
     ...creature.drops,
     icons: (creature.drops?.icons || []).map(sanitizeDropIcon)
   },
+  linkedStoryReferenceIds: normalizeLinkedStoryReferenceIds(creature.linkedStoryReferenceIds),
+  storyReferenceReviews: normalizeStoryReferenceReviews(creature.storyReferenceReviews),
   artVault: {
     sections: (creature.artVault?.sections || []).map((section) => ({
       ...section,
@@ -570,6 +575,16 @@ function objectValue(value: unknown) {
 
 function text(value: unknown) {
   return typeof value === "string" ? value : value == null ? "" : String(value);
+}
+
+function normalizeStoryReferenceReviews(value: unknown): Record<string, string> | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const reviews = Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .filter(([key, reviewedAt]) => key.trim() && typeof reviewedAt === "string")
+      .map(([key, reviewedAt]) => [key.trim(), reviewedAt])
+  ) as Record<string, string>;
+  return Object.keys(reviews).length ? reviews : undefined;
 }
 
 function numberInRange(value: unknown, min: number, max: number, fallback: number) {

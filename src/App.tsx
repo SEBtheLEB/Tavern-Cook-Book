@@ -8,6 +8,7 @@ import type {
   GoogleAccountUser,
   LoreDatabase,
   LoreEntry,
+  StoryReference,
   ThemeMode,
   ViewConfig,
   WorldBuildingFocusTarget
@@ -28,6 +29,16 @@ import {
 } from "./utils/storage";
 import { searchEntries } from "./utils/search";
 import { richTextToPlainText } from "./utils/richText";
+import {
+  createStoryReference,
+  createStoryReferenceId,
+  createStoryReferenceVersion,
+  normalizeGlossaryTerm,
+  normalizeLinkedStoryReferenceIds,
+  normalizeStoryReference,
+  type StoryReferenceBacklink,
+  type StoryReferenceDraftInput
+} from "./utils/storyReferences";
 import { AssignmentProvider } from "./components/AssignmentSystem";
 import { ArtVaultDashboard } from "./components/ArtVaultDashboard";
 import type { ArtBinderInitialFilter, ArtBinderKind, ArtBinderSessionState } from "./components/ArtBinderPage";
@@ -396,6 +407,7 @@ export default function App() {
   const [worldBuildingFocus, setWorldBuildingFocus] = useState<WorldBuildingFocusTarget | null>(
     initialSessionUi?.worldBuildingFocus ? { ...initialSessionUi.worldBuildingFocus, nonce: Date.now() } : null
   );
+  const [storyReferenceFocusId, setStoryReferenceFocusId] = useState("");
   const [assignMode, setAssignMode] = useState(false);
   const [focusedAssignment, setFocusedAssignment] = useState<AssignmentRecord | null>(null);
   const [assignments, setAssignmentsState] = useState<AssignmentRecord[]>(() => {
@@ -2194,6 +2206,180 @@ export default function App() {
     setDatabase((current) => ({ ...current, worldBuilding }));
   };
 
+  const createLinkedStoryReference = (input: StoryReferenceDraftInput): StoryReference => {
+    const reference = createStoryReference(input, databaseRef.current.storyReferences.map((item) => item.id));
+    setDatabase((current) => ({
+      ...current,
+      storyReferences: [reference, ...(current.storyReferences || [])]
+    }));
+    return reference;
+  };
+
+  const saveStoryReference = (reference: StoryReference, mode: "update" | "newVersion") => {
+    if (readOnly) return;
+    const now = new Date().toISOString();
+    if (mode === "newVersion") {
+      const nextId = createStoryReferenceId(reference.title, databaseRef.current.storyReferences.map((item) => item.id));
+      const nextReference = normalizeStoryReference({
+        ...reference,
+        id: nextId,
+        title: `${reference.title} Version`,
+        createdAt: now,
+        lastEditedAt: now,
+        versions: []
+      });
+      setDatabase((current) => ({
+        ...current,
+        storyReferences: [nextReference, ...(current.storyReferences || [])]
+      }));
+      setStoryReferenceFocusId(nextReference.id);
+      return;
+    }
+
+    setDatabase((current) => {
+      const existing = (current.storyReferences || []).find((item) => item.id === reference.id);
+      const nextReference = normalizeStoryReference({
+        ...reference,
+        lastEditedAt: now,
+        versions: existing
+          ? [createStoryReferenceVersion(existing), ...(existing.versions || [])].slice(0, 30)
+          : reference.versions
+      });
+      return {
+        ...current,
+        storyReferences: existing
+          ? current.storyReferences.map((item) => item.id === nextReference.id ? nextReference : item)
+          : [nextReference, ...(current.storyReferences || [])]
+      };
+    });
+    setStoryReferenceFocusId(reference.id);
+  };
+
+  const restoreStoryReferenceVersion = (storyReferenceId: string, versionId: string) => {
+    if (readOnly) return;
+    setDatabase((current) => ({
+      ...current,
+      storyReferences: (current.storyReferences || []).map((reference) => {
+        if (reference.id !== storyReferenceId) return reference;
+        const version = (reference.versions || []).find((item) => item.id === versionId);
+        if (!version) return reference;
+        return normalizeStoryReference({
+          ...reference,
+          title: version.previousTitle,
+          shortSummary: version.previousShortSummary,
+          fullDescription: version.previousFullDescription,
+          canonStatus: version.previousCanonStatus,
+          spoilerLevel: version.previousSpoilerLevel,
+          lastEditedAt: new Date().toISOString(),
+          versions: [createStoryReferenceVersion(reference, "Saved before restoring an older version."), ...(reference.versions || [])].slice(0, 30)
+        });
+      })
+    }));
+    setStoryReferenceFocusId(storyReferenceId);
+  };
+
+  const saveGlossaryTerm = (term: LoreDatabase["glossaryTerms"][number]) => {
+    if (readOnly) return;
+    const normalized = normalizeGlossaryTerm(term);
+    setDatabase((current) => ({
+      ...current,
+      glossaryTerms: (current.glossaryTerms || []).some((item) => item.id === normalized.id)
+        ? current.glossaryTerms.map((item) => item.id === normalized.id ? normalized : item)
+        : [normalized, ...(current.glossaryTerms || [])]
+    }));
+  };
+
+  const openStorySource = (storyReferenceId: string) => {
+    if (!storyReferenceId) return;
+    setStoryReferenceFocusId(storyReferenceId);
+    setDetailReturnTarget(null);
+    setSelectedEntry(null);
+    setSelectedReferenceKeyword("");
+    setKeywordPopup("");
+    setArtVaultDashboardOpen(false);
+    setFavoritesOpen(false);
+    setQuestDashboardOpen(false);
+    setProfileOpen(false);
+    setSelectedBestiaryCreatureId("");
+    setWorldBuildingFocus(null);
+    setActiveView("story");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const openStoryReferenceTarget = (target: StoryReferenceBacklink) => {
+    if (target.targetType === "entry") {
+      const entry = databaseRef.current.entries.find((candidate) => candidate.id === target.targetId);
+      if (entry) openEntry(entry);
+      return;
+    }
+
+    if (target.targetType === "world" && isWorldBuildingCategoryId(target.targetCategory)) {
+      openWorldBuildingEntry(target.targetCategory, target.targetId);
+      return;
+    }
+
+    if (target.targetType === "creature") {
+      const creature = (databaseRef.current.bestiary || []).find((candidate) => candidate.id === target.targetId);
+      if (creature) openBestiaryCreature(creature);
+    }
+  };
+
+  const linkStoryReferenceToTarget = (target: StoryReferenceBacklink, storyReferenceId: string) => {
+    if (readOnly || !storyReferenceId) return;
+    setDatabase((current) => {
+      if (target.targetType === "entry") {
+        return {
+          ...current,
+          entries: current.entries.map((entry) =>
+            entry.id === target.targetId
+              ? normalizeEntry({
+                  ...entry,
+                  linkedStoryReferenceIds: normalizeLinkedStoryReferenceIds([...entry.linkedStoryReferenceIds, storyReferenceId]),
+                  updatedAt: new Date().toISOString()
+                })
+              : entry
+          )
+        };
+      }
+
+      if (target.targetType === "world" && isWorldBuildingCategoryId(target.targetCategory)) {
+        const category = target.targetCategory;
+        return {
+          ...current,
+          worldBuilding: {
+            ...current.worldBuilding,
+            [category]: (current.worldBuilding[category] || []).map((entry) =>
+              entry.id === target.targetId
+                ? {
+                    ...entry,
+                    linkedStoryReferenceIds: normalizeLinkedStoryReferenceIds([...entry.linkedStoryReferenceIds, storyReferenceId]),
+                    updatedAt: new Date().toISOString()
+                  }
+                : entry
+            )
+          }
+        };
+      }
+
+      if (target.targetType === "creature") {
+        return {
+          ...current,
+          bestiary: (current.bestiary || []).map((creature) =>
+            creature.id === target.targetId
+              ? normalizeBestiaryCreature({
+                  ...creature,
+                  linkedStoryReferenceIds: normalizeLinkedStoryReferenceIds([...creature.linkedStoryReferenceIds, storyReferenceId]),
+                  updatedAt: new Date().toISOString()
+                })
+              : creature
+          )
+        };
+      }
+
+      return current;
+    });
+  };
+
   const openBestiaryCreature = (creature: BestiaryCreature) => {
     setDetailReturnTarget(captureDetailReturnTarget());
     setSelectedEntry(null);
@@ -2527,6 +2713,9 @@ export default function App() {
               onToggleFavorite={() => toggleFavoriteById("entry", selectedCharacterEntry.id)}
               focusedAssignment={focusedAssignment}
               onOpenArtBinder={!readOnly ? () => openArtBinder({ kind: "character", subjectId: selectedCharacterEntry.id }) : undefined}
+              storyReferences={database.storyReferences}
+              onCreateStoryReference={createLinkedStoryReference}
+              onOpenStorySource={openStorySource}
             />
           ) : (
             <>
@@ -2550,12 +2739,22 @@ export default function App() {
 
               {activeView === "story" && (
                 <StoryPage
+                  database={database}
                   entries={database.entries}
                   worldBuilding={database.worldBuilding}
                   readOnly={readOnly}
                   onNavigate={navigate}
                   onOpenEntry={openEntry}
                   onOpenWorldEntry={openWorldBuildingEntry}
+                  focusStoryReferenceId={storyReferenceFocusId}
+                  onStoryReferenceFocusHandled={() => setStoryReferenceFocusId("")}
+                  onSaveStoryReference={saveStoryReference}
+                  onCreateStoryReference={createLinkedStoryReference}
+                  onRestoreStoryReferenceVersion={restoreStoryReferenceVersion}
+                  onSaveGlossaryTerm={saveGlossaryTerm}
+                  onOpenStoryTarget={openStoryReferenceTarget}
+                  onLinkStoryReferenceToTarget={linkStoryReferenceToTarget}
+                  onOpenStorySource={openStorySource}
                   isFavorite={isEntryFavorite}
                   onToggleFavorite={(entry) => toggleFavoriteById("entry", entry.id)}
                 />
@@ -2623,6 +2822,9 @@ export default function App() {
                   onBackToPrevious={detailReturnTarget ? closeCharacterDetailPage : undefined}
                   onGoToBestiary={detailReturnTarget ? goToBestiaryPage : undefined}
                   onOpenArtBinder={!readOnly ? (filter) => openArtBinder(filter) : undefined}
+                  storyReferences={database.storyReferences}
+                  onCreateStoryReference={createLinkedStoryReference}
+                  onOpenStorySource={openStorySource}
                 />
               )}
 
@@ -2649,6 +2851,9 @@ export default function App() {
                   onOpenCreature={openBestiaryCreature}
                   focusedAssignment={focusedAssignment}
                   focusTarget={worldBuildingFocus}
+                  storyReferences={database.storyReferences}
+                  onCreateStoryReference={createLinkedStoryReference}
+                  onOpenStorySource={openStorySource}
                 />
               )}
 
@@ -2726,6 +2931,9 @@ export default function App() {
             currentUser={currentUser}
             isFavorite={isEntryFavorite(selectedEntry)}
             onToggleFavorite={() => toggleFavoriteById("entry", selectedEntry.id)}
+            storyReferences={database.storyReferences}
+            onCreateStoryReference={createLinkedStoryReference}
+            onOpenStorySource={openStorySource}
           />
         )}
 

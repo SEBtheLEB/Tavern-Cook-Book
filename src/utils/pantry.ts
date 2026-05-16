@@ -487,6 +487,7 @@ function createVirtualMealEntry(meal: {
       enemies: [],
       timelineEvents: []
     },
+    linkedStoryReferenceIds: [],
     notes: {
       art: "",
       gameplay: meal.gameplayEffect,

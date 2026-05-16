@@ -17,6 +17,20 @@ export type SpoilerLevel =
   | "Major Spoiler"
   | "Ending Spoiler";
 
+export type StoryReferenceCanonStatus =
+  | "Canon"
+  | "Soft Canon"
+  | "Idea"
+  | "Needs Rewrite"
+  | "Scrapped"
+  | "Old Version";
+
+export type StoryReferenceSpoilerLevel =
+  | "Public Lore"
+  | "Player Knowledge"
+  | "Team Spoiler"
+  | "Secret Lore";
+
 export type ActiveView =
   | "dashboard"
   | "storyJourney"
@@ -350,6 +364,8 @@ export interface WorldBuildingEntry {
   imageFit?: ImageFitSettings;
   fields: Record<string, string>;
   relatedEntries: WorldBuildingRelatedEntry[];
+  linkedStoryReferenceIds: string[];
+  storyReferenceReviews?: Record<string, string>;
   createdAt: string;
   updatedAt: string;
 }
@@ -442,6 +458,8 @@ export interface BestiaryCreature {
   soundNotes: string;
   gameplayPurpose: string;
   productionNotes: string;
+  linkedStoryReferenceIds: string[];
+  storyReferenceReviews?: Record<string, string>;
   artVault: CharacterArtVault;
   driveFolderId: string;
   driveFolderLink: string;
@@ -462,6 +480,8 @@ export interface LoreEntry {
   internalLore: string;
   fields: Record<string, unknown>;
   connections: EntryConnections;
+  linkedStoryReferenceIds: string[];
+  storyReferenceReviews?: Record<string, string>;
   notes: EntryNotes;
   timeline?: TimelineInfo;
   secret?: SecretInfo;
@@ -477,6 +497,53 @@ export interface LoreEntry {
   updatedAt: string;
 }
 
+export interface StoryReferenceVersion {
+  id: string;
+  editedAt: string;
+  previousTitle: string;
+  previousShortSummary: string;
+  previousFullDescription: string;
+  previousCanonStatus: StoryReferenceCanonStatus | string;
+  previousSpoilerLevel: StoryReferenceSpoilerLevel | string;
+  notes?: string;
+}
+
+export interface StoryReference {
+  id: string;
+  title: string;
+  shortSummary: string;
+  fullDescription: string;
+  canonStatus: StoryReferenceCanonStatus | string;
+  spoilerLevel: StoryReferenceSpoilerLevel | string;
+  actChapter?: string;
+  relatedCharacters: string[];
+  relatedLocations: string[];
+  relatedQuests: string[];
+  relatedFactions: string[];
+  relatedItems: string[];
+  relatedRecipes: string[];
+  relatedTimelineEvents: string[];
+  relatedLoreReveals: string[];
+  relatedStoryBeats: string[];
+  tags: string[];
+  notes: string;
+  createdAt: string;
+  lastEditedAt: string;
+  versions: StoryReferenceVersion[];
+}
+
+export interface GlossaryTerm {
+  id: string;
+  primaryName: string;
+  alternateNames: string[];
+  shortDefinition: string;
+  linkedStoryReferenceId: string;
+  relatedEntryIds: string[];
+  spoilerLevel: StoryReferenceSpoilerLevel | string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface LoreBackup {
   id: string;
   label: string;
@@ -485,6 +552,8 @@ export interface LoreBackup {
   bestiary?: BestiaryCreature[];
   bestiaryCategoryVaults?: BestiaryCategoryArtVault[];
   worldBuilding?: WorldBuildingData;
+  storyReferences?: StoryReference[];
+  glossaryTerms?: GlossaryTerm[];
 }
 
 export interface LoreDatabase {
@@ -493,6 +562,8 @@ export interface LoreDatabase {
   bestiary: BestiaryCreature[];
   bestiaryCategoryVaults: BestiaryCategoryArtVault[];
   worldBuilding: WorldBuildingData;
+  storyReferences: StoryReference[];
+  glossaryTerms: GlossaryTerm[];
   assignments: AssignmentRecord[];
   teamMembers: TeamMember[];
   userProfiles: UserProfile[];

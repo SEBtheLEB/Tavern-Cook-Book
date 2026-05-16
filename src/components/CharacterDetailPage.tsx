@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import type { EntryConnections, EntryMedia, EntryNotes, GoogleAccountUser, LoreEntry } from "../types";
+import type { EntryConnections, EntryMedia, EntryNotes, GoogleAccountUser, LoreEntry, StoryReference } from "../types";
 import type { AssignmentRecord } from "../utils/assignments";
 import { normalizeEntry } from "../utils/entries";
 import { isSupportedImage, readImageFileForStorage } from "../utils/media";
+import type { StoryReferenceDraftInput } from "../utils/storyReferences";
 import { CharacterProfileView } from "./CharacterProfileView";
 import { Icon } from "./Icon";
 
@@ -30,6 +31,9 @@ interface CharacterDetailPageProps {
   onToggleFavorite?: () => void;
   focusedAssignment?: AssignmentRecord | null;
   onOpenArtBinder?: () => void;
+  storyReferences?: StoryReference[];
+  onCreateStoryReference?: (input: StoryReferenceDraftInput) => StoryReference;
+  onOpenStorySource?: (storyReferenceId: string) => void;
 }
 
 const splitValues = (value: string) =>
@@ -52,7 +56,10 @@ export function CharacterDetailPage({
   isFavorite = false,
   onToggleFavorite,
   focusedAssignment = null,
-  onOpenArtBinder
+  onOpenArtBinder,
+  storyReferences = [],
+  onCreateStoryReference,
+  onOpenStorySource
 }: CharacterDetailPageProps) {
   const [draft, setDraft] = useState(entry);
   const [isEditing, setIsEditing] = useState(false);
@@ -217,6 +224,9 @@ export function CharacterDetailPage({
         onToggleFavorite={onToggleFavorite}
         focusedAssignment={focusedAssignment}
         onOpenArtBinder={onOpenArtBinder}
+        storyReferences={storyReferences}
+        onCreateStoryReference={onCreateStoryReference}
+        onOpenStorySource={onOpenStorySource}
       />
     </section>
   );

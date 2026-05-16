@@ -13,7 +13,8 @@ import type {
   CharacterRelationship,
   GoogleAccountUser,
   ImageFitSettings,
-  LoreEntry
+  LoreEntry,
+  StoryReference
 } from "../types";
 import { isDriveConfigured, showDriveSetupMessage } from "../utils/driveSettings";
 import { artVaultFolderTarget, resolveArtVaultDriveFolder, type ArtVaultDriveFolderContext } from "../utils/artVaultDriveFolders";
@@ -34,6 +35,7 @@ import type { GooglePickerFile, UploadedDriveFile } from "../utils/googlePicker"
 import { recordArtVaultActivity } from "../utils/activityLog";
 import { fileSizeLabel, isSupportedImage, readImageFileForStorage } from "../utils/media";
 import { imageFitToStyle, normalizeImageFit } from "../utils/imageFit";
+import type { StoryReferenceDraftInput } from "../utils/storyReferences";
 import type { AssignableModuleInfo, AssignmentRecord } from "../utils/assignments";
 import { AdjustableImage } from "./AdjustableImage";
 import { CustomSelect } from "./CustomSelect";
@@ -44,6 +46,7 @@ import { ImageManagerModal, type ImageManagerSlotDraft } from "./ImageManagerMod
 import { AssignableModule } from "./AssignmentSystem";
 import { Icon } from "./Icon";
 import { LoreKeywordText } from "./LoreKeywordText";
+import { LinkedStoryReferencesSection } from "./LinkedStoryReferences";
 import { useRealtimeCollaboration } from "./RealtimeCollaborationContext";
 import { RichLoreText, RichTextEditor } from "./RichText";
 import { FavoriteButton } from "./FavoriteButton";
@@ -95,6 +98,9 @@ interface CharacterProfileViewProps {
   onToggleFavorite?: () => void;
   focusedAssignment?: AssignmentRecord | null;
   onOpenArtBinder?: () => void;
+  storyReferences?: StoryReference[];
+  onCreateStoryReference?: (input: StoryReferenceDraftInput) => StoryReference;
+  onOpenStorySource?: (storyReferenceId: string) => void;
 }
 
 interface RelationshipItem {
@@ -282,7 +288,10 @@ export function CharacterProfileView({
   isFavorite = false,
   onToggleFavorite,
   focusedAssignment = null,
-  onOpenArtBinder
+  onOpenArtBinder,
+  storyReferences = [],
+  onCreateStoryReference,
+  onOpenStorySource
 }: CharacterProfileViewProps) {
   const [fullStoryOpen, setFullStoryOpen] = useState(false);
   const [activeStoryTab, setActiveStoryTab] = useState<StoryReaderTab>("full");
@@ -1304,6 +1313,17 @@ export function CharacterProfileView({
         />
 
         <div className="character-codex-section-divider" aria-hidden="true" />
+
+        <LinkedStoryReferencesSection
+          storyReferences={storyReferences}
+          linkedStoryReferenceIds={entry.linkedStoryReferenceIds || []}
+          targetUpdatedAt={entry.updatedAt}
+          readOnly={readOnly}
+          isEditing={isEditing}
+          onChangeLinkedIds={(linkedStoryReferenceIds) => onChange({ linkedStoryReferenceIds })}
+          onCreateReference={onCreateStoryReference}
+          onOpenStorySource={onOpenStorySource}
+        />
 
         <section className="character-codex-overview-grid">
           <CodexCard title="Character Overview" icon="BookOpen" assignmentModule={characterModule(entry, "overview", "Character Overview")}>

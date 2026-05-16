@@ -3,8 +3,11 @@ import type { ReactNode } from "react";
 import type {
   ActiveView,
   EntryConnections,
+  GlossaryTerm,
+  LoreDatabase,
   LoreEntry,
   SecretInfo,
+  StoryReference,
   TimelineInfo,
   WorldBuildingCategoryId,
   WorldBuildingData,
@@ -15,21 +18,34 @@ import { richTextToPlainText } from "../utils/richText";
 import { FavoriteButton } from "./FavoriteButton";
 import { Icon } from "./Icon";
 import { RichLoreText } from "./RichText";
+import { StorySourcesWorkspace } from "./StorySourcesWorkspace";
 import { StoryReaderModal, type StoryReaderSection, type StoryReaderStep } from "./StoryReaderModal";
+import { createStoryReference, type StoryReferenceBacklink, type StoryReferenceDraftInput } from "../utils/storyReferences";
 
 interface StoryPageProps {
+  database: LoreDatabase;
   entries: LoreEntry[];
   worldBuilding?: WorldBuildingData;
   readOnly?: boolean;
   onNavigate: (view: ActiveView) => void;
   onOpenEntry: (entry: LoreEntry) => void;
   onOpenWorldEntry?: (category: WorldBuildingCategoryId, entryId: string) => void;
+  focusStoryReferenceId?: string;
+  onStoryReferenceFocusHandled?: () => void;
+  onSaveStoryReference?: (reference: StoryReference, mode: "update" | "newVersion") => void;
+  onCreateStoryReference?: (input: StoryReferenceDraftInput) => StoryReference;
+  onRestoreStoryReferenceVersion?: (storyReferenceId: string, versionId: string) => void;
+  onSaveGlossaryTerm?: (term: GlossaryTerm) => void;
+  onOpenStoryTarget?: (target: StoryReferenceBacklink) => void;
+  onLinkStoryReferenceToTarget?: (target: StoryReferenceBacklink, storyReferenceId: string) => void;
+  onOpenStorySource?: (storyReferenceId: string) => void;
   isFavorite?: (entry: LoreEntry) => boolean;
   onToggleFavorite?: (entry: LoreEntry) => void;
 }
 
 type StoryScope = "world" | "game";
 type StoryPresentation = "grid" | "timeline";
+type StoryWorkspaceMode = "library" | "sources";
 type StorySortMode = "chronology" | "title" | "spoiler" | "status" | "worldLinks";
 type StoryCategoryFilter = "all" | "timeline" | "faith" | "people" | "places" | "items" | "quests" | "secrets" | "magic";
 
@@ -164,17 +180,28 @@ const eraRank: Record<string, number> = {
 };
 
 export function StoryPage({
+  database,
   entries,
   worldBuilding,
   readOnly = false,
   onNavigate,
   onOpenEntry,
   onOpenWorldEntry,
+  focusStoryReferenceId = "",
+  onStoryReferenceFocusHandled,
+  onSaveStoryReference,
+  onCreateStoryReference,
+  onRestoreStoryReferenceVersion,
+  onSaveGlossaryTerm,
+  onOpenStoryTarget,
+  onLinkStoryReferenceToTarget,
+  onOpenStorySource,
   isFavorite,
   onToggleFavorite
 }: StoryPageProps) {
   const storyModules = useMemo(() => entries.filter(isStoryModule), [entries]);
   const worldEntries = useMemo(() => (worldBuilding ? allWorldBuildingEntries(worldBuilding) : []), [worldBuilding]);
+  const [workspaceMode, setWorkspaceMode] = useState<StoryWorkspaceMode>(focusStoryReferenceId ? "sources" : "library");
   const [selectedId, setSelectedId] = useState(storyModules[0]?.id || "");
   const [query, setQuery] = useState("");
   const [scope, setScope] = useState<StoryScope>("world");
@@ -185,6 +212,10 @@ export function StoryPage({
   const [activeTimelineId, setActiveTimelineId] = useState("");
   const [fullStoryOpen, setFullStoryOpen] = useState(false);
   const [activeStoryTab, setActiveStoryTab] = useState("full");
+
+  useEffect(() => {
+    if (focusStoryReferenceId) setWorkspaceMode("sources");
+  }, [focusStoryReferenceId]);
 
   const moduleViews = useMemo(
     () => storyModules.map((entry) => buildStoryModuleView(entry, worldEntries)),
@@ -276,7 +307,7 @@ export function StoryPage({
         <div>
           <p>Story Codex</p>
           <h1 className="font-display">Story Library</h1>
-          <span>{storyModules.length} lore modules linked to {worldEntries.length} world-building records</span>
+          <span>{storyModules.length} lore modules / {database.storyReferences.length} story sources / {worldEntries.length} world-building records</span>
         </div>
         <div className="story-codex-header-actions">
           <button className="character-codex-action-button" onClick={() => onNavigate("storyJourney")}>
@@ -293,6 +324,34 @@ export function StoryPage({
           </button>
         </div>
       </section>
+
+      <nav className="story-source-mode-tabs" aria-label="Story Journal mode">
+        <button className={workspaceMode === "library" ? "active" : ""} onClick={() => setWorkspaceMode("library")}>
+          <Icon name="Library" className="h-4 w-4" />
+          Lore Library
+        </button>
+        <button className={workspaceMode === "sources" ? "active" : ""} onClick={() => setWorkspaceMode("sources")}>
+          <Icon name="Link" className="h-4 w-4" />
+          Story Source of Truth
+        </button>
+      </nav>
+
+      {workspaceMode === "sources" ? (
+        <StorySourcesWorkspace
+          database={database}
+          readOnly={readOnly}
+          focusStoryReferenceId={focusStoryReferenceId}
+          onFocusHandled={onStoryReferenceFocusHandled}
+          onSaveReference={onSaveStoryReference || (() => {})}
+          onCreateReference={onCreateStoryReference || ((input) => createStoryReference(input, database.storyReferences.map((reference) => reference.id)))}
+          onRestoreVersion={onRestoreStoryReferenceVersion || (() => {})}
+          onSaveGlossaryTerm={onSaveGlossaryTerm || (() => {})}
+          onOpenTarget={onOpenStoryTarget || (() => {})}
+          onLinkTarget={onLinkStoryReferenceToTarget || (() => {})}
+          onOpenStorySource={onOpenStorySource || (() => {})}
+        />
+      ) : (
+        <>
 
       <section className="story-scope-tabs" aria-label="Story lore scope">
         {storyScopeTabs.map((tab) => (
@@ -461,6 +520,8 @@ export function StoryPage({
           onOpenStoryEntry={onOpenEntry}
           onOpenWorldEntry={onOpenWorldEntry}
         />
+      )}
+        </>
       )}
     </div>
   );
