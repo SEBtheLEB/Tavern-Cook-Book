@@ -19,6 +19,7 @@ import type {
 import { isDriveConfigured, showDriveSetupMessage } from "../utils/driveSettings";
 import { artVaultFolderTarget, resolveArtVaultDriveFolder, type ArtVaultDriveFolderContext } from "../utils/artVaultDriveFolders";
 import {
+  addCharacterToolKitToArtVault,
   isDefaultCharacterArtBoardCategoryId,
   normalizeArtVault,
   normalizeCharacterArtBoard
@@ -2032,6 +2033,24 @@ function CharacterArtVaultView({
     setActiveSectionId(section.id);
   };
 
+  const addToolKitSections = () => {
+    if (!requireVaultEdit()) return;
+    const nextVault = addCharacterToolKitToArtVault(vault);
+    saveVault(nextVault);
+    const nextToolPoseSection = nextVault.sections.find((section) =>
+      section.id === "tool-pose-sheets" ||
+      section.title.trim().toLowerCase() === "tool poses & action sheets"
+    );
+    setActiveSectionId(nextToolPoseSection?.id || "tool-pose-sheets");
+    setCollapsedSections((current) => {
+      const next = new Set(current);
+      next.delete("tool-pose-sheets");
+      next.delete("tool-prop-designs");
+      return next;
+    });
+    setVaultMessage("Tool pose sheets and standalone tool design/sprite slots are ready in this character's Art Vault.");
+  };
+
   const updateSection = (sectionId: string, patch: Partial<ArtVaultSection>) => {
     if (!isEditing) return;
     saveVault({
@@ -2531,10 +2550,16 @@ function CharacterArtVaultView({
             ))}
           </div>
           {isEditing && (
-            <button className="button-frame character-codex-action-button" onClick={addSection}>
-            <Icon name="Plus" className="h-4 w-4" />
-              Add Section
-            </button>
+            <div className="character-art-vault-control-actions">
+              <button className="button-frame character-codex-action-button" onClick={addToolKitSections}>
+                <Icon name="Hammer" className="h-4 w-4" />
+                Tool Kit
+              </button>
+              <button className="button-frame character-codex-action-button" onClick={addSection}>
+                <Icon name="Plus" className="h-4 w-4" />
+                Add Section
+              </button>
+            </div>
           )}
         </div>
 
@@ -4523,6 +4548,7 @@ function sectionProgressLabel(section: ArtVaultSection) {
 
 function artVaultSectionIcon(title: string) {
   const normalized = title.toLowerCase();
+  if (normalized.includes("tool") || normalized.includes("prop")) return "Hammer";
   if (normalized.includes("combat")) return "Swords";
   if (normalized.includes("sprite sheet")) return "LayoutDashboard";
   if (normalized.includes("design")) return "Palette";

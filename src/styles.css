@@ -5252,6 +5252,13 @@ textarea {
   align-items: center;
 }
 
+.character-art-vault-control-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .character-art-vault-search {
   display: flex;
   align-items: center;

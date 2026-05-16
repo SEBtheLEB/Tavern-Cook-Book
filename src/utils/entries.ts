@@ -193,7 +193,7 @@ function normalizeCharacterArtBoardCategory(
   };
 }
 
-const artVaultBlueprints = [
+const baseArtVaultBlueprints = [
   {
     id: "dialogue-sprites",
     title: "Dialogue Sprites",
@@ -316,6 +316,53 @@ const artVaultBlueprints = [
   }
 ] as const;
 
+export const characterToolArtVaultBlueprints = [
+  {
+    id: "tool-pose-sheets",
+    title: "Tool Poses & Action Sheets",
+    description: "Character pose sheets showing this character holding, carrying, aiming, or using tools and props.",
+    requirementType: "Tool Pose Reference",
+    slots: [
+      "Full Tool Pose Sheet",
+      "Neutral With Tool",
+      "Axe / Chop Pose",
+      "Pickaxe / Mine Pose",
+      "Shovel / Dig Pose",
+      "Sickle / Harvest Pose",
+      "Torch Pose",
+      "Lantern Carry Pose",
+      "Fishing Rod Pose",
+      "Bow / Ranged Tool Pose",
+      "Cooking Tool Pose",
+      "Tool Swap / Equip Pose",
+      "Tool Silhouette / Readability Pass"
+    ]
+  },
+  {
+    id: "tool-prop-designs",
+    title: "Tool Designs & Sprites",
+    description: "Standalone designs, sprites, icons, and callouts for tools this character can equip or use.",
+    requirementType: "Tool / Prop Asset",
+    slots: [
+      "Tool Design Sheet",
+      "Individual Tool Sprite Sheet",
+      "Axe Sprite",
+      "Pickaxe Sprite",
+      "Shovel Sprite",
+      "Sickle Sprite",
+      "Torch Sprite",
+      "Lantern Sprite",
+      "Fishing Rod Sprite",
+      "Bow Sprite",
+      "Cooking Tool Sprite",
+      "Inventory / UI Tool Icons",
+      "Material / Color Callouts"
+    ]
+  }
+] as const;
+
+const artVaultBlueprints = [...baseArtVaultBlueprints, ...characterToolArtVaultBlueprints] as const;
+
 const defaultArtVaultSectionIds: Set<string> = new Set(artVaultBlueprints.map((section) => section.id));
 const defaultArtVaultSlotIds: Set<string> = new Set(
   artVaultBlueprints.flatMap((section) =>
@@ -343,16 +390,91 @@ function createArtVaultSlot(sectionId: string, label: string, requirementType: s
 }
 
 export const createDefaultArtVault = (): CharacterArtVault => ({
-  sections: artVaultBlueprints.map((section, sectionIndex) => ({
+  sections: artVaultBlueprints.map((section, sectionIndex) => createArtVaultSectionFromBlueprint(section, sectionIndex))
+});
+
+export function addCharacterToolKitToArtVault(value: unknown): CharacterArtVault {
+  const vault = normalizeArtVault(value);
+  const sections = cloneArtVault(vault).sections;
+
+  characterToolArtVaultBlueprints.forEach((blueprint) => {
+    const existingIndex = sections.findIndex((section) =>
+      section.id === blueprint.id ||
+      section.title.trim().toLowerCase() === blueprint.title.toLowerCase()
+    );
+
+    if (existingIndex >= 0) {
+      sections[existingIndex] = mergeBlueprintSlotsIntoSection(sections[existingIndex], blueprint);
+      return;
+    }
+
+    const order = sections.reduce((max, section) => Math.max(max, section.order || 0), -1) + 1;
+    sections.push(createArtVaultSectionFromBlueprint(blueprint, order));
+  });
+
+  return {
+    sections: sortByOrder(sections).map((section, sectionIndex) => ({
+      ...section,
+      order: sectionIndex,
+      slots: sortByOrder(section.slots).map((slot, slotIndex) => ({ ...slot, order: slotIndex }))
+    }))
+  };
+}
+
+function createArtVaultSectionFromBlueprint(
+  section: {
+    id: string;
+    title: string;
+    description: string;
+    requirementType: string;
+    slots: readonly string[];
+  },
+  sectionIndex: number
+): ArtVaultSection {
+  return {
     id: section.id,
     title: section.title,
     description: section.description,
-    order: sectionIndex,
     slots: section.slots.map((slot, slotIndex) =>
       createArtVaultSlot(section.id, slot, section.requirementType, slotIndex)
-    )
-  }))
-});
+    ),
+    order: sectionIndex
+  };
+}
+
+function mergeBlueprintSlotsIntoSection(
+  section: ArtVaultSection,
+  blueprint: {
+    id: string;
+    title: string;
+    description: string;
+    requirementType: string;
+    slots: readonly string[];
+  }
+): ArtVaultSection {
+  const slots = [...section.slots];
+  const existingKeys = new Set(
+    slots.flatMap((slot) => [
+      slot.id.trim().toLowerCase(),
+      slot.label.trim().toLowerCase()
+    ])
+  );
+
+  blueprint.slots.forEach((label) => {
+    const id = defaultArtVaultSlotId(section.id || blueprint.id, label, slots.length);
+    const key = label.trim().toLowerCase();
+    if (existingKeys.has(id.toLowerCase()) || existingKeys.has(key)) return;
+    slots.push(createArtVaultSlot(section.id || blueprint.id, label, blueprint.requirementType, slots.length));
+    existingKeys.add(id.toLowerCase());
+    existingKeys.add(key);
+  });
+
+  return {
+    ...section,
+    description: section.description || blueprint.description,
+    slots
+  };
+}
 
 export const normalizeArtVault = (value: unknown): CharacterArtVault =>
   normalizeArtVaultWithFallback(value, createDefaultArtVault());

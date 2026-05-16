@@ -58,7 +58,7 @@ export function buildArtVaultDashboardStats(database: LoreDatabase): ArtVaultDas
     {
       id: "characters",
       label: "Characters",
-      description: "Dialogue sprites, gameplay sprites, turnarounds, marketing poses, and character reference art.",
+      description: "Dialogue sprites, gameplay sprites, tool pose kits, turnarounds, marketing poses, and character reference art.",
       icon: "Users",
       items: characterItems,
       ...sumCompletion(characterItems)
