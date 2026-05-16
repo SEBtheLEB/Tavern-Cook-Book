@@ -1703,6 +1703,7 @@ function StoryMiniScribe({
   const [command, setCommand] = useState("");
   const [draft, setDraft] = useState<StoryScribePatch | null>(null);
   const [manualPrompt, setManualPrompt] = useState("");
+  const [manualJson, setManualJson] = useState("");
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -1711,6 +1712,7 @@ function StoryMiniScribe({
   useEffect(() => {
     setDraft(null);
     setManualPrompt("");
+    setManualJson("");
     setStatus("");
     setError("");
   }, [chapter.id, currentPageIndex]);
@@ -1771,19 +1773,26 @@ function StoryMiniScribe({
 
   const pasteManualJson = () => {
     try {
-      setDraft(normalizeStoryScribePatch(JSON.parse(command)));
+      const source = manualJson.trim() || command.trim();
+      setDraft(normalizeStoryScribePatch(JSON.parse(source)));
       setError("");
       setManualPrompt("");
       setStatus("Pasted draft ready. Review it before applying.");
     } catch {
-      setError("Paste a valid Story Scribe JSON draft into the command box first.");
+      setError("Paste a valid Story Scribe JSON draft into the pasted JSON box first.");
     }
   };
 
   const changedPageCount = (draft?.pagePatches.length || 0) + (draft?.newPages.length || 0);
 
   return (
-    <section className="story-mini-scribe">
+    <section
+      className="story-mini-scribe"
+      aria-busy={isLoading}
+      onClick={(event) => event.stopPropagation()}
+      onPointerDown={(event) => event.stopPropagation()}
+      onKeyDown={(event) => event.stopPropagation()}
+    >
       <header>
         <div>
           <p>Mini Scribe</p>
@@ -1805,17 +1814,17 @@ function StoryMiniScribe({
         value={command}
         onChange={(event) => setCommand(event.target.value)}
         placeholder="Ask Mini Scribe to expand this beat, rewrite the current page, add pages, clean up chapter summary, or turn notes into story text."
-        disabled={readOnly || isLoading}
+        readOnly={readOnly}
       />
       <div className="story-scribe-actions">
-        <button className="button-frame" onClick={runScribe} disabled={readOnly || isLoading || !command.trim()}>
+        <button type="button" className="button-frame" onClick={runScribe} disabled={readOnly || isLoading || !command.trim()}>
           <Icon name="Sparkles" className="h-4 w-4" />
           {isLoading ? "Scribing..." : "Scribe Chapter"}
         </button>
-        <button onClick={buildManual} disabled={isLoading}>
+        <button type="button" onClick={buildManual} disabled={isLoading || readOnly}>
           Build Manual Prompt
         </button>
-        <button onClick={pasteManualJson} disabled={isLoading || !command.trim()}>
+        <button type="button" onClick={pasteManualJson} disabled={isLoading || !(manualJson.trim() || command.trim())}>
           Use Pasted JSON
         </button>
       </div>
@@ -1836,17 +1845,26 @@ function StoryMiniScribe({
             </ul>
           )}
           <div className="story-scribe-draft-actions">
-            <button className="button-frame" onClick={applyDraft}>Apply Draft</button>
-            <button onClick={() => setDraft(null)}>Discard</button>
+            <button type="button" className="button-frame" onClick={applyDraft}>Apply Draft</button>
+            <button type="button" onClick={() => setDraft(null)}>Discard</button>
           </div>
         </section>
       )}
       {manualPrompt && (
-        <label className="story-scribe-manual">
-          <span>Manual prompt</span>
+        <label className="story-scribe-manual story-scribe-manual-prompt">
+          <span>Manual prompt to copy</span>
           <textarea readOnly value={manualPrompt} />
         </label>
       )}
+      <label className="story-scribe-manual">
+        <span>Paste Story Scribe JSON response</span>
+        <textarea
+          value={manualJson}
+          onChange={(event) => setManualJson(event.target.value)}
+          placeholder="Paste the JSON draft from ChatGPT here, then click Use Pasted JSON."
+          readOnly={readOnly}
+        />
+      </label>
     </section>
   );
 }
@@ -2298,7 +2316,7 @@ function saveStoryChapters(chapters: StoryChapter[]) {
 }
 
 function normalizeStoryChapter(value: Partial<StoryChapter>, fallbackId?: string): StoryChapter {
-  const title = String(value.title || "Untitled Story Chapter");
+  const title = editableString(value.title, "Untitled Story Chapter");
   const id = String(value.id || fallbackId || slugify(title) || `story-chapter-${Date.now()}`);
   const startPercent = clamp(Number(value.timelineStartPercent), 0, 100);
   const endPercent = clamp(Number(value.timelineEndPercent), 0, 100);
@@ -2309,14 +2327,14 @@ function normalizeStoryChapter(value: Partial<StoryChapter>, fallbackId?: string
   return {
     id,
     title,
-    subtitle: String(value.subtitle || "Add a chapter subtitle."),
-    timelineStartLabel: String(value.timelineStartLabel || "Pre-Game"),
-    timelineEndLabel: String(value.timelineEndLabel || value.timelineStartLabel || "Act 1"),
+    subtitle: editableString(value.subtitle, "Add a chapter subtitle."),
+    timelineStartLabel: editableString(value.timelineStartLabel, "Pre-Game"),
+    timelineEndLabel: editableString(value.timelineEndLabel, editableString(value.timelineStartLabel, "Act 1")),
     timelineStartPercent: Math.min(startPercent, endPercent),
     timelineEndPercent: Math.max(startPercent, endPercent),
-    era: String(value.era || "Draft"),
+    era: editableString(value.era, "Draft"),
     revealLevel: normalizeRevealLevel(value.revealLevel),
-    shortDescription: String(value.shortDescription || "Write the chapter preview here."),
+    shortDescription: editableString(value.shortDescription, "Write the chapter preview here."),
     coverImageUrl: String(value.coverImageUrl || ""),
     coverImageFit: normalizeImageFit(value.coverImageFit),
     relatedLore: normalizeTermList(value.relatedLore),
@@ -2327,14 +2345,18 @@ function normalizeStoryChapter(value: Partial<StoryChapter>, fallbackId?: string
 function normalizeStoryPage(value: Partial<StoryPage>, fallbackId: string): StoryPage {
   return {
     id: String(value.id || fallbackId),
-    title: String(value.title || "Untitled Page"),
-    text: String(value.text || "Write this story page here."),
+    title: editableString(value.title, "Untitled Page"),
+    text: editableString(value.text, "Write this story page here."),
     imageUrl: String(value.imageUrl || ""),
     imageFit: normalizeImageFit(value.imageFit),
-    imagePlaceholder: String(value.imagePlaceholder || ""),
-    caption: String(value.caption || ""),
+    imagePlaceholder: editableString(value.imagePlaceholder, ""),
+    caption: editableString(value.caption, ""),
     relatedLore: normalizeTermList(value.relatedLore)
   };
+}
+
+function editableString(value: unknown, fallback: string) {
+  return typeof value === "string" ? value : fallback;
 }
 
 function normalizeRevealLevel(value: unknown): StoryChapter["revealLevel"] {
