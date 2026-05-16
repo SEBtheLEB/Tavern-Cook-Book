@@ -29,7 +29,7 @@ interface QuestDashboardProps {
 }
 
 const statusFilters = ["All", "Not Started", "WIP", "Done", "Needs Review"];
-const questMoodLabels = [
+const defaultQuestTags = [
   "Fun",
   "Creative",
   "Quick Win",
@@ -43,6 +43,8 @@ const questMoodLabels = [
   "Spicy",
   "Chill"
 ];
+const questTagLimit = 8;
+type QuestDashboardView = "categories" | "sticky";
 
 export function QuestDashboard({
   currentUser,
@@ -58,6 +60,7 @@ export function QuestDashboard({
   const [labelFilter, setLabelFilter] = useState("All Labels");
   const [search, setSearch] = useState("");
   const [sortMode, setSortMode] = useState("Newest");
+  const [viewMode, setViewMode] = useState<QuestDashboardView>("categories");
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
   const [newCategoryName, setNewCategoryName] = useState("");
   const userMember = getTeamMemberForGoogleUser(currentUser, teamMembers);
@@ -84,6 +87,13 @@ export function QuestDashboard({
       .filter((assignment) => labelFilter === "All Labels" || (assignment.moodLabels || []).includes(labelFilter)),
     [filter, labelFilter, search, sortMode, userAssignments]
   );
+  const allTagOptions = useMemo(
+    () => uniqueTagLabels([...defaultQuestTags, ...userAssignments.flatMap((assignment) => assignment.moodLabels || [])]),
+    [userAssignments]
+  );
+  const tagFilterOptions = labelFilter !== "All Labels" && !allTagOptions.includes(labelFilter)
+    ? ["All Labels", labelFilter, ...allTagOptions]
+    : ["All Labels", ...allTagOptions];
 
   const stats = {
     total: userAssignments.length,
@@ -104,7 +114,7 @@ export function QuestDashboard({
   const setMoodLabels = (assignmentId: string, moodLabels: string[]) => {
     const next = assignments.map((assignment) =>
       assignment.id === assignmentId
-        ? { ...assignment, moodLabels: moodLabels.slice(0, 3), updatedAt: new Date().toISOString() }
+        ? { ...assignment, moodLabels: uniqueTagLabels(moodLabels).slice(0, questTagLimit), updatedAt: new Date().toISOString() }
         : assignment
     );
     saveAssignments(next);
@@ -200,8 +210,18 @@ export function QuestDashboard({
           <Icon name="Search" className="h-4 w-4" />
           <input value={search} placeholder="Search assignments..." onChange={(event) => setSearch(event.target.value)} />
         </label>
-        <CustomSelect value={sortMode} onChange={setSortMode} options={["Newest", "Due Date", "Status", "Entry Type"]} />
-        <CustomSelect value={labelFilter} onChange={setLabelFilter} options={["All Labels", ...questMoodLabels]} />
+        <CustomSelect value={sortMode} onChange={setSortMode} options={["Newest", "Due Date", "Status", "Entry Type", "Fun First", "Quick Wins", "Most Tags"]} />
+        <CustomSelect value={labelFilter} onChange={setLabelFilter} options={tagFilterOptions} />
+        <div className="quest-view-switch" role="tablist" aria-label="Quest board view">
+          <button className={viewMode === "categories" ? "active" : ""} onClick={() => setViewMode("categories")}>
+            <Icon name="ScrollText" className="h-4 w-4" />
+            Categories
+          </button>
+          <button className={viewMode === "sticky" ? "active" : ""} onClick={() => setViewMode("sticky")}>
+            <Icon name="StickyNote" className="h-4 w-4" />
+            Sticky Wall
+          </button>
+        </div>
         <div className="quest-status-filters">
           {statusFilters.map((item) => (
             <button key={item} className={filter === item ? "active" : ""} onClick={() => setFilter(item)}>
@@ -219,46 +239,73 @@ export function QuestDashboard({
         </button>
       </section>
 
-      <section className="quest-category-list">
-        {questCategories.map((category) => {
-          const categoryAssignments = visibleAssignments.filter((assignment) => assignment.category === category.name);
-          if (!categoryAssignments.length && filter !== "All" && search.trim()) return null;
-          const isCollapsed = collapsed.has(category.id);
-          return (
-            <article key={category.id} className="quest-category-section">
-              <header>
-                <button onClick={() => toggleCategory(category.id)}>
-                  <Icon name="ChevronDown" className={`h-4 w-4 ${isCollapsed ? "-rotate-90" : ""}`} />
-                  <strong>{category.name}</strong>
-                  <span>{categoryAssignments.length}</span>
-                </button>
-                {!category.isDefault && (
-                  <div>
-                    <input value={category.name} onChange={(event) => renameCategory(category.id, event.target.value)} />
-                    <button onClick={() => deleteCategory(category.id)}>Delete</button>
+      {viewMode === "sticky" ? (
+        <section className="quest-sticky-wall" aria-label="Quest sticky note wall">
+          <header>
+            <div>
+              <p>Sticky Wall</p>
+              <h2 className="font-display">All Visible Quests</h2>
+            </div>
+            <span>{visibleAssignments.length} note{visibleAssignments.length === 1 ? "" : "s"}</span>
+          </header>
+          {visibleAssignments.length ? (
+            <div className="quest-sticky-grid">
+              {visibleAssignments.map((assignment, index) => (
+                <QuestStickyNote
+                  key={assignment.id}
+                  assignment={assignment}
+                  tone={index}
+                  onOpen={() => onOpenAssignment(assignment)}
+                />
+              ))}
+            </div>
+          ) : (
+            <p className="quest-empty">No quests match these filters yet.</p>
+          )}
+        </section>
+      ) : (
+        <section className="quest-category-list">
+          {questCategories.map((category) => {
+            const categoryAssignments = visibleAssignments.filter((assignment) => assignment.category === category.name);
+            if (!categoryAssignments.length && filter !== "All" && search.trim()) return null;
+            const isCollapsed = collapsed.has(category.id);
+            return (
+              <article key={category.id} className="quest-category-section">
+                <header>
+                  <button onClick={() => toggleCategory(category.id)}>
+                    <Icon name="ChevronDown" className={`h-4 w-4 ${isCollapsed ? "-rotate-90" : ""}`} />
+                    <strong>{category.name}</strong>
+                    <span>{categoryAssignments.length}</span>
+                  </button>
+                  {!category.isDefault && (
+                    <div>
+                      <input value={category.name} onChange={(event) => renameCategory(category.id, event.target.value)} />
+                      <button onClick={() => deleteCategory(category.id)}>Delete</button>
+                    </div>
+                  )}
+                </header>
+                {!isCollapsed && (
+                  <div className="quest-card-grid">
+                    {categoryAssignments.map((assignment) => (
+                      <QuestCard
+                        key={assignment.id}
+                        assignment={assignment}
+                        tagOptions={allTagOptions}
+                        onOpen={() => onOpenAssignment(assignment)}
+                        onStatusChange={(status) => setStatus(assignment.id, status)}
+                        onLabelsChange={(labels) => setMoodLabels(assignment.id, labels)}
+                      />
+                    ))}
+                    {!categoryAssignments.length && (
+                      <p className="quest-empty">No active assignments in this category.</p>
+                    )}
                   </div>
                 )}
-              </header>
-              {!isCollapsed && (
-                <div className="quest-card-grid">
-                  {categoryAssignments.map((assignment) => (
-                    <QuestCard
-                      key={assignment.id}
-                      assignment={assignment}
-                      onOpen={() => onOpenAssignment(assignment)}
-                      onStatusChange={(status) => setStatus(assignment.id, status)}
-                      onLabelsChange={(labels) => setMoodLabels(assignment.id, labels)}
-                    />
-                  ))}
-                  {!categoryAssignments.length && (
-                    <p className="quest-empty">No active assignments in this category.</p>
-                  )}
-                </div>
-              )}
-            </article>
-          );
-        })}
-      </section>
+              </article>
+            );
+          })}
+        </section>
+      )}
     </div>
   );
 }
@@ -274,24 +321,33 @@ function QuestStat({ label, value }: { label: string; value: number }) {
 
 function QuestCard({
   assignment,
+  tagOptions,
   onOpen,
   onStatusChange,
   onLabelsChange
 }: {
   assignment: AssignmentRecord;
+  tagOptions: string[];
   onOpen: () => void;
   onStatusChange: (status: AssignmentStatus) => void;
   onLabelsChange: (labels: string[]) => void;
 }) {
   const [labelOpen, setLabelOpen] = useState(false);
+  const [customLabel, setCustomLabel] = useState("");
   const moodLabels = assignment.moodLabels || [];
   const toggleLabel = (label: string) => {
     if (moodLabels.includes(label)) {
       onLabelsChange(moodLabels.filter((item) => item !== label));
       return;
     }
-    if (moodLabels.length >= 3) return;
-    onLabelsChange([...moodLabels, label]);
+    if (moodLabels.length >= questTagLimit) return;
+    onLabelsChange(uniqueTagLabels([...moodLabels, label]).slice(0, questTagLimit));
+  };
+  const addCustomLabel = () => {
+    const normalized = normalizeQuestTag(customLabel);
+    if (!normalized || moodLabels.length >= questTagLimit) return;
+    onLabelsChange(uniqueTagLabels([...moodLabels, normalized]).slice(0, questTagLimit));
+    setCustomLabel("");
   };
 
   return (
@@ -314,16 +370,32 @@ function QuestCard({
         <button className="quest-label-button" onClick={() => setLabelOpen((value) => !value)}>
           <Icon name="Tags" className="h-4 w-4" />
           Labels
-          <small>{moodLabels.length}/3</small>
+          <small>{moodLabels.length}/{questTagLimit}</small>
         </button>
         {labelOpen && (
           <div className="quest-label-menu">
-            <strong>Mood Labels</strong>
-            <p>Pick up to 3 labels for this task.</p>
-            <div>
-              {questMoodLabels.map((label) => {
+            <strong>Quest Tags</strong>
+            <p>Pick premade tags or add your own custom tag for this task.</p>
+            <div className="quest-custom-tag-row">
+              <input
+                value={customLabel}
+                placeholder="Custom tag..."
+                maxLength={32}
+                onChange={(event) => setCustomLabel(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter") return;
+                  event.preventDefault();
+                  addCustomLabel();
+                }}
+              />
+              <button type="button" onClick={addCustomLabel} disabled={!normalizeQuestTag(customLabel) || moodLabels.length >= questTagLimit}>
+                Add
+              </button>
+            </div>
+            <div className="quest-tag-preset-grid">
+              {tagOptions.map((label) => {
                 const active = moodLabels.includes(label);
-                const disabled = !active && moodLabels.length >= 3;
+                const disabled = !active && moodLabels.length >= questTagLimit;
                 return (
                   <button
                     key={label}
@@ -355,6 +427,35 @@ function statsPercent(assignments: AssignmentRecord[]) {
   return Math.round((done / assignments.length) * 100);
 }
 
+function QuestStickyNote({
+  assignment,
+  tone,
+  onOpen
+}: {
+  assignment: AssignmentRecord;
+  tone: number;
+  onOpen: () => void;
+}) {
+  const labels = assignment.moodLabels || [];
+  return (
+    <button
+      type="button"
+      className={`quest-sticky-note tone-${tone % 5} status-${assignment.status}`}
+      onClick={onOpen}
+    >
+      <span className={`quest-status-badge status-${assignment.status}`}>{statusDisplay(assignment.status)}</span>
+      <strong className="font-display">{assignment.moduleTitle}</strong>
+      <small>{assignment.entryTitle}</small>
+      <em>{assignment.entryCategory}</em>
+      {assignment.note && <p>{assignment.note}</p>}
+      <div className="quest-card-labels">
+        {labels.length ? labels.slice(0, 5).map((label) => <span key={label}>{label}</span>) : <small>No tags yet</small>}
+      </div>
+      <span>{assignment.dueDate ? `Due ${assignment.dueDate}` : `Assigned by ${assignment.assignedByName}`}</span>
+    </button>
+  );
+}
+
 function filterMatches(assignment: AssignmentRecord, filter: string) {
   if (filter === "All") return true;
   if (filter === "Not Started") return assignment.status === "not-started";
@@ -366,9 +467,35 @@ function filterMatches(assignment: AssignmentRecord, filter: string) {
 
 function sortAssignments(assignments: AssignmentRecord[], sortMode: string) {
   return [...assignments].sort((left, right) => {
+    if (sortMode === "Fun First") return tagSortScore(right, "Fun") - tagSortScore(left, "Fun") || new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime();
+    if (sortMode === "Quick Wins") return tagSortScore(right, "Quick Win") - tagSortScore(left, "Quick Win") || new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime();
+    if (sortMode === "Most Tags") return (right.moodLabels || []).length - (left.moodLabels || []).length;
     if (sortMode === "Due Date") return (left.dueDate || "9999").localeCompare(right.dueDate || "9999");
     if (sortMode === "Status") return left.status.localeCompare(right.status);
     if (sortMode === "Entry Type") return left.entryCategory.localeCompare(right.entryCategory);
     return new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime();
   });
+}
+
+function tagSortScore(assignment: AssignmentRecord, tag: string) {
+  return (assignment.moodLabels || []).some((label) => label.toLowerCase() === tag.toLowerCase()) ? 1 : 0;
+}
+
+function normalizeQuestTag(value: string) {
+  return value
+    .replace(/^#+/, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 32);
+}
+
+function uniqueTagLabels(labels: string[]) {
+  const byKey = new Map<string, string>();
+  labels.forEach((label) => {
+    const normalized = normalizeQuestTag(label);
+    if (!normalized) return;
+    const key = normalized.toLowerCase();
+    if (!byKey.has(key)) byKey.set(key, normalized);
+  });
+  return [...byKey.values()];
 }

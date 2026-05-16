@@ -13388,6 +13388,34 @@ button,
   gap: 0.45rem;
 }
 
+.quest-view-switch {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  border: 1px solid color-mix(in srgb, var(--panel-border) 58%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--field-bg) 82%, transparent);
+  padding: 0.25rem;
+}
+
+.quest-view-switch button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  padding: 0.48rem 0.62rem;
+  color: var(--muted-ink);
+  font-weight: 850;
+}
+
+.quest-view-switch button.active {
+  border-color: color-mix(in srgb, var(--gold) 54%, var(--panel-border));
+  background: color-mix(in srgb, var(--gold) 18%, var(--panel-bg));
+  color: var(--app-ink);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--gold) 14%, transparent);
+}
+
 .quest-status-filters button.active {
   border-color: var(--gold);
   box-shadow: 0 0 14px rgba(216, 168, 93, 0.18);
@@ -13604,6 +13632,27 @@ button,
   gap: 0.4rem;
 }
 
+.quest-custom-tag-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.45rem;
+}
+
+.quest-custom-tag-row input {
+  min-width: 0;
+  border: 1px solid color-mix(in srgb, var(--panel-border) 62%, transparent);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--field-bg) 92%, transparent);
+  color: var(--app-ink);
+  padding: 0.42rem 0.55rem;
+}
+
+.quest-label-menu .quest-tag-preset-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
 .quest-label-menu button {
   border: 1px solid color-mix(in srgb, var(--card-border) 78%, transparent);
   border-radius: 8px;
@@ -13638,6 +13687,142 @@ button,
   white-space: normal;
   text-align: center;
   line-height: 1.15;
+}
+
+.quest-sticky-wall {
+  display: grid;
+  gap: 0.85rem;
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  background: var(--panel-bg);
+  padding: 0.9rem;
+}
+
+.quest-sticky-wall > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  border-bottom: 1px solid var(--card-border);
+  padding-bottom: 0.8rem;
+}
+
+.quest-sticky-wall > header p,
+.quest-sticky-wall > header h2 {
+  margin: 0;
+}
+
+.quest-sticky-wall > header p {
+  color: color-mix(in srgb, var(--gold) 82%, var(--app-ink));
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.quest-sticky-wall > header span {
+  border: 1px solid color-mix(in srgb, var(--gold) 42%, var(--card-border));
+  border-radius: 999px;
+  padding: 0.35rem 0.65rem;
+  color: var(--muted-ink);
+  font-size: 0.8rem;
+  font-weight: 850;
+}
+
+.quest-sticky-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 0.9rem;
+}
+
+.quest-sticky-note {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto auto auto auto minmax(0, 1fr) auto auto;
+  align-content: start;
+  gap: 0.48rem;
+  min-width: 0;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, #5f4b22 36%, var(--card-border));
+  border-radius: 8px;
+  background: #f5dc8d;
+  color: #24190d;
+  padding: 0.85rem;
+  text-align: left;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.18);
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.quest-sticky-note:hover {
+  transform: translateY(-2px) rotate(-0.5deg);
+  box-shadow: 0 18px 32px rgba(0, 0, 0, 0.24);
+}
+
+.quest-sticky-note.tone-1 {
+  background: #d6e7a8;
+}
+
+.quest-sticky-note.tone-2 {
+  background: #ffd1a3;
+}
+
+.quest-sticky-note.tone-3 {
+  background: #c9e5e3;
+}
+
+.quest-sticky-note.tone-4 {
+  background: #ead0f1;
+}
+
+.quest-sticky-note strong {
+  display: -webkit-box;
+  overflow: hidden;
+  color: #221408;
+  font-size: clamp(1.18rem, 1.7vw, 1.55rem);
+  line-height: 1.05;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.quest-sticky-note small,
+.quest-sticky-note em,
+.quest-sticky-note p,
+.quest-sticky-note > span:last-child {
+  display: -webkit-box;
+  overflow: hidden;
+  color: rgba(36, 25, 13, 0.74);
+  font-size: 0.78rem;
+  font-style: normal;
+  font-weight: 800;
+  line-height: 1.28;
+  -webkit-box-orient: vertical;
+}
+
+.quest-sticky-note small,
+.quest-sticky-note em {
+  -webkit-line-clamp: 1;
+}
+
+.quest-sticky-note p {
+  margin: 0;
+  -webkit-line-clamp: 3;
+}
+
+.quest-sticky-note .quest-status-badge {
+  color: #fff4dd;
+}
+
+.quest-sticky-note .quest-card-labels {
+  overflow: hidden;
+  max-height: 56px;
+}
+
+.quest-sticky-note .quest-card-labels span,
+.quest-sticky-note .quest-card-labels small {
+  border-color: rgba(57, 38, 12, 0.28);
+  background: rgba(255, 255, 255, 0.34);
+  color: #251707;
 }
 
 .quest-empty {

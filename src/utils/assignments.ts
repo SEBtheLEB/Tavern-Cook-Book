@@ -404,7 +404,7 @@ function normalizeStatus(value: unknown): AssignmentStatus {
 
 function normalizeMoodLabels(value: unknown) {
   if (!Array.isArray(value)) return [];
-  return [...new Set(value.map((item) => stringValue(item, "")).filter(Boolean))].slice(0, 3);
+  return [...new Set(value.map((item) => stringValue(item, "")).filter(Boolean))].slice(0, 8);
 }
 
 function normalizePermission(value: unknown): AssignmentPermission {
