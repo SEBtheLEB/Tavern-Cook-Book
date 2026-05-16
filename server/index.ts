@@ -3,6 +3,7 @@ import express from "express";
 import { getAssistantHealth, handleAssistantRequest } from "./assistantBackend.ts";
 import { handleDriveListRequest } from "./driveListBackend.ts";
 import { getSyncHealth, handleSyncRequest } from "./syncBackend.ts";
+import { getStoryScribeHealth, handleStoryScribeRequest } from "./storyScribeBackend.ts";
 
 const app = express();
 const port = Number(process.env.PORT || 5174);
@@ -15,6 +16,15 @@ app.get("/api/health", (_request, response) => {
 
 app.post("/api/assistant", async (request, response) => {
   const result = await handleAssistantRequest(request.body || {});
+  response.status(result.status).json(result.body);
+});
+
+app.get("/api/story-scribe", (_request, response) => {
+  response.json(getStoryScribeHealth());
+});
+
+app.post("/api/story-scribe", async (request, response) => {
+  const result = await handleStoryScribeRequest(request.body || {});
   response.status(result.status).json(result.body);
 });
 

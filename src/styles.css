@@ -15716,6 +15716,169 @@ button,
   min-height: 190px;
 }
 
+.story-page-editor-nav,
+.story-scribe-actions,
+.story-scribe-scope,
+.story-scribe-draft-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.story-page-editor-nav {
+  justify-content: space-between;
+  border: 1px solid color-mix(in srgb, var(--gold) 28%, var(--card-border));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--field-bg) 58%, transparent);
+  padding: 10px;
+}
+
+.story-page-editor-nav span,
+.story-scribe-status,
+.story-scribe-error,
+.story-mini-scribe header span,
+.story-scribe-draft span {
+  color: var(--muted-ink);
+  font-size: 0.86rem;
+  line-height: 1.4;
+}
+
+.story-page-editor-nav button,
+.story-scribe-actions button,
+.story-scribe-scope button,
+.story-scribe-draft-actions button {
+  border: 1px solid color-mix(in srgb, var(--gold) 34%, var(--card-border));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--field-bg) 84%, transparent);
+  color: var(--app-ink);
+  min-height: 38px;
+  padding: 8px 12px;
+  font-weight: 850;
+}
+
+.story-page-editor-nav button:disabled,
+.story-scribe-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.story-mini-scribe {
+  display: grid;
+  gap: 14px;
+  border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--gold));
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--accent) 14%, transparent), transparent 38%),
+    radial-gradient(circle at bottom left, color-mix(in srgb, var(--gold) 10%, transparent), transparent 42%),
+    color-mix(in srgb, var(--panel-bg) 96%, #07111f);
+  padding: clamp(16px, 2.5vw, 24px);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.22), 0 0 22px color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.story-mini-scribe header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.story-mini-scribe header p {
+  margin: 0;
+  color: var(--muted-ink);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.story-mini-scribe h2 {
+  margin: 0;
+  color: color-mix(in srgb, var(--app-ink) 92%, var(--gold));
+  line-height: 1;
+}
+
+.story-mini-scribe > textarea,
+.story-scribe-manual textarea {
+  width: 100%;
+  min-height: 116px;
+  border: 1px solid color-mix(in srgb, var(--gold) 34%, var(--card-border));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--field-bg) 84%, transparent);
+  color: var(--app-ink);
+  padding: 12px;
+  font: inherit;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+.story-scribe-scope button.active {
+  border-color: color-mix(in srgb, var(--gold) 82%, var(--panel-border));
+  background: color-mix(in srgb, var(--gold) 18%, var(--field-bg));
+  box-shadow: 0 0 16px color-mix(in srgb, var(--gold) 18%, transparent);
+}
+
+.story-scribe-actions .button-frame,
+.story-scribe-draft-actions .button-frame {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.story-scribe-status {
+  margin: 0;
+}
+
+.story-scribe-error {
+  margin: 0;
+  color: color-mix(in srgb, #ff9d7f 76%, var(--app-ink));
+  font-weight: 850;
+}
+
+.story-scribe-draft {
+  display: grid;
+  gap: 12px;
+  border: 1px solid color-mix(in srgb, var(--gold) 36%, var(--card-border));
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--field-bg) 62%, transparent);
+  padding: 14px;
+}
+
+.story-scribe-draft > div:first-child {
+  display: grid;
+  gap: 5px;
+}
+
+.story-scribe-draft strong {
+  color: var(--app-ink);
+}
+
+.story-scribe-draft ul {
+  margin: 0;
+  padding-left: 18px;
+  color: color-mix(in srgb, var(--muted-ink) 86%, var(--gold));
+  line-height: 1.45;
+}
+
+.story-scribe-manual {
+  display: grid;
+  gap: 8px;
+}
+
+.story-scribe-manual span {
+  color: var(--muted-ink);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.story-scribe-manual textarea {
+  min-height: 220px;
+  font-size: 0.86rem;
+}
+
 .story-edit-mode .story-journey-preview,
 .story-edit-mode .story-book-page {
   outline: 1px solid color-mix(in srgb, var(--gold) 34%, transparent);

@@ -57,6 +57,38 @@ interface StoryJourneyState {
 }
 
 type StoryJourneyScope = "history" | "act1" | "act2" | "act3";
+type StoryScribeScope = "currentPage" | "wholeChapter";
+
+interface StoryScribeChapterPatch {
+  title?: string;
+  subtitle?: string;
+  timelineStartLabel?: string;
+  timelineEndLabel?: string;
+  timelineStartPercent?: number;
+  timelineEndPercent?: number;
+  era?: string;
+  revealLevel?: StoryChapter["revealLevel"];
+  shortDescription?: string;
+  relatedLore?: string[];
+}
+
+interface StoryScribePagePatch {
+  pageId?: string;
+  pageIndex?: number;
+  title?: string;
+  text?: string;
+  imagePlaceholder?: string;
+  caption?: string;
+  relatedLore?: string[];
+}
+
+interface StoryScribePatch {
+  summary: string;
+  chapterPatch?: StoryScribeChapterPatch;
+  pagePatches: StoryScribePagePatch[];
+  newPages: StoryScribePagePatch[];
+  warnings: string[];
+}
 
 interface LorePreview {
   name: string;
@@ -1152,6 +1184,11 @@ export function StoryJourneyPage({ entries, bestiary, readOnly = false, onOpenEn
     setPageByChapter((current) => ({ ...current, [selectedChapter.id]: Math.max(0, currentPageIndex - 1) }));
   };
 
+  const applyStoryScribeDraft = (draft: StoryScribePatch) => {
+    updateChapter(selectedChapter.id, (chapter) => applyStoryScribePatch(chapter, draft));
+    setPageTurnKey((key) => key + 1);
+  };
+
   const openLoreFullPage = (preview: LorePreview) => {
     if (preview.entry) onOpenEntry(preview.entry);
     if (preview.creature) onOpenCreature(preview.creature);
@@ -1285,14 +1322,31 @@ export function StoryJourneyPage({ entries, bestiary, readOnly = false, onOpenEn
                 </div>
               </section>
               {storyEditMode && (
-                <StoryChapterEditor
-                  chapter={selectedChapter}
-                  chapterIndex={selectedChapterOrderIndex}
-                  chapterCount={chapters.length}
-                  onChange={updateSelectedChapter}
-                  onMove={moveSelectedChapter}
-                  onDelete={deleteSelectedChapter}
-                />
+                <>
+                  <StoryChapterEditor
+                    chapter={selectedChapter}
+                    chapterIndex={selectedChapterOrderIndex}
+                    chapterCount={chapters.length}
+                    onChange={updateSelectedChapter}
+                    onMove={moveSelectedChapter}
+                    onDelete={deleteSelectedChapter}
+                  />
+                  <StoryPageEditor
+                    page={currentPage}
+                    pageIndex={currentPageIndex}
+                    pageCount={selectedChapter.pages.length}
+                    onChange={updateCurrentPage}
+                    onAddPage={addPage}
+                    onDeletePage={deleteCurrentPage}
+                    onSelectPage={setPage}
+                  />
+                  <StoryMiniScribe
+                    chapter={selectedChapter}
+                    currentPageIndex={currentPageIndex}
+                    readOnly={readOnly}
+                    onApply={applyStoryScribeDraft}
+                  />
+                </>
               )}
             </>
           ) : (
@@ -1373,6 +1427,15 @@ export function StoryJourneyPage({ entries, bestiary, readOnly = false, onOpenEn
               onChange={updateCurrentPage}
               onAddPage={addPage}
               onDeletePage={deleteCurrentPage}
+              onSelectPage={setPage}
+            />
+          )}
+          {storyEditMode && (
+            <StoryMiniScribe
+              chapter={selectedChapter}
+              currentPageIndex={currentPageIndex}
+              readOnly={readOnly}
+              onApply={applyStoryScribeDraft}
             />
           )}
 
@@ -1563,7 +1626,8 @@ function StoryPageEditor({
   pageCount,
   onChange,
   onAddPage,
-  onDeletePage
+  onDeletePage,
+  onSelectPage
 }: {
   page: StoryPage;
   pageIndex: number;
@@ -1571,6 +1635,7 @@ function StoryPageEditor({
   onChange: (patch: Partial<StoryPage>) => void;
   onAddPage: () => void;
   onDeletePage: () => void;
+  onSelectPage?: (index: number) => void;
 }) {
   return (
     <section className="story-editor-panel story-page-editor">
@@ -1584,6 +1649,13 @@ function StoryPageEditor({
           <button className="danger" onClick={onDeletePage} disabled={pageCount <= 1}>Delete Page</button>
         </div>
       </header>
+      {onSelectPage && (
+        <div className="story-page-editor-nav">
+          <button onClick={() => onSelectPage(pageIndex - 1)} disabled={pageIndex <= 0}>Previous Page</button>
+          <span>Editing page {pageIndex + 1} of {pageCount}</span>
+          <button onClick={() => onSelectPage(pageIndex + 1)} disabled={pageIndex >= pageCount - 1}>Next Page</button>
+        </div>
+      )}
       <div className="story-editor-grid">
         <StoryTextField label="Page title" value={page.title} onChange={(value) => onChange({ title: value })} />
         <label className="wide">
@@ -1612,6 +1684,169 @@ function StoryPageEditor({
           <input value={page.relatedLore.join(", ")} onChange={(event) => onChange({ relatedLore: splitTerms(event.target.value) })} placeholder="Gwen, Tohm Kyatt, Whisker Woods..." />
         </label>
       </div>
+    </section>
+  );
+}
+
+function StoryMiniScribe({
+  chapter,
+  currentPageIndex,
+  readOnly,
+  onApply
+}: {
+  chapter: StoryChapter;
+  currentPageIndex: number;
+  readOnly: boolean;
+  onApply: (draft: StoryScribePatch) => void;
+}) {
+  const [scope, setScope] = useState<StoryScribeScope>("currentPage");
+  const [command, setCommand] = useState("");
+  const [draft, setDraft] = useState<StoryScribePatch | null>(null);
+  const [manualPrompt, setManualPrompt] = useState("");
+  const [status, setStatus] = useState("");
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const currentPage = chapter.pages[currentPageIndex] || chapter.pages[0];
+
+  useEffect(() => {
+    setDraft(null);
+    setManualPrompt("");
+    setStatus("");
+    setError("");
+  }, [chapter.id, currentPageIndex]);
+
+  const runScribe = async () => {
+    const cleanCommand = command.trim();
+    if (!cleanCommand || isLoading || readOnly) return;
+    setIsLoading(true);
+    setDraft(null);
+    setManualPrompt("");
+    setError("");
+    setStatus("Scribing a safe draft for this chapter...");
+    try {
+      const response = await fetch("/api/story-scribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          command: cleanCommand,
+          scope,
+          chapter: prepareStoryChapterForScribe(chapter),
+          currentPageIndex
+        })
+      });
+      const payload = (await response.json()) as { patch?: unknown; error?: string };
+      if (!response.ok || !payload.patch) {
+        throw new Error(payload.error || "Story Scribe could not create a draft.");
+      }
+      setDraft(normalizeStoryScribePatch(payload.patch));
+      setStatus("Draft ready. Review it before applying.");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Story Scribe failed.");
+      setStatus("");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const buildManual = async () => {
+    const prompt = buildStoryScribeManualPrompt(chapter, currentPageIndex, command, scope);
+    setManualPrompt(prompt);
+    setDraft(null);
+    setError("");
+    setStatus("Manual prompt ready.");
+    try {
+      await navigator.clipboard?.writeText(prompt);
+      setStatus("Manual prompt copied. Paste the JSON response back into the box if needed.");
+    } catch {
+      // Clipboard access is optional; the prompt stays visible for manual copying.
+    }
+  };
+
+  const applyDraft = () => {
+    if (!draft) return;
+    onApply(draft);
+    setDraft(null);
+    setStatus("Draft applied to this Story Journey chapter.");
+  };
+
+  const pasteManualJson = () => {
+    try {
+      setDraft(normalizeStoryScribePatch(JSON.parse(command)));
+      setError("");
+      setManualPrompt("");
+      setStatus("Pasted draft ready. Review it before applying.");
+    } catch {
+      setError("Paste a valid Story Scribe JSON draft into the command box first.");
+    }
+  };
+
+  const changedPageCount = (draft?.pagePatches.length || 0) + (draft?.newPages.length || 0);
+
+  return (
+    <section className="story-mini-scribe">
+      <header>
+        <div>
+          <p>Mini Scribe</p>
+          <h2 className="font-display">Write With This Chapter</h2>
+          <span>
+            Scoped to {chapter.title}{scope === "currentPage" && currentPage ? ` / ${currentPage.title}` : ""}.
+          </span>
+        </div>
+        <div className="story-scribe-scope">
+          <button className={scope === "currentPage" ? "active" : ""} onClick={() => setScope("currentPage")} type="button">
+            Current Page
+          </button>
+          <button className={scope === "wholeChapter" ? "active" : ""} onClick={() => setScope("wholeChapter")} type="button">
+            Whole Chapter
+          </button>
+        </div>
+      </header>
+      <textarea
+        value={command}
+        onChange={(event) => setCommand(event.target.value)}
+        placeholder="Ask Mini Scribe to expand this beat, rewrite the current page, add pages, clean up chapter summary, or turn notes into story text."
+        disabled={readOnly || isLoading}
+      />
+      <div className="story-scribe-actions">
+        <button className="button-frame" onClick={runScribe} disabled={readOnly || isLoading || !command.trim()}>
+          <Icon name="Sparkles" className="h-4 w-4" />
+          {isLoading ? "Scribing..." : "Scribe Chapter"}
+        </button>
+        <button onClick={buildManual} disabled={isLoading}>
+          Build Manual Prompt
+        </button>
+        <button onClick={pasteManualJson} disabled={isLoading || !command.trim()}>
+          Use Pasted JSON
+        </button>
+      </div>
+      {status && <p className="story-scribe-status">{status}</p>}
+      {error && <p className="story-scribe-error">{error}</p>}
+      {draft && (
+        <section className="story-scribe-draft">
+          <div>
+            <strong>{draft.summary}</strong>
+            <span>
+              {draft.chapterPatch ? "Chapter fields may change. " : ""}
+              {changedPageCount} page {changedPageCount === 1 ? "change" : "changes"} ready.
+            </span>
+          </div>
+          {draft.warnings.length > 0 && (
+            <ul>
+              {draft.warnings.map((warning, index) => <li key={`${warning}-${index}`}>{warning}</li>)}
+            </ul>
+          )}
+          <div className="story-scribe-draft-actions">
+            <button className="button-frame" onClick={applyDraft}>Apply Draft</button>
+            <button onClick={() => setDraft(null)}>Discard</button>
+          </div>
+        </section>
+      )}
+      {manualPrompt && (
+        <label className="story-scribe-manual">
+          <span>Manual prompt</span>
+          <textarea readOnly value={manualPrompt} />
+        </label>
+      )}
     </section>
   );
 }
@@ -1683,6 +1918,150 @@ function renderLinkedStoryText(text: string, onTermClick: (term: string) => void
 
 function storyText(...paragraphs: string[]) {
   return paragraphs.join("\n\n");
+}
+
+function prepareStoryChapterForScribe(chapter: StoryChapter) {
+  return {
+    id: chapter.id,
+    title: chapter.title,
+    subtitle: chapter.subtitle,
+    timelineStartLabel: chapter.timelineStartLabel,
+    timelineEndLabel: chapter.timelineEndLabel,
+    timelineStartPercent: chapter.timelineStartPercent,
+    timelineEndPercent: chapter.timelineEndPercent,
+    era: chapter.era,
+    revealLevel: chapter.revealLevel,
+    shortDescription: chapter.shortDescription,
+    relatedLore: chapter.relatedLore,
+    pages: chapter.pages.map((page, index) => ({
+      id: page.id,
+      index,
+      title: page.title,
+      text: page.text,
+      imagePlaceholder: page.imagePlaceholder,
+      caption: page.caption,
+      relatedLore: page.relatedLore
+    }))
+  };
+}
+
+function buildStoryScribeManualPrompt(chapter: StoryChapter, currentPageIndex: number, command: string, scope: StoryScribeScope) {
+  return `You are Mini Scribe for The Tavern Cook Book's Story Journey.
+
+Only help with the selected Story Journey chapter. Do not suggest code, layout, CSS, app settings, image uploads, API keys, or Drive file changes.
+
+Scope: ${scope === "currentPage" ? "Current page only unless new pages are clearly requested." : "Whole selected chapter."}
+User request: ${command || "(Write a useful improvement draft for this chapter.)"}
+
+Return only valid JSON in this shape:
+{
+  "summary": "Short summary of what your draft changes",
+  "chapterPatch": {
+    "title": "optional",
+    "subtitle": "optional",
+    "era": "optional",
+    "revealLevel": "optional",
+    "shortDescription": "optional",
+    "relatedLore": ["optional"]
+  },
+  "pagePatches": [
+    {
+      "pageId": "existing page id if updating",
+      "pageIndex": 0,
+      "title": "optional",
+      "text": "optional full replacement text",
+      "imagePlaceholder": "optional",
+      "caption": "optional",
+      "relatedLore": ["optional"]
+    }
+  ],
+  "newPages": [
+    {
+      "title": "optional",
+      "text": "optional",
+      "imagePlaceholder": "optional",
+      "caption": "optional",
+      "relatedLore": ["optional"]
+    }
+  ],
+  "warnings": []
+}
+
+Selected chapter JSON:
+${JSON.stringify(prepareStoryChapterForScribe(chapter), null, 2)}
+
+Current page index: ${currentPageIndex}`;
+}
+
+function normalizeStoryScribePatch(value: unknown): StoryScribePatch {
+  const patch = isRecord(value) ? value : {};
+  return {
+    summary: typeof patch.summary === "string" ? patch.summary : "Story Scribe draft",
+    chapterPatch: normalizeStoryScribeChapterPatch(patch.chapterPatch),
+    pagePatches: Array.isArray(patch.pagePatches)
+      ? patch.pagePatches.map(normalizeStoryScribePagePatch).filter((item): item is StoryScribePagePatch => Boolean(item))
+      : [],
+    newPages: Array.isArray(patch.newPages)
+      ? patch.newPages.map(normalizeStoryScribePagePatch).filter((item): item is StoryScribePagePatch => Boolean(item))
+      : [],
+    warnings: Array.isArray(patch.warnings) ? patch.warnings.map((warning) => String(warning)).filter(Boolean) : []
+  };
+}
+
+function normalizeStoryScribeChapterPatch(value: unknown): StoryScribeChapterPatch | undefined {
+  if (!isRecord(value)) return undefined;
+  const patch: StoryScribeChapterPatch = {};
+  if (typeof value.title === "string") patch.title = value.title;
+  if (typeof value.subtitle === "string") patch.subtitle = value.subtitle;
+  if (typeof value.timelineStartLabel === "string") patch.timelineStartLabel = value.timelineStartLabel;
+  if (typeof value.timelineEndLabel === "string") patch.timelineEndLabel = value.timelineEndLabel;
+  if (typeof value.timelineStartPercent === "number") patch.timelineStartPercent = clamp(value.timelineStartPercent, 0, 100);
+  if (typeof value.timelineEndPercent === "number") patch.timelineEndPercent = clamp(value.timelineEndPercent, 0, 100);
+  if (typeof value.era === "string") patch.era = value.era;
+  if (typeof value.revealLevel === "string") patch.revealLevel = normalizeRevealLevel(value.revealLevel);
+  if (typeof value.shortDescription === "string") patch.shortDescription = value.shortDescription;
+  if (Array.isArray(value.relatedLore)) patch.relatedLore = value.relatedLore.map((term) => String(term).trim()).filter(Boolean);
+  return Object.keys(patch).length ? patch : undefined;
+}
+
+function normalizeStoryScribePagePatch(value: unknown): StoryScribePagePatch | null {
+  if (!isRecord(value)) return null;
+  const patch: StoryScribePagePatch = {};
+  if (typeof value.pageId === "string") patch.pageId = value.pageId;
+  if (typeof value.pageIndex === "number" && Number.isFinite(value.pageIndex)) patch.pageIndex = Math.max(0, Math.floor(value.pageIndex));
+  if (typeof value.title === "string") patch.title = value.title;
+  if (typeof value.text === "string") patch.text = value.text;
+  if (typeof value.imagePlaceholder === "string") patch.imagePlaceholder = value.imagePlaceholder;
+  if (typeof value.caption === "string") patch.caption = value.caption;
+  if (Array.isArray(value.relatedLore)) patch.relatedLore = value.relatedLore.map((term) => String(term).trim()).filter(Boolean);
+  return Object.keys(patch).length ? patch : null;
+}
+
+function applyStoryScribePatch(chapter: StoryChapter, draft: StoryScribePatch): StoryChapter {
+  const nextChapter: StoryChapter = {
+    ...chapter,
+    ...draft.chapterPatch,
+    relatedLore: draft.chapterPatch?.relatedLore || chapter.relatedLore,
+    pages: chapter.pages.map((page, index) => {
+      const pagePatch = draft.pagePatches.find((patch) =>
+        (patch.pageId && patch.pageId === page.id) || (!patch.pageId && patch.pageIndex === index)
+      );
+      return pagePatch ? normalizeStoryPage({ ...page, ...pagePatch }, page.id || `${chapter.id}-page-${index + 1}`) : page;
+    })
+  };
+
+  if (draft.newPages.length) {
+    nextChapter.pages = [
+      ...nextChapter.pages,
+      ...draft.newPages.map((page, index) => normalizeStoryPage(page, `${chapter.id}-scribe-page-${Date.now()}-${index + 1}`))
+    ];
+  }
+
+  return normalizeStoryChapter(nextChapter, chapter.id);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 
 function resolveLorePreview(term: string, entries: LoreEntry[], bestiary: BestiaryCreature[]): LorePreview {
