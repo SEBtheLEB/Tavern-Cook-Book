@@ -15074,6 +15074,60 @@ button,
   gap: 8px;
 }
 
+.story-act-selector {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.story-act-selector button {
+  display: grid;
+  min-height: 112px;
+  align-content: start;
+  gap: 7px;
+  border: 1px solid color-mix(in srgb, var(--card-border) 78%, transparent);
+  border-radius: 14px;
+  padding: 14px;
+  color: var(--app-ink);
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent) 8%, transparent), transparent 46%),
+    color-mix(in srgb, var(--card-frame) 88%, transparent);
+  text-align: left;
+  cursor: pointer;
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
+}
+
+.story-act-selector button:hover,
+.story-act-selector button.active {
+  border-color: color-mix(in srgb, var(--gold) 82%, var(--panel-border));
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--gold) 13%, transparent), transparent 48%),
+    color-mix(in srgb, var(--card-frame) 94%, transparent);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--gold) 20%, transparent), 0 14px 30px rgba(0, 0, 0, 0.18);
+  transform: translateY(-2px);
+}
+
+.story-act-selector span {
+  color: var(--muted-ink);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.story-act-selector strong {
+  color: color-mix(in srgb, var(--app-ink) 92%, var(--gold));
+  font-size: 1.06rem;
+  line-height: 1.15;
+}
+
+.story-act-selector em {
+  color: color-mix(in srgb, var(--muted-ink) 88%, var(--gold));
+  font-size: 0.78rem;
+  font-style: normal;
+  font-weight: 850;
+}
+
 .story-chapter-capsules {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
@@ -15128,6 +15182,55 @@ button,
   color: var(--muted-ink);
   font-size: 0.8rem;
   font-style: normal;
+}
+
+.story-scope-empty {
+  display: grid;
+  min-height: 280px;
+  place-items: center;
+  gap: 10px;
+  border: 1px solid color-mix(in srgb, var(--gold) 42%, var(--panel-border));
+  border-radius: 16px;
+  padding: clamp(24px, 4vw, 42px);
+  background:
+    radial-gradient(circle at top, color-mix(in srgb, var(--gold) 12%, transparent), transparent 46%),
+    color-mix(in srgb, var(--panel-bg) 92%, #07111f);
+  color: var(--app-ink);
+  text-align: center;
+}
+
+.story-scope-empty svg {
+  color: var(--gold);
+}
+
+.story-scope-empty p {
+  margin: 0;
+  color: var(--muted-ink);
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.story-scope-empty h2 {
+  margin: 0;
+  color: color-mix(in srgb, var(--app-ink) 92%, var(--gold));
+  font-size: clamp(2rem, 4vw, 3.4rem);
+  line-height: 1;
+}
+
+.story-scope-empty span {
+  max-width: 620px;
+  color: var(--muted-ink);
+  line-height: 1.55;
+}
+
+.story-scope-empty .button-frame {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 8px;
 }
 
 .story-timeline {
@@ -15701,6 +15804,10 @@ button,
     justify-content: flex-start;
   }
 
+  .story-act-selector {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .story-journey-preview,
   .story-book-page {
     grid-template-columns: 1fr;
@@ -15719,6 +15826,12 @@ button,
     inset: auto 12px 12px;
     width: auto;
     max-height: 56vh;
+  }
+}
+
+@media (max-width: 560px) {
+  .story-act-selector {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -17429,6 +17542,8 @@ button,
   .world-building-reference-panel,
   .world-building-empty-state,
   .story-journey-hero,
+  .story-act-selector button,
+  .story-scope-empty,
   .story-journey-preview,
   .story-reader-shell,
   .story-lore-panel,
@@ -17467,6 +17582,7 @@ button,
   .world-building-entry-card,
   .world-building-info-card,
   .world-building-related-card,
+  .story-act-selector button,
   .story-chapter-capsule,
   .story-preview-card,
   .story-page-art,

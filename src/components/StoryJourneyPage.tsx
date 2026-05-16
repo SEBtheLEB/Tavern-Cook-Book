@@ -51,9 +51,12 @@ interface StoryPage {
 
 interface StoryJourneyState {
   selectedChapterId: string;
+  activeScope: StoryJourneyScope;
   pageByChapter: Record<string, number>;
   completedChapterIds: string[];
 }
+
+type StoryJourneyScope = "history" | "act1" | "act2" | "act3";
 
 interface LorePreview {
   name: string;
@@ -74,6 +77,43 @@ const timelineLabels = [
   { label: "Act 2", percent: 84 },
   { label: "Act 3", percent: 92 },
   { label: "Final Act", percent: 98 }
+];
+
+const storyJourneyScopeOptions: Array<{
+  id: StoryJourneyScope;
+  label: string;
+  eyebrow: string;
+  description: string;
+  emptyTitle: string;
+}> = [
+  {
+    id: "history",
+    label: "General History Timeline",
+    eyebrow: "World Lore",
+    description: "The current full lore timeline, from ancient history through the game's major story reveals.",
+    emptyTitle: "No history chapters yet."
+  },
+  {
+    id: "act1",
+    label: "Act 1",
+    eyebrow: "Playable Story",
+    description: "Opening playable arc, Whisker Woods, the first corruption threads, and the first recipe-page recovery.",
+    emptyTitle: "No Act 1 chapters yet."
+  },
+  {
+    id: "act2",
+    label: "Act 2",
+    eyebrow: "Playable Story",
+    description: "Middle-game story chapters, expanding regions, deeper food magic, and rising danger.",
+    emptyTitle: "No Act 2 chapters yet."
+  },
+  {
+    id: "act3",
+    label: "Act 3",
+    eyebrow: "Playable Story",
+    description: "Late-game reveals, final-act setup, hidden truths, and the story's biggest confrontations.",
+    emptyTitle: "No Act 3 chapters yet."
+  }
 ];
 
 const defaultStoryChapters: StoryChapter[] = [
@@ -614,6 +654,7 @@ export function StoryJourneyPage({ entries, bestiary, readOnly = false, onOpenEn
   const [chapters, setChapters] = useState<StoryChapter[]>(initialStoryData.chapters);
   const storedState = initialStoryData.storedState;
   const [selectedChapterId, setSelectedChapterId] = useState(storedState.selectedChapterId);
+  const [activeScope, setActiveScope] = useState<StoryJourneyScope>(storedState.activeScope);
   const [pageByChapter, setPageByChapter] = useState(storedState.pageByChapter);
   const [completedChapterIds, setCompletedChapterIds] = useState<string[]>(storedState.completedChapterIds);
   const [readerOpen, setReaderOpen] = useState(false);
@@ -623,8 +664,13 @@ export function StoryJourneyPage({ entries, bestiary, readOnly = false, onOpenEn
   const [storyEditMode, setStoryEditMode] = useState(false);
   const [imageManagerOpen, setImageManagerOpen] = useState(false);
 
-  const selectedIndex = Math.max(0, chapters.findIndex((chapter) => chapter.id === selectedChapterId));
-  const selectedChapter = chapters[selectedIndex] || chapters[0];
+  const scopeChapters = useMemo(() => chaptersForScope(chapters, activeScope), [activeScope, chapters]);
+  const selectedIndex = Math.max(0, scopeChapters.findIndex((chapter) => chapter.id === selectedChapterId));
+  const selectedChapterOrderIndex = Math.max(0, chapters.findIndex((chapter) => chapter.id === selectedChapterId));
+  const selectedChapter = scopeChapters[selectedIndex] || scopeChapters[0] || chapters.find((chapter) => chapter.id === selectedChapterId) || chapters[0];
+  const selectedScopeOption = storyJourneyScopeOptions.find((option) => option.id === activeScope) || storyJourneyScopeOptions[0];
+  const scopeCounts = useMemo(() => buildScopeCounts(chapters), [chapters]);
+  const hasScopeChapters = scopeChapters.length > 0;
   const currentPageIndex = Math.min(pageByChapter[selectedChapter.id] || 0, selectedChapter.pages.length - 1);
   const currentPage = selectedChapter.pages[currentPageIndex];
   const selectedLore = selectedLoreTerm ? resolveLorePreview(selectedLoreTerm, entries, bestiary) : null;
@@ -639,10 +685,11 @@ export function StoryJourneyPage({ entries, bestiary, readOnly = false, onOpenEn
   useEffect(() => {
     saveStoryJourneyState({
       selectedChapterId,
+      activeScope,
       pageByChapter,
       completedChapterIds
     });
-  }, [selectedChapterId, pageByChapter, completedChapterIds]);
+  }, [activeScope, selectedChapterId, pageByChapter, completedChapterIds]);
 
   useEffect(() => {
     saveStoryChapters(chapters);
@@ -653,12 +700,30 @@ export function StoryJourneyPage({ entries, bestiary, readOnly = false, onOpenEn
   }, [readOnly]);
 
   useEffect(() => {
-    if (!chapters.some((chapter) => chapter.id === selectedChapterId) && chapters[0]) {
-      setSelectedChapterId(chapters[0].id);
+    if (!scopeChapters.length) return;
+    if (!scopeChapters.some((chapter) => chapter.id === selectedChapterId)) {
+      setSelectedChapterId(scopeChapters[0].id);
     }
-  }, [chapters, selectedChapterId]);
+  }, [scopeChapters, selectedChapterId]);
+
+  const changeStoryScope = (scope: StoryJourneyScope) => {
+    const nextChapters = chaptersForScope(chapters, scope);
+    setActiveScope(scope);
+    if (nextChapters[0]) {
+      setSelectedChapterId(nextChapters[0].id);
+      setPageByChapter((current) => ({ ...current, [nextChapters[0].id]: current[nextChapters[0].id] || 0 }));
+    }
+    setReaderOpen(false);
+    setSelectedLoreTerm("");
+    setPageTurnKey((key) => key + 1);
+  };
 
   const selectChapter = (chapterId: string) => {
+    const targetChapter = chapters.find((chapter) => chapter.id === chapterId);
+    if (targetChapter && activeScope !== "history") {
+      const targetScope = storyChapterScope(targetChapter);
+      if (targetScope !== activeScope) setActiveScope(targetScope);
+    }
     setSelectedChapterId(chapterId);
     setReaderOpen(false);
     setSelectedLoreTerm("");
@@ -672,7 +737,7 @@ export function StoryJourneyPage({ entries, bestiary, readOnly = false, onOpenEn
   };
 
   const proceedToNextChapter = () => {
-    const nextChapter = chapters[selectedIndex + 1];
+    const nextChapter = scopeChapters[selectedIndex + 1];
     if (!nextChapter) return;
     setTransitioning(true);
     setCompletedChapterIds((current) =>
@@ -735,19 +800,20 @@ export function StoryJourneyPage({ entries, bestiary, readOnly = false, onOpenEn
 
   const addChapter = () => {
     const nextNumber = chapters.length + 1;
-    const title = `New Story Chapter ${nextNumber}`;
+    const template = storyChapterTemplateForScope(activeScope, nextNumber);
+    const title = template.title;
     const id = uniqueId(slugify(title), chapters.map((chapter) => chapter.id));
     const chapter = normalizeStoryChapter({
       id,
       title,
-      subtitle: "Add a short hook for this chapter.",
-      timelineStartLabel: "Pre-Game",
-      timelineEndLabel: "Act 1",
-      timelineStartPercent: 50,
-      timelineEndPercent: 60,
-      era: "Draft",
+      subtitle: template.subtitle,
+      timelineStartLabel: template.timelineStartLabel,
+      timelineEndLabel: template.timelineEndLabel,
+      timelineStartPercent: template.timelineStartPercent,
+      timelineEndPercent: template.timelineEndPercent,
+      era: template.era,
       revealLevel: "Player-Facing",
-      shortDescription: "Write the quick chapter preview here.",
+      shortDescription: template.shortDescription,
       coverImageUrl: "",
       relatedLore: [],
       pages: [
@@ -775,16 +841,17 @@ export function StoryJourneyPage({ entries, bestiary, readOnly = false, onOpenEn
     if (!confirmed) return;
     const nextChapters = chapters.filter((chapter) => chapter.id !== selectedChapter.id);
     setChapters(nextChapters);
-    setSelectedChapterId(nextChapters[Math.max(0, selectedIndex - 1)]?.id || nextChapters[0].id);
+    const nextScopeChapters = chaptersForScope(nextChapters, activeScope);
+    setSelectedChapterId(nextScopeChapters[Math.max(0, selectedIndex - 1)]?.id || nextScopeChapters[0]?.id || nextChapters[Math.max(0, selectedChapterOrderIndex - 1)]?.id || nextChapters[0].id);
     setReaderOpen(false);
   };
 
   const moveSelectedChapter = (direction: -1 | 1) => {
-    const targetIndex = selectedIndex + direction;
+    const targetIndex = selectedChapterOrderIndex + direction;
     if (targetIndex < 0 || targetIndex >= chapters.length) return;
     setChapters((current) => {
       const next = [...current];
-      const [chapter] = next.splice(selectedIndex, 1);
+      const [chapter] = next.splice(selectedChapterOrderIndex, 1);
       next.splice(targetIndex, 0, chapter);
       return next;
     });
@@ -838,7 +905,7 @@ export function StoryJourneyPage({ entries, bestiary, readOnly = false, onOpenEn
               <p>Interactive Storybook Timeline</p>
               <h1 className="font-display">Story Journey</h1>
               <span>
-                The starting ground for the story of Tales of the Tavern, from ancient meals to Gwen's playable journey.
+                {selectedScopeOption.description}
               </span>
             </div>
             <div className="story-journey-toolbar">
@@ -862,84 +929,119 @@ export function StoryJourneyPage({ entries, bestiary, readOnly = false, onOpenEn
                   )}
                 </>
               )}
-              <button className="button-frame story-journey-start-button" onClick={() => setReaderOpen(true)}>
+              <button className="button-frame story-journey-start-button" onClick={() => setReaderOpen(true)} disabled={!hasScopeChapters}>
                 <Icon name="BookOpen" className="h-5 w-5" />
                 Start Reading
               </button>
             </div>
           </header>
 
-          <div className="story-chapter-capsules">
-            {chapters.map((chapter, index) => (
-              <button
-                key={chapter.id}
-                className={[
-                  "story-chapter-capsule",
-                  chapter.id === selectedChapter.id ? "selected" : "",
-                  completedChapterIds.includes(chapter.id) ? "completed" : ""
-                ].filter(Boolean).join(" ")}
-                onClick={() => selectChapter(chapter.id)}
-              >
-                <span>{String(index + 1).padStart(2, "0")}</span>
-                <strong>{chapter.title}</strong>
-                <em>{chapter.era}</em>
-              </button>
-            ))}
-          </div>
+          <nav className="story-act-selector" aria-label="Story Journey act selector">
+            {storyJourneyScopeOptions.map((option) => {
+              const chapterCount = scopeCounts[option.id] || 0;
+              return (
+                <button
+                  key={option.id}
+                  className={activeScope === option.id ? "active" : ""}
+                  onClick={() => changeStoryScope(option.id)}
+                  type="button"
+                >
+                  <span>{option.eyebrow}</span>
+                  <strong>{option.label}</strong>
+                  <em>{chapterCount} {chapterCount === 1 ? "chapter" : "chapters"}</em>
+                </button>
+              );
+            })}
+          </nav>
 
-          <StoryTimeline chapter={selectedChapter} compact={false} />
-
-          <section key={selectedChapter.id} className="story-journey-preview">
-            <div className="story-preview-copy">
-              <span>{selectedChapter.timelineStartLabel} - {selectedChapter.timelineEndLabel}</span>
-              <h2 className="font-display">{selectedChapter.title}</h2>
-              <p>{selectedChapter.shortDescription}</p>
-              <div>
-                <strong>{selectedChapter.revealLevel}</strong>
-                <strong>{selectedChapter.pages.length} pages</strong>
-                <strong>{selectedChapter.era}</strong>
-              </div>
-              <button className="button-frame story-journey-start-button" onClick={() => setReaderOpen(true)}>
-                <Icon name="BookOpen" className="h-5 w-5" />
-                Start Reading
-              </button>
-            </div>
-            <div className="story-preview-card">
-              {coverImageUrl && (
-                storyEditMode ? (
-                  <AdjustableImage
-                    src={coverImageUrl}
-                    label={`${selectedChapter.title} chapter cover`}
-                    imageFit={selectedChapter.coverImageFit}
-                    aspectRatio="16 / 9"
-                    canAdjust
-                    className="story-preview-cover-adjustable"
-                    imageClassName="story-preview-cover-image"
-                    overlayLabel="Adjust Cover"
-                    onSave={saveChapterCoverAdjustment}
-                  />
-                ) : (
-                  <DriveAwareImage className="story-preview-cover-image" src={coverImageUrl} alt="" />
-                )
-              )}
-              <p>Selected Chapter</p>
-              <h3>{selectedChapter.subtitle}</h3>
-              <div className="story-preview-lore">
-                {selectedChapter.relatedLore.map((term) => (
-                  <button key={term} onClick={() => setSelectedLoreTerm(term)}>{term}</button>
+          {hasScopeChapters ? (
+            <>
+              <div className="story-chapter-capsules">
+                {scopeChapters.map((chapter, index) => (
+                  <button
+                    key={chapter.id}
+                    className={[
+                      "story-chapter-capsule",
+                      chapter.id === selectedChapter.id ? "selected" : "",
+                      completedChapterIds.includes(chapter.id) ? "completed" : ""
+                    ].filter(Boolean).join(" ")}
+                    onClick={() => selectChapter(chapter.id)}
+                  >
+                    <span>{String(index + 1).padStart(2, "0")}</span>
+                    <strong>{chapter.title}</strong>
+                    <em>{chapter.era}</em>
+                  </button>
                 ))}
               </div>
-            </div>
-          </section>
-          {storyEditMode && (
-            <StoryChapterEditor
-              chapter={selectedChapter}
-              chapterIndex={selectedIndex}
-              chapterCount={chapters.length}
-              onChange={updateSelectedChapter}
-              onMove={moveSelectedChapter}
-              onDelete={deleteSelectedChapter}
-            />
+
+              <StoryTimeline chapter={selectedChapter} compact={false} />
+
+              <section key={selectedChapter.id} className="story-journey-preview">
+                <div className="story-preview-copy">
+                  <span>{selectedChapter.timelineStartLabel} - {selectedChapter.timelineEndLabel}</span>
+                  <h2 className="font-display">{selectedChapter.title}</h2>
+                  <p>{selectedChapter.shortDescription}</p>
+                  <div>
+                    <strong>{selectedChapter.revealLevel}</strong>
+                    <strong>{selectedChapter.pages.length} pages</strong>
+                    <strong>{selectedChapter.era}</strong>
+                  </div>
+                  <button className="button-frame story-journey-start-button" onClick={() => setReaderOpen(true)}>
+                    <Icon name="BookOpen" className="h-5 w-5" />
+                    Start Reading
+                  </button>
+                </div>
+                <div className="story-preview-card">
+                  {coverImageUrl && (
+                    storyEditMode ? (
+                      <AdjustableImage
+                        src={coverImageUrl}
+                        label={`${selectedChapter.title} chapter cover`}
+                        imageFit={selectedChapter.coverImageFit}
+                        aspectRatio="16 / 9"
+                        canAdjust
+                        className="story-preview-cover-adjustable"
+                        imageClassName="story-preview-cover-image"
+                        overlayLabel="Adjust Cover"
+                        onSave={saveChapterCoverAdjustment}
+                      />
+                    ) : (
+                      <DriveAwareImage className="story-preview-cover-image" src={coverImageUrl} alt="" />
+                    )
+                  )}
+                  <p>Selected Chapter</p>
+                  <h3>{selectedChapter.subtitle}</h3>
+                  <div className="story-preview-lore">
+                    {selectedChapter.relatedLore.map((term) => (
+                      <button key={term} onClick={() => setSelectedLoreTerm(term)}>{term}</button>
+                    ))}
+                  </div>
+                </div>
+              </section>
+              {storyEditMode && (
+                <StoryChapterEditor
+                  chapter={selectedChapter}
+                  chapterIndex={selectedChapterOrderIndex}
+                  chapterCount={chapters.length}
+                  onChange={updateSelectedChapter}
+                  onMove={moveSelectedChapter}
+                  onDelete={deleteSelectedChapter}
+                />
+              )}
+            </>
+          ) : (
+            <section className="story-scope-empty">
+              <Icon name="BookOpen" className="h-10 w-10" />
+              <p>{selectedScopeOption.eyebrow}</p>
+              <h2 className="font-display">{selectedScopeOption.emptyTitle}</h2>
+              <span>{selectedScopeOption.description}</span>
+              {canEditStory && (
+                <button className="button-frame" onClick={addChapter}>
+                  <Icon name="Plus" className="h-5 w-5" />
+                  Add {selectedScopeOption.label} Chapter
+                </button>
+              )}
+            </section>
           )}
         </>
       ) : (
@@ -1026,7 +1128,7 @@ export function StoryJourneyPage({ entries, bestiary, readOnly = false, onOpenEn
               <button className="button-frame" onClick={() => setPage(currentPageIndex + 1)}>
                 Next Page
               </button>
-            ) : selectedIndex < chapters.length - 1 ? (
+            ) : selectedIndex < scopeChapters.length - 1 ? (
               <button className="button-frame story-proceed-button" onClick={proceedToNextChapter}>
                 Proceed to Next Chapter
               </button>
@@ -1356,6 +1458,96 @@ function chapterContainsTerm(chapter: StoryChapter, term: string) {
   ].join(" ")).includes(normalized);
 }
 
+function normalizeStoryJourneyScope(value: unknown): StoryJourneyScope {
+  if (value === "history" || value === "act1" || value === "act2" || value === "act3") return value;
+  return "history";
+}
+
+function chaptersForScope(chapters: StoryChapter[], scope: StoryJourneyScope) {
+  if (scope === "history") return chapters;
+  return chapters.filter((chapter) => storyChapterScope(chapter) === scope);
+}
+
+function storyChapterScope(chapter: StoryChapter): StoryJourneyScope {
+  const haystack = normalizeTerm([
+    chapter.id,
+    chapter.title,
+    chapter.subtitle,
+    chapter.era,
+    chapter.timelineStartLabel,
+    chapter.timelineEndLabel,
+    chapter.shortDescription,
+    ...chapter.relatedLore,
+    ...chapter.pages.flatMap((page) => [page.title, ...page.relatedLore])
+  ].join(" "));
+
+  if (/\bact\s*1\b/.test(haystack) || haystack.includes("act-one")) return "act1";
+  if (/\bact\s*2\b/.test(haystack) || haystack.includes("act-two")) return "act2";
+  if (/\bact\s*3\b/.test(haystack) || haystack.includes("act-three") || haystack.includes("final act")) return "act3";
+  return "history";
+}
+
+function buildScopeCounts(chapters: StoryChapter[]): Record<StoryJourneyScope, number> {
+  return chapters.reduce<Record<StoryJourneyScope, number>>((counts, chapter) => {
+    counts.history += 1;
+    const scope = storyChapterScope(chapter);
+    if (scope !== "history") counts[scope] += 1;
+    return counts;
+  }, { history: 0, act1: 0, act2: 0, act3: 0 });
+}
+
+function storyChapterTemplateForScope(scope: StoryJourneyScope, nextNumber: number) {
+  if (scope === "act1") {
+    return {
+      title: `Act 1 Chapter ${nextNumber}`,
+      subtitle: "Add the opening playable story beat.",
+      timelineStartLabel: "Act 1",
+      timelineEndLabel: "Act 1",
+      timelineStartPercent: 70,
+      timelineEndPercent: 78,
+      era: "Act 1",
+      shortDescription: "Write the Act 1 story summary here."
+    };
+  }
+
+  if (scope === "act2") {
+    return {
+      title: `Act 2 Chapter ${nextNumber}`,
+      subtitle: "Add the middle-game story beat.",
+      timelineStartLabel: "Act 2",
+      timelineEndLabel: "Act 2",
+      timelineStartPercent: 80,
+      timelineEndPercent: 88,
+      era: "Act 2",
+      shortDescription: "Write the Act 2 story summary here."
+    };
+  }
+
+  if (scope === "act3") {
+    return {
+      title: `Act 3 Chapter ${nextNumber}`,
+      subtitle: "Add the late-game story beat.",
+      timelineStartLabel: "Act 3",
+      timelineEndLabel: "Final Act",
+      timelineStartPercent: 90,
+      timelineEndPercent: 98,
+      era: "Act 3",
+      shortDescription: "Write the Act 3 story summary here."
+    };
+  }
+
+  return {
+    title: `New History Chapter ${nextNumber}`,
+    subtitle: "Add a history or lore timeline chapter.",
+    timelineStartLabel: "Pre-Game",
+    timelineEndLabel: "Pre-Game",
+    timelineStartPercent: 50,
+    timelineEndPercent: 56,
+    era: "General History",
+    shortDescription: "Write the general lore history summary here."
+  };
+}
+
 function loadStoryJourneyState(chapters: StoryChapter[]): StoryJourneyState {
   try {
     const stored = localStorage.getItem(STORY_JOURNEY_STATE_KEY);
@@ -1365,6 +1557,7 @@ function loadStoryJourneyState(chapters: StoryChapter[]): StoryJourneyState {
       selectedChapterId: chapters.some((chapter) => chapter.id === parsed.selectedChapterId)
         ? String(parsed.selectedChapterId)
         : chapters[0].id,
+      activeScope: normalizeStoryJourneyScope(parsed.activeScope),
       pageByChapter: typeof parsed.pageByChapter === "object" && parsed.pageByChapter !== null ? parsed.pageByChapter as Record<string, number> : {},
       completedChapterIds: Array.isArray(parsed.completedChapterIds)
         ? parsed.completedChapterIds.filter((id): id is string => typeof id === "string")
@@ -1386,6 +1579,7 @@ function saveStoryJourneyState(state: StoryJourneyState) {
 function createDefaultStoryJourneyState(chapters = defaultStoryChapters): StoryJourneyState {
   return {
     selectedChapterId: chapters[0].id,
+    activeScope: "history",
     pageByChapter: {},
     completedChapterIds: []
   };
