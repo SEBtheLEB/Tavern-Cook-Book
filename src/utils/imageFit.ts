@@ -21,6 +21,14 @@ export const normalizeImageFit = (value: unknown, fallback: ImageFitSettings = d
 export const imageFitToStyle = (fit: unknown): CSSProperties => {
   const normalized = normalizeImageFit(fit);
   return {
+    display: "block",
+    width: "100%",
+    height: "100%",
+    minWidth: 0,
+    minHeight: 0,
+    maxWidth: "none",
+    maxHeight: "none",
+    padding: 0,
     objectFit: normalized.mode === "custom" ? "contain" : normalized.mode,
     transform: `translate(${normalized.x}%, ${normalized.y}%) scale(${normalized.scale})`,
     transformOrigin: "center center"
