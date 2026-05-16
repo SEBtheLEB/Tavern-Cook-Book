@@ -1,5 +1,6 @@
 ﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import type { CSSProperties } from "react";
 import type { ImageFitSettings, SpriteAnimationSlotReference } from "../types";
 import {
   defaultImageFit,
@@ -178,10 +179,15 @@ function ManagedImageSlotCard({
   onChange: (patch: Partial<ImageManagerSlotDraft>, options?: { autoSave?: boolean }) => void;
   onOpenSpriteCutter: () => void;
 }) {
-  const frameStyle = slot.frameWidth && slot.frameHeight
+  const frameStyle: CSSProperties = slot.frameWidth && slot.frameHeight
     ? {
         width: `${slot.frameWidth}px`,
         height: `${slot.frameHeight}px`,
+        minWidth: `${slot.frameWidth}px`,
+        minHeight: `${slot.frameHeight}px`,
+        maxWidth: "none",
+        maxHeight: "none",
+        flex: "0 0 auto",
         aspectRatio: `${slot.frameWidth} / ${slot.frameHeight}`
       }
     : { aspectRatio: slot.aspectRatio || "4 / 3" };

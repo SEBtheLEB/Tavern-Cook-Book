@@ -69,9 +69,11 @@ export function ImageAdjustModal({
     ? {
         width: `${Math.round(measuredFrame.width)}px`,
         height: `${Math.round(measuredFrame.height)}px`,
-        maxWidth: "100%",
-        maxHeight: "58vh",
-        minHeight: 0,
+        minWidth: `${Math.round(measuredFrame.width)}px`,
+        minHeight: `${Math.round(measuredFrame.height)}px`,
+        maxWidth: "none",
+        maxHeight: "none",
+        flex: "0 0 auto",
         aspectRatio: `${measuredFrame.width} / ${measuredFrame.height}`
       }
     : { aspectRatio };

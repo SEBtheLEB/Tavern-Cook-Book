@@ -3278,7 +3278,7 @@ textarea {
   grid-template-columns: minmax(320px, 1.15fr) minmax(280px, 0.85fr);
   gap: 16px;
   min-height: 0;
-  overflow-y: auto;
+  overflow: auto;
   padding: 18px;
 }
 
@@ -3287,6 +3287,13 @@ textarea {
 .image-adjust-source-box {
   display: grid;
   gap: 12px;
+}
+
+.image-adjust-preview-panel {
+  align-content: start;
+  justify-items: start;
+  min-width: 0;
+  overflow: auto;
 }
 
 .image-adjust-preview-frame {
@@ -17727,9 +17734,10 @@ button,
 
 .image-manager-slot-preview-wrap {
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: safe center;
+  justify-content: safe center;
   min-height: 190px;
+  overflow: auto;
 }
 
 .image-manager-slot-preview {
