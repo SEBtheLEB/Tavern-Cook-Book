@@ -11,7 +11,7 @@ import { Icon } from "./Icon";
 
 const STORY_JOURNEY_STATE_KEY = "tavernCookBookStoryJourneyState";
 const STORY_JOURNEY_CHAPTERS_KEY = "tavernCookBookStoryJourneyChapters";
-const storyExpansionChapterIds = new Set(["truth-of-tabby-island", "the-maseel-hunt"]);
+const storyExpansionChapterIds = new Set(["act-one-whisker-woods", "truth-of-tabby-island", "the-maseel-hunt"]);
 
 interface StoryJourneyPageProps {
   entries: LoreEntry[];
@@ -392,64 +392,296 @@ const defaultStoryChapters: StoryChapter[] = [
   {
     id: "act-one-whisker-woods",
     title: "Act 1: Whisker Woods",
-    subtitle: "Cozy village life meets corruption, bugs, and the first recipe page.",
+    subtitle: "Gwen's first real step from tavern helper into magical meal wielder.",
     timelineStartLabel: "Act 1",
     timelineEndLabel: "Act 1",
     timelineStartPercent: 70,
     timelineEndPercent: 80,
-    era: "During the Game",
+    era: "Act 1",
     revealLevel: "Player-Facing",
     shortDescription:
-      "Gwen begins her journey in Whisker Woods, where cozy village life is being threatened by corruption, strange creatures, and the first signs of the stolen recipes.",
-    relatedLore: ["Gwen", "Whisker Woods", "Kap", "Recipe Book", "Ice Queen"],
+      "Act 1 begins as a simple ingredient-gathering task for Tohm Kyatt and becomes Gwen's first investigation into the corruption spreading through Whisker Woods.",
+    relatedLore: ["Gwen", "Tohm Kyatt", "Whisker Woods", "Feast of Full Plates", "Kap", "Prawnhusk", "Fire Meal", "Ice Queen", "Blizzard Meal"],
     pages: [
       {
-        title: "The First Task",
-        text:
-          "Gwen begins by gathering ingredients and learning the rhythm of the world. Whisker Woods seems warm and alive, full of paths, villagers, food, and small needs that make a place feel real.",
-        imagePlaceholder: "Gwen gathering ingredients in a golden forest clearing.",
-        caption: "A good first task teaches the world without stopping it.",
-        relatedLore: ["Gwen", "Whisker Woods"]
+        title: "Clean Story Layout",
+        text: storyText(
+          "Act 1 follows Gwen's first real step from tavern helper into magical meal wielder. It begins as a simple ingredient-gathering task for Tohm Kyatt and slowly becomes a full investigation into the corruption spreading through Whisker Woods.",
+          "By the end, Gwen has discovered magical cooking, seen her first trance vision, met several strange allies and enemies, and faced the Ice Queen, the ruler of the corrupted insect swarm.",
+          "The act should move from cozy tavern responsibility into danger, mystery, food magic, and suspicion. Gwen starts by proving she can handle a gathering run, then learns that ingredients, recipes, monsters, and corruption are all tied together."
+        ),
+        imagePlaceholder: "A story map of Whisker Woods with a warm tavern on one edge and a frozen insect hive on the other.",
+        caption: "Act 1 begins with a chore and ends with a recipe mystery.",
+        relatedLore: ["Gwen", "Tohm Kyatt", "Whisker Woods", "Ice Queen"]
       },
       {
-        title: "Something Wrong in the Woods",
-        text:
-          "Bug nests, corrupted creatures, and strange changes begin appearing. The woods are not merely dangerous. They are being altered by something that does not belong in the natural order.",
-        imagePlaceholder: "A cozy forest path interrupted by dark roots and insect nests.",
-        caption: "Corruption is easiest to notice when it touches somewhere gentle.",
-        relatedLore: ["Whisker Woods", "Dark Culinary Arts"]
+        title: "Act 1 Overview",
+        text: storyText(
+          "Gwen works under Tohm Kyatt at his living tavern in Whisker Woods. Tohm needs ingredients before nightfall because the village is preparing for the Feast of Full Plates, an important Whisken celebration tied to food, abundance, and community.",
+          "At first, Gwen's goal is simple: gather Tohm's ingredients, return before the feast, and prove she can handle real responsibility in the tavern.",
+          "But Whisker Woods is not normal anymore. Bugs are becoming aggressive. Ice is appearing where it should not exist. Strange magical animals are wandering the forest. People are going missing. Recipe magic is beginning to awaken around Gwen."
+        ),
+        imagePlaceholder: "The Living Tavern glowing warmly while strange ice and insect trails creep through the woods beyond it.",
+        caption: "The opening contrast is cozy hearth against corrupted forest.",
+        relatedLore: ["Gwen", "Tohm Kyatt", "Living Tavern", "Feast of Full Plates", "Whisker Woods"]
       },
       {
-        title: "Kap at the Corrupted Pond",
-        text:
-          "Gwen helps Kap and sees that the problem is larger than expected. The pond is not just a local trouble spot. It is proof that the stolen recipes are reaching into daily life.",
-        imagePlaceholder: "A pond with ripples of dark color and a worried figure nearby.",
-        caption: "The first rescue shows the shape of the danger.",
-        relatedLore: ["Kap", "Gwen", "Whisker Woods"]
+        title: "Gwen's First Task",
+        text: storyText(
+          "The story begins in the morning with Gwen being sent out by Tohm Kyatt. Tohm gives her an ingredient list for the feast: 2 Boar Meat, 13 Purfox, and 4 Sunchee.",
+          "Gwen is told to return to the tavern before nightfall so the food can be prepared in time for the Feast of Full Plates. This opening should feel cozy at first. Gwen is doing a normal tavern chore. She knows the woods, she knows how to fight, and she has done gathering runs before.",
+          "This time feels different. As Gwen moves through Whisker Woods, she notices bugs crawling near the surface, egg nests appearing in strange places, and paths blocked by unnatural ice or corrupted overgrowth.",
+          "This is where the player learns the basic loop: explore, gather, fight small enemies, use tools, collect ingredients, and return before the day ends."
+        ),
+        imagePlaceholder: "Gwen reading Tohm's ingredient list at the tavern door before walking into a golden forest.",
+        caption: "The first task should feel ordinary until the woods answer back.",
+        relatedLore: ["Gwen", "Tohm Kyatt", "Boar Meat", "Purfox", "Sunchee", "Feast of Full Plates"]
       },
       {
-        title: "The First Recipe Page",
-        text:
-          "Gwen begins to understand that stolen recipe pages are connected to the corrupted powers spreading through the world. Recovery is not optional. Every missing page can become another disaster.",
-        imagePlaceholder: "A torn recipe page glowing in Gwen's hand.",
-        caption: "A page recovered is a wound closed.",
-        relatedLore: ["Recipe Book", "Gwen", "Tohm Kyatt"]
+        title: "The Forest Starts Fighting Back",
+        text: storyText(
+          "As Gwen gathers ingredients, she runs into aggressive insects. These are not just normal bugs. They feel invasive, territorial, and unnaturally organized.",
+          "The bugs are laying eggs too close to paths and settlements, almost like they are trying to claim the forest. Gwen clears small nests, fights early bug enemies, and begins realizing that something is spreading through Whisker Woods.",
+          "Possible early enemies include Crayhusks, Dappleflys, small corrupted bugs, egg clusters, and bug nests blocking paths.",
+          "This section teaches Gwen's basic combat and survival instincts. She can use ale to heal, fight with her weapon, and start discovering how dangerous the woods have become. The tone shifts from gathering ingredients for the tavern to realizing something is wrong in Whisker Woods."
+        ),
+        imagePlaceholder: "A cozy forest path interrupted by insect eggs, clawed roots, and a first swarm of corrupted bugs.",
+        caption: "The forest should feel like it is beginning to defend the corruption.",
+        relatedLore: ["Whisker Woods", "Crayhusks", "Dappleflys", "Egg Clusters", "Bug Nests"]
       },
       {
-        title: "The Ice Queen",
-        text:
-          "The act builds toward the Ice Queen, the cursed ruler of corrupted bugs in Whisker Woods. She turns a local threat into a boss story: creature design, corruption, and recipe power all meeting in one fight.",
-        imagePlaceholder: "A frozen insect queen in a corrupted nest throne.",
-        caption: "Every act needs a face for its danger.",
-        relatedLore: ["Ice Queen", "Whisker Woods", "Dark Culinary Arts"]
+        title: "Kap at the Corrupted Lake",
+        text: storyText(
+          "While traveling deeper into the woods, Gwen hears cries for help near a hidden lake. The lake is corrupted, but beautiful in a strange way: a secret bioluminescent pond glowing with wrong colors beneath the surface.",
+          "There, Gwen finds Kap, a Whisken fisherman. Kap is trapped near the center of the lake, surrounded by bugs. He came looking for a rare fish connected to corrupted waters, possibly a Gloomfin, because he thought it could be used in an incredible dish for the feast.",
+          "Kap's thinking is very Whisken: even when everything is dangerous, he is still thinking about food. He may say something like, \"This fish only grows in corrupted waters! Imagine it with Moonbutter Herb Roast!\"",
+          "Kap believes that if Gwen brings something this rare back to Tohm, Tohm might finally take her seriously as more than just a helper. But the bugs close in. Gwen has to clear Crayhusks, Dappleflys, and egg clusters around the corrupted lake while Kap tries to stay alive.",
+          "Once the bugs are cleared, the ground shakes. Something much bigger rises from the water."
+        ),
+        imagePlaceholder: "Kap stranded at the center of a glowing corrupted lake while bug shapes gather around the shore.",
+        caption: "Kap turns a rescue into a food-culture moment.",
+        relatedLore: ["Kap", "Gloomfin", "Moonbutter Herb Roast", "Crayhusks", "Dappleflys", "Prawnhusk"]
       },
       {
-        title: "A Recipe Recovered",
-        text:
-          "Gwen defeats the threat, recovers a recipe page, and the story opens toward the next act. The woods are not fully safe, but the player has learned the rule: cook, fight, help, recover, and keep asking what Tohm is hiding.",
-        imagePlaceholder: "Warm light returning to part of Whisker Woods.",
-        caption: "Act 1 ends by making the world bigger.",
-        relatedLore: ["Gwen", "Recipe Book", "Tohm Kyatt"]
+        title: "Boss Fight: Prawnhusk",
+        text: storyText(
+          "The first major boss is the Prawnhusk. This is Gwen's tutorial boss and should feel like a giant corrupted lake bug, somewhere between a shrimp, crawfish, and monstrous armored insect.",
+          "It emerges because Gwen disturbed the corrupted nest around the lake. Kap sees it and yells, \"LOOK OUT!\" Gwen tells Kap to row away or get to safety while she deals with it. Kap leaves, shouting that he will see her at the tavern tonight and reminding her not to die before Tohm's test.",
+          "The fight is a clean 1v1 boss battle. It teaches dodging, blocking or parrying, watching attack patterns, punishing the boss after a big attack, and reading enemy tells.",
+          "When Gwen defeats it, the Prawnhusk dissolves or collapses into ash, leaving strange bug remains behind. This is Gwen's first major sign that the bug problem is bigger than a normal infestation."
+        ),
+        imagePlaceholder: "A giant armored prawn-insect boss rising from bioluminescent water while Gwen braces on the shore.",
+        caption: "The Prawnhusk is the first proof that the forest problem has boss-level teeth.",
+        relatedLore: ["Gwen", "Kap", "Prawnhusk", "Whisker Woods"]
+      },
+      {
+        title: "Returning for the Feast",
+        text: storyText(
+          "Gwen returns to the tavern in time for the Feast of Full Plates. This should be one of the first big cultural moments in the game, showing the Whisken people as a food-centered culture with tradition, warmth, and community.",
+          "The tavern is alive with activity. Tohm is preparing food. Whisken villagers are gathering. Kap may arrive and tell people what happened at the lake. Everyone is excited for the feast.",
+          "The contrast should hit hard: outside, Whisker Woods is becoming corrupted. Inside, the tavern is warm, bright, loud, and full of food.",
+          "Gwen has returned with the ingredients. She has proven herself. But Tohm sees that the situation is becoming more dangerous, and he decides it is time to let Gwen try something more advanced."
+        ),
+        imagePlaceholder: "The Living Tavern filled with Whisken villagers, lanterns, food, and noise while dark woods press outside.",
+        caption: "The Feast of Full Plates is Act 1's first warm cultural anchor.",
+        relatedLore: ["Gwen", "Tohm Kyatt", "Kap", "Whisken People", "Feast of Full Plates"]
+      },
+      {
+        title: "Gwen Cooks the Fire Meal",
+        text: storyText(
+          "Tohm introduces Gwen to the idea of a magical meal. This is not normal cooking. It is tied to flavor, memory, spirit, and power. A magical meal is not just something you eat; it pulls meaning out of the world.",
+          "The first magical meal is remembered as the Fire Meal. The recipe may involve ingredients like Sunchee, Honey, and Crushed Purfox.",
+          "Gwen cooks the meal for the first time. She may be nervous. Tohm watches carefully. The tavern quiets down. The meal begins to glow or release strange heat.",
+          "Gwen tastes it. Then everything disappears."
+        ),
+        imagePlaceholder: "Gwen standing over a glowing hot meal while Tohm and the tavern crowd watch in silence.",
+        caption: "The Fire Meal is Gwen's doorway into magical cooking.",
+        relatedLore: ["Gwen", "Tohm Kyatt", "Fire Meal", "Sunchee", "Honey", "Crushed Purfox"]
+      },
+      {
+        title: "The Fire Meal Trance",
+        text: storyText(
+          "Every first-time magical meal pulls Gwen into a vision realm. This place can be called the Between Table or the Feast Beyond. The trance is shaped by the meal's flavor, emotional meaning, and the history connected to the recipe.",
+          "For the Fire Meal, Gwen's trance begins with warmth, then suddenly becomes cold. She finds herself in a snowstorm. The world is silent except for wind. She pushes through the snow and eventually finds a cave or sheltered place.",
+          "Inside, she sees a small scene that feels like a memory. There is a little girl wearing a purple nightgown, possibly holding a fairy plush, comforting or standing beside a large fallen creature. The moment feels innocent at first, but deeply unsettling.",
+          "This little girl is almost certainly connected to Princess Lillia, though Gwen does not understand that yet. The vision hints at Lillia's childhood, her desire to become magical, and the sadness or obsession that eventually leads to the corruption spreading through the world.",
+          "Then Gwen hears guards shouting, \"Princess!\" The trance breaks. Gwen wakes up back in the tavern with fire power."
+        ),
+        imagePlaceholder: "A snowstorm vision with a little girl in a purple nightgown holding a fairy plush beside a fallen creature.",
+        caption: "The trance gives Gwen power and quietly points at Lillia.",
+        relatedLore: ["Gwen", "Fire Meal", "The Between Table", "The Feast Beyond", "Princess Lillia"]
+      },
+      {
+        title: "Fire Opens the Woods",
+        text: storyText(
+          "After the feast and the trance, Gwen can now use the Fire Meal's power. This allows her to burn through enchanted overgrowth, melt unnatural ice, or clear blocked paths in Whisker Woods.",
+          "Now the forest opens up. What used to be a simple ingredient route becomes a larger adventure. Gwen can reach places she could not access before.",
+          "The story becomes less about returning to the tavern and more about finding the source of the corruption. The bugs are becoming worse. The ice is spreading. The forest is changing.",
+          "Tohm may pretend he knows less than he actually does, but Gwen starts noticing that he understands magical meals too well."
+        ),
+        imagePlaceholder: "Gwen using fire power to burn away overgrowth and melt a frozen passage in Whisker Woods.",
+        caption: "Fire turns Act 1 from route into investigation.",
+        relatedLore: ["Gwen", "Fire Meal", "Whisker Woods", "Tohm Kyatt"]
+      },
+      {
+        title: "The Magical Boar",
+        text: storyText(
+          "At some point after Gwen gains magical cooking, Tohm pushes her toward better ingredients. The lesson is simple: better ingredients create stronger magical meals.",
+          "This leads Gwen to hunt or confront a Magical Boar. The boar is not just a normal animal. It may be glowing, enchanted, corrupted, or unusually aggressive.",
+          "The boar represents the next level of ingredient gathering. Gwen is no longer just picking plants and hunting ordinary creatures. She is collecting ingredients with magical properties.",
+          "The boar fight should feel like a wilderness hunt. It can charge, break trees, knock Gwen back, and force her to use timing instead of just attacking. After Gwen defeats it, she gains an ingredient that helps her cook stronger meals or progress deeper into the forest."
+        ),
+        imagePlaceholder: "A glowing magical boar charging through broken trees while Gwen prepares to dodge.",
+        caption: "The boar teaches that ingredients can be boss-level prizes.",
+        relatedLore: ["Gwen", "Tohm Kyatt", "Magical Boar", "Magical Meals"]
+      },
+      {
+        title: "The Bug That Steals",
+        text: storyText(
+          "During the middle of Act 1, Gwen encounters a strange bug or creature that steals from her. This enemy should be memorable because it changes the rhythm of the game. Instead of simply attacking Gwen, it takes something important and runs.",
+          "It could steal an ingredient, a recipe component, a tavern item, a key object needed for a meal, or a charm or tool part.",
+          "At first, it may seem like a mischievous forest creature. Later, Gwen sees the same creature again with lightning around it. This shows that the creature has changed. The bug is no longer just a thief. It has been empowered by something magical, possibly a stolen recipe, corrupted food, or the Ice Queen's influence.",
+          "The lightning version becomes a guide or lure, leading Gwen toward a dungeon or deeper dangerous area. The mystery is whether it was stealing randomly, working for someone, infected after stealing magical food, or chosen by the corruption."
+        ),
+        imagePlaceholder: "A small bug thief clutching a stolen ingredient while sparks flicker around its shell.",
+        caption: "The bug thief makes the player chase a question, not just an enemy.",
+        relatedLore: ["Gwen", "Bug Thief", "Lightning Bug Thief", "Ice Queen", "Dark Culinary Arts"]
+      },
+      {
+        title: "Thairrott and the Cavern",
+        text: storyText(
+          "Gwen eventually reaches the entrance to a cavern or ant nest. Here she faces Thairrott, remembered as a giant skeleton beast that emerges from the ground near the cavern entrance.",
+          "Thairrott acts like a guardian blocking the path into the deeper corrupted area. The Prawnhusk teaches basic combat. The Magical Boar teaches magical ingredient hunting. Thairrott teaches that the deeper parts of Whisker Woods are guarded by ancient or corrupted forces.",
+          "After Gwen defeats Thairrott, the path into the cavern opens. This marks the beginning of the darker half of Act 1.",
+          "Inside the cavern, the insect infestation begins looking less like a natural swarm and more like an army. Gwen finds egg chambers, frozen tunnels, bug nests, ingredient pockets, corrupted roots, strange recipe residue, and ice spreading through underground walls.",
+          "The bug thief with lightning may reappear, leading Gwen deeper or causing trouble. The player begins to connect the bugs, ice, magical food, empowered creatures, and stolen recipe power."
+        ),
+        imagePlaceholder: "A giant skeletal beast bursting from roots and stone before a frozen cavern mouth.",
+        caption: "Thairrott is the gatekeeper into Act 1's darker half.",
+        relatedLore: ["Gwen", "Thairrott", "Whisker Woods", "Bug Thief", "Ice Queen"]
+      },
+      {
+        title: "Cedrick the Grunt",
+        text: storyText(
+          "In the dungeon or skeleton-related area, Gwen encounters Cedrick the Grunt. Cedrick seems like an enemy at first: a skeleton grunt, dungeon guard, or strange creature trying to survive among the corruption.",
+          "At some point, Gwen defeats him or corners him. Then his skull or true vulnerable self is revealed. Instead of finishing him off, Gwen spares him.",
+          "This is important because it shows Gwen's character. She is tough and aggressive when she needs to be, but she is not cruel. If someone begs or shows they are not truly evil, she can show mercy.",
+          "Cedrick later puts on a hood and becomes an ally. This also unlocks or connects to charm upgrades. His Act 1 arc is enemy grunt, defeated, spared, hooded ally, charm upgrade helper."
+        ),
+        imagePlaceholder: "A small skeletal grunt lowering his weapon while Gwen chooses mercy in a dim cavern.",
+        caption: "Cedrick turns combat victory into character definition.",
+        relatedLore: ["Gwen", "Cedrick the Grunt", "Charm Upgrades"]
+      },
+      {
+        title: "Cedar, Lyra, and Oswin",
+        text: storyText(
+          "Gwen later meets Cedar and Lyra. At first, they fight her, either because they do not trust Gwen, think she is working with Tohm, or are protecting someone. Their fight should feel different from monster battles because they are intelligent opponents.",
+          "Cedar and Lyra are not evil. They are suspicious. After Gwen proves herself, they become allies. Cedar is especially important because he shelters Oswin, the old alchemist.",
+          "Oswin is suspicious, fearful, and knowledgeable. He seems to know more about magical food, corruption, or old prophecies than most people. He may fear a false prophet or someone misusing sacred food magic.",
+          "Oswin should not immediately trust Gwen. He may also be suspicious of Tohm Kyatt. This begins planting doubt around Tohm: he is Gwen's mentor, but he has secrets, understands magical meals too well, and has recipes he maybe should not have.",
+          "Oswin helps push the story from bugs are attacking to there is a deeper magical history here. He may also point Gwen toward a relic or food-related artifact, such as the Fish Oven."
+        ),
+        imagePlaceholder: "Cedar and Lyra blocking Gwen on a forest path, with Oswin hidden in a shelter behind them.",
+        caption: "Act 1 widens from Gwen and Tohm into a network of suspicious allies.",
+        relatedLore: ["Gwen", "Cedar", "Lyra", "Oswin", "Tohm Kyatt", "Fish Oven"]
+      },
+      {
+        title: "Mu'Ramar and the Destroyed Camp",
+        text: storyText(
+          "Gwen eventually finds a peaceful campsite or tent area where she meets Mu'Ramar, a boy. At first, this area feels like a break from the bug chaos. It is quieter and more human. Mu'Ramar may seem innocent, lost, or in need of help.",
+          "Later, Gwen returns and finds the tent area destroyed. The camp has been massacred, and Mu'Ramar appears to be the only survivor. Gwen vows revenge or promises to find the monster responsible.",
+          "This leads into the Dog Person transformation boss fight. The twist is that after Gwen defeats the beast, it transforms back into a dog person. The dog person explains that Cedrick gave him magical cookies weeks ago, and those cookies caused the transformations.",
+          "But something about the timeline does not match. The camp was destroyed months ago. The dog person says the cookies were given weeks ago. That means something is wrong with Mu'Ramar. When Gwen realizes the contradiction, Mu'Ramar disappears.",
+          "Mu'Ramar may be a ghost, a memory, a magical projection, or something tied to the corruption. This side arc gives Act 1 emotional weight and shows that magical food can twist bodies, memories, time, and truth."
+        ),
+        imagePlaceholder: "A torn campsite at night with a lone boy shape near the tents and claw marks in the ground.",
+        caption: "Mu'Ramar turns a side quest into a timeline wound.",
+        relatedLore: ["Gwen", "Mu'Ramar", "Dog Person", "Cedrick the Grunt", "Magical Cookies"]
+      },
+      {
+        title: "The Beast Man Night Boss",
+        text: storyText(
+          "The dog person boss fight should happen at night or be tied to night transformation. By day, the character may seem normal or wounded. By night, they transform into a beast.",
+          "This boss connects directly to corrupted magical food. The dog person did not become a monster naturally. They were changed by magical cookies, probably made using corrupted recipe magic.",
+          "This teaches Gwen that meals can be dangerous when unstable or misused. It also connects back to Lillia's larger influence: corrupted dishes are spreading through the world and changing people into bosses.",
+          "The fight should feel tragic, not just scary. Gwen is not killing a monster. She is stopping someone who was transformed by food magic. After the fight, the dog person returns to normal long enough to explain what happened. Then the Mu'Ramar mystery appears."
+        ),
+        imagePlaceholder: "A tragic dog-person beast boss under moonlight, with traces of cookie-like magic around the transformation.",
+        caption: "This fight proves corrupted meals can change people, not only creatures.",
+        relatedLore: ["Gwen", "Dog Person", "Magical Cookies", "Dark Culinary Arts", "Princess Lillia"]
+      },
+      {
+        title: "Brambrik",
+        text: storyText(
+          "Brambrik is soft canon for now. Based on the Act 1 structure, he could fit as a Whisken or forest NPC connected to the Feast of Full Plates, a dungeon-side character who gives Gwen information about the bugs or Ice Queen, or a minor boss, miniboss, or corrupted villager connected to magical food.",
+          "The cleanest placement is middle-to-late Act 1, around the time Gwen is meeting Cedar, Oswin, Cedrick, and other strange figures affected by the corruption.",
+          "Possible role: Brambrik is a survivor or scout who saw the insects moving toward the frozen caverns. He warns Gwen that the bugs are not simply nesting, but gathering under one queen.",
+          "This makes Brambrik useful as the character who points Gwen toward the Ice Queen threat while staying flexible until his role is locked."
+        ),
+        imagePlaceholder: "A wary forest scout or Whisken survivor pointing toward blue light under the trees.",
+        caption: "Brambrik stays useful, but marked soft canon until locked.",
+        relatedLore: ["Brambrik", "Gwen", "Ice Queen", "Whisker Woods"]
+      },
+      {
+        title: "The Ice Queen Revealed",
+        text: storyText(
+          "As Gwen pushes deeper into Whisker Woods, the source of the corruption becomes clearer. The insects are being ruled by the Ice Queen.",
+          "She is the queen of the bugs in Whisker Woods, likely an Ice Ant Queen or insect monarch. Her presence explains the unnatural cold, the aggressive bug behavior, and the frozen areas spreading through the forest.",
+          "She is not just a large bug. She has been changed by recipe magic. This connects to Lillia's stolen recipes and the Dark Culinary Arts. Lillia is using corrupted magical food to empower creatures and people, turning them into bosses.",
+          "The Ice Queen may have consumed or been infused with a recipe connected to cold, leading to the Blizzard Meal. The closer Gwen gets to her, warm forest becomes cold, green paths become frozen, bug nests become ice hives, normal enemies become frost-corrupted, and the sky and wind become unnatural."
+        ),
+        imagePlaceholder: "A frozen insect queen on an ice hive throne as the forest around her becomes a blizzard.",
+        caption: "The Ice Queen is the face of Act 1's mystery.",
+        relatedLore: ["Gwen", "Ice Queen", "Blizzard Meal", "Dark Culinary Arts", "Princess Lillia"]
+      },
+      {
+        title: "Ice Queen Boss Fight",
+        text: storyText(
+          "The first stage of the Ice Queen fight is about survival and pressure. She commands bugs, ice, and the frozen battlefield. Her attacks can include summoning bug swarms, creating ice walls, freezing parts of the arena, dashing or burrowing, launching ice spikes, calling smaller insects from eggs, and creating blizzard zones.",
+          "This fight tests everything Gwen learned in Act 1: basic combat from Prawnhusk, movement and dodging from the boar, dungeon survival from Thairrott, magical meal usage from Fire Meal, and enemy pattern reading from the dog person and other bosses.",
+          "When Gwen defeats Stage 1, the Ice Queen changes. Stage 2 is remembered as the Ice Queen Ballerina form. This should feel elegant, eerie, and dangerous. She spins across the arena, leaves trails of ice, attacks with rhythm, and turns the battlefield into a frozen stage.",
+          "This is a strong visual climax because it combines beauty and horror, matching Tales of the Tavern's tone: charming and whimsical, with dark magical danger underneath. When Gwen finally defeats her, the Ice Queen's power breaks and the frozen corruption begins to thaw."
+        ),
+        imagePlaceholder: "The Ice Queen shifting from monstrous insect monarch into an eerie ballerina form on a frozen stage.",
+        caption: "The final fight turns the hive into a performance of corrupted beauty.",
+        relatedLore: ["Gwen", "Ice Queen", "Prawnhusk", "Magical Boar", "Thairrott", "Fire Meal"]
+      },
+      {
+        title: "Blizzard Meal Recipe",
+        text: storyText(
+          "After defeating the Ice Queen, Gwen receives or recovers the Blizzard Meal recipe. This is the Act 1 recipe reward and confirms that the Ice Queen's power came from magical meal corruption.",
+          "This is also where Gwen may begin to suspect Tohm more seriously. If the recipes being used by enemies are connected to Tohm's recipe book, then how does Tohm fit into this?",
+          "Why does Tohm understand magical meals so well? Why do these recipes keep appearing around corrupted bosses? Why does Gwen's trance show a little princess? Why are magical dishes turning people and creatures into monsters?",
+          "Act 1 ends with the forest partially saved, but the larger mystery opening up. Gwen has not solved the true problem. She has only found the first recipe page."
+        ),
+        imagePlaceholder: "Gwen holding the Blizzard Meal recipe as frost melts from the surrounding woods.",
+        caption: "A recipe recovered is also a question opened.",
+        relatedLore: ["Gwen", "Blizzard Meal", "Recipe Book", "Tohm Kyatt", "Princess Lillia"]
+      },
+      {
+        title: "Clean Act 1 Beat List",
+        text: storyText(
+          "Beat 1 - Tohm Sends Gwen Out: Gwen is sent to gather ingredients for the Feast of Full Plates. Her goal is to return before nightfall.\nBeat 2 - Whisker Woods Feels Wrong: Gwen notices aggressive bugs, strange eggs, blocked paths, and unnatural ice.\nBeat 3 - Gwen Finds Kap: Kap is trapped at a corrupted lake while searching for a rare fish. Bugs surround him.\nBeat 4 - Prawnhusk Boss: A giant Prawnhusk emerges from the corrupted lake. Gwen defeats it and saves Kap.\nBeat 5 - Gwen Returns to the Tavern: Gwen makes it back in time for the Feast of Full Plates.\nBeat 6 - Gwen Cooks Her First Magical Meal: Tohm lets Gwen cook a magical meal, likely the Fire Meal.\nBeat 7 - Fire Meal Trance: Gwen sees a vision of a little girl in a purple nightgown with a fairy plush, connected to Princess Lillia.\nBeat 8 - Gwen Gains Fire Power: The Fire Meal gives Gwen fire abilities, allowing her to clear blocked paths.",
+          "Beat 9 - Magical Boar Hunt: Gwen hunts a magical boar to learn that stronger ingredients create stronger meals.\nBeat 10 - Bug Thief: A bug steals something from Gwen. Later, it appears with lightning around it and leads her toward danger.\nBeat 11 - Thairrott: Gwen fights Thairrott, a giant skeleton beast guarding the cavern entrance.\nBeat 12 - Cavern Investigation: Gwen enters the cavern and discovers deeper insect corruption and frozen nests.\nBeat 13 - Cedrick the Grunt: Gwen defeats Cedrick, spares him, and he later becomes an ally connected to charm upgrades.\nBeat 14 - Cedar and Lyra: Cedar and Lyra fight Gwen at first, then become allies after she proves herself.\nBeat 15 - Oswin: Gwen meets Oswin, an old alchemist who fears the deeper truth behind the corruption and possibly distrusts Tohm.",
+          "Beat 16 - Mu'Ramar Camp: Gwen meets Mu'Ramar, later finds the camp destroyed, and investigates the beast responsible.\nBeat 17 - Dog Person Night Boss: Gwen fights a transformed dog person. After defeat, the dog person reveals magical cookies caused the transformation.\nBeat 18 - Mu'Ramar Mystery: The timeline does not match. Mu'Ramar disappears, implying something supernatural or tragic.\nBeat 19 - Ice Queen's Hive: Gwen reaches the frozen insect hive and discovers the Ice Queen is behind the Act 1 corruption.\nBeat 20 - Ice Queen Stage 1: Gwen fights the Ice Queen in her monstrous insect queen form.\nBeat 21 - Ice Queen Stage 2: The Ice Queen transforms into a ballerina-like form and fights with graceful ice attacks.\nBeat 22 - Blizzard Meal Recipe: Gwen defeats the Ice Queen, recovers the Blizzard Meal recipe, and realizes the corruption is tied to stolen magical recipes."
+        ),
+        imagePlaceholder: "A production board with twenty-two Act 1 beats pinned from tavern morning to frozen hive finale.",
+        caption: "The clean beat list is the quick reference for building Act 1.",
+        relatedLore: ["Gwen", "Tohm Kyatt", "Kap", "Prawnhusk", "Fire Meal", "Ice Queen", "Blizzard Meal"]
+      },
+      {
+        title: "Simple Act 1 Story Summary",
+        text: storyText(
+          "Gwen begins Act 1 as Tohm Kyatt's tavern helper, sent into Whisker Woods to gather ingredients before the Feast of Full Plates. What should be a normal gathering trip becomes dangerous when she discovers that the forest is swarming with corrupted insects. At a glowing corrupted lake, she rescues Kap from bugs and defeats a giant Prawnhusk, proving she can handle real danger.",
+          "Gwen returns to the tavern in time for the feast and cooks a magical meal for the first time. When she tastes it, she falls into a trance and sees a little girl in a purple nightgown holding a fairy plush, hinting at Princess Lillia and the deeper source of the corruption. Gwen wakes with fire powers, opening new paths through the forest.",
+          "As she investigates further, Gwen hunts a magical boar, follows a strange stealing bug that later appears charged with lightning, defeats Thairrott at the cavern entrance, and discovers that the insect corruption goes deep underground. Along the way she meets Cedrick the Grunt, Cedar, Lyra, and Oswin, each revealing more about the danger spreading through Whisker Woods.",
+          "Gwen also encounters Mu'Ramar near a tent camp, only to later find the area destroyed. A nighttime beast fight reveals that a dog person was transformed by magical cookies, proving that corrupted meals can change people into monsters. When Mu'Ramar disappears after Gwen notices the timeline does not make sense, the story becomes even stranger.",
+          "Finally, Gwen tracks the corruption to the Ice Queen, the ruler of the frozen insect swarm. After defeating the Ice Queen and her eerie ballerina form, Gwen recovers the Blizzard Meal recipe. Whisker Woods begins to thaw, but Gwen is left with bigger questions: where are these recipes coming from, why does Tohm know so much, and who was the little princess in her trance?",
+          "Act 1 ends with Gwen stronger, but also more suspicious. The forest is saved for now, but the recipe mystery has only begun."
+        ),
+        imagePlaceholder: "Warm light returning to Whisker Woods while Gwen looks back toward the tavern with a recovered recipe page.",
+        caption: "Act 1 ends with victory, suspicion, and the first recovered recipe.",
+        relatedLore: ["Gwen", "Tohm Kyatt", "Whisker Woods", "Princess Lillia", "Recipe Book", "Blizzard Meal"]
       }
     ]
   },
@@ -629,7 +861,41 @@ const fallbackLore: Record<string, { type: string; description: string }> = {
   Kap: { type: "Character", description: "A character tied to the corrupted pond trouble in Act 1." },
   "Living Tavern": { type: "Location / Artifact", description: "Tohm's magical tavern and major hub." },
   "Recipe Book": { type: "Artifact", description: "Tohm's magical recipe book, source of torn recipe pages and dangerous powers." },
-  "Dark Culinary Arts": { type: "Magic System", description: "A corrupted form of magical cooking tied to Lillia and dangerous meals." }
+  "Dark Culinary Arts": { type: "Magic System", description: "A corrupted form of magical cooking tied to Lillia and dangerous meals." },
+  "Feast of Full Plates": { type: "Whisken Celebration", description: "An Act 1 Whisken feast celebrating food, abundance, and community." },
+  "Boar Meat": { type: "Ingredient", description: "One of the remembered opening ingredients Gwen gathers for Tohm before the Feast of Full Plates." },
+  Purfox: { type: "Ingredient", description: "One of the remembered opening ingredients Gwen gathers for Tohm before the feast." },
+  Sunchee: { type: "Ingredient", description: "A bright ingredient tied to Gwen's opening gathering task and possible Fire Meal recipe." },
+  Honey: { type: "Ingredient", description: "A possible Fire Meal ingredient used in Gwen's first magical meal." },
+  "Crushed Purfox": { type: "Ingredient", description: "A possible prepared ingredient for Gwen's first Fire Meal." },
+  Prawnhusk: { type: "Boss", description: "Gwen's first major boss, a corrupted lake creature that teaches serious combat." },
+  Crayhusks: { type: "Enemy", description: "Early corrupted insect enemies appearing around Whisker Woods and Kap's lake." },
+  Dappleflys: { type: "Enemy", description: "Early corrupted flying insects appearing around Whisker Woods and Kap's lake." },
+  "Egg Clusters": { type: "Hazard", description: "Corrupted insect nests or eggs that show the swarm claiming Whisker Woods." },
+  "Bug Nests": { type: "Hazard", description: "Nest blockades and infestation points spreading through Whisker Woods." },
+  Gloomfin: { type: "Ingredient / Fish", description: "A rare fish connected to corrupted waters that Kap hopes could become an incredible feast dish." },
+  "Moonbutter Herb Roast": { type: "Dish", description: "A food idea Kap imagines pairing with a rare corrupted-water fish." },
+  "Fire Meal": { type: "Magical Meal", description: "Gwen's first magical meal, granting fire power and triggering her first trance vision." },
+  "The Between Table": { type: "Vision Realm", description: "A possible name for the place Gwen enters during first-time magical meal trances." },
+  "The Feast Beyond": { type: "Vision Realm", description: "A possible name for the place Gwen enters during first-time magical meal trances." },
+  "Magical Boar": { type: "Boss / Ingredient Source", description: "An Act 1 hunt teaching Gwen that stronger ingredients can create stronger magical meals." },
+  "Magical Meals": { type: "Magic System", description: "Meals tied to flavor, memory, spirit, power, and the Tablemaker's deeper food magic." },
+  "Bug Thief": { type: "Enemy / Mystery", description: "A strange Act 1 creature that steals from Gwen and later returns empowered by lightning." },
+  "Lightning Bug Thief": { type: "Enemy / Mystery", description: "The empowered version of the bug thief, acting as a lure toward deeper danger." },
+  Thairrott: { type: "Boss", description: "A giant skeleton beast guarding the cavern entrance in the darker half of Act 1." },
+  "Cedrick the Grunt": { type: "Character / Ally", description: "A defeated grunt Gwen spares who later becomes a hooded ally tied to charm upgrades." },
+  "Charm Upgrades": { type: "Upgrade System", description: "A progression system Cedrick may support after Gwen spares him." },
+  Cedar: { type: "Character", description: "An Act 1 ally who initially fights Gwen and shelters Oswin." },
+  Lyra: { type: "Character", description: "An Act 1 ally who initially fights Gwen before joining the growing ally network." },
+  Oswin: { type: "Character", description: "An old alchemist suspicious of Tohm and knowledgeable about deeper food-magic corruption." },
+  "Fish Oven": { type: "Artifact / Tool", description: "A possible food-related relic Oswin may point Gwen toward in Act 1." },
+  "Mu'Ramar": { type: "Character / Mystery", description: "A boy at a destroyed camp whose timeline contradiction suggests something supernatural or tragic." },
+  "Dog Person": { type: "Boss / Victim", description: "A tragic night-transformation boss changed by corrupted magical cookies." },
+  "Magical Cookies": { type: "Corrupted Food", description: "Cookies that caused the dog person transformation and prove food magic can mutate people." },
+  Brambrik: { type: "Soft Canon Character", description: "A flexible Act 1 scout, survivor, NPC, miniboss, or corrupted villager who may point Gwen toward the Ice Queen." },
+  "Ice Queen": { type: "Boss", description: "The ruler of the frozen insect swarm and final Act 1 threat in Whisker Woods." },
+  "Blizzard Meal": { type: "Magical Meal / Recipe", description: "The Act 1 recipe reward recovered after Gwen defeats the Ice Queen." },
+  "Princess Lillia": { type: "Character", description: "Major antagonist hinted through Gwen's Fire Meal trance as a little princess in a purple nightgown." }
 };
 
 const linkableTerms = Array.from(
@@ -1413,6 +1679,10 @@ function renderLinkedStoryText(text: string, onTermClick: (term: string) => void
       </button>
     );
   });
+}
+
+function storyText(...paragraphs: string[]) {
+  return paragraphs.join("\n\n");
 }
 
 function resolveLorePreview(term: string, entries: LoreEntry[], bestiary: BestiaryCreature[]): LorePreview {

@@ -15507,6 +15507,7 @@ button,
 .story-page-copy p {
   color: var(--app-ink);
   font-size: clamp(1.05rem, 1.5vw, 1.24rem);
+  white-space: pre-line;
 }
 
 .story-inline-lore-link {
