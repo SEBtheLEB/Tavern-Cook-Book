@@ -108,8 +108,8 @@ const assistantJsonInstructions = `Return only structured JSON in this exact sha
       "action": "addArtCategory",
       "target": "creature",
       "id": "creature-id",
-      "sectionTitle": "Animation & Combat",
-      "slots": ["Idle Animation", "Attack 01"]
+      "sectionTitle": "Sprite Sheets",
+      "slots": ["Idle Sprite Sheet", "Attack 01 Sprite Sheet"]
     },
     {
       "action": "addArtSlot",
@@ -122,7 +122,7 @@ const assistantJsonInstructions = `Return only structured JSON in this exact sha
       "action": "renameArtSlot",
       "target": "creature",
       "id": "creature-id",
-      "sectionTitle": "Animation & Combat",
+      "sectionTitle": "Sprite Sheets",
       "label": "Old Slot",
       "newLabel": "New Slot"
     },

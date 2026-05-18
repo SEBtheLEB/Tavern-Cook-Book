@@ -32,25 +32,25 @@ const creatureArtVaultBlueprints = [
     slots: ["Main Creature Portrait", "Hover / Alternate Pose", "Concept Art", "Turnaround"]
   },
   {
-    id: "creature-animation-combat",
-    title: "Animation & Combat",
-    description: "Movement, attacks, defeat poses, and animation reference for gameplay.",
-    requirementType: "Animation Reference",
+    id: "creature-sprite-sheets",
+    title: "Sprite Sheets",
+    description: "Movement, attack, reaction, defeat, and behavior sprite sheets for this creature.",
+    requirementType: "Sprite Sheet",
     slots: [
-      "Idle Animation",
-      "Move / Crawl Cycle",
-      "Attack 01",
-      "Attack 02",
-      "Hit Reaction",
-      "Death / Defeat",
-      "Special Ability / Behavior"
+      "Idle Sprite Sheet",
+      "Move / Crawl Sprite Sheet",
+      "Attack 01 Sprite Sheet",
+      "Attack 02 Sprite Sheet",
+      "Hit Reaction Sprite Sheet",
+      "Death / Defeat Sprite Sheet",
+      "Special Behavior Sprite Sheet"
     ]
   },
   {
     id: "creature-gameplay-references",
-    title: "Gameplay References",
-    description: "Drops, habitat, UI, and gameplay-facing creature art.",
-    requirementType: "Gameplay Reference",
+    title: "Drops, Habitat & UI References",
+    description: "Drops, habitat, UI, and creature-facing reference art.",
+    requirementType: "Creature Reference",
     slots: ["Drops / Ingredients", "Habitat Reference", "UI Icon"]
   },
   {
@@ -61,6 +61,18 @@ const creatureArtVaultBlueprints = [
     slots: ["Marketing Art", "Misc Art"]
   }
 ] as const;
+
+const legacyCreatureSpriteSlotIds = new Set(
+  [
+    "Idle Animation",
+    "Move / Crawl Cycle",
+    "Attack 01",
+    "Attack 02",
+    "Hit Reaction",
+    "Death / Defeat",
+    "Special Ability / Behavior"
+  ].map((label, index) => `creature-animation-combat-${slugify(label) || index}`)
+);
 
 const slimeCategoryArtVaultBlueprints = [
   {
@@ -86,9 +98,9 @@ const slimeCategoryArtVaultBlueprints = [
   },
   {
     id: "slime-gameplay-icons",
-    title: "Gameplay & Drop Icons",
+    title: "Drops & UI Icons",
     description: "Shared UI, ingredient, drop, and recipe-facing art for slime systems.",
-    requirementType: "Slime Gameplay Art",
+    requirementType: "Slime UI Art",
     slots: [
       "Slime UI Icon",
       "Slime Gel Drop Icons",
@@ -138,9 +150,9 @@ const genericCategoryArtVaultBlueprints = [
   },
   {
     id: "category-gameplay-ui",
-    title: "Gameplay & UI",
-    description: "Shared gameplay icons, drops, behavior references, and habitat art.",
-    requirementType: "Gameplay Reference",
+    title: "Drops, Behavior & UI",
+    description: "Shared icons, drops, behavior references, and habitat art.",
+    requirementType: "Creature Reference",
     slots: ["Category UI Icon", "Drop / Ingredient Icons", "Behavior Reference", "Spawn / Habitat Reference"]
   },
   {
@@ -278,7 +290,7 @@ export const normalizeBestiaryCategoryArtVault = (
     categoryName: normalizedCategory,
     title: text(input.title) || fallback.title,
     description: text(input.description) || fallback.description,
-    artVault: hasSections ? normalizeArtVault(input.artVault) : fallback.artVault,
+    artVault: hasSections ? renameLegacyCreatureReferenceSections(normalizeArtVault(input.artVault)) : fallback.artVault,
     driveFolderId: text(input.driveFolderId),
     driveFolderLink: safeImageUrl(input.driveFolderLink),
     createdAt: text(input.createdAt) || fallback.createdAt,
@@ -309,7 +321,7 @@ export const normalizeCreatureArtVault = (value: unknown): CharacterArtVault => 
     const normalized = normalizeArtVaultWithFallback(value, createDefaultCreatureArtVault());
     const removedCharacterDefaults = normalized.sections.some(isBlankCharacterDefaultSection);
     const cleaned = removeBlankCharacterDefaultsFromCreatureVault(normalized);
-    return removedCharacterDefaults ? ensureCreatureDefaultSections(cleaned) : cleaned;
+    return consolidateCreatureSpriteSections(removedCharacterDefaults ? ensureCreatureDefaultSections(cleaned) : cleaned);
   }
   return createDefaultCreatureArtVault();
 };
@@ -346,6 +358,161 @@ function ensureCreatureDefaultSections(vault: CharacterArtVault): CharacterArtVa
   return {
     sections: [...missingDefaults, ...vault.sections].map((section, order) => ({ ...section, order }))
   };
+}
+
+function consolidateCreatureSpriteSections(vault: CharacterArtVault): CharacterArtVault {
+  const legacySections = vault.sections.filter(isLegacyCreatureSpriteSection);
+  if (!legacySections.length) return renameLegacyCreatureReferenceSections(vault);
+
+  const sections = renameLegacyCreatureReferenceSections({
+    sections: vault.sections.filter((section) => !isLegacyCreatureSpriteSection(section))
+  }).sections;
+  const defaultSpriteSection = createDefaultCreatureArtVault().sections.find((section) => section.id === "creature-sprite-sheets");
+  let spriteSection = sections.find((section) => section.id === "creature-sprite-sheets") ||
+    sections.find((section) => section.title.trim().toLowerCase() === "sprite sheets");
+
+  if (!spriteSection && defaultSpriteSection) {
+    spriteSection = {
+      ...defaultSpriteSection,
+      slots: defaultSpriteSection.slots.map((slot) => ({ ...slot, image: null }))
+    };
+    sections.push(spriteSection);
+  }
+
+  if (!spriteSection) {
+    return {
+      sections: sections.map((section, order) => ({
+        ...section,
+        order,
+        slots: section.slots.map((slot, slotIndex) => ({ ...slot, order: slotIndex }))
+      }))
+    };
+  }
+
+  const spriteIndex = sections.findIndex((section) => section.id === spriteSection?.id);
+  const movedSlots = legacySections.flatMap((section) =>
+    section.slots
+      .filter(shouldPreserveLegacyCreatureSpriteSlot)
+      .map((slot) => ({
+        ...slot,
+        label: creatureSpriteSheetSlotLabel(slot.label),
+        requirementType: "Sprite Sheet"
+      }))
+  );
+
+  sections[spriteIndex] = {
+    ...sections[spriteIndex],
+    title: "Sprite Sheets",
+    description: sections[spriteIndex].description || defaultSpriteSection?.description || "",
+    slots: mergeCreatureArtVaultSlots(sections[spriteIndex].slots, movedSlots, sections[spriteIndex].id)
+  };
+
+  return {
+    sections: sections.map((section, order) => ({
+      ...section,
+      order,
+      slots: section.slots.map((slot, slotIndex) => ({ ...slot, order: slotIndex }))
+    }))
+  };
+}
+
+function renameLegacyCreatureReferenceSections(vault: CharacterArtVault): CharacterArtVault {
+  return {
+    sections: vault.sections.map((section) => {
+      const title = section.title.trim().toLowerCase();
+      if (section.id === "creature-gameplay-references" || title === "gameplay references") {
+        return {
+          ...section,
+          title: "Drops, Habitat & UI References",
+          description: section.description || "Drops, habitat, UI, and creature-facing reference art."
+        };
+      }
+      if (section.id.endsWith("-slime-gameplay-icons") || title === "gameplay & drop icons") {
+        return {
+          ...section,
+          title: "Drops & UI Icons",
+          description: section.description || "Shared UI, ingredient, drop, and recipe-facing art for slime systems."
+        };
+      }
+      if (section.id.endsWith("-category-gameplay-ui") || title === "gameplay & ui") {
+        return {
+          ...section,
+          title: "Drops, Behavior & UI",
+          description: section.description || "Shared icons, drops, behavior references, and habitat art."
+        };
+      }
+      return section;
+    })
+  };
+}
+
+function isLegacyCreatureSpriteSection(section: ArtVaultSection) {
+  const title = section.title.trim().toLowerCase();
+  return section.id === "creature-animation-combat" || title === "animation & combat";
+}
+
+function creatureSpriteSheetSlotLabel(label: string) {
+  const trimmed = label.trim() || "Sprite Sheet";
+  if (/sprite|sheet|animation|cycle|frames?/i.test(trimmed)) return trimmed;
+  return `${trimmed} Sprite Sheet`;
+}
+
+function shouldPreserveLegacyCreatureSpriteSlot(slot: ArtVaultSlot) {
+  const normalizedStatus = String(slot.status || "").trim().toLowerCase();
+  if (!legacyCreatureSpriteSlotIds.has(slot.id)) return true;
+  return Boolean(
+    slot.image ||
+    slot.notes.trim() ||
+    !["", "empty", "missing"].includes(normalizedStatus)
+  );
+}
+
+function mergeCreatureArtVaultSlots(currentSlots: ArtVaultSlot[], incomingSlots: ArtVaultSlot[], sectionId: string): ArtVaultSlot[] {
+  const slots = [...currentSlots];
+  const usedIds = new Set(slots.map((slot) => slot.id.toLowerCase()));
+  const labelToIndex = new Map(slots.map((slot, index) => [slot.label.trim().toLowerCase(), index]));
+
+  incomingSlots.forEach((slot) => {
+    const key = slot.label.trim().toLowerCase();
+    const existingIndex = labelToIndex.get(key);
+    if (existingIndex !== undefined) {
+      const existing = slots[existingIndex];
+      const incomingFilled = Boolean(slot.image || slot.notes.trim() || !["", "empty", "missing"].includes(String(slot.status || "").toLowerCase()));
+      if (incomingFilled && !existing.image && !existing.notes.trim()) {
+        slots[existingIndex] = {
+          ...existing,
+          requirementType: "Sprite Sheet",
+          status: slot.status,
+          notes: slot.notes,
+          image: slot.image ? { ...slot.image, slotId: existing.id } : null
+        };
+      }
+      return;
+    }
+
+    let id = slot.id || `${sectionId}-${slugify(slot.label) || slots.length}`;
+    if (usedIds.has(id.toLowerCase())) {
+      const baseId = `${sectionId}-${slugify(slot.label) || slots.length}`;
+      id = baseId;
+      let suffix = 2;
+      while (usedIds.has(id.toLowerCase())) {
+        id = `${baseId}-${suffix}`;
+        suffix += 1;
+      }
+    }
+
+    slots.push({
+      ...slot,
+      id,
+      requirementType: "Sprite Sheet",
+      order: slots.length,
+      image: slot.image ? { ...slot.image, slotId: id } : null
+    });
+    usedIds.add(id.toLowerCase());
+    labelToIndex.set(key, slots.length - 1);
+  });
+
+  return slots;
 }
 
 export const createBlankBestiaryCreature = (): BestiaryCreature =>

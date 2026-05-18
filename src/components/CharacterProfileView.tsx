@@ -19,7 +19,9 @@ import type {
 import { isDriveConfigured, showDriveSetupMessage } from "../utils/driveSettings";
 import { artVaultFolderTarget, resolveArtVaultDriveFolder, type ArtVaultDriveFolderContext } from "../utils/artVaultDriveFolders";
 import {
-  addCharacterToolKitToArtVault,
+  ensureGwenToolArtVault,
+  gwenToolArtVaultBlueprints,
+  isGwenToolArtVaultSection,
   isDefaultCharacterArtBoardCategoryId,
   normalizeArtVault,
   normalizeCharacterArtBoard
@@ -1950,7 +1952,22 @@ function CharacterArtVaultView({
   focusedAssignment?: AssignmentRecord | null;
 }) {
   const vault = useMemo(() => normalizeArtVault(entry.artVault), [entry.artVault]);
+  const isGwenVault = /^gwen\b/i.test(entry.title.trim()) || /\bgwen\b/i.test(entry.title);
+  const mainVault = useMemo(
+    () => ({
+      sections: isGwenVault
+        ? vault.sections.filter((section) => !isGwenToolArtVaultSection(section))
+        : vault.sections
+    }),
+    [isGwenVault, vault]
+  );
+  const gwenToolSections = useMemo(
+    () => (isGwenVault ? ensureGwenToolArtVault(vault).sections.filter(isGwenToolArtVaultSection) : []),
+    [isGwenVault, vault]
+  );
   const [activeSectionId, setActiveSectionId] = useState("all");
+  const [toolVaultOpen, setToolVaultOpen] = useState(false);
+  const [activeToolSectionId, setActiveToolSectionId] = useState("");
   const [slotFilter, setSlotFilter] = useState("All");
   const [slotSearch, setSlotSearch] = useState("");
   const [slotDraft, setSlotDraft] = useState<VaultSlotDraft | null>(null);
@@ -1970,17 +1987,19 @@ function CharacterArtVaultView({
     name: entry.driveFolderId ? `${entry.title} Drive Folder` : ""
   }));
   const vaultUploadInputRef = useRef<HTMLInputElement | null>(null);
-  const activeSection = vault.sections.find((section) => section.id === activeSectionId) || null;
+  const activeSection = mainVault.sections.find((section) => section.id === activeSectionId) || null;
   const visibleSections = activeSectionId === "all"
-    ? vault.sections
-    : vault.sections.filter((section) => section.id === activeSectionId);
+    ? mainVault.sections
+    : mainVault.sections.filter((section) => section.id === activeSectionId);
   const filteredSections = visibleSections
     .map((section) => ({
       ...section,
       slots: section.slots.filter((slot) => artVaultSlotMatches(slot, slotSearch, slotFilter))
     }))
     .filter((section) => section.slots.length || !slotSearch.trim());
-  const stats = calculateArtVaultStats(vault);
+  const stats = calculateArtVaultStats(mainVault);
+  const toolStats = calculateArtVaultStats({ sections: gwenToolSections });
+  const activeToolSection = gwenToolSections.find((section) => section.id === activeToolSectionId) || gwenToolSections[0] || null;
   const coverArt =
     artGallery.find((item) => item.isFeatured)?.thumbnailUrl ||
     character.portrait ||
@@ -2002,6 +2021,21 @@ function CharacterArtVaultView({
       return next;
     });
   }, [entry.id, focusedAssignment]);
+
+  useEffect(() => {
+    if (activeSectionId === "all") return;
+    if (mainVault.sections.some((section) => section.id === activeSectionId)) return;
+    setActiveSectionId("all");
+  }, [activeSectionId, mainVault.sections]);
+
+  useEffect(() => {
+    if (!isGwenVault) {
+      setToolVaultOpen(false);
+      return;
+    }
+    if (!gwenToolSections.length || gwenToolSections.some((section) => section.id === activeToolSectionId)) return;
+    setActiveToolSectionId(gwenToolSections[0].id);
+  }, [activeToolSectionId, gwenToolSections, isGwenVault]);
 
   useEffect(() => {
     setVaultUploadFolder((current) => current.id ? current : {
@@ -2033,22 +2067,31 @@ function CharacterArtVaultView({
     setActiveSectionId(section.id);
   };
 
-  const addToolKitSections = () => {
-    if (!requireVaultEdit()) return;
-    const nextVault = addCharacterToolKitToArtVault(vault);
-    saveVault(nextVault);
-    const nextToolPoseSection = nextVault.sections.find((section) =>
-      section.id === "tool-pose-sheets" ||
-      section.title.trim().toLowerCase() === "tool poses & action sheets"
+  const openGwenToolsPage = () => {
+    if (!isGwenVault) return;
+    const nextVault = ensureGwenToolArtVault(vault);
+    const nextToolSections = nextVault.sections.filter(isGwenToolArtVaultSection);
+    const missingToolSections = gwenToolArtVaultBlueprints.some((blueprint) =>
+      !vault.sections.some((section) => section.id === blueprint.id)
     );
-    setActiveSectionId(nextToolPoseSection?.id || "tool-pose-sheets");
-    setCollapsedSections((current) => {
-      const next = new Set(current);
-      next.delete("tool-pose-sheets");
-      next.delete("tool-prop-designs");
-      return next;
-    });
-    setVaultMessage("Tool pose sheets and standalone tool design/sprite slots are ready in this character's Art Vault.");
+    if (missingToolSections) {
+      saveVault(nextVault);
+      setVaultMessage("Gwen's tool pages are ready. Action and usage sprite sheets now live inside each tool.");
+    }
+    setActiveToolSectionId((current) =>
+      nextToolSections.some((section) => section.id === current) ? current : nextToolSections[0]?.id || ""
+    );
+    setToolVaultOpen(true);
+  };
+
+  const addGwenToolPage = () => {
+    if (!requireVaultEdit()) return;
+    const toolName = window.prompt("New Gwen tool, meal, ale, or weapon page", "New Tool")?.trim();
+    if (!toolName) return;
+    const section = createGwenToolVaultSection(toolName, vault.sections.length);
+    saveVault({ sections: [...vault.sections, section] });
+    setActiveToolSectionId(section.id);
+    setToolVaultOpen(true);
   };
 
   const updateSection = (sectionId: string, patch: Partial<ArtVaultSection>) => {
@@ -2465,6 +2508,299 @@ function CharacterArtVaultView({
     openSlotEditor(ref);
   };
 
+  const renderVaultPortals = () => (
+    <>
+      <input
+        ref={vaultUploadInputRef}
+        className="hidden"
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/gif"
+        onChange={(event) => {
+          uploadFileToSlot(event.target.files?.[0]);
+          event.currentTarget.value = "";
+        }}
+      />
+
+      {slotDraft && (
+        <CharacterArtVaultSlotModal
+          draft={slotDraft}
+          sections={toolVaultOpen && isGwenVault ? gwenToolSections : mainVault.sections}
+          isEditing={isEditing}
+          onChange={(patch) => setSlotDraft((current) => current ? { ...current, ...patch } : current)}
+          onSave={saveSlotDraft}
+          onClose={() => setSlotDraft(null)}
+          onUpload={() => beginSlotUpload({ sectionId: slotDraft.sectionId, slotId: slotDraft.slotId })}
+          uploadFolder={uploadFolderForSection(vault.sections.find((section) => section.id === slotDraft.sectionId))}
+          onChooseUploadFolder={() => chooseSectionUploadFolder(slotDraft.sectionId)}
+          onImport={() => importDriveArtToSlot({ sectionId: slotDraft.sectionId, slotId: slotDraft.slotId })}
+          onLink={() => setLinkPickerRef({ sectionId: slotDraft.sectionId, slotId: slotDraft.slotId })}
+          onOpenDrive={() => slotDraft.image?.webViewLink && window.open(slotDraft.image.webViewLink, "_blank", "noopener,noreferrer")}
+          onAdjustImage={(previewFrame) => {
+            setSlotImageAdjustFrame(previewFrame);
+            setSlotImageAdjustOpen(true);
+          }}
+          onDownload={() => downloadSlotImage({
+            id: slotDraft.slotId,
+            label: slotDraft.label,
+            requirementType: slotDraft.requirementType,
+            status: slotDraft.status,
+            image: slotDraft.image,
+            notes: slotDraft.notes,
+            order: 0
+          })}
+          onClear={() => clearSlot({ sectionId: slotDraft.sectionId, slotId: slotDraft.slotId })}
+        />
+      )}
+
+      {linkPickerRef && (
+        <CharacterArtVaultLinkModal
+          items={artGallery}
+          onSelect={(item) => assignGalleryItemToSlot(linkPickerRef, item)}
+          onClose={() => setLinkPickerRef(null)}
+        />
+      )}
+
+      {slotImageAdjustOpen && slotDraft?.image && (
+        <ImageAdjustModal
+          slotLabel={slotDraft.label}
+          imageUrl={slotDraft.image.thumbnailUrl || slotDraft.image.webViewLink}
+          imageFit={slotDraft.image.imageFit}
+          aspectRatio="4 / 3"
+          previewFrame={slotImageAdjustFrame}
+          driveFolderId={vault.sections.find((section) => section.id === slotDraft.sectionId)?.driveFolderId || ""}
+          driveFolderLink={vault.sections.find((section) => section.id === slotDraft.sectionId)?.driveFolderLink || ""}
+          driveFolderName={vault.sections.find((section) => section.id === slotDraft.sectionId)?.driveFolderName || ""}
+          onSave={saveSlotImageAdjustment}
+          onCancel={() => {
+            setSlotImageAdjustOpen(false);
+            setSlotImageAdjustFrame(undefined);
+          }}
+          onUploadToDrive={uploadAdjustedSlotImageToDrive}
+          onImportFromDrive={importAdjustedSlotImageFromDrive}
+        />
+      )}
+    </>
+  );
+
+  const renderToolSlotCard = (section: ArtVaultSection, slot: ArtVaultSlot, slotIndex: number) => {
+    const ref = { sectionId: section.id, slotId: slot.id };
+    const status = artVaultSlotStatus(slot);
+    const menuOpen = slotMenuRef?.sectionId === ref.sectionId && slotMenuRef.slotId === ref.slotId;
+    const assignmentModule = characterArtVaultSlotModule(entry, section, slot);
+    const realtimeTarget = {
+      type: "art-slot" as const,
+      id: assignmentModule.moduleId,
+      label: assignmentModule.moduleTitle,
+      module: "Art Vault"
+    };
+    const hoveringUsers = realtime.usersHoveringTarget(realtimeTarget);
+
+    return (
+      <AssignableModule
+        key={slot.id}
+        as="article"
+        className={`character-art-vault-slot-card realtime-hover-surface ${status} ${menuOpen ? "menu-open" : ""} ${hoveringUsers.length ? "realtime-hover-active" : ""}`}
+        module={assignmentModule}
+        onMouseEnter={() => realtime.setHoverTarget(realtimeTarget)}
+        onMouseLeave={() => realtime.setHoverTarget(null)}
+      >
+        {hoveringUsers.length > 0 && (
+          <span className="realtime-hover-badge">
+            {hoveringUsers.length === 1 ? `${hoveringUsers[0].name} is here` : `${hoveringUsers.length} people here`}
+          </span>
+        )}
+        <span className={`character-art-vault-status ${status}`}>{artVaultSlotStatusLabel(slot)}</span>
+        <button className="character-art-vault-kebab" onClick={() => openSlotActions(ref)} title="Slot actions">
+          ...
+        </button>
+        {menuOpen && (
+          <div className="character-art-vault-slot-menu">
+            <button onClick={() => { beginSlotUpload(ref); setSlotMenuRef(null); }} disabled={busySlotId === slot.id}>
+              Upload / Replace image
+            </button>
+            <button onClick={() => { importDriveArtToSlot(ref); setSlotMenuRef(null); }} disabled={busySlotId === slot.id}>
+              Select from Google Drive
+            </button>
+            <button onClick={() => downloadSlotImage(slot)} disabled={!slot.image}>
+              Download image
+            </button>
+            <button onClick={() => renameSlot(ref)} disabled={!isEditing}>
+              Rename slot
+            </button>
+            <button onClick={() => updateSlotStatus(ref, "approved")}>
+              Mark approved
+            </button>
+            <button onClick={() => updateSlotStatus(ref, "needs-revision")}>
+              Mark needs revision
+            </button>
+            <button onClick={() => clearSlot(ref)} disabled={!slot.image}>
+              Remove image
+            </button>
+            <button onClick={() => { openSlotEditor(ref); setSlotMenuRef(null); }}>
+              Slot settings
+            </button>
+            <button onClick={() => { moveSlot(ref, -1); setSlotMenuRef(null); }} disabled={!isEditing}>
+              Move up
+            </button>
+            <button onClick={() => { moveSlot(ref, 1); setSlotMenuRef(null); }} disabled={!isEditing}>
+              Move down
+            </button>
+            <button className="danger" onClick={() => { deleteSlot(ref); setSlotMenuRef(null); }} disabled={!isEditing}>
+              Delete slot
+            </button>
+          </div>
+        )}
+        <button className="character-art-vault-slot-main" onClick={() => triggerPrimarySlotAction(ref)}>
+          <div className="character-art-vault-slot-preview">
+            {slot.image?.thumbnailUrl ? (
+              <GalleryThumbnail src={slot.image.thumbnailUrl} title={slot.label} imageFit={slot.image.imageFit} />
+            ) : (
+              <div className="character-art-vault-slot-placeholder">
+                <span className="character-art-vault-linework" />
+                <span className="character-art-vault-plus">
+                  <Icon name="Plus" className="h-8 w-8" />
+                </span>
+                <small>Open slot settings</small>
+              </div>
+            )}
+          </div>
+          <div className="character-art-vault-slot-copy">
+            <h3>{slot.label}</h3>
+            <p>{slot.requirementType}</p>
+            {slot.notes && <small>{slot.notes}</small>}
+          </div>
+        </button>
+        <footer className="character-art-vault-slot-meta">
+          <span>Slot {String(slotIndex + 1).padStart(2, "0")}</span>
+          <span>Required</span>
+          <span>{slot.image ? "1 file" : "0 files"}</span>
+        </footer>
+      </AssignableModule>
+    );
+  };
+
+  if (isGwenVault && toolVaultOpen) {
+    return (
+      <article className="character-art-vault-page gwen-tool-vault-page">
+        <header className="character-art-vault-hero">
+          <button className="character-codex-action-button" onClick={() => setToolVaultOpen(false)}>
+            <Icon name="ChevronDown" className="h-4 w-4 rotate-90" />
+            Back to Art Vault
+          </button>
+
+          <div className="character-art-vault-cover">
+            <GalleryThumbnail src={coverArt} title={entry.title} />
+          </div>
+
+          <div className="character-art-vault-title-block">
+            <p>Gwen Tool Vault</p>
+            <h1 className="font-display">Tools</h1>
+            <div className="character-art-vault-meta">
+              <span>{gwenToolSections.length} tool pages</span>
+              <span>{toolStats.filled} / {toolStats.total} filled</span>
+              <span>Action sheets live here</span>
+            </div>
+            <p className="character-art-vault-intro">
+              Store Gwen's tool designs, item sprites, equipped poses, and use/action sprite sheets here. Her main Sprite Sheets category stays focused on general movement.
+            </p>
+          </div>
+
+          <div className="character-art-vault-actions">
+            {isEditing && (
+              <button className="button-frame character-codex-action-button" onClick={addGwenToolPage}>
+                <Icon name="Plus" className="h-4 w-4" />
+                Add Tool
+              </button>
+            )}
+            {isEditing ? (
+              <>
+                <button className="character-codex-action-button" onClick={onCancel}>Cancel</button>
+                <button className="button-frame character-codex-action-button" onClick={onSave}>
+                  <Icon name="Save" className="h-4 w-4" />
+                  Save Tools
+                </button>
+              </>
+            ) : (
+              !readOnly && (
+                <button className="button-frame character-codex-action-button" onClick={onEdit}>
+                  <Icon name="Edit3" className="h-4 w-4" />
+                  Edit Tools
+                </button>
+              )
+            )}
+          </div>
+        </header>
+
+        {vaultMessage && <div className="character-art-vault-message">{vaultMessage}</div>}
+
+        <section className="gwen-tool-vault-layout">
+          <aside className="gwen-tool-vault-selector">
+            <div>
+              <p>Tool Pages</p>
+              <strong>{entry.title}</strong>
+            </div>
+            <div className="gwen-tool-vault-selector-list">
+              {gwenToolSections.map((section) => {
+                const sectionStats = calculateArtVaultStats({ sections: [section] });
+                return (
+                  <button
+                    key={section.id}
+                    className={activeToolSection?.id === section.id ? "active" : ""}
+                    onClick={() => setActiveToolSectionId(section.id)}
+                  >
+                    <Icon name="Hammer" className="h-4 w-4" />
+                    <span>{section.title.replace(/^Tool:\s*/i, "")}</span>
+                    <small>{sectionStats.filled}/{sectionStats.total}</small>
+                  </button>
+                );
+              })}
+            </div>
+          </aside>
+
+          <main className="gwen-tool-vault-detail">
+            {activeToolSection ? (
+              <>
+                <header className="gwen-tool-vault-detail-header">
+                  <div>
+                    <p>Selected Tool</p>
+                    <h2 className="font-display">{activeToolSection.title.replace(/^Tool:\s*/i, "")}</h2>
+                    <span>{activeToolSection.description}</span>
+                  </div>
+                  <div>
+                    <button
+                      className={`character-art-vault-section-folder ${activeToolSection.driveFolderId ? "connected" : ""}`}
+                      onClick={() => chooseSectionUploadFolder(activeToolSection.id)}
+                    >
+                      <Icon name="FolderOpen" className="h-4 w-4" />
+                      {activeToolSection.driveFolderId ? "Open Folder" : "Add Folder"}
+                    </button>
+                    {isEditing && (
+                      <button className="button-frame character-codex-action-button" onClick={() => addSlot(activeToolSection.id)}>
+                        <Icon name="Plus" className="h-4 w-4" />
+                        Add Slot
+                      </button>
+                    )}
+                  </div>
+                </header>
+                <div className="character-art-vault-slot-grid gwen-tool-vault-slot-grid">
+                  {activeToolSection.slots.map((slot, slotIndex) => renderToolSlotCard(activeToolSection, slot, slotIndex))}
+                </div>
+              </>
+            ) : (
+              <div className="character-art-vault-empty">
+                <Icon name="Hammer" className="h-10 w-10" />
+                <strong>No Gwen tools yet.</strong>
+                <p>Click Edit Tools, then Add Tool to create the first page.</p>
+              </div>
+            )}
+          </main>
+        </section>
+
+        {renderVaultPortals()}
+      </article>
+    );
+  };
+
   return (
     <article className="character-art-vault-page">
       <header className="character-art-vault-hero">
@@ -2491,6 +2827,12 @@ function CharacterArtVaultView({
         </div>
 
         <div className="character-art-vault-actions">
+          {isGwenVault && (
+            <button className="button-frame character-codex-action-button" onClick={openGwenToolsPage}>
+              <Icon name="Hammer" className="h-4 w-4" />
+              Tools
+            </button>
+          )}
           {isEditing ? (
             <>
               <button className="character-codex-action-button" onClick={onCancel}>Cancel</button>
@@ -2551,10 +2893,6 @@ function CharacterArtVaultView({
           </div>
           {isEditing && (
             <div className="character-art-vault-control-actions">
-              <button className="button-frame character-codex-action-button" onClick={addToolKitSections}>
-                <Icon name="Hammer" className="h-4 w-4" />
-                Tool Kit
-              </button>
               <button className="button-frame character-codex-action-button" onClick={addSection}>
                 <Icon name="Plus" className="h-4 w-4" />
                 Add Section
@@ -2567,7 +2905,7 @@ function CharacterArtVaultView({
           <button className={activeSectionId === "all" ? "active" : ""} onClick={() => setActiveSectionId("all")}>
             All
           </button>
-          {vault.sections.map((section) => (
+          {mainVault.sections.map((section) => (
             <button
               key={section.id}
               className={activeSectionId === section.id ? "active" : ""}
@@ -2764,75 +3102,7 @@ function CharacterArtVaultView({
         )}
       </main>
 
-      <input
-        ref={vaultUploadInputRef}
-        className="hidden"
-        type="file"
-        accept="image/jpeg,image/png,image/webp,image/gif"
-        onChange={(event) => {
-          uploadFileToSlot(event.target.files?.[0]);
-          event.currentTarget.value = "";
-        }}
-      />
-
-      {slotDraft && (
-        <CharacterArtVaultSlotModal
-          draft={slotDraft}
-          sections={vault.sections}
-          isEditing={isEditing}
-          onChange={(patch) => setSlotDraft((current) => current ? { ...current, ...patch } : current)}
-          onSave={saveSlotDraft}
-          onClose={() => setSlotDraft(null)}
-          onUpload={() => beginSlotUpload({ sectionId: slotDraft.sectionId, slotId: slotDraft.slotId })}
-          uploadFolder={uploadFolderForSection(vault.sections.find((section) => section.id === slotDraft.sectionId))}
-          onChooseUploadFolder={() => chooseSectionUploadFolder(slotDraft.sectionId)}
-          onImport={() => importDriveArtToSlot({ sectionId: slotDraft.sectionId, slotId: slotDraft.slotId })}
-          onLink={() => setLinkPickerRef({ sectionId: slotDraft.sectionId, slotId: slotDraft.slotId })}
-          onOpenDrive={() => slotDraft.image?.webViewLink && window.open(slotDraft.image.webViewLink, "_blank", "noopener,noreferrer")}
-          onAdjustImage={(previewFrame) => {
-            setSlotImageAdjustFrame(previewFrame);
-            setSlotImageAdjustOpen(true);
-          }}
-          onDownload={() => downloadSlotImage({
-            id: slotDraft.slotId,
-            label: slotDraft.label,
-            requirementType: slotDraft.requirementType,
-            status: slotDraft.status,
-            image: slotDraft.image,
-            notes: slotDraft.notes,
-            order: 0
-          })}
-          onClear={() => clearSlot({ sectionId: slotDraft.sectionId, slotId: slotDraft.slotId })}
-        />
-      )}
-
-      {linkPickerRef && (
-        <CharacterArtVaultLinkModal
-          items={artGallery}
-          onSelect={(item) => assignGalleryItemToSlot(linkPickerRef, item)}
-          onClose={() => setLinkPickerRef(null)}
-        />
-      )}
-
-      {slotImageAdjustOpen && slotDraft?.image && (
-        <ImageAdjustModal
-          slotLabel={slotDraft.label}
-          imageUrl={slotDraft.image.thumbnailUrl || slotDraft.image.webViewLink}
-          imageFit={slotDraft.image.imageFit}
-          aspectRatio="4 / 3"
-          previewFrame={slotImageAdjustFrame}
-          driveFolderId={vault.sections.find((section) => section.id === slotDraft.sectionId)?.driveFolderId || ""}
-          driveFolderLink={vault.sections.find((section) => section.id === slotDraft.sectionId)?.driveFolderLink || ""}
-          driveFolderName={vault.sections.find((section) => section.id === slotDraft.sectionId)?.driveFolderName || ""}
-          onSave={saveSlotImageAdjustment}
-          onCancel={() => {
-            setSlotImageAdjustOpen(false);
-            setSlotImageAdjustFrame(undefined);
-          }}
-          onUploadToDrive={uploadAdjustedSlotImageToDrive}
-          onImportFromDrive={importAdjustedSlotImageFromDrive}
-        />
-      )}
+      {renderVaultPortals()}
     </article>
   );
 }
@@ -4362,8 +4632,8 @@ function artVaultGallerySectionIdForSlot(sections: ArtVaultSection[], slot: Excl
     sections.find((section) => section.id === "dialogue-sprites") ||
     sections.find((section) => /dialogue|expression/i.test(section.title));
   const gameplaySection =
-    sections.find((section) => section.id === "combat-gameplay-sprites") ||
-    sections.find((section) => /combat|gameplay|in-game|sprite/i.test(section.title));
+    sections.find((section) => section.id === "sprite-sheets") ||
+    sections.find((section) => /sprite|in-game/i.test(section.title));
 
   if (slot === "dialogueSpriteImage" && dialogueSection) return dialogueSection.id;
   if (slot === "ingameSpriteImage" && gameplaySection) return gameplaySection.id;
@@ -4624,6 +4894,30 @@ function createCustomVaultSection(title: string, order: number): ArtVaultSection
     description: "Custom art requirements for this character.",
     order,
     slots: []
+  };
+}
+
+function createGwenToolVaultSection(toolName: string, order: number): ArtVaultSection {
+  const blueprint = gwenToolArtVaultBlueprints.find((candidate) =>
+    candidate.title.replace(/^Tool:\s*/i, "").trim().toLowerCase() === toolName.trim().toLowerCase()
+  ) || gwenToolArtVaultBlueprints[0];
+  const sectionId = `gwen-tool-custom-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  const slots = blueprint.slots.map((label, slotIndex) => ({
+    id: `${sectionId}-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || slotIndex}`,
+    label,
+    requirementType: blueprint.requirementType,
+    status: "empty",
+    image: null,
+    notes: "",
+    order: slotIndex
+  }));
+
+  return {
+    id: sectionId,
+    title: `Tool: ${toolName}`,
+    description: `Tool-specific art for ${toolName}: standalone art, icons, and Gwen use/action sprite sheets.`,
+    order,
+    slots
   };
 }
 

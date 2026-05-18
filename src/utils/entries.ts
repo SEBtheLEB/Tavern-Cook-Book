@@ -218,49 +218,19 @@ const baseArtVaultBlueprints = [
     ]
   },
   {
-    id: "combat-gameplay-sprites",
-    title: "Combat / Gameplay Sprites",
-    description: "Required animation and interaction sprites for playable gameplay states.",
-    requirementType: "Gameplay Sprite",
-    slots: [
-      "Idle",
-      "Walk Cycle",
-      "Run Cycle",
-      "Dash",
-      "Sword Attack 01",
-      "Sword Attack 02",
-      "Heavy Attack",
-      "Bow Aim",
-      "Bow Shoot",
-      "Hit Reaction",
-      "Knockback",
-      "Death / Downed",
-      "Victory",
-      "Interact",
-      "Pick Up Item",
-      "Tree Chop",
-      "Mining",
-      "Digging",
-      "Fishing",
-      "Cooking",
-      "Stir Cauldron",
-      "Carry Object"
-    ]
-  },
-  {
     id: "sprite-sheets",
     title: "Sprite Sheets",
-    description: "Compiled sheets for animation, expression, combat, cooking, and turnaround work.",
+    description: "Compiled sheets for general movement, expressions, and neutral character animation. Gwen's tool actions live in her Tools page.",
     requirementType: "Sprite Sheet",
     slots: [
-      "Full Idle Sprite Sheet",
-      "Full Walk Sprite Sheet",
-      "Full Run Sprite Sheet",
-      "Full Combat Sprite Sheet",
-      "Full Gathering Sprite Sheet",
-      "Full Cooking Sprite Sheet",
-      "Full Expression Sheet",
-      "Full Turnaround Sheet"
+      "Idle Sprite Sheet",
+      "Walk Sprite Sheet",
+      "Run Sprite Sheet",
+      "Dash Sprite Sheet",
+      "Jump / Fall Sprite Sheet",
+      "Turnaround Sprite Sheet",
+      "Expression Sprite Sheet",
+      "General Movement Cleanup Sheet"
     ]
   },
   {
@@ -316,7 +286,37 @@ const baseArtVaultBlueprints = [
   }
 ] as const;
 
-export const characterToolArtVaultBlueprints = [
+export const legacyCharacterSpriteArtVaultBlueprints = [
+  {
+    id: "combat-gameplay-sprites",
+    title: "Combat / Gameplay Sprites",
+    description: "Required animation and interaction sprites for playable gameplay states.",
+    requirementType: "Gameplay Sprite",
+    slots: [
+      "Idle",
+      "Walk Cycle",
+      "Run Cycle",
+      "Dash",
+      "Sword Attack 01",
+      "Sword Attack 02",
+      "Heavy Attack",
+      "Bow Aim",
+      "Bow Shoot",
+      "Hit Reaction",
+      "Knockback",
+      "Death / Downed",
+      "Victory",
+      "Interact",
+      "Pick Up Item",
+      "Tree Chop",
+      "Mining",
+      "Digging",
+      "Fishing",
+      "Cooking",
+      "Stir Cauldron",
+      "Carry Object"
+    ]
+  },
   {
     id: "tool-pose-sheets",
     title: "Tool Poses & Action Sheets",
@@ -361,17 +361,71 @@ export const characterToolArtVaultBlueprints = [
   }
 ] as const;
 
-const artVaultBlueprints = [...baseArtVaultBlueprints, ...characterToolArtVaultBlueprints] as const;
+export const GWEN_TOOL_NAMES = [
+  "Makeshift Sickle",
+  "Makeshift Axe",
+  "Fishing Rod",
+  "Hip Lantern",
+  "Makeshift Wooden Torch",
+  "Makeshift Shovel",
+  "Meals & Food Use",
+  "Ale & Drink Use",
+  "Weapons"
+] as const;
+
+export const GWEN_TOOL_SECTION_PREFIX = "gwen-tool-";
+
+export const gwenToolSectionId = (toolName: string) =>
+  `${GWEN_TOOL_SECTION_PREFIX}${slugify(toolName) || "tool"}`;
+
+export const isGwenToolArtVaultSection = (section: Pick<ArtVaultSection, "id" | "title">) =>
+  section.id.startsWith(GWEN_TOOL_SECTION_PREFIX) || /^tool:\s*/i.test(section.title);
+
+export const gwenToolArtVaultBlueprints = GWEN_TOOL_NAMES.map((toolName) => ({
+  id: gwenToolSectionId(toolName),
+  title: `Tool: ${toolName}`,
+  description: `Tool-specific art for ${toolName}: standalone art, icons, and Gwen use/action sprite sheets.`,
+  requirementType: "Gwen Tool Asset",
+  slots: [
+    "Tool / Item Design Sheet",
+    "Standalone Tool Sprite",
+    "Inventory / UI Icon",
+    "Equipped Pose Reference",
+    "Gwen Use / Action Sprite Sheet",
+    "Gwen Start / Windup Frames",
+    "Gwen Loop / Active Frames",
+    "Gwen Finish / Recovery Frames",
+    "Tool FX / Contact Frames",
+    "Upgrade / Variant Sheet"
+  ]
+})) as readonly {
+  id: string;
+  title: string;
+  description: string;
+  requirementType: string;
+  slots: readonly string[];
+}[];
+
+const artVaultBlueprints = [...baseArtVaultBlueprints] as const;
+const legacyArtVaultBlueprints = [...legacyCharacterSpriteArtVaultBlueprints] as const;
 
 const defaultArtVaultSectionIds: Set<string> = new Set(artVaultBlueprints.map((section) => section.id));
+const legacyDefaultArtVaultSectionIds: Set<string> = new Set(legacyArtVaultBlueprints.map((section) => section.id));
 const defaultArtVaultSlotIds: Set<string> = new Set(
   artVaultBlueprints.flatMap((section) =>
     section.slots.map((slot, index) => defaultArtVaultSlotId(section.id, slot, index))
   )
 );
+const legacyDefaultArtVaultSlotIds: Set<string> = new Set(
+  legacyArtVaultBlueprints.flatMap((section) =>
+    section.slots.map((slot, index) => defaultArtVaultSlotId(section.id, slot, index))
+  )
+);
 
-export const isDefaultArtVaultSectionId = (id: string) => defaultArtVaultSectionIds.has(id);
-export const isDefaultArtVaultSlotId = (id: string) => defaultArtVaultSlotIds.has(id);
+export const isDefaultArtVaultSectionId = (id: string) =>
+  defaultArtVaultSectionIds.has(id) || legacyDefaultArtVaultSectionIds.has(id);
+export const isDefaultArtVaultSlotId = (id: string) =>
+  defaultArtVaultSlotIds.has(id) || legacyDefaultArtVaultSlotIds.has(id);
 
 function defaultArtVaultSlotId(sectionId: string, label: string, index: number) {
   return `${sectionId}-${slugify(label) || index}`;
@@ -393,11 +447,11 @@ export const createDefaultArtVault = (): CharacterArtVault => ({
   sections: artVaultBlueprints.map((section, sectionIndex) => createArtVaultSectionFromBlueprint(section, sectionIndex))
 });
 
-export function addCharacterToolKitToArtVault(value: unknown): CharacterArtVault {
+export function ensureGwenToolArtVault(value: unknown): CharacterArtVault {
   const vault = normalizeArtVault(value);
   const sections = cloneArtVault(vault).sections;
 
-  characterToolArtVaultBlueprints.forEach((blueprint) => {
+  gwenToolArtVaultBlueprints.forEach((blueprint) => {
     const existingIndex = sections.findIndex((section) =>
       section.id === blueprint.id ||
       section.title.trim().toLowerCase() === blueprint.title.toLowerCase()
@@ -477,7 +531,7 @@ function mergeBlueprintSlotsIntoSection(
 }
 
 export const normalizeArtVault = (value: unknown): CharacterArtVault =>
-  normalizeArtVaultWithFallback(value, createDefaultArtVault());
+  consolidateCharacterSpriteSections(normalizeArtVaultWithFallback(value, createDefaultArtVault()));
 
 export const normalizeArtVaultWithFallback = (
   value: unknown,
@@ -513,6 +567,156 @@ function cloneArtVault(vault: CharacterArtVault): CharacterArtVault {
         image: slot.image ? { ...slot.image } : null
       }))
     }))
+  };
+}
+
+function consolidateCharacterSpriteSections(vault: CharacterArtVault): CharacterArtVault {
+  const source = cloneArtVault(vault);
+  const sections = source.sections.filter((section) => !isLegacyCharacterSpriteSection(section));
+  const legacySections = source.sections.filter(isLegacyCharacterSpriteSection);
+  const spriteBlueprint = baseArtVaultBlueprints.find((section) => section.id === "sprite-sheets");
+  let spriteSection = sections.find((section) => section.id === "sprite-sheets") ||
+    sections.find((section) => section.title.trim().toLowerCase() === "sprite sheets");
+
+  if (!spriteSection && spriteBlueprint) {
+    spriteSection = createArtVaultSectionFromBlueprint(spriteBlueprint, sections.length);
+    sections.push(spriteSection);
+  }
+
+  if (spriteSection && spriteBlueprint) {
+    const spriteIndex = sections.findIndex((section) => section.id === spriteSection?.id);
+    sections[spriteIndex] = mergeBlueprintSlotsIntoSection(
+      {
+        ...spriteSection,
+        title: "Sprite Sheets",
+        description: spriteSection.description || spriteBlueprint.description
+      },
+      spriteBlueprint
+    );
+    spriteSection = sections[spriteIndex];
+  }
+
+  if (!spriteSection) {
+    return {
+      sections: sortByOrder(sections).map((section, sectionIndex) => ({
+        ...section,
+        order: sectionIndex,
+        slots: sortByOrder(section.slots).map((slot, slotIndex) => ({ ...slot, order: slotIndex }))
+      }))
+    };
+  }
+
+  const spriteIndex = sections.findIndex((section) => section.id === spriteSection?.id);
+  const movedSlots = legacySections.flatMap((section) =>
+    section.slots
+      .filter(shouldPreserveLegacySpriteSlot)
+      .map((slot) => ({
+        ...slot,
+        label: spriteSheetSlotLabel(slot.label),
+        requirementType: "Sprite Sheet"
+      }))
+  );
+
+  sections[spriteIndex] = {
+    ...sections[spriteIndex],
+    title: "Sprite Sheets",
+    description: sections[spriteIndex].description || spriteBlueprint?.description || "",
+    slots: mergeArtVaultSlots(sections[spriteIndex].slots, movedSlots, sections[spriteIndex].id)
+  };
+
+  return {
+    sections: sortByOrder(sections).map((section, sectionIndex) => ({
+      ...section,
+      order: sectionIndex,
+      slots: sortByOrder(section.slots).map((slot, slotIndex) => ({ ...slot, order: slotIndex }))
+    }))
+  };
+}
+
+function isLegacyCharacterSpriteSection(section: ArtVaultSection) {
+  const title = section.title.trim().toLowerCase();
+  return (
+    legacyDefaultArtVaultSectionIds.has(section.id) ||
+    title === "combat / gameplay sprites" ||
+    title === "tool poses & action sheets" ||
+    title === "tool designs & sprites"
+  );
+}
+
+function spriteSheetSlotLabel(label: string) {
+  const trimmed = label.trim() || "Sprite Sheet";
+  if (/sprite|sheet|animation|cycle|frames?/i.test(trimmed)) return trimmed;
+  return `${trimmed} Sprite Sheet`;
+}
+
+function shouldPreserveLegacySpriteSlot(slot: ArtVaultSlot) {
+  if (!legacyDefaultArtVaultSlotIds.has(slot.id)) return true;
+  return Boolean(
+    slot.image ||
+    slot.notes.trim() ||
+    normalizeArtVaultStatus(slot.status, slot.image) !== "empty"
+  );
+}
+
+function mergeArtVaultSlots(
+  currentSlots: ArtVaultSlot[],
+  incomingSlots: ArtVaultSlot[],
+  sectionId: string
+): ArtVaultSlot[] {
+  const slots = [...currentSlots];
+  const usedIds = new Set(slots.map((slot) => slot.id.toLowerCase()));
+  const labelToIndex = new Map(slots.map((slot, index) => [slot.label.trim().toLowerCase(), index]));
+
+  incomingSlots.forEach((slot) => {
+    const key = slot.label.trim().toLowerCase();
+    const existingIndex = labelToIndex.get(key);
+    if (existingIndex !== undefined) {
+      const existing = slots[existingIndex];
+      slots[existingIndex] = mergeArtVaultSlot(existing, slot);
+      return;
+    }
+
+    let id = slot.id || defaultArtVaultSlotId(sectionId, slot.label, slots.length);
+    if (usedIds.has(id.toLowerCase())) {
+      const baseId = defaultArtVaultSlotId(sectionId, slot.label, slots.length);
+      id = baseId;
+      let suffix = 2;
+      while (usedIds.has(id.toLowerCase())) {
+        id = `${baseId}-${suffix}`;
+        suffix += 1;
+      }
+    }
+
+    slots.push({
+      ...slot,
+      id,
+      order: slots.length,
+      image: slot.image ? { ...slot.image, slotId: id } : null
+    });
+    usedIds.add(id.toLowerCase());
+    labelToIndex.set(key, slots.length - 1);
+  });
+
+  return slots;
+}
+
+function mergeArtVaultSlot(existing: ArtVaultSlot, incoming: ArtVaultSlot): ArtVaultSlot {
+  const existingFilled = Boolean(existing.image || existing.notes.trim() || normalizeArtVaultStatus(existing.status, existing.image) !== "empty");
+  const incomingFilled = Boolean(incoming.image || incoming.notes.trim() || normalizeArtVaultStatus(incoming.status, incoming.image) !== "empty");
+  if (existingFilled && !incomingFilled) return existing;
+  if (!existingFilled && incomingFilled) {
+    return {
+      ...existing,
+      requirementType: incoming.requirementType || existing.requirementType,
+      status: incoming.status,
+      notes: incoming.notes,
+      image: incoming.image ? { ...incoming.image, slotId: existing.id } : null
+    };
+  }
+  return {
+    ...existing,
+    requirementType: existing.requirementType || incoming.requirementType,
+    notes: existing.notes || incoming.notes
   };
 }
 

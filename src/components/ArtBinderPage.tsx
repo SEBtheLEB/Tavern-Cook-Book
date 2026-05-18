@@ -8,7 +8,7 @@ import {
   normalizeBestiaryCategoryArtVault,
   normalizeCreatureArtVault
 } from "../utils/bestiary";
-import { addCharacterToolKitToArtVault, createBlankEntry, normalizeArtVault } from "../utils/entries";
+import { createBlankEntry, normalizeArtVault } from "../utils/entries";
 import { buildPantryModel, type PantryIngredient, type PantryPrepVariant } from "../utils/pantry";
 import {
   artVaultDriveFolderPathLabel,
@@ -208,7 +208,6 @@ export function ArtBinderPage({
   const completion = totalSlots ? Math.round((filledSlots / totalSlots) * 100) : 0;
   const selectedAssignmentCards = cards.filter((card) => assignmentContext.isModuleSelected(artBinderSlotModule(card).moduleId));
   const editableVisibleSubjects = visibleSubjects.filter((subject) => subject.source !== "environment");
-  const editableVisibleCharacterSubjects = editableVisibleSubjects.filter((subject) => subject.source === "character");
 
   useEffect(() => {
     if (subjectGroupFilter === "all") return;
@@ -545,47 +544,6 @@ export function ArtBinderPage({
     });
   };
 
-  const addToolKitToVisibleCharacters = () => {
-    if (readOnly) return;
-    if (!editableVisibleCharacterSubjects.length) {
-      window.alert("Choose a character shelf or a specific character before adding tool pose slots.");
-      return;
-    }
-
-    const subjectIds = new Set(editableVisibleCharacterSubjects.map((subject) => subject.id));
-    const subjectCount = subjectIds.size;
-    if (
-      subjectCount > 1 &&
-      !window.confirm(`Add the Tool Poses & Action Sheets and Tool Designs & Sprites categories to ${subjectCount} visible character boards?`)
-    ) {
-      return;
-    }
-
-    onDatabaseChange({
-      ...database,
-      entries: database.entries.map((entry) =>
-        subjectIds.has(entry.id)
-          ? {
-              ...entry,
-              artVault: addCharacterToolKitToArtVault(entry.artVault),
-              updatedAt: new Date().toISOString()
-            }
-          : entry
-      )
-    });
-    setKindFilter("character");
-    setCategoryFilter("Tool Poses & Action Sheets");
-    setCollapsedCategories((current) => {
-      const next = new Set(current);
-      next.delete("Tool Poses & Action Sheets");
-      next.delete("Tool Designs & Sprites");
-      return next;
-    });
-    window.alert(
-      `Added the character tool kit to ${subjectCount} character board${subjectCount === 1 ? "" : "s"}.\n\nUse Tool Poses & Action Sheets for Gwen-style pose sheets, and Tool Designs & Sprites for standalone tool art, sprites, and UI icons.`
-    );
-  };
-
   const saveSlotDetails = () => {
     if (!slotEditDraft || readOnly) return;
     const label = slotEditDraft.label.trim();
@@ -660,10 +618,6 @@ export function ArtBinderPage({
             <button className="button-frame" onClick={addCategoryToVisibleSubjects} disabled={!editableVisibleSubjects.length}>
               <Icon name="Plus" className="h-4 w-4" />
               Add Category
-            </button>
-            <button className="button-frame" onClick={addToolKitToVisibleCharacters} disabled={!editableVisibleCharacterSubjects.length}>
-              <Icon name="Hammer" className="h-4 w-4" />
-              Tool Kit
             </button>
           </div>
         )}
