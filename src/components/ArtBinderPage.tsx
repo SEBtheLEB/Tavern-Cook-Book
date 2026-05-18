@@ -8,7 +8,7 @@ import {
   normalizeBestiaryCategoryArtVault,
   normalizeCreatureArtVault
 } from "../utils/bestiary";
-import { createBlankEntry, ensureGwenToolArtVault, normalizeArtVault } from "../utils/entries";
+import { createBlankEntry, isGwenToolArtVaultSection, normalizeArtVault } from "../utils/entries";
 import { buildPantryModel, type PantryIngredient, type PantryPrepVariant } from "../utils/pantry";
 import {
   artVaultDriveFolderPathLabel,
@@ -90,6 +90,7 @@ interface ArtBinderPageProps {
   onBack: () => void;
   onNavigate: (view: ActiveView) => void;
   onOpenEntry: (entry: LoreEntry) => void;
+  onOpenGwenToolBinder?: (entryId?: string) => void;
 }
 
 export interface ArtBinderSessionState {
@@ -126,7 +127,8 @@ export function ArtBinderPage({
   onSessionStateChange,
   onBack,
   onNavigate,
-  onOpenEntry
+  onOpenEntry,
+  onOpenGwenToolBinder
 }: ArtBinderPageProps) {
   const assignmentContext = useAssignments();
   const subjects = useMemo(() => buildArtBinderSubjects(database), [database]);
@@ -188,6 +190,9 @@ export function ArtBinderPage({
   const subjectGroups = buildSubjectGroups(subjectOptions, kindFilter);
   const specificSubjectOptions = subjectOptions.filter((subject) => subjectGroupFilter === "all" || subject.groupKey === subjectGroupFilter);
   const selectedShelfSubject = subjectFilter === "all" ? null : specificSubjectOptions.find((subject) => subject.id === subjectFilter) || null;
+  const selectedGwenSubject = selectedShelfSubject && isGwenArtBinderSubject(selectedShelfSubject)
+    ? selectedShelfSubject
+    : null;
   const selectedGroupLabel = subjectGroupFilter === "all"
     ? subjectGroups.find((group) => group.key === "all")?.label || "All Subjects"
     : subjectGroups.find((group) => group.key === subjectGroupFilter)?.label || "Selected Subject";
@@ -615,6 +620,12 @@ export function ArtBinderPage({
         </div>
         {!readOnly && (
           <div className="art-binder-hero-actions">
+            {selectedGwenSubject && onOpenGwenToolBinder && (
+              <button className="button-frame" onClick={() => onOpenGwenToolBinder(selectedGwenSubject.id)}>
+                <Icon name="Hammer" className="h-4 w-4" />
+                Gwen Tool Binder
+              </button>
+            )}
             <button className="button-frame" onClick={addCategoryToVisibleSubjects} disabled={!editableVisibleSubjects.length}>
               <Icon name="Plus" className="h-4 w-4" />
               Add Category
@@ -1129,9 +1140,14 @@ function buildArtBinderSubjects(database: LoreDatabase): ArtBinderSubject[] {
 }
 
 function characterArtBinderVault(entry: LoreEntry) {
+  const normalized = normalizeArtVault(entry.artVault);
   return /\bgwen\b/i.test(entry.title)
-    ? ensureGwenToolArtVault(entry.artVault)
-    : normalizeArtVault(entry.artVault);
+    ? { sections: normalized.sections.filter((section) => !isGwenToolArtVaultSection(section)) }
+    : normalized;
+}
+
+function isGwenArtBinderSubject(subject: ArtBinderSubject) {
+  return subject.source === "character" && /\bgwen\b/i.test(subject.title);
 }
 
 function characterAppUiSection(entry: LoreEntry): ArtVaultSection {

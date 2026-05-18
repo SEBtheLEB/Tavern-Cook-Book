@@ -399,6 +399,7 @@ export default function App() {
   const [artBinderOpen, setArtBinderOpen] = useState(Boolean(initialSessionUi?.artBinderOpen || initialSessionUi?.artBinderFilter));
   const [artBinderFilter, setArtBinderFilter] = useState<ArtBinderInitialFilter | null>(initialSessionUi?.artBinderFilter || null);
   const [artBinderSessionState, setArtBinderSessionState] = useState<ArtBinderSessionState | null>(initialSessionUi?.artBinderSessionState || null);
+  const [characterToolVaultRequest, setCharacterToolVaultRequest] = useState<{ entryId: string; nonce: number } | null>(null);
   const [detailReturnTarget, setDetailReturnTarget] = useState<DetailReturnTarget | null>(null);
   const [favoritesOpen, setFavoritesOpen] = useState(Boolean(initialSessionUi?.favoritesOpen));
   const [questDashboardOpen, setQuestDashboardOpen] = useState(Boolean(initialSessionUi?.questDashboardOpen));
@@ -2480,6 +2481,32 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  const openGwenToolBinder = (entryId?: string) => {
+    if (readOnly) return;
+    const entry = entryId
+      ? database.entries.find((candidate) => candidate.id === entryId)
+      : database.entries.find((candidate) => isCharacterEntry(candidate) && /\bgwen\b/i.test(candidate.title));
+    if (!entry) {
+      goToCharactersPage();
+      return;
+    }
+    setDetailReturnTarget(captureDetailReturnTarget());
+    setSelectedEntry(entry);
+    setSelectedReferenceKeyword("");
+    setKeywordPopup("");
+    setFavoritesOpen(false);
+    setQuestDashboardOpen(false);
+    setProfileOpen(false);
+    setSelectedBestiaryCreatureId("");
+    setArtBinderOpen(false);
+    setArtBinderFilter(null);
+    setArtBinderSessionState(null);
+    setArtVaultDashboardOpen(false);
+    setCharacterToolVaultRequest({ entryId: entry.id, nonce: Date.now() });
+    setActiveView("characters");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const updateBrandingLogo = (logoImage: string) => {
     if (forcedReadOnly) return;
     const next = {
@@ -2696,6 +2723,7 @@ export default function App() {
                 if (open) setArtBinderSessionState(null);
               }}
               onBinderSessionStateChange={setArtBinderSessionState}
+              onOpenGwenToolBinder={openGwenToolBinder}
             />
           ) : selectedCharacterEntry ? (
             <CharacterDetailPage
@@ -2713,6 +2741,7 @@ export default function App() {
               onToggleFavorite={() => toggleFavoriteById("entry", selectedCharacterEntry.id)}
               focusedAssignment={focusedAssignment}
               onOpenArtBinder={!readOnly ? () => openArtBinder({ kind: "character", subjectId: selectedCharacterEntry.id }) : undefined}
+              openToolVaultRequestNonce={characterToolVaultRequest?.entryId === selectedCharacterEntry.id ? characterToolVaultRequest.nonce : 0}
               storyReferences={database.storyReferences}
               onCreateStoryReference={createLinkedStoryReference}
               onOpenStorySource={openStorySource}

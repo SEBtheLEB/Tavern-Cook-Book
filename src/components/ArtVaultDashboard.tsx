@@ -21,6 +21,7 @@ interface ArtVaultDashboardProps {
   onClearBinderFilter?: () => void;
   onBinderVisibilityChange?: (open: boolean, filter: ArtBinderInitialFilter | null) => void;
   onBinderSessionStateChange?: (state: ArtBinderSessionState) => void;
+  onOpenGwenToolBinder?: (entryId?: string) => void;
 }
 
 export function ArtVaultDashboard({
@@ -34,9 +35,11 @@ export function ArtVaultDashboard({
   initialBinderSessionState = null,
   onClearBinderFilter,
   onBinderVisibilityChange,
-  onBinderSessionStateChange
+  onBinderSessionStateChange,
+  onOpenGwenToolBinder
 }: ArtVaultDashboardProps) {
   const stats = useMemo(() => buildArtVaultDashboardStats(database), [database]);
+  const gwenEntry = useMemo(() => database.entries.find((entry) => entry.category === "Characters" && /\bgwen\b/i.test(entry.title)), [database.entries]);
   const [binderFilter, setBinderFilter] = useState<ArtBinderInitialFilter | null>(initialBinderFilter);
   const [showBinder, setShowBinder] = useState(Boolean(initialBinderOpen || initialBinderFilter));
   const [destinationChoice, setDestinationChoice] = useState<ArtVaultDestinationChoice | null>(null);
@@ -91,6 +94,7 @@ export function ArtVaultDashboard({
         }}
         onNavigate={onNavigate}
         onOpenEntry={onOpenEntry}
+        onOpenGwenToolBinder={onOpenGwenToolBinder}
       />
     );
   }
@@ -160,6 +164,14 @@ export function ArtVaultDashboard({
           </div>
           <div className="global-art-vault-route-list">
             <RouteButton icon="BookOpen" label="The Art Binder" detail="Open the shared category board for all assets." onClick={() => openBinder(null)} />
+            {gwenEntry && (
+              <RouteButton
+                icon="Hammer"
+                label="GWEN"
+                detail="Choose Gwen's personal Art Binder or her character page."
+                onClick={() => setDestinationChoice({ type: "route", kind: "character", label: "GWEN", subjectId: gwenEntry.id, sourceEntryId: gwenEntry.id })}
+              />
+            )}
             <RouteButton icon="Users" label="Character Assets" detail="Choose Art Binder or the character page." onClick={() => setDestinationChoice({ type: "route", kind: "character", label: "Characters" })} />
             <RouteButton icon="Swords" label="Bestiary Assets" detail="Choose Art Binder or the Bestiary page." onClick={() => setDestinationChoice({ type: "route", kind: "bestiary", label: "Bestiary" })} />
             <RouteButton icon="Soup" label="Pantry Assets" detail="Choose Art Binder or the Pantry page." onClick={() => setDestinationChoice({ type: "route", kind: "pantry", label: "The Pantry" })} />
@@ -177,6 +189,14 @@ export function ArtVaultDashboard({
             if (choice.type === "item") {
               openSourceForItem(choice.item);
               return;
+            }
+            if (choice.type === "route" && choice.sourceEntryId) {
+              const entry = database.entries.find((candidate) => candidate.id === choice.sourceEntryId);
+              if (entry) {
+                setDestinationChoice(null);
+                onOpenEntry(entry);
+                return;
+              }
             }
             const kind = choice.type === "group" ? groupIdToKind(choice.group.id) : choice.kind;
             setDestinationChoice(null);
@@ -201,7 +221,7 @@ function StatCard({ label, value, icon }: { label: string; value: number; icon: 
 type ArtVaultDestinationChoice =
   | { type: "group"; group: ArtVaultDashboardGroup }
   | { type: "item"; item: ArtVaultDashboardItem }
-  | { type: "route"; kind: Exclude<ArtBinderKind, "all">; label: string };
+  | { type: "route"; kind: Exclude<ArtBinderKind, "all">; label: string; subjectId?: string; sourceEntryId?: string };
 
 function GroupCard({ group, onChoose }: { group: ArtVaultDashboardGroup; onChoose: () => void }) {
   const realtime = useRealtimeCollaboration();
@@ -297,7 +317,7 @@ function ArtVaultDestinationModal({
 }) {
   const title = destinationTitle(choice);
   const kind = destinationKind(choice);
-  const subjectId = choice.type === "item" ? choice.item.sourceId : undefined;
+  const subjectId = choice.type === "item" ? choice.item.sourceId : choice.type === "route" ? choice.subjectId : undefined;
 
   return (
     <div className="global-art-vault-choice-backdrop" role="dialog" aria-modal="true">

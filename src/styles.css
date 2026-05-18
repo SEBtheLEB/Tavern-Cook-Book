@@ -14343,6 +14343,22 @@ button,
   max-width: min(260px, calc(100vw - 2rem));
 }
 
+.gwen-tool-vault-detail,
+.gwen-tool-vault-slot-grid,
+.character-art-vault-slot-grid {
+  overflow: visible;
+}
+
+.character-art-vault-slot-card.menu-open {
+  z-index: 15000;
+  overflow: visible;
+}
+
+.character-art-vault-slot-card.menu-open .character-art-vault-slot-menu,
+.character-detail-page.art-vault-active .character-art-vault-slot-card.menu-open .character-art-vault-slot-menu {
+  z-index: 15001;
+}
+
 .character-art-vault-slot-main {
   min-height: 258px;
 }

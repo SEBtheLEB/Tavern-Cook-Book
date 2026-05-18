@@ -1967,7 +1967,8 @@ const buildScribeRelationshipGraph = (database: LoreDatabase, command: string) =
 
 const compactArtSlotIndex = (database: LoreDatabase) => {
   const entrySlots = database.entries.flatMap((entry) => {
-    const sections = /\bgwen\b/i.test(entry.title)
+    const gwenToolBinderInitialized = String(entry.fields?.["Gwen Tool Binder Initialized"] || "") === "true";
+    const sections = /\bgwen\b/i.test(entry.title) && !gwenToolBinderInitialized
       ? ensureGwenToolArtVault(entry.artVault).sections
       : entry.artVault?.sections || [];
     return sections.flatMap((section) =>
@@ -2012,7 +2013,8 @@ const compactArtSlotIndex = (database: LoreDatabase) => {
 
 const compactArtCategoryIndex = (database: LoreDatabase) => {
   const entryCategories = database.entries.flatMap((entry) => {
-    const sections = /\bgwen\b/i.test(entry.title)
+    const gwenToolBinderInitialized = String(entry.fields?.["Gwen Tool Binder Initialized"] || "") === "true";
+    const sections = /\bgwen\b/i.test(entry.title) && !gwenToolBinderInitialized
       ? ensureGwenToolArtVault(entry.artVault).sections
       : entry.artVault?.sections || [];
     return sections.map((section) => ({

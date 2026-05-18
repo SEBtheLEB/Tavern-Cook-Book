@@ -31,6 +31,7 @@ interface CharacterDetailPageProps {
   onToggleFavorite?: () => void;
   focusedAssignment?: AssignmentRecord | null;
   onOpenArtBinder?: () => void;
+  openToolVaultRequestNonce?: number;
   storyReferences?: StoryReference[];
   onCreateStoryReference?: (input: StoryReferenceDraftInput) => StoryReference;
   onOpenStorySource?: (storyReferenceId: string) => void;
@@ -57,6 +58,7 @@ export function CharacterDetailPage({
   onToggleFavorite,
   focusedAssignment = null,
   onOpenArtBinder,
+  openToolVaultRequestNonce = 0,
   storyReferences = [],
   onCreateStoryReference,
   onOpenStorySource
@@ -224,6 +226,7 @@ export function CharacterDetailPage({
         onToggleFavorite={onToggleFavorite}
         focusedAssignment={focusedAssignment}
         onOpenArtBinder={onOpenArtBinder}
+        openToolVaultRequestNonce={openToolVaultRequestNonce}
         storyReferences={storyReferences}
         onCreateStoryReference={onCreateStoryReference}
         onOpenStorySource={onOpenStorySource}

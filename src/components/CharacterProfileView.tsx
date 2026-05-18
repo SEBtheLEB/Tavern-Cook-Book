@@ -107,6 +107,7 @@ interface CharacterProfileViewProps {
   onToggleFavorite?: () => void;
   focusedAssignment?: AssignmentRecord | null;
   onOpenArtBinder?: () => void;
+  openToolVaultRequestNonce?: number;
   storyReferences?: StoryReference[];
   onCreateStoryReference?: (input: StoryReferenceDraftInput) => StoryReference;
   onOpenStorySource?: (storyReferenceId: string) => void;
@@ -298,6 +299,7 @@ export function CharacterProfileView({
   onToggleFavorite,
   focusedAssignment = null,
   onOpenArtBinder,
+  openToolVaultRequestNonce = 0,
   storyReferences = [],
   onCreateStoryReference,
   onOpenStorySource
@@ -312,6 +314,7 @@ export function CharacterProfileView({
   const [assistantMessage, setAssistantMessage] = useState("");
   const [artVaultOpen, setArtVaultOpen] = useState(false);
   const [artVaultStartInTools, setArtVaultStartInTools] = useState(false);
+  const handledToolVaultRequestRef = useRef(0);
   const [artGalleryModalOpen, setArtGalleryModalOpen] = useState(false);
   const [editingArtGalleryId, setEditingArtGalleryId] = useState<string | null>(null);
   const [artGalleryDraft, setArtGalleryDraft] = useState<CharacterArtGalleryItem>(() => createBlankArtGalleryItem());
@@ -380,6 +383,13 @@ export function CharacterProfileView({
     setArtVaultStartInTools(startInTools);
     setArtVaultOpen(true);
   };
+
+  useEffect(() => {
+    if (!openToolVaultRequestNonce || handledToolVaultRequestRef.current === openToolVaultRequestNonce) return;
+    if (!isGwenCharacter || readOnly) return;
+    handledToolVaultRequestRef.current = openToolVaultRequestNonce;
+    openCharacterArtVault(true);
+  }, [isGwenCharacter, openToolVaultRequestNonce, readOnly]);
 
   useEffect(() => {
     onArtVaultOpenChange?.(artVaultOpen);
@@ -1985,6 +1995,11 @@ function CharacterArtVaultView({
 }) {
   const vault = useMemo(() => normalizeArtVault(entry.artVault), [entry.artVault]);
   const isGwenVault = isGwenCharacterTitle(entry.title);
+  const gwenToolBinderInitialized = fieldText(entry, ["Gwen Tool Binder Initialized"]) === "true";
+  const toolVault = useMemo(
+    () => (isGwenVault && !gwenToolBinderInitialized ? ensureGwenToolArtVault(vault) : vault),
+    [gwenToolBinderInitialized, isGwenVault, vault]
+  );
   const mainVault = useMemo(
     () => ({
       sections: isGwenVault
@@ -1994,8 +2009,8 @@ function CharacterArtVaultView({
     [isGwenVault, vault]
   );
   const gwenToolSections = useMemo(
-    () => (isGwenVault ? ensureGwenToolArtVault(vault).sections.filter(isGwenToolArtVaultSection) : []),
-    [isGwenVault, vault]
+    () => (isGwenVault ? toolVault.sections.filter(isGwenToolArtVaultSection) : []),
+    [isGwenVault, toolVault]
   );
   const [activeSectionId, setActiveSectionId] = useState("all");
   const [toolVaultOpen, setToolVaultOpen] = useState(false);
@@ -2094,6 +2109,29 @@ function CharacterArtVaultView({
     });
   };
 
+  const toolBinderInitializedPatch = () => ({
+    fields: {
+      ...entry.fields,
+      "Gwen Tool Binder Initialized": "true"
+    }
+  });
+
+  const vaultForSectionId = (sectionId: string) => {
+    const toolSection = toolVault.sections.find((section) => section.id === sectionId);
+    return isGwenVault && toolSection && isGwenToolArtVaultSection(toolSection) ? toolVault : vault;
+  };
+
+  const sectionForId = (sectionId: string) =>
+    vaultForSectionId(sectionId).sections.find((section) => section.id === sectionId);
+
+  const findCurrentVaultSlot = (ref: VaultSlotRef) =>
+    findVaultSlot(vaultForSectionId(ref.sectionId), ref);
+
+  const isGwenToolSectionRef = (sourceVault: CharacterArtVault, ref: VaultSlotRef) => {
+    const section = sourceVault.sections.find((candidate) => candidate.id === ref.sectionId);
+    return Boolean(section && isGwenToolArtVaultSection(section));
+  };
+
   const requireVaultEdit = () => {
     if (isEditing) return true;
     window.alert("Click Edit Art Vault first to add, remove, or reorganize art slots.");
@@ -2111,13 +2149,10 @@ function CharacterArtVaultView({
 
   const openGwenToolsPage = () => {
     if (!isGwenVault) return;
-    const nextVault = ensureGwenToolArtVault(vault);
+    const nextVault = gwenToolBinderInitialized ? toolVault : ensureGwenToolArtVault(vault);
     const nextToolSections = nextVault.sections.filter(isGwenToolArtVaultSection);
-    const missingToolSections = gwenToolArtVaultBlueprints.some((blueprint) =>
-      !vault.sections.some((section) => section.id === blueprint.id)
-    );
-    if (missingToolSections) {
-      saveVault(nextVault);
+    if (!gwenToolBinderInitialized) {
+      saveVault(nextVault, toolBinderInitializedPatch());
       setVaultMessage("Gwen's tool pages are ready. Action and usage sprite sheets now live inside each tool.");
     }
     setActiveToolSectionId((current) =>
@@ -2132,8 +2167,9 @@ function CharacterArtVaultView({
     if (!toolName) return;
     const typeInput = window.prompt("Page type: Tools, Weapons, Meals, or Ales", gwenToolPageType(toolName))?.trim();
     const pageType = normalizeGwenToolPageType(typeInput || gwenToolPageType(toolName));
-    const section = createGwenToolVaultSection(toolName, vault.sections.length, pageType);
-    saveVault({ sections: [...vault.sections, section] });
+    const baseVault = gwenToolBinderInitialized ? toolVault : ensureGwenToolArtVault(vault);
+    const section = createGwenToolVaultSection(toolName, baseVault.sections.length, pageType);
+    saveVault({ sections: [...baseVault.sections, section] }, toolBinderInitializedPatch());
     setToolPageFilter(pageType);
     setActiveToolSectionId(section.id);
     setSlotMenuRef(null);
@@ -2147,7 +2183,7 @@ function CharacterArtVaultView({
     if (!nextName) return;
     const pageType = gwenToolPageType(nextName);
     saveVault({
-      sections: vault.sections.map((candidate) =>
+      sections: toolVault.sections.map((candidate) =>
         candidate.id === section.id
           ? {
               ...candidate,
@@ -2156,7 +2192,7 @@ function CharacterArtVaultView({
             }
           : candidate
       )
-    });
+    }, toolBinderInitializedPatch());
     setSlotMenuRef(null);
   };
 
@@ -2168,7 +2204,7 @@ function CharacterArtVaultView({
       ? `\n\n${filledSlots} slot${filledSlots === 1 ? "" : "s"} have assigned art or notes. This only removes Cook Book metadata; it will not delete Drive files.`
       : "\n\nThis will not delete Drive files.";
     if (!window.confirm(`Delete Gwen tool page "${pageName}"?${detail}`)) return;
-    saveVault({ sections: normalizeVaultOrders(vault.sections.filter((candidate) => candidate.id !== section.id)) });
+    saveVault({ sections: normalizeVaultOrders(toolVault.sections.filter((candidate) => candidate.id !== section.id)) }, toolBinderInitializedPatch());
     const remaining = filteredGwenToolSections.filter((candidate) => candidate.id !== section.id);
     setActiveToolSectionId(remaining[0]?.id || "");
     setSlotMenuRef(null);
@@ -2205,35 +2241,38 @@ function CharacterArtVaultView({
 
   const addSlot = (sectionId: string) => {
     if (!requireVaultEdit()) return;
-    const section = vault.sections.find((candidate) => candidate.id === sectionId);
+    const workingVault = vaultForSectionId(sectionId);
+    const section = workingVault.sections.find((candidate) => candidate.id === sectionId);
     if (!section) return;
     const label = window.prompt("New required art slot", "New Art Requirement");
     if (!label?.trim()) return;
     const nextSlot = createCustomVaultSlot(label.trim(), section.title, section.slots.length);
     saveVault({
-      sections: vault.sections.map((candidate) =>
+      sections: workingVault.sections.map((candidate) =>
         candidate.id === sectionId
           ? { ...candidate, slots: normalizeVaultOrders([...candidate.slots, nextSlot]) }
           : candidate
       )
-    });
+    }, isGwenToolArtVaultSection(section) ? toolBinderInitializedPatch() : {});
   };
 
   const moveSlot = (ref: VaultSlotRef, direction: -1 | 1) => {
     if (!requireVaultEdit()) return;
-    saveVault(moveVaultSlot(vault, ref, direction));
+    const workingVault = vaultForSectionId(ref.sectionId);
+    saveVault(moveVaultSlot(workingVault, ref, direction), isGwenToolSectionRef(workingVault, ref) ? toolBinderInitializedPatch() : {});
   };
 
   const deleteSlot = (ref: VaultSlotRef) => {
     if (!requireVaultEdit()) return;
-    const slot = findVaultSlot(vault, ref)?.slot;
+    const workingVault = vaultForSectionId(ref.sectionId);
+    const slot = findVaultSlot(workingVault, ref)?.slot;
     if (!slot) return;
     if (!window.confirm(`Delete the "${slot.label}" slot? This will not delete anything from Google Drive.`)) return;
-    saveVault(deleteVaultSlot(vault, ref));
+    saveVault(deleteVaultSlot(workingVault, ref), isGwenToolSectionRef(workingVault, ref) ? toolBinderInitializedPatch() : {});
   };
 
   const openSlotEditor = (ref: VaultSlotRef) => {
-    const match = findVaultSlot(vault, ref);
+    const match = findCurrentVaultSlot(ref);
     if (!match) return;
     setSlotDraft({
       sectionId: ref.sectionId,
@@ -2258,7 +2297,8 @@ function CharacterArtVaultView({
 
   const saveSlotDraft = () => {
     if (!slotDraft) return;
-    const originalSlot = findVaultSlot(vault, { sectionId: slotDraft.sectionId, slotId: slotDraft.slotId })?.slot;
+    const workingVault = vaultForSectionId(slotDraft.sectionId);
+    const originalSlot = findVaultSlot(workingVault, { sectionId: slotDraft.sectionId, slotId: slotDraft.slotId })?.slot;
     const statusChanged = originalSlot && slotDraft.status !== originalSlot.status;
     const nextDraft = statusChanged && slotDraft.image
       ? {
@@ -2271,7 +2311,7 @@ function CharacterArtVaultView({
           }
         }
       : slotDraft;
-    saveVault(saveVaultSlotDraft(vault, nextDraft));
+    saveVault(saveVaultSlotDraft(workingVault, nextDraft), isGwenToolSectionRef(workingVault, { sectionId: slotDraft.sectionId, slotId: slotDraft.slotId }) ? toolBinderInitializedPatch() : {});
     if (
       originalSlot &&
       slotDraft.status !== originalSlot.status &&
@@ -2292,6 +2332,7 @@ function CharacterArtVaultView({
 
   const saveSlotImageAdjustment = ({ imageUrl, imageFit }: { imageUrl: string; imageFit: ImageFitSettings }) => {
     if (!slotDraft?.image) return;
+    const workingVault = vaultForSectionId(slotDraft.sectionId);
     const nextDraft: VaultSlotDraft = {
       ...slotDraft,
       image: {
@@ -2303,7 +2344,7 @@ function CharacterArtVaultView({
         lastUpdatedAt: new Date().toISOString()
       }
     };
-    saveVault(saveVaultSlotDraft(vault, nextDraft));
+    saveVault(saveVaultSlotDraft(workingVault, nextDraft), isGwenToolSectionRef(workingVault, { sectionId: slotDraft.sectionId, slotId: slotDraft.slotId }) ? toolBinderInitializedPatch() : {});
     setSlotDraft(nextDraft);
     setSlotImageAdjustOpen(false);
     setSlotImageAdjustFrame(undefined);
@@ -2314,7 +2355,7 @@ function CharacterArtVaultView({
       showDriveSetupMessage();
       throw new Error("Google Drive is not connected yet.");
     }
-    const activeSection = slotDraft ? vault.sections.find((section) => section.id === slotDraft.sectionId) : undefined;
+    const activeSection = slotDraft ? sectionForId(slotDraft.sectionId) : undefined;
     const resolvedFolder = activeSection && !folderId
       ? artVaultFolderTarget(await resolveArtVaultDriveFolder(characterArtVaultDriveContext(entry, activeSection)))
       : null;
@@ -2325,7 +2366,8 @@ function CharacterArtVaultView({
     };
     if (!targetFolder.id) throw new Error("Set the Default Art Vault Parent Folder ID in Settings before uploading art.");
     if (activeSection && resolvedFolder) {
-      saveVault(updateVaultSectionDriveFolder(vault, activeSection.id, resolvedFolder));
+      const workingVault = vaultForSectionId(activeSection.id);
+      saveVault(updateVaultSectionDriveFolder(workingVault, activeSection.id, resolvedFolder), isGwenToolArtVaultSection(activeSection) ? toolBinderInitializedPatch() : {});
     }
     const uploadedFile = await uploadImageToDrive(file, targetFolder.id, {
       naming: {
@@ -2349,10 +2391,11 @@ function CharacterArtVaultView({
       window.alert("That gallery item uses local image data. The Art Vault only stores Drive/link metadata.");
       return;
     }
-    const match = findVaultSlot(vault, ref);
+    const workingVault = vaultForSectionId(ref.sectionId);
+    const match = findVaultSlot(workingVault, ref);
     if (!match) return;
     const vaultImage = galleryItemToVaultImage(item, match.slot.id, match.slot.requirementType, item.notes || match.slot.notes);
-    saveVault(assignImageToVaultSlot(vault, ref, vaultImage));
+    saveVault(assignImageToVaultSlot(workingVault, ref, vaultImage), isGwenToolArtVaultSection(match.section) ? toolBinderInitializedPatch() : {});
     setSlotDraft((current) =>
       current && current.slotId === ref.slotId ? { ...current, image: vaultImage, status: "uploaded" } : current
     );
@@ -2361,7 +2404,8 @@ function CharacterArtVaultView({
   };
 
   const chooseSectionUploadFolder = async (sectionId: string) => {
-    const section = vault.sections.find((candidate) => candidate.id === sectionId);
+    const workingVault = vaultForSectionId(sectionId);
+    const section = workingVault.sections.find((candidate) => candidate.id === sectionId);
     if (!section) return;
     const existing = uploadFolderForSection(section);
     if (existing.id.trim() && section.driveFolderId) {
@@ -2372,7 +2416,7 @@ function CharacterArtVaultView({
       setVaultMessage(`Preparing ${section.title} folder in Google Drive...`);
       const folder = artVaultFolderTarget(await resolveArtVaultDriveFolder(characterArtVaultDriveContext(entry, section)));
       setVaultUploadFolder(folder);
-      saveVault(updateVaultSectionDriveFolder(vault, sectionId, folder));
+      saveVault(updateVaultSectionDriveFolder(workingVault, sectionId, folder), isGwenToolArtVaultSection(section) ? toolBinderInitializedPatch() : {});
       window.open(folder.link || googleDriveFolderLink(folder.id), "_blank", "noopener,noreferrer");
       setVaultMessage(`Opened "${folder.name}" in Google Drive.`);
     } catch (error) {
@@ -2394,14 +2438,15 @@ function CharacterArtVaultView({
       showDriveSetupMessage();
       return;
     }
-    const match = findVaultSlot(vault, ref);
+    const workingVault = vaultForSectionId(ref.sectionId);
+    const match = findVaultSlot(workingVault, ref);
     if (!match) return;
     try {
       if (!match.section.driveFolderId?.trim()) {
         setVaultMessage(`Preparing ${match.section.title} folder in Google Drive...`);
         const folder = artVaultFolderTarget(await resolveArtVaultDriveFolder(characterArtVaultDriveContext(entry, match.section)));
         setVaultUploadFolder(folder);
-        saveVault(updateVaultSectionDriveFolder(vault, match.section.id, folder));
+        saveVault(updateVaultSectionDriveFolder(workingVault, match.section.id, folder), isGwenToolArtVaultSection(match.section) ? toolBinderInitializedPatch() : {});
       }
       setUploadTarget(ref);
       vaultUploadInputRef.current?.click();
@@ -2414,7 +2459,8 @@ function CharacterArtVaultView({
     const ref = uploadTarget;
     setUploadTarget(null);
     if (!file || !ref) return;
-    const match = findVaultSlot(vault, ref);
+    const workingVault = vaultForSectionId(ref.sectionId);
+    const match = findVaultSlot(workingVault, ref);
     if (!match) return;
     if (!isSupportedImage(file)) {
       window.alert("Choose a JPG, JPEG, PNG, WEBP, or GIF image.");
@@ -2426,7 +2472,7 @@ function CharacterArtVaultView({
     try {
       const actionType = match.slot.image ? "replace" : "upload";
       const targetFolder = artVaultFolderTarget(await resolveArtVaultDriveFolder(characterArtVaultDriveContext(entry, match.section)));
-      const vaultWithFolder = updateVaultSectionDriveFolder(vault, match.section.id, targetFolder);
+      const vaultWithFolder = updateVaultSectionDriveFolder(workingVault, match.section.id, targetFolder);
       const uploadedFile = await uploadImageToDrive(file, targetFolder.id, {
         naming: {
           subjectName: entry.title,
@@ -2446,6 +2492,7 @@ function CharacterArtVaultView({
       );
       const vaultImage = uploadedDriveFileToVaultImage(uploadedFile, match.slot.id, match.slot.requirementType, match.slot.notes, currentUser, targetFolder);
       saveVault(assignImageToVaultSlot(vaultWithFolder, ref, vaultImage), {
+        ...(isGwenToolArtVaultSection(match.section) ? toolBinderInitializedPatch() : {}),
         artGallery: galleryWithItemIfMissing(artGallery, uploadedItem)
       });
       recordArtVaultActivity({
@@ -2469,7 +2516,8 @@ function CharacterArtVaultView({
   };
 
   const importDriveArtToSlot = async (ref: VaultSlotRef) => {
-    const match = findVaultSlot(vault, ref);
+    const workingVault = vaultForSectionId(ref.sectionId);
+    const match = findVaultSlot(workingVault, ref);
     if (!match) return;
 
     setBusySlotId(ref.slotId);
@@ -2483,7 +2531,8 @@ function CharacterArtVaultView({
       }
       const pickedItem = handlePickedDriveFile(pickedFile, entry.id);
       const vaultImage = pickedDriveFileToVaultImage(pickedFile, match.slot.id, match.slot.requirementType, currentUser);
-      saveVault(assignImageToVaultSlot(vault, ref, vaultImage), {
+      saveVault(assignImageToVaultSlot(workingVault, ref, vaultImage), {
+        ...(isGwenToolArtVaultSection(match.section) ? toolBinderInitializedPatch() : {}),
         artGallery: galleryWithItemIfMissing(artGallery, pickedItem)
       });
       recordArtVaultActivity({
@@ -2507,13 +2556,15 @@ function CharacterArtVaultView({
   };
 
   const clearSlot = (ref: VaultSlotRef) => {
-    const slot = findVaultSlot(vault, ref)?.slot;
+    const workingVault = vaultForSectionId(ref.sectionId);
+    const match = findVaultSlot(workingVault, ref);
+    const slot = match?.slot;
     if (!slot) return;
     if (!window.confirm(`Clear assigned art from "${slot.label}"? This will not delete the file from Google Drive or remove it from the normal gallery.`)) {
       return;
     }
     const removedImage = slot.image;
-    saveVault(clearVaultSlot(vault, ref));
+    saveVault(clearVaultSlot(workingVault, ref), match && isGwenToolArtVaultSection(match.section) ? toolBinderInitializedPatch() : {});
     recordArtVaultActivity({
       actionType: "remove",
       slotName: slot.label,
@@ -2556,8 +2607,10 @@ function CharacterArtVaultView({
   };
 
   const updateSlotStatus = (ref: VaultSlotRef, status: string) => {
-    const slot = findVaultSlot(vault, ref)?.slot;
-    saveVault(updateVaultSlotStatus(vault, ref, status, currentUser));
+    const workingVault = vaultForSectionId(ref.sectionId);
+    const match = findVaultSlot(workingVault, ref);
+    const slot = match?.slot;
+    saveVault(updateVaultSlotStatus(workingVault, ref, status, currentUser), match && isGwenToolArtVaultSection(match.section) ? toolBinderInitializedPatch() : {});
     if (slot && (status === "approved" || status === "needs-revision")) {
       recordArtVaultActivity({
         actionType: status === "approved" ? "approve" : "revision",
@@ -2574,11 +2627,13 @@ function CharacterArtVaultView({
 
   const renameSlot = (ref: VaultSlotRef) => {
     if (!requireVaultEdit()) return;
-    const slot = findVaultSlot(vault, ref)?.slot;
+    const workingVault = vaultForSectionId(ref.sectionId);
+    const match = findVaultSlot(workingVault, ref);
+    const slot = match?.slot;
     if (!slot) return;
     const label = window.prompt("Rename art slot", slot.label);
     if (!label?.trim()) return;
-    saveVault(updateVaultSlotLabel(vault, ref, label.trim()));
+    saveVault(updateVaultSlotLabel(workingVault, ref, label.trim()), match && isGwenToolArtVaultSection(match.section) ? toolBinderInitializedPatch() : {});
     setSlotMenuRef(null);
   };
 
@@ -2615,7 +2670,7 @@ function CharacterArtVaultView({
           onSave={saveSlotDraft}
           onClose={() => setSlotDraft(null)}
           onUpload={() => beginSlotUpload({ sectionId: slotDraft.sectionId, slotId: slotDraft.slotId })}
-          uploadFolder={uploadFolderForSection(vault.sections.find((section) => section.id === slotDraft.sectionId))}
+          uploadFolder={uploadFolderForSection(sectionForId(slotDraft.sectionId))}
           onChooseUploadFolder={() => chooseSectionUploadFolder(slotDraft.sectionId)}
           onImport={() => importDriveArtToSlot({ sectionId: slotDraft.sectionId, slotId: slotDraft.slotId })}
           onLink={() => setLinkPickerRef({ sectionId: slotDraft.sectionId, slotId: slotDraft.slotId })}
@@ -2652,9 +2707,9 @@ function CharacterArtVaultView({
           imageFit={slotDraft.image.imageFit}
           aspectRatio="4 / 3"
           previewFrame={slotImageAdjustFrame}
-          driveFolderId={vault.sections.find((section) => section.id === slotDraft.sectionId)?.driveFolderId || ""}
-          driveFolderLink={vault.sections.find((section) => section.id === slotDraft.sectionId)?.driveFolderLink || ""}
-          driveFolderName={vault.sections.find((section) => section.id === slotDraft.sectionId)?.driveFolderName || ""}
+          driveFolderId={sectionForId(slotDraft.sectionId)?.driveFolderId || ""}
+          driveFolderLink={sectionForId(slotDraft.sectionId)?.driveFolderLink || ""}
+          driveFolderName={sectionForId(slotDraft.sectionId)?.driveFolderName || ""}
           onSave={saveSlotImageAdjustment}
           onCancel={() => {
             setSlotImageAdjustOpen(false);
