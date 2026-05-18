@@ -4955,6 +4955,11 @@ textarea {
   color: var(--danger-ink);
 }
 
+.character-art-vault-open-actions {
+  display: grid;
+  gap: 8px;
+}
+
 .character-art-vault-open-button {
   display: inline-flex;
   width: 100%;
@@ -4974,6 +4979,22 @@ textarea {
     0 0 20px color-mix(in srgb, var(--gold) 44%, transparent),
     0 0 34px rgba(255, 222, 133, 0.26);
   animation: artVaultButtonGlow 2.8s ease-in-out infinite, artVaultButtonShake 5.5s ease-in-out infinite;
+}
+
+.character-art-vault-open-button.tools {
+  background:
+    radial-gradient(circle at 18% 12%, rgba(255, 241, 186, 0.48), transparent 38%),
+    linear-gradient(135deg, #f4c77b, #d49b4a 48%, #7b4f20);
+}
+
+.character-art-vault-open-button.secondary {
+  min-height: 40px;
+  border-color: color-mix(in srgb, var(--panel-border) 70%, var(--gold));
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--field-bg) 88%, var(--gold)), color-mix(in srgb, var(--panel-bg) 88%, var(--gold)));
+  color: var(--app-ink);
+  box-shadow: none;
+  animation: none;
 }
 
 .character-art-vault-open-button:hover {

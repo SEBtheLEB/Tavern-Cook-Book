@@ -306,6 +306,7 @@ export function CharacterProfileView({
   const [assistantImport, setAssistantImport] = useState("");
   const [assistantMessage, setAssistantMessage] = useState("");
   const [artVaultOpen, setArtVaultOpen] = useState(false);
+  const [artVaultStartInTools, setArtVaultStartInTools] = useState(false);
   const [artGalleryModalOpen, setArtGalleryModalOpen] = useState(false);
   const [editingArtGalleryId, setEditingArtGalleryId] = useState<string | null>(null);
   const [artGalleryDraft, setArtGalleryDraft] = useState<CharacterArtGalleryItem>(() => createBlankArtGalleryItem());
@@ -330,6 +331,7 @@ export function CharacterProfileView({
     return [...byId.values()];
   }, [allCharacterEntries, entry]);
   const character = useMemo(() => buildCharacterView(entry, characterEntries), [entry, characterEntries]);
+  const isGwenCharacter = isGwenCharacterTitle(entry.title);
   const galleryItems = useMemo(() => buildGalleryItems(entry), [entry]);
   const artGallery = entry.artGallery || [];
   const characterArtBoard = normalizeCharacterArtBoard(entry.characterArtBoard);
@@ -368,6 +370,11 @@ export function CharacterProfileView({
   const selectedRelationshipCharacter = selectedRelationshipCharacterId
     ? relationshipCharactersById.get(selectedRelationshipCharacterId)
     : undefined;
+
+  const openCharacterArtVault = (startInTools = false) => {
+    setArtVaultStartInTools(startInTools);
+    setArtVaultOpen(true);
+  };
 
   useEffect(() => {
     onArtVaultOpenChange?.(artVaultOpen);
@@ -1064,7 +1071,11 @@ export function CharacterProfileView({
         artGallery={artGallery}
         readOnly={readOnly}
         isEditing={isEditing}
-        onBack={() => setArtVaultOpen(false)}
+        onBack={() => {
+          setArtVaultOpen(false);
+          setArtVaultStartInTools(false);
+        }}
+        initialToolVaultOpen={artVaultStartInTools}
         onEdit={onEdit}
         onSave={onSave}
         onCancel={onCancel}
@@ -1209,10 +1220,24 @@ export function CharacterProfileView({
         </div>
 
         {!readOnly && (
-          <button className="character-art-vault-open-button" onClick={() => onOpenArtBinder ? onOpenArtBinder() : setArtVaultOpen(true)}>
-            <Icon name="Archive" className="h-5 w-5" />
-            Open Art Vault
-          </button>
+          <div className="character-art-vault-open-actions">
+            <button className="character-art-vault-open-button" onClick={() => openCharacterArtVault(false)}>
+              <Icon name="Archive" className="h-5 w-5" />
+              Open Art Vault
+            </button>
+            {isGwenCharacter && (
+              <button className="character-art-vault-open-button tools" onClick={() => openCharacterArtVault(true)}>
+                <Icon name="Hammer" className="h-5 w-5" />
+                Gwen Tools
+              </button>
+            )}
+            {onOpenArtBinder && (
+              <button className="character-art-vault-open-button secondary" onClick={onOpenArtBinder}>
+                <Icon name="BookOpen" className="h-5 w-5" />
+                Open Art Binder
+              </button>
+            )}
+          </div>
         )}
 
         <CodexPanel title="Essentials" icon="Compass">
@@ -1936,7 +1961,8 @@ function CharacterArtVaultView({
   onCancel,
   onChange,
   currentUser,
-  focusedAssignment
+  focusedAssignment,
+  initialToolVaultOpen = false
 }: {
   entry: LoreEntry;
   character: ReturnType<typeof buildCharacterView>;
@@ -1950,9 +1976,10 @@ function CharacterArtVaultView({
   onChange: (patch: Partial<LoreEntry>) => void;
   currentUser: GoogleAccountUser;
   focusedAssignment?: AssignmentRecord | null;
+  initialToolVaultOpen?: boolean;
 }) {
   const vault = useMemo(() => normalizeArtVault(entry.artVault), [entry.artVault]);
-  const isGwenVault = /^gwen\b/i.test(entry.title.trim()) || /\bgwen\b/i.test(entry.title);
+  const isGwenVault = isGwenCharacterTitle(entry.title);
   const mainVault = useMemo(
     () => ({
       sections: isGwenVault
@@ -2093,6 +2120,11 @@ function CharacterArtVaultView({
     setActiveToolSectionId(section.id);
     setToolVaultOpen(true);
   };
+
+  useEffect(() => {
+    if (!initialToolVaultOpen || !isGwenVault || toolVaultOpen) return;
+    openGwenToolsPage();
+  }, [initialToolVaultOpen, isGwenVault, toolVaultOpen]);
 
   const updateSection = (sectionId: string, patch: Partial<ArtVaultSection>) => {
     if (!isEditing) return;
@@ -4638,6 +4670,11 @@ function artVaultGallerySectionIdForSlot(sections: ArtVaultSection[], slot: Excl
   if (slot === "dialogueSpriteImage" && dialogueSection) return dialogueSection.id;
   if (slot === "ingameSpriteImage" && gameplaySection) return gameplaySection.id;
   return sections[0]?.id || "all";
+}
+
+function isGwenCharacterTitle(title: string) {
+  const normalized = title.trim().toLowerCase();
+  return normalized === "gwen" || /\bgwen\b/i.test(title);
 }
 
 function EditInput({
