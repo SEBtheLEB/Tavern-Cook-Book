@@ -18,6 +18,7 @@ export interface ArtVaultDriveFolderContext {
   subjectStatus?: string;
   subjectName: string;
   categoryName: string;
+  folderPath?: string[];
 }
 
 export type ArtVaultDriveFolder = GoogleDriveFolder;
@@ -63,6 +64,13 @@ export async function repairArtVaultDriveFolderHierarchy(
 }
 
 export function artVaultDriveFolderPath(context: ArtVaultDriveFolderContext) {
+  if (context.folderPath?.length) {
+    return [
+      ART_VAULT_ROOT_FOLDER_NAME,
+      ...context.folderPath
+    ].map(cleanDrivePathSegment).filter(Boolean);
+  }
+
   return [
     ART_VAULT_ROOT_FOLDER_NAME,
     ...artVaultShelfPath(context),

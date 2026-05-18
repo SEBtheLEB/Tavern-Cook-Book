@@ -194,7 +194,7 @@ const scribeAppMap = [
     storedAs: "Tool: sections inside Gwen's character artVault",
     allowedActions: ["addArtCategory", "renameArtCategory", "removeArtCategory", "addArtSlot", "renameArtSlot", "removeArtSlot"],
     routing:
-      "Gwen-specific tool, weapon, meal, and ale art pages. Pages use section titles like Tool: Makeshift Sickle, Tool: Gwen's OG Sword, Tool: Fire Meal, or Tool: Regular Ale."
+      "Gwen-specific Tool Binder pages. Pages use section titles like Tool: Makeshift Sickle, Tool: Gwen's OG Sword, Tool: Fire Meal, or Tool: Regular Ale, and should fit categories like Sickles, Pickaxes, Melee Weapons, Ranged Weapons, Magical Meals, Snacks, or Ales."
   },
   {
     area: "Archive",

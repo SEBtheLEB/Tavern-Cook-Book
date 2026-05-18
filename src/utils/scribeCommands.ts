@@ -89,7 +89,7 @@ export const SCRIBE_TARGET_HELPERS: ScribeTargetHelper[] = [
     insertText: "[Scribe Target: Gwen Tools only]",
     description: "Only Gwen's tool, weapon, meal, and ale art pages.",
     scribeGuidance:
-      "If the command contains [Scribe Target: Gwen Tools only], only organize Gwen's Art Vault tool pages. Use addArtCategory, renameArtCategory, removeArtCategory, addArtSlot, renameArtSlot, and removeArtSlot with target \"entry\", Gwen's entry id from entryIndex, and sectionTitle values like \"Tool: Makeshift Sickle\", \"Tool: Gwen's OG Sword\", \"Tool: Fire Meal\", or \"Tool: Regular Ale\". New Gwen pages must use the \"Tool:\" prefix and include slots such as Idle Pose, Run Pose, Start Animation, Middle / Loop Animation, and End Animation. Do not update non-Gwen art, Drive files, images, lore text, or layout."
+      "If the command contains [Scribe Target: Gwen Tools only], only organize Gwen's Art Vault Tool Binder pages. Use addArtCategory, renameArtCategory, removeArtCategory, addArtSlot, renameArtSlot, and removeArtSlot with target \"entry\", Gwen's entry id from entryIndex, and sectionTitle values like \"Tool: Makeshift Sickle\", \"Tool: Gwen's OG Sword\", \"Tool: Fire Meal\", or \"Tool: Regular Ale\". New Gwen pages must use the \"Tool:\" prefix and fit one Tool Binder category such as Sickles, Axes, Pickaxes, Shovels, Fishing Rods, Light Sources, Melee Weapons, Ranged Weapons, Magical Meals, Snacks, or Ales. Include slots such as Idle Pose, Run Pose, Start Animation, Middle / Loop Animation, and End Animation. Do not update non-Gwen art, Drive files, images, lore text, or layout."
   },
   {
     id: "target-world",

@@ -17,12 +17,19 @@ import type {
   StoryReference
 } from "../types";
 import { isDriveConfigured, showDriveSetupMessage } from "../utils/driveSettings";
-import { artVaultFolderTarget, resolveArtVaultDriveFolder, type ArtVaultDriveFolderContext } from "../utils/artVaultDriveFolders";
+import {
+  artVaultDriveFolderPathLabel,
+  artVaultFolderTarget,
+  repairArtVaultDriveFolderHierarchy,
+  resolveArtVaultDriveFolder,
+  type ArtVaultDriveFolderContext
+} from "../utils/artVaultDriveFolders";
 import {
   ensureGwenToolArtVault,
   GWEN_TOOL_PAGE_TYPES,
   gwenToolArtVaultBlueprints,
   gwenToolPageDefaultSlots,
+  gwenToolPageName,
   gwenToolPageType,
   gwenToolRequirementType,
   type GwenToolPageType,
@@ -2053,6 +2060,15 @@ function CharacterArtVaultView({
       : gwenToolSections.filter((section) => gwenToolPageType(section.title) === toolPageFilter),
     [gwenToolSections, toolPageFilter]
   );
+  const groupedGwenToolSections = useMemo(
+    () => GWEN_TOOL_PAGE_TYPES
+      .map((category) => ({
+        category,
+        sections: filteredGwenToolSections.filter((section) => gwenToolPageType(section.title) === category)
+      }))
+      .filter((group) => toolPageFilter === "All" ? group.sections.length : group.category === toolPageFilter),
+    [filteredGwenToolSections, toolPageFilter]
+  );
   const activeToolSection =
     filteredGwenToolSections.find((section) => section.id === activeToolSectionId) ||
     filteredGwenToolSections[0] ||
@@ -2165,7 +2181,7 @@ function CharacterArtVaultView({
     if (!requireVaultEdit()) return;
     const toolName = window.prompt("New Gwen tool, meal, ale, or weapon page", "New Tool")?.trim();
     if (!toolName) return;
-    const typeInput = window.prompt("Page type: Tools, Weapons, Meals, or Ales", gwenToolPageType(toolName))?.trim();
+    const typeInput = window.prompt(`Tool Binder category: ${GWEN_TOOL_PAGE_TYPES.join(", ")}`, gwenToolPageType(toolName))?.trim();
     const pageType = normalizeGwenToolPageType(typeInput || gwenToolPageType(toolName));
     const baseVault = gwenToolBinderInitialized ? toolVault : ensureGwenToolArtVault(vault);
     const section = createGwenToolVaultSection(toolName, baseVault.sections.length, pageType);
@@ -2174,6 +2190,54 @@ function CharacterArtVaultView({
     setActiveToolSectionId(section.id);
     setSlotMenuRef(null);
     setToolVaultOpen(true);
+  };
+
+  const fixGwenToolFolders = async () => {
+    if (readOnly) return;
+    if (!gwenToolSections.length) {
+      setVaultMessage("No Gwen tool pages are available to organize yet.");
+      return;
+    }
+
+    setVaultMessage("Rebuilding Gwen Tool Binder folders in Google Drive...");
+    try {
+      let nextVault = toolVault;
+      let fixedCount = 0;
+      for (const section of gwenToolSections) {
+        const context = characterArtVaultDriveContext(entry, section);
+        const folder = artVaultFolderTarget(
+          section.driveFolderId?.trim()
+            ? await repairArtVaultDriveFolderHierarchy(context, section.driveFolderId)
+            : await resolveArtVaultDriveFolder(context)
+        );
+        nextVault = updateVaultSectionDriveFolder(nextVault, section.id, folder);
+        fixedCount += 1;
+      }
+      saveVault(nextVault, toolBinderInitializedPatch());
+      const samplePath = gwenToolSections[0]
+        ? artVaultDriveFolderPathLabel(characterArtVaultDriveContext(entry, gwenToolSections[0]))
+        : "Art Vault / Characters / Gwen / Tool Binder";
+      setVaultMessage(`Fixed ${fixedCount} Gwen Tool Binder folder${fixedCount === 1 ? "" : "s"}. Example hierarchy: ${samplePath}`);
+    } catch (error) {
+      setVaultMessage(error instanceof Error ? error.message : "Could not fix Gwen Tool Binder folders.");
+    }
+  };
+
+  const fixActiveGwenToolFolder = async (section: ArtVaultSection) => {
+    if (readOnly) return;
+    setVaultMessage(`Rebuilding ${gwenToolPageName(section.title)} folder in Google Drive...`);
+    try {
+      const context = characterArtVaultDriveContext(entry, section);
+      const folder = artVaultFolderTarget(
+        section.driveFolderId?.trim()
+          ? await repairArtVaultDriveFolderHierarchy(context, section.driveFolderId)
+          : await resolveArtVaultDriveFolder(context)
+      );
+      saveVault(updateVaultSectionDriveFolder(toolVault, section.id, folder), toolBinderInitializedPatch());
+      setVaultMessage(`Fixed ${gwenToolPageName(section.title)} folder: ${artVaultDriveFolderPathLabel(context)}`);
+    } catch (error) {
+      setVaultMessage(error instanceof Error ? error.message : "Could not fix this Gwen Tool Binder folder.");
+    }
   };
 
   const renameGwenToolPage = (section: ArtVaultSection) => {
@@ -2846,6 +2910,12 @@ function CharacterArtVaultView({
           </div>
 
           <div className="character-art-vault-actions">
+            {!readOnly && (
+              <button className="character-codex-action-button" onClick={() => void fixGwenToolFolders()}>
+                <Icon name="Wrench" className="h-4 w-4" />
+                Fix Folders
+              </button>
+            )}
             {isEditing && (
               <button className="button-frame character-codex-action-button" onClick={addGwenToolPage}>
                 <Icon name="Plus" className="h-4 w-4" />
@@ -2894,24 +2964,31 @@ function CharacterArtVaultView({
               ))}
             </div>
             <div className="gwen-tool-vault-selector-list">
-              {filteredGwenToolSections.map((section) => {
-                const sectionStats = calculateArtVaultStats({ sections: [section] });
-                return (
-                  <button
-                    key={section.id}
-                    className={activeToolSection?.id === section.id ? "active" : ""}
-                    onClick={() => {
-                      setActiveToolSectionId(section.id);
-                      setSlotMenuRef(null);
-                    }}
-                  >
-                    <Icon name="Hammer" className="h-4 w-4" />
-                    <span>{section.title.replace(/^Tool:\s*/i, "")}</span>
-                    <small>{gwenToolPageType(section.title)}</small>
-                    <small>{sectionStats.filled}/{sectionStats.total}</small>
-                  </button>
-                );
-              })}
+              {groupedGwenToolSections.map((group) => (
+                <div key={group.category} className="gwen-tool-vault-selector-group">
+                  <p>{group.category}</p>
+                  {group.sections.length ? group.sections.map((section) => {
+                    const sectionStats = calculateArtVaultStats({ sections: [section] });
+                    return (
+                      <button
+                        key={section.id}
+                        className={activeToolSection?.id === section.id ? "active" : ""}
+                        onClick={() => {
+                          setActiveToolSectionId(section.id);
+                          setSlotMenuRef(null);
+                        }}
+                      >
+                        <Icon name="Hammer" className="h-4 w-4" />
+                        <span>{gwenToolPageName(section.title)}</span>
+                        <small>{gwenToolPageType(section.title)}</small>
+                        <small>{sectionStats.filled}/{sectionStats.total}</small>
+                      </button>
+                    );
+                  }) : (
+                    <span>No pages yet.</span>
+                  )}
+                </div>
+              ))}
             </div>
           </aside>
 
@@ -2921,7 +2998,7 @@ function CharacterArtVaultView({
                 <header className="gwen-tool-vault-detail-header">
                   <div>
                     <p>Selected Tool</p>
-                    <h2 className="font-display">{activeToolSection.title.replace(/^Tool:\s*/i, "")}</h2>
+                    <h2 className="font-display">{gwenToolPageName(activeToolSection.title)}</h2>
                     <span>{activeToolSection.description}</span>
                   </div>
                   <div>
@@ -2932,6 +3009,10 @@ function CharacterArtVaultView({
                     >
                       <Icon name="FolderOpen" className="h-4 w-4" />
                       {activeToolSection.driveFolderId ? "Open Folder" : "Add Folder"}
+                    </button>
+                    <button className="character-codex-action-button" onClick={() => void fixActiveGwenToolFolder(activeToolSection)}>
+                      <Icon name="Wrench" className="h-4 w-4" />
+                      Fix Folder
                     </button>
                     {isEditing && (
                       <>
@@ -5003,6 +5084,23 @@ function artVaultSectionIcon(title: string) {
 }
 
 function characterArtVaultDriveContext(entry: LoreEntry, section: ArtVaultSection): ArtVaultDriveFolderContext {
+  if (isGwenCharacterTitle(entry.title) && isGwenToolArtVaultSection(section)) {
+    const toolName = gwenToolPageName(section.title);
+    return {
+      sourceType: "character-tool-binder",
+      groupName: gwenToolPageType(section.title),
+      subjectName: entry.title,
+      categoryName: toolName,
+      folderPath: [
+        "Characters",
+        entry.title,
+        "Tool Binder",
+        gwenToolPageType(section.title),
+        toolName
+      ]
+    };
+  }
+
   return {
     sourceType: "character",
     groupName: "Characters",
@@ -5098,6 +5196,7 @@ function createGwenToolVaultSection(toolName: string, order: number, type: GwenT
 
 function normalizeGwenToolPageType(value: string): GwenToolPageType {
   const normalized = value.trim().toLowerCase();
+  if (normalized === "tool" || normalized === "tools") return "General Tools";
   return GWEN_TOOL_PAGE_TYPES.find((type) => type.toLowerCase() === normalized) || gwenToolPageType(value);
 }
 

@@ -5578,6 +5578,28 @@ textarea {
   padding-right: 2px;
 }
 
+.gwen-tool-vault-selector-group {
+  display: grid;
+  gap: 7px;
+}
+
+.gwen-tool-vault-selector-group > p {
+  margin: 10px 0 0;
+  color: var(--gold);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.gwen-tool-vault-selector-group > span {
+  border: 1px dashed color-mix(in srgb, var(--panel-border) 65%, transparent);
+  border-radius: 10px;
+  color: var(--app-muted);
+  padding: 9px 10px;
+  font-size: 12px;
+}
+
 .gwen-tool-vault-selector-list button {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto auto;

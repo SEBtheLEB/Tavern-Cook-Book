@@ -361,26 +361,39 @@ export const legacyCharacterSpriteArtVaultBlueprints = [
   }
 ] as const;
 
-export const GWEN_TOOL_PAGE_TYPES = ["Tools", "Weapons", "Meals", "Ales"] as const;
+export const GWEN_TOOL_PAGE_TYPES = [
+  "Sickles",
+  "Axes",
+  "Pickaxes",
+  "Shovels",
+  "Fishing Rods",
+  "Light Sources",
+  "General Tools",
+  "Melee Weapons",
+  "Ranged Weapons",
+  "Magical Meals",
+  "Snacks",
+  "Ales"
+] as const;
 export type GwenToolPageType = (typeof GWEN_TOOL_PAGE_TYPES)[number];
 
 export const GWEN_TOOL_PAGES = [
-  { name: "Makeshift Sickle", type: "Tools" },
-  { name: "Makeshift Axe", type: "Tools" },
-  { name: "Fishing Rod", type: "Tools" },
-  { name: "Hip Lantern", type: "Tools" },
-  { name: "Makeshift Wooden Torch", type: "Tools" },
-  { name: "Makeshift Shovel", type: "Tools" },
-  { name: "Low Regular Bow", type: "Weapons" },
-  { name: "Heavy Bow", type: "Weapons" },
-  { name: "Gwen's OG Sword", type: "Weapons" },
-  { name: "Heavy Sword", type: "Weapons" },
-  { name: "Fire Meal", type: "Meals" },
-  { name: "Lightning Meal", type: "Meals" },
-  { name: "Dark Meal", type: "Meals" },
-  { name: "Earth Meal", type: "Meals" },
-  { name: "Light Meal", type: "Meals" },
-  { name: "Ice Meal", type: "Meals" },
+  { name: "Makeshift Sickle", type: "Sickles" },
+  { name: "Makeshift Axe", type: "Axes" },
+  { name: "Fishing Rod", type: "Fishing Rods" },
+  { name: "Hip Lantern", type: "Light Sources" },
+  { name: "Makeshift Wooden Torch", type: "Light Sources" },
+  { name: "Makeshift Shovel", type: "Shovels" },
+  { name: "Low Regular Bow", type: "Ranged Weapons" },
+  { name: "Heavy Bow", type: "Ranged Weapons" },
+  { name: "Gwen's OG Sword", type: "Melee Weapons" },
+  { name: "Heavy Sword", type: "Melee Weapons" },
+  { name: "Fire Meal", type: "Magical Meals" },
+  { name: "Lightning Meal", type: "Magical Meals" },
+  { name: "Dark Meal", type: "Magical Meals" },
+  { name: "Earth Meal", type: "Magical Meals" },
+  { name: "Light Meal", type: "Magical Meals" },
+  { name: "Ice Meal", type: "Magical Meals" },
   { name: "Regular Ale", type: "Ales" },
   { name: "Big Tankard Ale", type: "Ales" }
 ] as const;
@@ -399,30 +412,41 @@ export const gwenToolPageType = (toolNameOrTitle: string): GwenToolPageType => {
   const name = toolNameOrTitle.replace(/^Tool:\s*/i, "").trim().toLowerCase();
   const page = GWEN_TOOL_PAGES.find((candidate) => candidate.name.toLowerCase() === name);
   if (page) return page.type;
-  if (/bow|sword|blade|weapon|axe|sickle/i.test(name)) return "Weapons";
-  if (/meal|food|dish|recipe/i.test(name)) return "Meals";
+  if (/pickaxe|pick/i.test(name)) return "Pickaxes";
+  if (/sickle/i.test(name)) return "Sickles";
+  if (/axe/i.test(name)) return "Axes";
+  if (/shovel/i.test(name)) return "Shovels";
+  if (/rod|fishing/i.test(name)) return "Fishing Rods";
+  if (/lantern|torch|light/i.test(name)) return "Light Sources";
+  if (/bow|ranged|arrow/i.test(name)) return "Ranged Weapons";
+  if (/sword|blade|melee|weapon/i.test(name)) return "Melee Weapons";
+  if (/snack|bite|treat/i.test(name)) return "Snacks";
+  if (/meal|food|dish|recipe/i.test(name)) return "Magical Meals";
   if (/ale|tankard|drink|tonic|brew/i.test(name)) return "Ales";
-  return "Tools";
+  return "General Tools";
 };
 
 export const gwenToolRequirementType = (type: GwenToolPageType) =>
-  type === "Weapons" ? "Gwen Weapon Asset" :
-  type === "Meals" ? "Gwen Meal Asset" :
+  type === "Melee Weapons" || type === "Ranged Weapons" ? "Gwen Weapon Asset" :
+  type === "Magical Meals" || type === "Snacks" ? "Gwen Meal Asset" :
   type === "Ales" ? "Gwen Ale Asset" :
   "Gwen Tool Asset";
 
 export const gwenToolPageDefaultSlots = (type: GwenToolPageType) => [
-  type === "Meals" || type === "Ales" ? "Item / Serving Design" : "Tool / Weapon Design Sheet",
-  type === "Meals" || type === "Ales" ? "Food / Drink Sprite" : "Standalone Sprite",
+  type === "Magical Meals" || type === "Snacks" || type === "Ales" ? "Item / Serving Design" : "Tool / Weapon Design Sheet",
+  type === "Magical Meals" || type === "Snacks" || type === "Ales" ? "Food / Drink Sprite" : "Standalone Sprite",
   "Inventory / UI Icon",
   "Idle Pose",
   "Run Pose",
   "Start Animation",
   "Middle / Loop Animation",
   "End Animation",
-  type === "Meals" || type === "Ales" ? "Buff / Effect FX Frames" : "Tool FX / Contact Frames",
+  type === "Magical Meals" || type === "Snacks" || type === "Ales" ? "Buff / Effect FX Frames" : "Tool FX / Contact Frames",
   "Upgrade / Variant Sheet"
 ] as const;
+
+export const gwenToolPageName = (toolNameOrTitle: string) =>
+  toolNameOrTitle.replace(/^Tool:\s*/i, "").trim() || "Untitled Tool";
 
 export const gwenToolArtVaultBlueprints = GWEN_TOOL_PAGES.map((page) => ({
   id: gwenToolSectionId(page.name),
