@@ -12,7 +12,7 @@ import type {
   WorldBuildingCategoryId,
   WorldBuildingEntry
 } from "../types";
-import { cloneDatabase, normalizeEntry, nowIso, slugify } from "./entries";
+import { cloneDatabase, ensureGwenToolArtVault, normalizeEntry, nowIso, slugify } from "./entries";
 import { createBestiaryCategoryArtVaultRecord, normalizeBestiaryCategoryArtVault, normalizeBestiaryCreature } from "./bestiary";
 import { compactScribeTargetHelpers, getSelectedScribeHelpers, scribeTargetHelperGuidance } from "./scribeCommands";
 import type { ScribeMemoryRule } from "./scribeMemory";
@@ -188,6 +188,13 @@ const scribeAppMap = [
     storedAs: "artVault sections and slots on entries, creatures, and bestiary category vaults",
     allowedActions: ["addArtCategory", "renameArtCategory", "removeArtCategory", "addArtSlot", "renameArtSlot", "removeArtSlot"],
     routing: "Only local production organization: categories, slots, labels, requirement types, and notes. No image or Drive file deletion."
+  },
+  {
+    area: "Gwen Tools",
+    storedAs: "Tool: sections inside Gwen's character artVault",
+    allowedActions: ["addArtCategory", "renameArtCategory", "removeArtCategory", "addArtSlot", "renameArtSlot", "removeArtSlot"],
+    routing:
+      "Gwen-specific tool, weapon, meal, and ale art pages. Pages use section titles like Tool: Makeshift Sickle, Tool: Gwen's OG Sword, Tool: Fire Meal, or Tool: Regular Ale."
   },
   {
     area: "Archive",
@@ -535,6 +542,7 @@ const changeMatchesAnyTarget = (database: LoreDatabase, change: AssistantAction,
 
 const changeMatchesTarget = (database: LoreDatabase, change: AssistantAction, targetId: string) => {
   if (targetId === "target-art-vault" || targetId === "target-art-binder") return isArtAction(change);
+  if (targetId === "target-gwen-tools") return isGwenToolArtAction(database, change);
   if (targetId === "target-archive") return change.action === "archive" || Boolean("archiveContent" in change && change.archiveContent);
   if (targetId === "target-bestiary") {
     return change.action === "addCreature" ||
@@ -553,6 +561,18 @@ const changeMatchesTarget = (database: LoreDatabase, change: AssistantAction, ta
     return changeTargetsEntryCategory(database, change, "Food & Inventory");
   }
   return true;
+};
+
+const isGwenToolArtAction = (database: LoreDatabase, change: AssistantAction) => {
+  if (!isArtAction(change)) return false;
+  const target = normalizeArtActionTarget((change as { target?: unknown }).target);
+  if (target !== "entry") return false;
+  const id = String((change as { id?: unknown }).id || "");
+  const entry = database.entries.find((item) => item.id === id);
+  if (!entry || !/\bgwen\b/i.test(entry.title)) return false;
+  const sectionTitle = String((change as { sectionTitle?: unknown }).sectionTitle || "").trim();
+  const sectionId = String((change as { sectionId?: unknown }).sectionId || "").trim();
+  return /^tool:/i.test(sectionTitle) || sectionId.startsWith("gwen-tool-");
 };
 
 const changeTargetsEntryCategory = (database: LoreDatabase, change: AssistantAction, category: string) => {
@@ -1946,8 +1966,11 @@ const buildScribeRelationshipGraph = (database: LoreDatabase, command: string) =
 };
 
 const compactArtSlotIndex = (database: LoreDatabase) => {
-  const entrySlots = database.entries.flatMap((entry) =>
-    (entry.artVault?.sections || []).flatMap((section) =>
+  const entrySlots = database.entries.flatMap((entry) => {
+    const sections = /\bgwen\b/i.test(entry.title)
+      ? ensureGwenToolArtVault(entry.artVault).sections
+      : entry.artVault?.sections || [];
+    return sections.flatMap((section) =>
       (section.slots || []).map((slot) => ({
         target: "entry",
         id: entry.id,
@@ -1957,8 +1980,8 @@ const compactArtSlotIndex = (database: LoreDatabase) => {
         slotId: slot.id,
         label: slot.label
       }))
-    )
-  );
+    );
+  });
   const creatureSlots = (database.bestiary || []).flatMap((creature) =>
     (creature.artVault?.sections || []).flatMap((section) =>
       (section.slots || []).map((slot) => ({
@@ -1988,16 +2011,19 @@ const compactArtSlotIndex = (database: LoreDatabase) => {
 };
 
 const compactArtCategoryIndex = (database: LoreDatabase) => {
-  const entryCategories = database.entries.flatMap((entry) =>
-    (entry.artVault?.sections || []).map((section) => ({
+  const entryCategories = database.entries.flatMap((entry) => {
+    const sections = /\bgwen\b/i.test(entry.title)
+      ? ensureGwenToolArtVault(entry.artVault).sections
+      : entry.artVault?.sections || [];
+    return sections.map((section) => ({
       target: "entry",
       id: entry.id,
       title: entry.title,
       sectionId: section.id,
       sectionTitle: section.title,
       slotCount: section.slots?.length || 0
-    }))
-  );
+    }));
+  });
   const creatureCategories = (database.bestiary || []).flatMap((creature) =>
     (creature.artVault?.sections || []).map((section) => ({
       target: "creature",

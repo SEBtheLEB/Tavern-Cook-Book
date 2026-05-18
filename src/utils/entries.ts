@@ -361,17 +361,31 @@ export const legacyCharacterSpriteArtVaultBlueprints = [
   }
 ] as const;
 
-export const GWEN_TOOL_NAMES = [
-  "Makeshift Sickle",
-  "Makeshift Axe",
-  "Fishing Rod",
-  "Hip Lantern",
-  "Makeshift Wooden Torch",
-  "Makeshift Shovel",
-  "Meals & Food Use",
-  "Ale & Drink Use",
-  "Weapons"
+export const GWEN_TOOL_PAGE_TYPES = ["Tools", "Weapons", "Meals", "Ales"] as const;
+export type GwenToolPageType = (typeof GWEN_TOOL_PAGE_TYPES)[number];
+
+export const GWEN_TOOL_PAGES = [
+  { name: "Makeshift Sickle", type: "Tools" },
+  { name: "Makeshift Axe", type: "Tools" },
+  { name: "Fishing Rod", type: "Tools" },
+  { name: "Hip Lantern", type: "Tools" },
+  { name: "Makeshift Wooden Torch", type: "Tools" },
+  { name: "Makeshift Shovel", type: "Tools" },
+  { name: "Low Regular Bow", type: "Weapons" },
+  { name: "Heavy Bow", type: "Weapons" },
+  { name: "Gwen's OG Sword", type: "Weapons" },
+  { name: "Heavy Sword", type: "Weapons" },
+  { name: "Fire Meal", type: "Meals" },
+  { name: "Lightning Meal", type: "Meals" },
+  { name: "Dark Meal", type: "Meals" },
+  { name: "Earth Meal", type: "Meals" },
+  { name: "Light Meal", type: "Meals" },
+  { name: "Ice Meal", type: "Meals" },
+  { name: "Regular Ale", type: "Ales" },
+  { name: "Big Tankard Ale", type: "Ales" }
 ] as const;
+
+export const GWEN_TOOL_NAMES = GWEN_TOOL_PAGES.map((page) => page.name);
 
 export const GWEN_TOOL_SECTION_PREFIX = "gwen-tool-";
 
@@ -381,28 +395,48 @@ export const gwenToolSectionId = (toolName: string) =>
 export const isGwenToolArtVaultSection = (section: Pick<ArtVaultSection, "id" | "title">) =>
   section.id.startsWith(GWEN_TOOL_SECTION_PREFIX) || /^tool:\s*/i.test(section.title);
 
-export const gwenToolArtVaultBlueprints = GWEN_TOOL_NAMES.map((toolName) => ({
-  id: gwenToolSectionId(toolName),
-  title: `Tool: ${toolName}`,
-  description: `Tool-specific art for ${toolName}: standalone art, icons, and Gwen use/action sprite sheets.`,
-  requirementType: "Gwen Tool Asset",
-  slots: [
-    "Tool / Item Design Sheet",
-    "Standalone Tool Sprite",
-    "Inventory / UI Icon",
-    "Equipped Pose Reference",
-    "Gwen Use / Action Sprite Sheet",
-    "Gwen Start / Windup Frames",
-    "Gwen Loop / Active Frames",
-    "Gwen Finish / Recovery Frames",
-    "Tool FX / Contact Frames",
-    "Upgrade / Variant Sheet"
-  ]
+export const gwenToolPageType = (toolNameOrTitle: string): GwenToolPageType => {
+  const name = toolNameOrTitle.replace(/^Tool:\s*/i, "").trim().toLowerCase();
+  const page = GWEN_TOOL_PAGES.find((candidate) => candidate.name.toLowerCase() === name);
+  if (page) return page.type;
+  if (/bow|sword|blade|weapon|axe|sickle/i.test(name)) return "Weapons";
+  if (/meal|food|dish|recipe/i.test(name)) return "Meals";
+  if (/ale|tankard|drink|tonic|brew/i.test(name)) return "Ales";
+  return "Tools";
+};
+
+export const gwenToolRequirementType = (type: GwenToolPageType) =>
+  type === "Weapons" ? "Gwen Weapon Asset" :
+  type === "Meals" ? "Gwen Meal Asset" :
+  type === "Ales" ? "Gwen Ale Asset" :
+  "Gwen Tool Asset";
+
+export const gwenToolPageDefaultSlots = (type: GwenToolPageType) => [
+  type === "Meals" || type === "Ales" ? "Item / Serving Design" : "Tool / Weapon Design Sheet",
+  type === "Meals" || type === "Ales" ? "Food / Drink Sprite" : "Standalone Sprite",
+  "Inventory / UI Icon",
+  "Idle Pose",
+  "Run Pose",
+  "Start Animation",
+  "Middle / Loop Animation",
+  "End Animation",
+  type === "Meals" || type === "Ales" ? "Buff / Effect FX Frames" : "Tool FX / Contact Frames",
+  "Upgrade / Variant Sheet"
+] as const;
+
+export const gwenToolArtVaultBlueprints = GWEN_TOOL_PAGES.map((page) => ({
+  id: gwenToolSectionId(page.name),
+  title: `Tool: ${page.name}`,
+  description: `${page.type.slice(0, -1)} page for ${page.name}: idle/run poses plus start, middle/loop, and end animation slots.`,
+  requirementType: gwenToolRequirementType(page.type),
+  toolType: page.type,
+  slots: gwenToolPageDefaultSlots(page.type)
 })) as readonly {
   id: string;
   title: string;
   description: string;
   requirementType: string;
+  toolType: GwenToolPageType;
   slots: readonly string[];
 }[];
 

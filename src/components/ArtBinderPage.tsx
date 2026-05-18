@@ -8,7 +8,7 @@ import {
   normalizeBestiaryCategoryArtVault,
   normalizeCreatureArtVault
 } from "../utils/bestiary";
-import { createBlankEntry, normalizeArtVault } from "../utils/entries";
+import { createBlankEntry, ensureGwenToolArtVault, normalizeArtVault } from "../utils/entries";
 import { buildPantryModel, type PantryIngredient, type PantryPrepVariant } from "../utils/pantry";
 import {
   artVaultDriveFolderPathLabel,
@@ -1051,7 +1051,7 @@ function buildArtBinderSubjects(database: LoreDatabase): ArtBinderSubject[] {
       subtitle: entry.type || "Character",
       groupKey: "character-all",
       groupLabel: "Characters",
-      sections: withAppUiSection(normalizeArtVault(entry.artVault).sections, characterAppUiSection(entry))
+      sections: withAppUiSection(characterArtBinderVault(entry).sections, characterAppUiSection(entry))
     }));
 
   const creatures = (database.bestiary || []).map((creature) => {
@@ -1126,6 +1126,12 @@ function buildArtBinderSubjects(database: LoreDatabase): ArtBinderSubject[] {
     }));
 
   return [...characters, ...creatures, ...categoryVaults, ...pantryItems, ...environments];
+}
+
+function characterArtBinderVault(entry: LoreEntry) {
+  return /\bgwen\b/i.test(entry.title)
+    ? ensureGwenToolArtVault(entry.artVault)
+    : normalizeArtVault(entry.artVault);
 }
 
 function characterAppUiSection(entry: LoreEntry): ArtVaultSection {
@@ -2155,7 +2161,7 @@ function updateArtVaultSlotImage(vault: { sections: ArtVaultSection[] }, card: A
           }
         : section
     );
-  if (hasSection || !isAppUiSection(card.section)) return { sections };
+  if (hasSection) return { sections };
 
   return {
     sections: [
