@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-05-18T02:34:11.588Z",
+  "updatedAt": "2026-05-20T17:09:20.037Z",
   "updatedBy": "stlprodz1101@gmail.com",
   "payload": {
     "database": {
@@ -131937,6 +131937,30 @@
         }
       ],
       "assignments": [
+        {
+          "id": "assignment-1779296959253-6u8e3f",
+          "moduleId": "oswin-overview",
+          "moduleTitle": "Oswin Character Page",
+          "moduleType": "character-entry",
+          "entryId": "oswin",
+          "entryTitle": "Oswin",
+          "entryCategory": "Characters / Character",
+          "assignedToUserId": "carrie-art-director",
+          "assignedToName": "Carrie",
+          "assignedToRole": "Art Director",
+          "assignedByUserId": "stlprodz1101-gmail-com",
+          "assignedByName": "Sebastien",
+          "status": "not-started",
+          "category": "Text Work",
+          "moodLabels": [],
+          "note": "",
+          "dueDate": "",
+          "createdAt": "2026-05-20T17:09:19.253Z",
+          "updatedAt": "2026-05-20T17:09:19.253Z",
+          "completedAt": null,
+          "targetRoute": "character:oswin:overview",
+          "editModeOnOpen": true
+        },
         {
           "id": "assignment-1778835274365-6lbxov",
           "moduleId": "art-binder-creature-crayhusk-creature-core-art-creature-core-art-main-creature-portrait",
