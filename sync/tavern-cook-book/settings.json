@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-05-22T05:54:21.463Z",
+  "updatedAt": "2026-05-22T05:58:08.301Z",
   "updatedBy": "stlprodz1101@gmail.com",
   "payload": {
     "visibility": {
@@ -15,48 +15,22 @@
       {
         "email": "stlprodz1101@gmail.com",
         "role": "admin",
-        "workshopRole": "Admin",
-        "label": "Sebastien / Main Admin",
-        "appIds": [
-          "all"
-        ],
-        "appRoles": {}
-      },
-      {
-        "email": "carrieboberry2820@gmail.com",
-        "role": "editor",
-        "workshopRole": "Editor",
-        "label": "Carrioasudns",
-        "appIds": [
-          "tales-codex"
-        ],
-        "appRoles": {
-          "tales-codex": "editor"
-        }
-      },
-      {
-        "email": "frostlyspark@gmail.com",
-        "role": "editor",
-        "workshopRole": "Editor",
-        "label": "meeyirvin",
-        "appIds": [
-          "tales-codex"
-        ],
-        "appRoles": {
-          "tales-codex": "editor"
-        }
+        "label": "Sebastien / Main Admin"
       },
       {
         "email": "sebastianac1101@gmail.com",
         "role": "editor",
-        "workshopRole": "Editor",
-        "label": "Sebastien backup",
-        "appIds": [
-          "tales-codex"
-        ],
-        "appRoles": {
-          "tales-codex": "editor"
-        }
+        "label": "Sebastien backup"
+      },
+      {
+        "email": "carrieboberry2820@gmail.com",
+        "role": "editor",
+        "label": "Carrioasudns"
+      },
+      {
+        "email": "frostlyspark@gmail.com",
+        "role": "editor",
+        "label": "meeyirvin"
       }
     ],
     "driveSettings": {
@@ -65,59 +39,8 @@
       "defaultTalesFolderId": "1FcmPITLSZkg_XEHLtpaN6wVRkQlMnMIY",
       "defaultCharactersFolderId": "",
       "defaultWorldArtFolderId": "",
-      "defaultMarketingArtFolderId": ""
-    },
-    "workshopUsers": [
-      {
-        "email": "stlprodz1101@gmail.com",
-        "role": "admin",
-        "workshopRole": "Admin",
-        "name": "Sebastien / Main Admin",
-        "label": "Sebastien / Main Admin",
-        "appIds": [
-          "all"
-        ],
-        "appRoles": {}
-      },
-      {
-        "email": "carrieboberry2820@gmail.com",
-        "role": "editor",
-        "workshopRole": "Editor",
-        "name": "Carrioasudns",
-        "label": "Carrioasudns",
-        "appIds": [
-          "tales-codex"
-        ],
-        "appRoles": {
-          "tales-codex": "editor"
-        }
-      },
-      {
-        "email": "frostlyspark@gmail.com",
-        "role": "editor",
-        "workshopRole": "Editor",
-        "name": "meeyirvin",
-        "label": "meeyirvin",
-        "appIds": [
-          "tales-codex"
-        ],
-        "appRoles": {
-          "tales-codex": "editor"
-        }
-      },
-      {
-        "email": "sebastianac1101@gmail.com",
-        "role": "editor",
-        "workshopRole": "Editor",
-        "name": "Sebastien backup",
-        "label": "Sebastien backup",
-        "appIds": [
-          "tales-codex"
-        ],
-        "appRoles": {
-          "tales-codex": "editor"
-        }
-      }
-    ]
+      "defaultMarketingArtFolderId": "",
+      "defaultArtVaultFolderId": ""
+    }
   }
 }
