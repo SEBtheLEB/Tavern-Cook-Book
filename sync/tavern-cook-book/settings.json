@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-05-22T05:53:14.819Z",
+  "updatedAt": "2026-05-22T05:54:18.730Z",
   "updatedBy": "stlprodz1101@gmail.com",
   "payload": {
     "visibility": {
@@ -65,6 +65,15 @@
         "appIds": [
           "all"
         ],
+        "appRoles": {}
+      },
+      {
+        "email": "carrieboberry2820@gmail.com",
+        "role": "editor",
+        "workshopRole": "Editor",
+        "name": "Carrioasudns",
+        "label": "Carrioasudns",
+        "appIds": [],
         "appRoles": {}
       },
       {
