@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-05-22T05:51:47.786Z",
+  "updatedAt": "2026-05-22T05:53:12.590Z",
   "updatedBy": "stlprodz1101@gmail.com",
   "payload": {
     "visibility": {
@@ -53,6 +53,15 @@
         "appIds": [
           "all"
         ],
+        "appRoles": {}
+      },
+      {
+        "email": "frostlyspark@gmail.com",
+        "role": "editor",
+        "workshopRole": "Editor",
+        "name": "meeyirvin",
+        "label": "meeyirvin",
+        "appIds": [],
         "appRoles": {}
       },
       {
