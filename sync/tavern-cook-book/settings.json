@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-05-22T05:54:18.730Z",
+  "updatedAt": "2026-05-22T05:54:21.463Z",
   "updatedBy": "stlprodz1101@gmail.com",
   "payload": {
     "visibility": {
@@ -21,6 +21,18 @@
           "all"
         ],
         "appRoles": {}
+      },
+      {
+        "email": "carrieboberry2820@gmail.com",
+        "role": "editor",
+        "workshopRole": "Editor",
+        "label": "Carrioasudns",
+        "appIds": [
+          "tales-codex"
+        ],
+        "appRoles": {
+          "tales-codex": "editor"
+        }
       },
       {
         "email": "frostlyspark@gmail.com",
@@ -73,8 +85,12 @@
         "workshopRole": "Editor",
         "name": "Carrioasudns",
         "label": "Carrioasudns",
-        "appIds": [],
-        "appRoles": {}
+        "appIds": [
+          "tales-codex"
+        ],
+        "appRoles": {
+          "tales-codex": "editor"
+        }
       },
       {
         "email": "frostlyspark@gmail.com",
