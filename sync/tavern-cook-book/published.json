@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-05-20T17:09:20.037Z",
+  "updatedAt": "2026-05-26T22:17:16.224Z",
   "updatedBy": "stlprodz1101@gmail.com",
   "payload": {
     "database": {
@@ -121664,6 +121664,294 @@
         }
       ],
       "bestiary": [
+        {
+          "id": "creature-1779833835764",
+          "name": "New Creature",
+          "category": "Wildlife",
+          "type": "Beast",
+          "slotImage": "",
+          "image": "",
+          "expandedImage": "",
+          "hoverImage": "",
+          "imagePositionX": 50,
+          "imagePositionY": 50,
+          "imageZoom": 1,
+          "slotImageFit": {
+            "mode": "cover",
+            "scale": 1,
+            "x": 0,
+            "y": 0
+          },
+          "imageFit": {
+            "mode": "cover",
+            "scale": 1,
+            "x": 0,
+            "y": 0
+          },
+          "hoverImageFit": {
+            "mode": "cover",
+            "scale": 1,
+            "x": 0,
+            "y": 0
+          },
+          "expandedImageFit": {
+            "mode": "cover",
+            "scale": 1,
+            "x": 0,
+            "y": 0
+          },
+          "status": "WIP",
+          "threatLevel": "Unknown",
+          "rarity": "Unknown",
+          "size": "Unknown",
+          "diet": "Unknown",
+          "habitat": "Unknown",
+          "behavior": "",
+          "description": "",
+          "overview": "",
+          "fieldNotes": "",
+          "stats": {
+            "health": "",
+            "damage": "",
+            "speed": "",
+            "defense": "",
+            "aggression": "",
+            "weakness": "",
+            "resistances": "",
+            "abilities": "",
+            "attackPatterns": "",
+            "bossPhaseNotes": ""
+          },
+          "drops": {
+            "droppedIngredients": "",
+            "craftingMaterials": "",
+            "rareDrops": "",
+            "cookingUses": "",
+            "sellValue": "",
+            "recipeConnections": "",
+            "icons": []
+          },
+          "habitatInfo": {
+            "knownLocations": "",
+            "spawnConditions": "",
+            "timeOfDay": "",
+            "season": "",
+            "weatherConditions": "",
+            "nearbyPointsOfInterest": "",
+            "mapNotes": ""
+          },
+          "lore": {
+            "origin": "",
+            "culturalMeaning": "",
+            "rumors": "",
+            "questConnections": "",
+            "relatedCreatures": "",
+            "hiddenNotes": "",
+            "fullStory": ""
+          },
+          "visualDesignNotes": "",
+          "animationNotes": "",
+          "soundNotes": "",
+          "gameplayPurpose": "",
+          "productionNotes": "",
+          "linkedStoryReferenceIds": [],
+          "artVault": {
+            "sections": [
+              {
+                "id": "creature-core-art",
+                "title": "Core Creature Art",
+                "description": "Primary reference art for the creature's silhouette, pose, and final look.",
+                "slots": [
+                  {
+                    "id": "creature-core-art-main-creature-portrait",
+                    "label": "Main Creature Portrait",
+                    "requirementType": "Creature Art",
+                    "status": "empty",
+                    "image": null,
+                    "notes": "",
+                    "order": 0
+                  },
+                  {
+                    "id": "creature-core-art-hover-alternate-pose",
+                    "label": "Hover / Alternate Pose",
+                    "requirementType": "Creature Art",
+                    "status": "empty",
+                    "image": null,
+                    "notes": "",
+                    "order": 1
+                  },
+                  {
+                    "id": "creature-core-art-concept-art",
+                    "label": "Concept Art",
+                    "requirementType": "Creature Art",
+                    "status": "empty",
+                    "image": null,
+                    "notes": "",
+                    "order": 2
+                  },
+                  {
+                    "id": "creature-core-art-turnaround",
+                    "label": "Turnaround",
+                    "requirementType": "Creature Art",
+                    "status": "empty",
+                    "image": null,
+                    "notes": "",
+                    "order": 3
+                  }
+                ],
+                "order": 0,
+                "driveFolderId": "",
+                "driveFolderLink": "",
+                "driveFolderName": ""
+              },
+              {
+                "id": "creature-sprite-sheets",
+                "title": "Sprite Sheets",
+                "description": "Movement, attack, reaction, defeat, and behavior sprite sheets for this creature.",
+                "slots": [
+                  {
+                    "id": "creature-sprite-sheets-idle-sprite-sheet",
+                    "label": "Idle Sprite Sheet",
+                    "requirementType": "Sprite Sheet",
+                    "status": "empty",
+                    "image": null,
+                    "notes": "",
+                    "order": 0
+                  },
+                  {
+                    "id": "creature-sprite-sheets-move-crawl-sprite-sheet",
+                    "label": "Move / Crawl Sprite Sheet",
+                    "requirementType": "Sprite Sheet",
+                    "status": "empty",
+                    "image": null,
+                    "notes": "",
+                    "order": 1
+                  },
+                  {
+                    "id": "creature-sprite-sheets-attack-01-sprite-sheet",
+                    "label": "Attack 01 Sprite Sheet",
+                    "requirementType": "Sprite Sheet",
+                    "status": "empty",
+                    "image": null,
+                    "notes": "",
+                    "order": 2
+                  },
+                  {
+                    "id": "creature-sprite-sheets-attack-02-sprite-sheet",
+                    "label": "Attack 02 Sprite Sheet",
+                    "requirementType": "Sprite Sheet",
+                    "status": "empty",
+                    "image": null,
+                    "notes": "",
+                    "order": 3
+                  },
+                  {
+                    "id": "creature-sprite-sheets-hit-reaction-sprite-sheet",
+                    "label": "Hit Reaction Sprite Sheet",
+                    "requirementType": "Sprite Sheet",
+                    "status": "empty",
+                    "image": null,
+                    "notes": "",
+                    "order": 4
+                  },
+                  {
+                    "id": "creature-sprite-sheets-death-defeat-sprite-sheet",
+                    "label": "Death / Defeat Sprite Sheet",
+                    "requirementType": "Sprite Sheet",
+                    "status": "empty",
+                    "image": null,
+                    "notes": "",
+                    "order": 5
+                  },
+                  {
+                    "id": "creature-sprite-sheets-special-behavior-sprite-sheet",
+                    "label": "Special Behavior Sprite Sheet",
+                    "requirementType": "Sprite Sheet",
+                    "status": "empty",
+                    "image": null,
+                    "notes": "",
+                    "order": 6
+                  }
+                ],
+                "order": 1,
+                "driveFolderId": "",
+                "driveFolderLink": "",
+                "driveFolderName": ""
+              },
+              {
+                "id": "creature-gameplay-references",
+                "title": "Drops, Habitat & UI References",
+                "description": "Drops, habitat, UI, and creature-facing reference art.",
+                "slots": [
+                  {
+                    "id": "creature-gameplay-references-drops-ingredients",
+                    "label": "Drops / Ingredients",
+                    "requirementType": "Creature Reference",
+                    "status": "empty",
+                    "image": null,
+                    "notes": "",
+                    "order": 0
+                  },
+                  {
+                    "id": "creature-gameplay-references-habitat-reference",
+                    "label": "Habitat Reference",
+                    "requirementType": "Creature Reference",
+                    "status": "empty",
+                    "image": null,
+                    "notes": "",
+                    "order": 1
+                  },
+                  {
+                    "id": "creature-gameplay-references-ui-icon",
+                    "label": "UI Icon",
+                    "requirementType": "Creature Reference",
+                    "status": "empty",
+                    "image": null,
+                    "notes": "",
+                    "order": 2
+                  }
+                ],
+                "order": 2,
+                "driveFolderId": "",
+                "driveFolderLink": "",
+                "driveFolderName": ""
+              },
+              {
+                "id": "creature-marketing-misc",
+                "title": "Marketing & Misc Art",
+                "description": "Promotional, mood, and extra artwork for the creature.",
+                "slots": [
+                  {
+                    "id": "creature-marketing-misc-marketing-art",
+                    "label": "Marketing Art",
+                    "requirementType": "Creature Marketing Art",
+                    "status": "empty",
+                    "image": null,
+                    "notes": "",
+                    "order": 0
+                  },
+                  {
+                    "id": "creature-marketing-misc-misc-art",
+                    "label": "Misc Art",
+                    "requirementType": "Creature Marketing Art",
+                    "status": "empty",
+                    "image": null,
+                    "notes": "",
+                    "order": 1
+                  }
+                ],
+                "order": 3,
+                "driveFolderId": "",
+                "driveFolderLink": "",
+                "driveFolderName": ""
+              }
+            ]
+          },
+          "driveFolderId": "",
+          "driveFolderLink": "",
+          "createdAt": "2026-05-26T22:17:15.764Z",
+          "updatedAt": "2026-05-26T22:17:15.764Z"
+        },
         {
           "id": "mushgrub",
           "name": "Mushgrub",
