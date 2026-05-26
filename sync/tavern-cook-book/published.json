@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-05-26T22:17:16.224Z",
+  "updatedAt": "2026-05-26T22:17:32.170Z",
   "updatedBy": "stlprodz1101@gmail.com",
   "payload": {
     "database": {
@@ -121666,7 +121666,7 @@
       "bestiary": [
         {
           "id": "creature-1779833835764",
-          "name": "New Creature",
+          "name": "SLime of all slimes",
           "category": "Wildlife",
           "type": "Beast",
           "slotImage": "",
@@ -121950,7 +121950,7 @@
           "driveFolderId": "",
           "driveFolderLink": "",
           "createdAt": "2026-05-26T22:17:15.764Z",
-          "updatedAt": "2026-05-26T22:17:15.764Z"
+          "updatedAt": "2026-05-26T22:17:32.169Z"
         },
         {
           "id": "mushgrub",
