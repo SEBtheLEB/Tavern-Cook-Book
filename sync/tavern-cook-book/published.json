@@ -1,6 +1,6 @@
 {
-  "updatedAt": "2026-05-28T08:06:55.847Z",
-  "updatedBy": "stlprodz1101@gmail.com",
+  "updatedAt": "2026-05-28T19:40:04.292Z",
+  "updatedBy": "carrieboberry2820@gmail.com",
   "payload": {
     "database": {
       "schemaVersion": 5,
@@ -125327,8 +125327,37 @@
                     "id": "creature-core-art-main-creature-portrait",
                     "label": "Main Creature Portrait",
                     "requirementType": "Creature Art",
-                    "status": "empty",
-                    "image": null,
+                    "status": "uploaded",
+                    "image": {
+                      "id": "binder-spicy-slime-creature-core-art-main-creature-portrait-1779997396542",
+                      "title": "Main Creature Portrait",
+                      "category": "Core Creature Art",
+                      "slotId": "creature-core-art-main-creature-portrait",
+                      "driveFileId": "1a1c7V8p1nJvgQ9U0ge6_wWRtQ2O-8j3Y",
+                      "thumbnailUrl": "https://drive.google.com/thumbnail?id=1a1c7V8p1nJvgQ9U0ge6_wWRtQ2O-8j3Y&sz=w1000",
+                      "webViewLink": "https://drive.google.com/file/d/1a1c7V8p1nJvgQ9U0ge6_wWRtQ2O-8j3Y/view?usp=drivesdk",
+                      "dateAdded": "2026-05-28T19:43:16.542Z",
+                      "uploadStatus": "imported-from-drive",
+                      "assetState": "wip",
+                      "notes": "",
+                      "fileName": "",
+                      "downloadUrl": "",
+                      "uploadedByName": "",
+                      "uploadedByEmail": "",
+                      "uploadedAt": "",
+                      "lastUpdatedByName": "",
+                      "lastUpdatedByEmail": "",
+                      "lastUpdatedAt": "",
+                      "imageFit": {
+                        "mode": "contain",
+                        "scale": 1,
+                        "x": 0,
+                        "y": 0
+                      },
+                      "driveFolderId": "1UXiRNOjUnd7_pgD9hzUHspAKBer6jwIw",
+                      "driveFolderLink": "https://drive.google.com/drive/folders/1UXiRNOjUnd7_pgD9hzUHspAKBer6jwIw",
+                      "driveFolderName": "Core Creature Art"
+                    },
                     "notes": "",
                     "order": 0
                   },
@@ -125511,7 +125540,7 @@
           "driveFolderId": "",
           "driveFolderLink": "",
           "createdAt": "2026-05-07T00:00:00.000Z",
-          "updatedAt": "2026-05-15T09:12:41.064Z"
+          "updatedAt": "2026-05-28T19:43:16.542Z"
         },
         {
           "id": "seared-scarab",
