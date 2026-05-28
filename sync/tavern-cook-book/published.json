@@ -1,9 +1,9 @@
 {
-  "updatedAt": "2026-05-26T22:20:39.270Z",
-  "updatedBy": "frostlyspark@gmail.com",
+  "updatedAt": "2026-05-28T08:04:51.696Z",
+  "updatedBy": "stlprodz1101@gmail.com",
   "payload": {
     "database": {
-      "schemaVersion": 4,
+      "schemaVersion": 5,
       "entries": [
         {
           "id": "entry-1778726576153",
@@ -132224,6 +132224,20 @@
           "updatedAt": "2026-05-16T00:00:00.000Z"
         }
       ],
+      "artDirection": {
+        "id": "art-direction-main-board",
+        "title": "Tales of the Tavern Art Direction",
+        "description": "A shared visual whiteboard for references, notes, paintovers, mood, shapes, UI, characters, food, places, and production direction.",
+        "width": 5200,
+        "height": 3400,
+        "background": "grid",
+        "items": [],
+        "driveFolderId": "1egYEd_MeGJsBX_U3Klvyy8CkV17PTZiF",
+        "driveFolderLink": "https://drive.google.com/drive/folders/1egYEd_MeGJsBX_U3Klvyy8CkV17PTZiF",
+        "driveFolderName": "Art Direction",
+        "createdAt": "2026-05-27T00:00:00.000Z",
+        "updatedAt": "2026-05-28T08:04:51.040Z"
+      },
       "assignments": [
         {
           "id": "assignment-1779833991243-oyynoe",
