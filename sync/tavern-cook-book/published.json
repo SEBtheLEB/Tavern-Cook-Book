@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-05-28T08:04:58.669Z",
+  "updatedAt": "2026-05-28T08:05:00.995Z",
   "updatedBy": "stlprodz1101@gmail.com",
   "payload": {
     "database": {
@@ -132264,11 +132264,11 @@
             "id": "art-image-1UfIRnwYCyD65Y4HXxpDowPp4EyYiFa3X",
             "type": "image",
             "title": "55e6e85b-32db-47c2-a4d8-c4260cc1de4c",
-            "x": 789,
-            "y": 320.84375,
+            "x": 636,
+            "y": 242.84375,
             "width": 620,
             "height": 520,
-            "zIndex": 4,
+            "zIndex": 6,
             "image": {
               "driveFileId": "1UfIRnwYCyD65Y4HXxpDowPp4EyYiFa3X",
               "thumbnailUrl": "https://drive.google.com/thumbnail?id=1UfIRnwYCyD65Y4HXxpDowPp4EyYiFa3X&sz=w1000",
@@ -132286,14 +132286,14 @@
             },
             "notes": "",
             "createdAt": "2026-05-28T08:04:57.665Z",
-            "updatedAt": "2026-05-28T08:04:57.665Z"
+            "updatedAt": "2026-05-28T08:05:00.213Z"
           }
         ],
         "driveFolderId": "1egYEd_MeGJsBX_U3Klvyy8CkV17PTZiF",
         "driveFolderLink": "https://drive.google.com/drive/folders/1egYEd_MeGJsBX_U3Klvyy8CkV17PTZiF",
         "driveFolderName": "Art Direction",
         "createdAt": "2026-05-27T00:00:00.000Z",
-        "updatedAt": "2026-05-28T08:04:57.665Z"
+        "updatedAt": "2026-05-28T08:05:00.237Z"
       },
       "assignments": [
         {
