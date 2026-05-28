@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-05-28T08:04:51.696Z",
+  "updatedAt": "2026-05-28T08:04:53.504Z",
   "updatedBy": "stlprodz1101@gmail.com",
   "payload": {
     "database": {
@@ -132231,12 +132231,41 @@
         "width": 5200,
         "height": 3400,
         "background": "grid",
-        "items": [],
+        "items": [
+          {
+            "id": "art-image-1-rXK44EArR7iYShfKNxTLh20UEBDiceG",
+            "type": "image",
+            "title": "Tales of the Tavern Menu banner",
+            "x": 353,
+            "y": 255.84375,
+            "width": 620,
+            "height": 520,
+            "zIndex": 1,
+            "image": {
+              "driveFileId": "1-rXK44EArR7iYShfKNxTLh20UEBDiceG",
+              "thumbnailUrl": "https://drive.google.com/thumbnail?id=1-rXK44EArR7iYShfKNxTLh20UEBDiceG&sz=w1000",
+              "webViewLink": "https://drive.google.com/file/d/1-rXK44EArR7iYShfKNxTLh20UEBDiceG/view?usp=drivesdk",
+              "fileName": "TalesOfTheTavernArtDirection_Whiteboard_TalesOfTheTavernMenuBanner_Reference_WIP.jpg",
+              "mimeType": "image/jpeg",
+              "width": 3000,
+              "height": 969,
+              "uploadedAt": "2026-05-28T08:04:52.346Z",
+              "uploadedByName": "STL Productionz",
+              "uploadedByEmail": "stlprodz1101@gmail.com",
+              "driveFolderId": "1egYEd_MeGJsBX_U3Klvyy8CkV17PTZiF",
+              "driveFolderLink": "https://drive.google.com/drive/folders/1egYEd_MeGJsBX_U3Klvyy8CkV17PTZiF",
+              "driveFolderName": "Art Direction"
+            },
+            "notes": "",
+            "createdAt": "2026-05-28T08:04:52.346Z",
+            "updatedAt": "2026-05-28T08:04:52.346Z"
+          }
+        ],
         "driveFolderId": "1egYEd_MeGJsBX_U3Klvyy8CkV17PTZiF",
         "driveFolderLink": "https://drive.google.com/drive/folders/1egYEd_MeGJsBX_U3Klvyy8CkV17PTZiF",
         "driveFolderName": "Art Direction",
         "createdAt": "2026-05-27T00:00:00.000Z",
-        "updatedAt": "2026-05-28T08:04:51.040Z"
+        "updatedAt": "2026-05-28T08:04:52.346Z"
       },
       "assignments": [
         {
