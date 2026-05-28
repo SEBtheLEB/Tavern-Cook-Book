@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-05-28T08:05:12.073Z",
+  "updatedAt": "2026-05-28T08:05:14.398Z",
   "updatedBy": "stlprodz1101@gmail.com",
   "payload": {
     "database": {
@@ -132233,34 +132233,6 @@
         "background": "grid",
         "items": [
           {
-            "id": "art-image-1UfIRnwYCyD65Y4HXxpDowPp4EyYiFa3X",
-            "type": "image",
-            "title": "55e6e85b-32db-47c2-a4d8-c4260cc1de4c",
-            "x": 748,
-            "y": 322.84375,
-            "width": 620,
-            "height": 520,
-            "zIndex": 5,
-            "image": {
-              "driveFileId": "1UfIRnwYCyD65Y4HXxpDowPp4EyYiFa3X",
-              "thumbnailUrl": "https://drive.google.com/thumbnail?id=1UfIRnwYCyD65Y4HXxpDowPp4EyYiFa3X&sz=w1000",
-              "webViewLink": "https://drive.google.com/file/d/1UfIRnwYCyD65Y4HXxpDowPp4EyYiFa3X/view?usp=drivesdk",
-              "fileName": "TalesOfTheTavernArtDirection_Whiteboard_55e6e85b32db47c2A4d8C4260cc1de4c_Reference_WIP.jpg",
-              "mimeType": "image/jpeg",
-              "width": 3000,
-              "height": 969,
-              "uploadedAt": "2026-05-28T08:04:57.665Z",
-              "uploadedByName": "STL Productionz",
-              "uploadedByEmail": "stlprodz1101@gmail.com",
-              "driveFolderId": "1egYEd_MeGJsBX_U3Klvyy8CkV17PTZiF",
-              "driveFolderLink": "https://drive.google.com/drive/folders/1egYEd_MeGJsBX_U3Klvyy8CkV17PTZiF",
-              "driveFolderName": "Art Direction"
-            },
-            "notes": "",
-            "createdAt": "2026-05-28T08:04:57.665Z",
-            "updatedAt": "2026-05-28T08:04:59.017Z"
-          },
-          {
             "id": "art-image-1qYPf828yi6XSmjsKzpBagvSJf5qG-yvE",
             "type": "image",
             "title": "9fda7ed9-8320-46aa-9606-0d7e20254b91",
@@ -132293,7 +132265,7 @@
         "driveFolderLink": "https://drive.google.com/drive/folders/1egYEd_MeGJsBX_U3Klvyy8CkV17PTZiF",
         "driveFolderName": "Art Direction",
         "createdAt": "2026-05-27T00:00:00.000Z",
-        "updatedAt": "2026-05-28T08:05:11.514Z"
+        "updatedAt": "2026-05-28T08:05:13.572Z"
       },
       "assignments": [
         {
