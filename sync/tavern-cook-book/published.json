@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-05-28T19:40:11.042Z",
+  "updatedAt": "2026-05-28T19:40:38.287Z",
   "updatedBy": "carrieboberry2820@gmail.com",
   "payload": {
     "database": {
@@ -124070,8 +124070,37 @@
                     "id": "creature-core-art-main-creature-portrait",
                     "label": "Main Creature Portrait",
                     "requirementType": "Creature Art",
-                    "status": "empty",
-                    "image": null,
+                    "status": "uploaded",
+                    "image": {
+                      "id": "binder-sweet-slime-creature-core-art-main-creature-portrait-1779997430648",
+                      "title": "Main Creature Portrait",
+                      "category": "Core Creature Art",
+                      "slotId": "creature-core-art-main-creature-portrait",
+                      "driveFileId": "1___A0nTMmxTPZwvw8LI5sKehZ3JJf0xo",
+                      "thumbnailUrl": "https://drive.google.com/thumbnail?id=1___A0nTMmxTPZwvw8LI5sKehZ3JJf0xo&sz=w1000",
+                      "webViewLink": "https://drive.google.com/file/d/1___A0nTMmxTPZwvw8LI5sKehZ3JJf0xo/view?usp=drivesdk",
+                      "dateAdded": "2026-05-28T19:43:50.648Z",
+                      "uploadStatus": "imported-from-drive",
+                      "assetState": "wip",
+                      "notes": "",
+                      "fileName": "",
+                      "downloadUrl": "",
+                      "uploadedByName": "",
+                      "uploadedByEmail": "",
+                      "uploadedAt": "",
+                      "lastUpdatedByName": "",
+                      "lastUpdatedByEmail": "",
+                      "lastUpdatedAt": "",
+                      "imageFit": {
+                        "mode": "contain",
+                        "scale": 1,
+                        "x": 0,
+                        "y": 0
+                      },
+                      "driveFolderId": "1BLRZaZQsXvn8FmAdSQb3ENK-M7_z7Lf3",
+                      "driveFolderLink": "https://drive.google.com/drive/folders/1BLRZaZQsXvn8FmAdSQb3ENK-M7_z7Lf3",
+                      "driveFolderName": "Core Creature Art"
+                    },
                     "notes": "",
                     "order": 0
                   },
@@ -124254,7 +124283,7 @@
           "driveFolderId": "",
           "driveFolderLink": "",
           "createdAt": "2026-05-07T00:00:00.000Z",
-          "updatedAt": "2026-05-15T09:12:36.106Z"
+          "updatedAt": "2026-05-28T19:43:50.648Z"
         },
         {
           "id": "savory-slime",
