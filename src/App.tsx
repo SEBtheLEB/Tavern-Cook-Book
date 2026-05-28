@@ -40,6 +40,7 @@ import {
   type StoryReferenceDraftInput
 } from "./utils/storyReferences";
 import { AssignmentProvider } from "./components/AssignmentSystem";
+import { ArtDirectionPage } from "./components/ArtDirectionPage";
 import { ArtVaultDashboard } from "./components/ArtVaultDashboard";
 import type { ArtBinderInitialFilter, ArtBinderKind, ArtBinderSessionState } from "./components/ArtBinderPage";
 import { AccessGate } from "./components/AccessGate";
@@ -2835,6 +2836,15 @@ export default function App() {
                 />
               )}
 
+              {activeView === "artDirection" && (
+                <ArtDirectionPage
+                  database={database}
+                  readOnly={readOnly}
+                  currentUser={currentUser}
+                  onDatabaseChange={updateDatabase}
+                />
+              )}
+
               {activeView === "bestiary" && (
                 <BestiaryPage
                   creatures={database.bestiary || []}
@@ -2886,7 +2896,7 @@ export default function App() {
                 />
               )}
 
-              {!["dashboard", "storyJourney", "story", "spriteAnimator", "search", "timeline", "secrets", "settings", "bestiary", "world", "food", "ingredients", "recipes", "artVault"].includes(activeView) && (
+              {!["dashboard", "storyJourney", "story", "spriteAnimator", "search", "timeline", "secrets", "settings", "bestiary", "world", "food", "ingredients", "recipes", "artVault", "artDirection"].includes(activeView) && (
                 <HubPage
                   view={activeConfig}
                   entries={viewEntries}

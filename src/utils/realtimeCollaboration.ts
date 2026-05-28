@@ -1,6 +1,7 @@
 import type { AccessRole, ActiveView, GoogleAccountUser, LoreDatabase } from "../types";
 import { databaseSyncHash } from "./cloudSync";
 import { migrateDatabase, sanitizeDatabaseForPersistence } from "./storage";
+import { normalizeArtDirectionBoard } from "./artDirection";
 
 export const TAVERN_REALTIME_ROOM_ID = import.meta.env.VITE_TAVERN_REALTIME_ROOM_ID || "tavern-cook-book:live-v1";
 export const TAVERN_REALTIME_ENABLED = import.meta.env.VITE_TAVERN_REALTIME_DISABLED !== "true";
@@ -100,8 +101,36 @@ export function mergeDatabaseChange(
     teamMembers: mergeRecordArray(previous.teamMembers || [], next.teamMembers || [], remote.teamMembers || []),
     userProfiles: mergeUserProfiles(previous.userProfiles || [], next.userProfiles || [], remote.userProfiles || []),
     questCategories: mergeRecordArray(previous.questCategories || [], next.questCategories || [], remote.questCategories || []),
+    artDirection: mergeArtDirectionBoard(previous.artDirection, next.artDirection, remote.artDirection),
     branding: sameValue(previous.branding, next.branding) ? remote.branding : next.branding,
     worldBuilding
+  });
+}
+
+function mergeArtDirectionBoard(
+  previousBoard: LoreDatabase["artDirection"],
+  nextBoard: LoreDatabase["artDirection"],
+  remoteBoard: LoreDatabase["artDirection"]
+) {
+  const previous = normalizeArtDirectionBoard(previousBoard);
+  const next = normalizeArtDirectionBoard(nextBoard);
+  const remote = normalizeArtDirectionBoard(remoteBoard);
+
+  if (sameValue(previous, next)) return remote;
+  if (sameValue(previous, remote)) return next;
+
+  return normalizeArtDirectionBoard({
+    ...remote,
+    title: previous.title === next.title ? remote.title : next.title,
+    description: previous.description === next.description ? remote.description : next.description,
+    background: previous.background === next.background ? remote.background : next.background,
+    width: previous.width === next.width ? remote.width : next.width,
+    height: previous.height === next.height ? remote.height : next.height,
+    driveFolderId: next.driveFolderId || remote.driveFolderId,
+    driveFolderLink: next.driveFolderLink || remote.driveFolderLink,
+    driveFolderName: next.driveFolderName || remote.driveFolderName,
+    items: mergeRecordArray(previous.items || [], next.items || [], remote.items || []),
+    updatedAt: latestTimestamp(next.updatedAt, remote.updatedAt, previous.updatedAt)
   });
 }
 
@@ -149,6 +178,12 @@ function mergeRecordArray<T extends { id: string }>(previousItems: T[], nextItem
 
 function sameValue(left: unknown, right: unknown) {
   return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function latestTimestamp(...values: string[]) {
+  return values
+    .filter(Boolean)
+    .sort((left, right) => Date.parse(right) - Date.parse(left))[0] || new Date().toISOString();
 }
 
 function mergeUserProfiles(

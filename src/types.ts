@@ -44,6 +44,7 @@ export type ActiveView =
   | "world"
   | "bestiary"
   | "artVault"
+  | "artDirection"
   | "marketing"
   | "archive"
   | "settings"
@@ -544,6 +545,56 @@ export interface GlossaryTerm {
   updatedAt: string;
 }
 
+export type ArtDirectionBoardItemType = "image" | "text";
+
+export interface ArtDirectionImageMetadata {
+  driveFileId: string;
+  thumbnailUrl: string;
+  webViewLink: string;
+  fileName: string;
+  mimeType: string;
+  width: number;
+  height: number;
+  uploadedAt: string;
+  uploadedByName?: string;
+  uploadedByEmail?: string;
+  driveFolderId?: string;
+  driveFolderLink?: string;
+  driveFolderName?: string;
+}
+
+export interface ArtDirectionBoardItem {
+  id: string;
+  type: ArtDirectionBoardItemType;
+  title: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  zIndex: number;
+  text?: string;
+  color?: string;
+  image?: ArtDirectionImageMetadata;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ArtDirectionBoard {
+  id: string;
+  title: string;
+  description: string;
+  width: number;
+  height: number;
+  background: "grid" | "plain";
+  items: ArtDirectionBoardItem[];
+  driveFolderId: string;
+  driveFolderLink: string;
+  driveFolderName: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface LoreBackup {
   id: string;
   label: string;
@@ -554,6 +605,7 @@ export interface LoreBackup {
   worldBuilding?: WorldBuildingData;
   storyReferences?: StoryReference[];
   glossaryTerms?: GlossaryTerm[];
+  artDirection?: ArtDirectionBoard;
 }
 
 export interface LoreDatabase {
@@ -564,6 +616,7 @@ export interface LoreDatabase {
   worldBuilding: WorldBuildingData;
   storyReferences: StoryReference[];
   glossaryTerms: GlossaryTerm[];
+  artDirection: ArtDirectionBoard;
   assignments: AssignmentRecord[];
   teamMembers: TeamMember[];
   userProfiles: UserProfile[];

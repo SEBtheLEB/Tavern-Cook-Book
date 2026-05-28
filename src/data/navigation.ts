@@ -88,6 +88,15 @@ export const mainNavigation: ViewConfig[] = [
     icon: "Palette"
   },
   {
+    id: "artDirection",
+    label: "Art Direction",
+    description: "Shared Miro-style whiteboard for references, notes, mood images, and production direction.",
+    tooltip:
+      "Drop images, add notes, arrange visual references, and save everything to the shared Art Direction board.",
+    category: "Production",
+    icon: "StickyNote"
+  },
+  {
     id: "marketing",
     label: "Marketing",
     description: "Spoiler-safe descriptions, post ideas, platform-safe copy, and public lore.",
@@ -165,7 +174,7 @@ export const hubSections: Record<string, { title: string; view: ActiveView; desc
 
 export const dashboardBoxes: ViewConfig[] = [
   ...mainNavigation.filter((item) =>
-    ["storyJourney", "story", "characters", "world", "bestiary", "quests", "food", "gameplay", "marketing", "archive", "settings"].includes(
+    ["storyJourney", "story", "characters", "world", "bestiary", "quests", "food", "gameplay", "artDirection", "marketing", "archive", "settings"].includes(
       item.id
     )
   ),

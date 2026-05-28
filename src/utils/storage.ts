@@ -16,6 +16,11 @@ import {
   sanitizeBestiaryCategoryArtVaultForPersistence,
   sanitizeBestiaryCreatureForPersistence
 } from "./bestiary";
+import {
+  createStarterArtDirectionBoard,
+  normalizeArtDirectionBoard,
+  sanitizeArtDirectionBoardForPersistence
+} from "./artDirection";
 import { normalizeAssignments, normalizeQuestCategories, normalizeTeamMembers, normalizeUserProfiles } from "./assignments";
 import { cloneDatabase, normalizeEntry, nowIso } from "./entries";
 import { normalizeImageFit } from "./imageFit";
@@ -35,7 +40,7 @@ export const DATABASE_KEY = "tavern-cook-book:data";
 export const THEME_KEY = "tavern-cook-book:theme";
 const LEGACY_MODE_KEY = "tavern-cook-book:mode";
 
-export const currentSchemaVersion = 4;
+export const currentSchemaVersion = 5;
 const loreExpansionSchemaVersion = 2;
 const magicalMealCanonSchemaVersion = 3;
 const storyReferenceSchemaVersion = 4;
@@ -241,6 +246,7 @@ export const migrateDatabase = (value: unknown): LoreDatabase => {
   let glossaryTerms = Array.isArray(incoming.glossaryTerms)
     ? normalizeGlossaryTerms(incoming.glossaryTerms)
     : normalizeGlossaryTerms(starter.glossaryTerms);
+  const artDirection = normalizeArtDirectionBoard(incoming.artDirection || starter.artDirection || createStarterArtDirectionBoard());
 
   if (needsLoreExpansion) {
     entries = mergeLoreExpansionEntries(entries, starter.entries);
@@ -267,6 +273,7 @@ export const migrateDatabase = (value: unknown): LoreDatabase => {
     worldBuilding,
     storyReferences,
     glossaryTerms,
+    artDirection,
     assignments,
     teamMembers,
     userProfiles,
@@ -295,6 +302,9 @@ export const migrateDatabase = (value: unknown): LoreDatabase => {
               : undefined,
             glossaryTerms: Array.isArray((backup as LoreBackup).glossaryTerms)
               ? normalizeGlossaryTerms((backup as LoreBackup).glossaryTerms)
+              : undefined,
+            artDirection: (backup as LoreBackup).artDirection
+              ? normalizeArtDirectionBoard((backup as LoreBackup).artDirection)
               : undefined
           }))
           .slice(0, 12)
@@ -558,7 +568,8 @@ export const createBackup = (database: LoreDatabase, label: string): LoreDatabas
     bestiaryCategoryVaults: cloneDatabase(database).bestiaryCategoryVaults || [],
     worldBuilding: cloneDatabase(database).worldBuilding || createStarterWorldBuilding(database.entries, database.bestiary),
     storyReferences: cloneDatabase(database).storyReferences || [],
-    glossaryTerms: cloneDatabase(database).glossaryTerms || []
+    glossaryTerms: cloneDatabase(database).glossaryTerms || [],
+    artDirection: cloneDatabase(database).artDirection || createStarterArtDirectionBoard()
   };
 
   next.backups = [backup, ...(next.backups || [])].slice(0, 12);
@@ -580,6 +591,7 @@ export const sanitizeDatabaseForPersistence = (database: LoreDatabase): LoreData
   worldBuilding: sanitizeWorldBuildingForPersistence(database.worldBuilding),
   storyReferences: normalizeStoryReferences(database.storyReferences),
   glossaryTerms: normalizeGlossaryTerms(database.glossaryTerms),
+  artDirection: sanitizeArtDirectionBoardForPersistence(database.artDirection),
   assignments: normalizeAssignments(database.assignments || []),
   teamMembers: normalizeTeamMembers(database.teamMembers || []),
   userProfiles: normalizeUserProfiles(database.userProfiles || []),
@@ -614,6 +626,10 @@ export const sanitizeDatabaseForPersistence = (database: LoreDatabase): LoreData
 
     if (Array.isArray(backup.glossaryTerms)) {
       sanitizedBackup.glossaryTerms = normalizeGlossaryTerms(backup.glossaryTerms);
+    }
+
+    if (backup.artDirection) {
+      sanitizedBackup.artDirection = sanitizeArtDirectionBoardForPersistence(backup.artDirection);
     }
 
     return sanitizedBackup;
