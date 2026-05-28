@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-05-28T08:06:56.844Z",
+  "updatedAt": "2026-05-28T08:06:55.847Z",
   "updatedBy": "stlprodz1101@gmail.com",
   "payload": {
     "database": {
@@ -132259,13 +132259,41 @@
             "notes": "",
             "createdAt": "2026-05-28T08:05:01.294Z",
             "updatedAt": "2026-05-28T08:06:52.468Z"
+          },
+          {
+            "id": "art-image-1tVodPTgd_c9MCf6pPL41KcN_cDeoMR7C",
+            "type": "image",
+            "title": "2c795b3f-c950-4548-8ecd-94ee3b7e44dd",
+            "x": 1220,
+            "y": 353.84375,
+            "width": 620,
+            "height": 520,
+            "zIndex": 16,
+            "image": {
+              "driveFileId": "1tVodPTgd_c9MCf6pPL41KcN_cDeoMR7C",
+              "thumbnailUrl": "https://drive.google.com/thumbnail?id=1tVodPTgd_c9MCf6pPL41KcN_cDeoMR7C&sz=w1000",
+              "webViewLink": "https://drive.google.com/file/d/1tVodPTgd_c9MCf6pPL41KcN_cDeoMR7C/view?usp=drivesdk",
+              "fileName": "TalesOfTheTavernArtDirection_Whiteboard_2c795b3fC95045488ecd94ee3b7e44dd_Reference_WIP.jpg",
+              "mimeType": "image/jpeg",
+              "width": 3000,
+              "height": 969,
+              "uploadedAt": "2026-05-28T08:06:54.555Z",
+              "uploadedByName": "STL Productionz",
+              "uploadedByEmail": "stlprodz1101@gmail.com",
+              "driveFolderId": "1egYEd_MeGJsBX_U3Klvyy8CkV17PTZiF",
+              "driveFolderLink": "https://drive.google.com/drive/folders/1egYEd_MeGJsBX_U3Klvyy8CkV17PTZiF",
+              "driveFolderName": "Art Direction"
+            },
+            "notes": "",
+            "createdAt": "2026-05-28T08:06:54.555Z",
+            "updatedAt": "2026-05-28T08:06:54.555Z"
           }
         ],
         "driveFolderId": "1egYEd_MeGJsBX_U3Klvyy8CkV17PTZiF",
         "driveFolderLink": "https://drive.google.com/drive/folders/1egYEd_MeGJsBX_U3Klvyy8CkV17PTZiF",
         "driveFolderName": "Art Direction",
         "createdAt": "2026-05-27T00:00:00.000Z",
-        "updatedAt": "2026-05-28T08:06:56.015Z"
+        "updatedAt": "2026-05-28T08:06:54.556Z"
       },
       "assignments": [
         {
