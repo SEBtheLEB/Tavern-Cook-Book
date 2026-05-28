@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-05-28T08:04:57.676Z",
+  "updatedAt": "2026-05-28T08:04:58.669Z",
   "updatedBy": "stlprodz1101@gmail.com",
   "payload": {
     "database": {
@@ -132236,11 +132236,11 @@
             "id": "art-image-1-rXK44EArR7iYShfKNxTLh20UEBDiceG",
             "type": "image",
             "title": "Tales of the Tavern Menu banner",
-            "x": 312,
-            "y": 127.84375,
+            "x": 348,
+            "y": 241.84375,
             "width": 620,
             "height": 520,
-            "zIndex": 4,
+            "zIndex": 3,
             "image": {
               "driveFileId": "1-rXK44EArR7iYShfKNxTLh20UEBDiceG",
               "thumbnailUrl": "https://drive.google.com/thumbnail?id=1-rXK44EArR7iYShfKNxTLh20UEBDiceG&sz=w1000",
@@ -132258,14 +132258,42 @@
             },
             "notes": "",
             "createdAt": "2026-05-28T08:04:52.346Z",
-            "updatedAt": "2026-05-28T08:04:56.669Z"
+            "updatedAt": "2026-05-28T08:04:55.262Z"
+          },
+          {
+            "id": "art-image-1UfIRnwYCyD65Y4HXxpDowPp4EyYiFa3X",
+            "type": "image",
+            "title": "55e6e85b-32db-47c2-a4d8-c4260cc1de4c",
+            "x": 789,
+            "y": 320.84375,
+            "width": 620,
+            "height": 520,
+            "zIndex": 4,
+            "image": {
+              "driveFileId": "1UfIRnwYCyD65Y4HXxpDowPp4EyYiFa3X",
+              "thumbnailUrl": "https://drive.google.com/thumbnail?id=1UfIRnwYCyD65Y4HXxpDowPp4EyYiFa3X&sz=w1000",
+              "webViewLink": "https://drive.google.com/file/d/1UfIRnwYCyD65Y4HXxpDowPp4EyYiFa3X/view?usp=drivesdk",
+              "fileName": "TalesOfTheTavernArtDirection_Whiteboard_55e6e85b32db47c2A4d8C4260cc1de4c_Reference_WIP.jpg",
+              "mimeType": "image/jpeg",
+              "width": 3000,
+              "height": 969,
+              "uploadedAt": "2026-05-28T08:04:57.665Z",
+              "uploadedByName": "STL Productionz",
+              "uploadedByEmail": "stlprodz1101@gmail.com",
+              "driveFolderId": "1egYEd_MeGJsBX_U3Klvyy8CkV17PTZiF",
+              "driveFolderLink": "https://drive.google.com/drive/folders/1egYEd_MeGJsBX_U3Klvyy8CkV17PTZiF",
+              "driveFolderName": "Art Direction"
+            },
+            "notes": "",
+            "createdAt": "2026-05-28T08:04:57.665Z",
+            "updatedAt": "2026-05-28T08:04:57.665Z"
           }
         ],
         "driveFolderId": "1egYEd_MeGJsBX_U3Klvyy8CkV17PTZiF",
         "driveFolderLink": "https://drive.google.com/drive/folders/1egYEd_MeGJsBX_U3Klvyy8CkV17PTZiF",
         "driveFolderName": "Art Direction",
         "createdAt": "2026-05-27T00:00:00.000Z",
-        "updatedAt": "2026-05-28T08:04:56.745Z"
+        "updatedAt": "2026-05-28T08:04:57.665Z"
       },
       "assignments": [
         {
