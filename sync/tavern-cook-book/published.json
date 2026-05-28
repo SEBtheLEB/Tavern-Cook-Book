@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-05-28T08:05:24.445Z",
+  "updatedAt": "2026-05-28T08:05:26.706Z",
   "updatedBy": "stlprodz1101@gmail.com",
   "payload": {
     "database": {
@@ -132261,39 +132261,26 @@
             "updatedAt": "2026-05-28T08:05:21.690Z"
           },
           {
-            "id": "art-image-1k0TZTijccAKHyrzTApzZ39Wa6MC1nrEF",
-            "type": "image",
-            "title": "2c795b3f-c950-4548-8ecd-94ee3b7e44dd",
-            "x": 372,
-            "y": 589.84375,
-            "width": 620,
-            "height": 520,
+            "id": "art-note-1779955525895-jdgnsx",
+            "type": "text",
+            "title": "Direction Note",
+            "x": 260,
+            "y": 508,
+            "width": 320,
+            "height": 220,
             "zIndex": 9,
-            "image": {
-              "driveFileId": "1k0TZTijccAKHyrzTApzZ39Wa6MC1nrEF",
-              "thumbnailUrl": "https://drive.google.com/thumbnail?id=1k0TZTijccAKHyrzTApzZ39Wa6MC1nrEF&sz=w1000",
-              "webViewLink": "https://drive.google.com/file/d/1k0TZTijccAKHyrzTApzZ39Wa6MC1nrEF/view?usp=drivesdk",
-              "fileName": "TalesOfTheTavernArtDirection_Whiteboard_2c795b3fC95045488ecd94ee3b7e44dd_Reference_WIP.jpg",
-              "mimeType": "image/jpeg",
-              "width": 3000,
-              "height": 969,
-              "uploadedAt": "2026-05-28T08:05:23.346Z",
-              "uploadedByName": "STL Productionz",
-              "uploadedByEmail": "stlprodz1101@gmail.com",
-              "driveFolderId": "1egYEd_MeGJsBX_U3Klvyy8CkV17PTZiF",
-              "driveFolderLink": "https://drive.google.com/drive/folders/1egYEd_MeGJsBX_U3Klvyy8CkV17PTZiF",
-              "driveFolderName": "Art Direction"
-            },
+            "text": "Write the art direction note here.",
+            "color": "#fff7d6",
             "notes": "",
-            "createdAt": "2026-05-28T08:05:23.346Z",
-            "updatedAt": "2026-05-28T08:05:23.346Z"
+            "createdAt": "2026-05-28T08:05:25.895Z",
+            "updatedAt": "2026-05-28T08:05:25.895Z"
           }
         ],
         "driveFolderId": "1egYEd_MeGJsBX_U3Klvyy8CkV17PTZiF",
         "driveFolderLink": "https://drive.google.com/drive/folders/1egYEd_MeGJsBX_U3Klvyy8CkV17PTZiF",
         "driveFolderName": "Art Direction",
         "createdAt": "2026-05-27T00:00:00.000Z",
-        "updatedAt": "2026-05-28T08:05:23.346Z"
+        "updatedAt": "2026-05-28T08:05:25.895Z"
       },
       "assignments": [
         {
