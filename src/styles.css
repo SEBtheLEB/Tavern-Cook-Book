@@ -22160,3 +22160,294 @@ body > .picker-dialog-bg {
     min-height: 560px;
   }
 }
+
+/* Theme alignment for newer production pages */
+.art-direction-page,
+.roadmap-page {
+  color: var(--app-ink);
+}
+
+.art-direction-hero > div:first-child,
+.art-direction-stats,
+.art-direction-toolbar,
+.art-direction-inspector,
+.roadmap-hero,
+.roadmap-detail,
+.roadmap-admin-editor,
+.roadmap-xp-panel,
+.roadmap-readiness,
+.roadmap-filters,
+.roadmap-message {
+  border-color: color-mix(in srgb, var(--panel-border) 82%, transparent);
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--gold) 12%, transparent), transparent 48%),
+    linear-gradient(145deg, color-mix(in srgb, var(--panel-bg) 96%, var(--modal-bg)), color-mix(in srgb, var(--modal-bg) 88%, var(--panel-bg)));
+  box-shadow: var(--panel-shadow);
+}
+
+.art-direction-hero p,
+.art-direction-inspector p,
+.roadmap-hero p,
+.roadmap-detail-header p,
+.roadmap-admin-editor p,
+.roadmap-xp-panel p,
+.roadmap-readiness header p,
+.roadmap-item-card dt,
+.roadmap-assignment-panel span,
+.roadmap-notes-field span,
+.roadmap-admin-grid span,
+.roadmap-quick-item span {
+  color: var(--gold);
+}
+
+.art-direction-hero h1,
+.art-direction-inspector h2,
+.roadmap-hero h1,
+.roadmap-detail-header h2,
+.roadmap-xp-panel h2,
+.roadmap-milestone-card h3,
+.roadmap-item-card h4,
+.roadmap-readiness header h3,
+.roadmap-admin-editor h3,
+.roadmap-xp-grid strong,
+.roadmap-xp-grid b {
+  color: var(--app-ink);
+}
+
+.art-direction-hero span,
+.art-direction-stats span,
+.art-direction-stats small,
+.roadmap-hero span,
+.roadmap-detail-header span,
+.roadmap-xp-panel span,
+.roadmap-hero-stats span,
+.roadmap-xp-grid span,
+.roadmap-xp-grid small,
+.roadmap-milestone-card p,
+.roadmap-item-card dd,
+.roadmap-message,
+.art-direction-message,
+.art-direction-inspector label,
+.art-direction-inspector-empty,
+.roadmap-readiness-column small {
+  color: var(--muted-ink);
+}
+
+.art-direction-stats strong,
+.roadmap-hero-stats strong {
+  color: var(--app-ink);
+}
+
+.art-direction-toolbar button,
+.art-direction-inspector button,
+.art-direction-inspector a,
+.roadmap-view-tabs button,
+.roadmap-filter-tabs button,
+.roadmap-item-actions button,
+.roadmap-admin-editor button,
+.roadmap-readiness-column button {
+  border-color: color-mix(in srgb, var(--panel-border) 72%, transparent);
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--gold) 10%, transparent), transparent 48%),
+    color-mix(in srgb, var(--button-bg) 92%, var(--panel-bg));
+  color: color-mix(in srgb, var(--app-ink) 92%, var(--gold));
+}
+
+.art-direction-toolbar button:hover,
+.art-direction-inspector button:hover,
+.art-direction-inspector a:hover,
+.roadmap-view-tabs button:hover,
+.roadmap-filter-tabs button:hover,
+.roadmap-item-actions button:hover,
+.roadmap-admin-editor button:hover,
+.roadmap-readiness-column button:hover {
+  border-color: color-mix(in srgb, var(--gold) 82%, var(--panel-border));
+  box-shadow: 0 0 18px color-mix(in srgb, var(--gold) 18%, transparent);
+}
+
+.roadmap-view-tabs button.active,
+.roadmap-filter-tabs button.active {
+  border-color: color-mix(in srgb, var(--gold) 88%, var(--panel-border));
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--gold) 36%, var(--panel-bg)), color-mix(in srgb, var(--button-bg) 92%, var(--panel-bg)));
+  color: var(--app-ink);
+  box-shadow: 0 0 22px color-mix(in srgb, var(--gold) 22%, transparent);
+}
+
+.art-direction-scroller {
+  border-color: color-mix(in srgb, var(--panel-border) 70%, transparent);
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--panel-bg) 74%, var(--app-bg)), color-mix(in srgb, var(--modal-bg) 84%, var(--app-bg)));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--gold) 12%, transparent), var(--panel-shadow);
+}
+
+.art-direction-board {
+  background-color: color-mix(in srgb, var(--field-bg) 92%, var(--modal-bg));
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--panel-border) 14%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--panel-border) 14%, transparent) 1px, transparent 1px),
+    linear-gradient(color-mix(in srgb, var(--panel-border) 8%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--panel-border) 8%, transparent) 1px, transparent 1px);
+}
+
+.theme-dream .art-direction-board {
+  background-color: color-mix(in srgb, var(--modal-bg) 82%, #020817);
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--gold) 18%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--gold) 18%, transparent) 1px, transparent 1px),
+    linear-gradient(color-mix(in srgb, var(--gold) 8%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--gold) 8%, transparent) 1px, transparent 1px),
+    radial-gradient(circle at 22% 14%, color-mix(in srgb, var(--accent-3) 12%, transparent), transparent 36%);
+}
+
+.art-direction-origin {
+  color: color-mix(in srgb, var(--muted-ink) 82%, transparent);
+}
+
+.art-direction-item {
+  border-color: color-mix(in srgb, var(--card-border) 84%, transparent);
+  box-shadow: 0 18px 38px color-mix(in srgb, #000 22%, transparent);
+}
+
+.art-direction-item header,
+.roadmap-category-header {
+  border-color: color-mix(in srgb, var(--panel-border) 72%, transparent);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--button-bg) 94%, var(--panel-bg)), color-mix(in srgb, var(--modal-bg) 92%, var(--button-bg)));
+  color: color-mix(in srgb, var(--app-ink) 90%, var(--gold));
+}
+
+.art-direction-item header button {
+  background: color-mix(in srgb, var(--field-bg) 30%, transparent);
+  color: var(--app-ink);
+}
+
+.art-direction-image-frame,
+.roadmap-item-preview {
+  background:
+    radial-gradient(circle at center, color-mix(in srgb, var(--gold) 8%, transparent), transparent 58%),
+    color-mix(in srgb, var(--modal-bg) 88%, #020817);
+  color: var(--gold);
+}
+
+.art-direction-item footer,
+.roadmap-item-card,
+.roadmap-hero-stats article,
+.roadmap-xp-grid article,
+.roadmap-readiness-column button,
+.roadmap-item-card dl div,
+.roadmap-milestone-card footer span {
+  border-color: color-mix(in srgb, var(--card-border) 76%, transparent);
+  background: color-mix(in srgb, var(--card-bg) 88%, transparent);
+  color: var(--app-ink);
+}
+
+.art-direction-item footer strong,
+.art-direction-item footer span {
+  color: inherit;
+}
+
+.art-direction-item footer span {
+  opacity: 0.74;
+}
+
+.art-direction-item.text {
+  background: color-mix(in srgb, var(--card-bg) 86%, var(--gold) 12%);
+}
+
+.theme-dream .art-direction-item.text {
+  background: color-mix(in srgb, var(--card-bg) 92%, var(--gold) 8%) !important;
+}
+
+.theme-dream .art-direction-item.text textarea {
+  color: var(--app-ink);
+}
+
+.art-direction-drop-overlay,
+.art-direction-inspector-empty {
+  border-color: color-mix(in srgb, var(--panel-border) 72%, transparent);
+  background:
+    radial-gradient(circle at top, color-mix(in srgb, var(--gold) 12%, transparent), transparent 52%),
+    color-mix(in srgb, var(--panel-bg) 94%, var(--modal-bg));
+  color: var(--app-ink);
+}
+
+.art-direction-inspector input,
+.art-direction-inspector textarea,
+.roadmap-filters input,
+.roadmap-admin-grid input,
+.roadmap-admin-grid select,
+.roadmap-admin-grid textarea,
+.roadmap-assignment-panel select,
+.roadmap-notes-field textarea,
+.roadmap-quick-item select {
+  border-color: color-mix(in srgb, var(--panel-border) 58%, transparent);
+  background: color-mix(in srgb, var(--field-bg) 92%, transparent);
+  color: var(--app-ink);
+}
+
+.art-direction-inspector input:focus,
+.art-direction-inspector textarea:focus,
+.roadmap-filters input:focus,
+.roadmap-admin-grid input:focus,
+.roadmap-admin-grid select:focus,
+.roadmap-admin-grid textarea:focus,
+.roadmap-assignment-panel select:focus,
+.roadmap-notes-field textarea:focus,
+.roadmap-quick-item select:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 16%, transparent);
+}
+
+.roadmap-milestone-card {
+  border-color: color-mix(in srgb, var(--card-border) 82%, transparent);
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--gold) 14%, transparent), transparent 46%),
+    var(--card-frame);
+  color: var(--app-ink);
+  box-shadow: var(--panel-shadow);
+}
+
+.roadmap-milestone-card.active {
+  outline-color: color-mix(in srgb, var(--gold) 48%, transparent);
+}
+
+.roadmap-milestone-card header span,
+.roadmap-milestone-card header strong,
+.roadmap-item-badges span,
+.roadmap-kicker {
+  border-color: color-mix(in srgb, var(--panel-border) 64%, transparent);
+  background: color-mix(in srgb, var(--field-bg) 78%, transparent);
+  color: color-mix(in srgb, var(--app-ink) 84%, var(--gold));
+}
+
+.roadmap-progress {
+  background: color-mix(in srgb, var(--field-bg) 70%, transparent);
+}
+
+.roadmap-progress span {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 82%, var(--gold)), var(--gold));
+}
+
+.roadmap-readiness.ready,
+.roadmap-item-card.status-approved,
+.roadmap-item-card.status-complete {
+  border-color: color-mix(in srgb, var(--accent-2) 64%, var(--panel-border));
+}
+
+.roadmap-readiness.not-ready {
+  border-color: color-mix(in srgb, var(--gold) 70%, var(--panel-border));
+}
+
+.roadmap-item-card.priority-critical {
+  border-color: color-mix(in srgb, var(--danger-border) 84%, var(--panel-border));
+}
+
+.theme-dream .roadmap-view-tabs button,
+.theme-dream .roadmap-item-actions button,
+.theme-dream .roadmap-admin-editor button,
+.theme-dream .art-direction-toolbar button,
+.theme-dream .art-direction-inspector button,
+.theme-dream .art-direction-inspector a {
+  color: var(--app-ink);
+}
