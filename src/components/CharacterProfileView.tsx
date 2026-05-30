@@ -116,6 +116,7 @@ interface CharacterProfileViewProps {
   onOpenArtBinder?: () => void;
   openToolVaultRequestNonce?: number;
   storyReferences?: StoryReference[];
+  storyReferencesLocked?: boolean;
   onCreateStoryReference?: (input: StoryReferenceDraftInput) => StoryReference;
   onOpenStorySource?: (storyReferenceId: string) => void;
 }
@@ -308,6 +309,7 @@ export function CharacterProfileView({
   onOpenArtBinder,
   openToolVaultRequestNonce = 0,
   storyReferences = [],
+  storyReferencesLocked = false,
   onCreateStoryReference,
   onOpenStorySource
 }: CharacterProfileViewProps) {
@@ -1371,6 +1373,7 @@ export function CharacterProfileView({
           targetUpdatedAt={entry.updatedAt}
           readOnly={readOnly}
           isEditing={isEditing}
+          locked={storyReferencesLocked}
           onChangeLinkedIds={(linkedStoryReferenceIds) => onChange({ linkedStoryReferenceIds })}
           onCreateReference={onCreateStoryReference}
           onOpenStorySource={onOpenStorySource}

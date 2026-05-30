@@ -437,6 +437,7 @@ export default function App() {
   const [syncConflictReview, setSyncConflictReview] = useState<SyncConflictReview | null>(null);
   const [adminBaselineReview, setAdminBaselineReview] = useState<AdminBaselineReview | null>(null);
   const [adminBaselineSaving, setAdminBaselineSaving] = useState(false);
+  const [lockedAccessNotice, setLockedAccessNotice] = useState<{ title: string; message: string } | null>(null);
   const [explicitRemovalIds, setExplicitRemovalIds] = useState<string[]>(() => loadExplicitRemovalIds());
   const [realtimeUsers, setRealtimeUsers] = useState<RealtimeUserSummary[]>([]);
   const [realtimeStatus, setRealtimeStatus] = useState("initial");
@@ -580,6 +581,35 @@ export default function App() {
     () => canAccessSettings ? [] : expandHiddenViewIds(appSyncSettings.visibility.hiddenForMembers),
     [appSyncSettings.visibility.hiddenForMembers, canAccessSettings]
   );
+  const isViewLocked = useCallback((view: ActiveView) => {
+    if (canAccessSettings) return false;
+    return view === "settings" || hiddenViewIds.includes(view);
+  }, [canAccessSettings, hiddenViewIds]);
+  const showLockedViewNotice = useCallback((view: ActiveView, label?: string) => {
+    const viewLabel = label || viewLabelForId(view);
+    setLockedAccessNotice({
+      title: `${viewLabel} is locked`,
+      message: `${viewLabel} is still under development and is locked for your current access. You can keep using the cookbook pages your admin has enabled.`
+    });
+  }, []);
+  const ensureViewAccess = useCallback((view: ActiveView, label?: string) => {
+    if (!isViewLocked(view)) return true;
+    showLockedViewNotice(view, label);
+    return false;
+  }, [isViewLocked, showLockedViewNotice]);
+  const entryViewIsLocked = useCallback((entry: LoreEntry) => isViewLocked(categoryToView(entry.category)), [isViewLocked]);
+  const ensureEntryAccess = useCallback((entry: LoreEntry) => {
+    const targetView = categoryToView(entry.category);
+    if (!isViewLocked(targetView)) return true;
+    showLockedViewNotice(targetView, entry.category || viewLabelForId(targetView));
+    return false;
+  }, [isViewLocked, showLockedViewNotice]);
+  const visibleEntries = useMemo(
+    () => database.entries.filter((entry) => !entryViewIsLocked(entry)),
+    [database.entries, entryViewIsLocked]
+  );
+  const storyReferencesLocked = isViewLocked("story");
+  const visibleStoryReferences = storyReferencesLocked ? [] : database.storyReferences;
   const explicitRemovalSet = useMemo(() => new Set(explicitRemovalIds), [explicitRemovalIds]);
   const publishChanges = useMemo(
     () => LIVE_TEAM_SYNC
@@ -1262,11 +1292,20 @@ export default function App() {
   }, [readOnly, artVaultDashboardOpen, activeView]);
 
   useEffect(() => {
-    if (canAccessSettings) return;
-    if (hiddenViewIds.includes(activeView)) {
-      setActiveView("dashboard");
-    }
-  }, [activeView, hiddenViewIds, canAccessSettings]);
+    if (!isViewLocked(activeView)) return;
+    setSelectedEntry(null);
+    setSelectedReferenceKeyword("");
+    setKeywordPopup("");
+    setArtVaultDashboardOpen(false);
+    setArtBinderOpen(false);
+    setArtBinderFilter(null);
+    setFavoritesOpen(false);
+    setQuestDashboardOpen(false);
+    setProfileOpen(false);
+    setSelectedBestiaryCreatureId("");
+    setWorldBuildingFocus(null);
+    setActiveView("dashboard");
+  }, [activeView, isViewLocked]);
 
   useEffect(() => {
     if (!hostedViewer) return;
@@ -1283,8 +1322,13 @@ export default function App() {
   useEffect(() => {
     if (!selectedEntry) return;
     const latest = database.entries.find((entry) => entry.id === selectedEntry.id);
-    setSelectedEntry(latest || null);
-  }, [database.entries, selectedEntry]);
+    if (!latest || entryViewIsLocked(latest)) {
+      setSelectedEntry(null);
+      setSelectedReferenceKeyword("");
+      return;
+    }
+    setSelectedEntry(latest);
+  }, [database.entries, entryViewIsLocked, selectedEntry]);
 
   useEffect(() => {
     if (hostedViewer) return;
@@ -1394,18 +1438,18 @@ export default function App() {
   });
 
   const results = useMemo(
-    () => searchEntries(database.entries, committedSearch),
-    [database.entries, committedSearch]
+    () => searchEntries(visibleEntries, committedSearch),
+    [visibleEntries, committedSearch]
   );
 
   const loreKeywords = useMemo(
-    () => buildLoreKeywords(database.entries),
-    [database.entries]
+    () => buildLoreKeywords(visibleEntries),
+    [visibleEntries]
   );
 
   const viewEntries = useMemo(
-    () => selectEntriesForView(database.entries, activeView),
-    [database.entries, activeView]
+    () => selectEntriesForView(visibleEntries, activeView),
+    [visibleEntries, activeView]
   );
 
   const artVaultProgress = useMemo(
@@ -1426,9 +1470,10 @@ export default function App() {
     if (restoredSessionEntryRef.current || !initialSessionUi?.selectedEntryId || selectedEntry) return;
     const restoredEntry = database.entries.find((entry) => entry.id === initialSessionUi.selectedEntryId);
     if (!restoredEntry) return;
+    if (entryViewIsLocked(restoredEntry)) return;
     restoredSessionEntryRef.current = true;
     setSelectedEntry(restoredEntry);
-  }, [database.entries, initialSessionUi?.selectedEntryId, selectedEntry]);
+  }, [database.entries, entryViewIsLocked, initialSessionUi?.selectedEntryId, selectedEntry]);
 
   useEffect(() => {
     if (hostedViewer || !currentUser) return;
@@ -1930,6 +1975,7 @@ export default function App() {
   };
 
   const openEntry = (entry: LoreEntry) => {
+    if (!ensureEntryAccess(entry)) return;
     setDetailReturnTarget(captureDetailReturnTarget());
     setArtVaultDashboardOpen(false);
     setFavoritesOpen(false);
@@ -1950,6 +1996,13 @@ export default function App() {
   };
 
   const openAllReferences = (keyword: string) => {
+    if (!visibleEntries.some((entry) => searchEntries([entry], keyword).length > 0)) {
+      setLockedAccessNotice({
+        title: "References are locked",
+        message: "Those references are in a cookbook section that is still under development and locked for your current access."
+      });
+      return;
+    }
     setSearchQuery(keyword);
     setCommittedSearch(keyword);
     setReferenceQuery(keyword);
@@ -1963,10 +2016,18 @@ export default function App() {
   };
 
   const openKeywordReference = (keyword: string) => {
+    if (!visibleEntries.some((entry) => searchEntries([entry], keyword).length > 0)) {
+      setLockedAccessNotice({
+        title: "Reference is locked",
+        message: "That linked lore reference is in a cookbook section that is still under development and locked for your current access."
+      });
+      return;
+    }
     setKeywordPopup(keyword);
   };
 
   const openEntryFromKeywordPopup = (entry: LoreEntry) => {
+    if (!ensureEntryAccess(entry)) return;
     setDetailReturnTarget(captureDetailReturnTarget());
     setArtVaultDashboardOpen(false);
     setSelectedEntry(entry);
@@ -1989,11 +2050,21 @@ export default function App() {
       return;
     }
 
+    if (isViewLocked(target.activeView)) {
+      setSelectedEntry(null);
+      setSelectedReferenceKeyword("");
+      setArtVaultDashboardOpen(false);
+      setFavoritesOpen(false);
+      setActiveView("dashboard");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
     const returnEntry = target.selectedEntryId
       ? database.entries.find((entry) => entry.id === target.selectedEntryId) || null
       : null;
     setActiveView(target.activeView);
-    setSelectedEntry(returnEntry);
+    setSelectedEntry(returnEntry && !entryViewIsLocked(returnEntry) ? returnEntry : null);
     setSelectedBestiaryCreatureId(target.selectedBestiaryCreatureId);
     setSelectedReferenceKeyword(target.selectedReferenceKeyword);
     setFavoritesOpen(target.favoritesOpen);
@@ -2006,6 +2077,7 @@ export default function App() {
   };
 
   const goToCharactersPage = () => {
+    if (!ensureViewAccess("characters")) return;
     setDetailReturnTarget(null);
     setSelectedEntry(null);
     setSelectedReferenceKeyword("");
@@ -2020,6 +2092,7 @@ export default function App() {
   };
 
   const goToBestiaryPage = () => {
+    if (!ensureViewAccess("bestiary")) return;
     setDetailReturnTarget(null);
     setSelectedEntry(null);
     setSelectedReferenceKeyword("");
@@ -2034,6 +2107,7 @@ export default function App() {
   };
 
   const openWorldBuildingEntry = (category: WorldBuildingFocusTarget["category"], entryId: string) => {
+    if (!ensureViewAccess("world", "World Building")) return;
     setDetailReturnTarget(null);
     setSelectedEntry(null);
     setSelectedReferenceKeyword("");
@@ -2049,6 +2123,7 @@ export default function App() {
   };
 
   const navigate = (view: ActiveView) => {
+    if (!ensureViewAccess(view)) return;
     setDetailReturnTarget(null);
     setSelectedEntry(null);
     setSelectedReferenceKeyword("");
@@ -2063,14 +2138,6 @@ export default function App() {
     setProfileOpen(false);
     if (view !== "bestiary") setSelectedBestiaryCreatureId("");
     if (view !== "world") setWorldBuildingFocus(null);
-    if (!canAccessSettings && view === "settings") {
-      setActiveView("dashboard");
-      return;
-    }
-    if (!canAccessSettings && hiddenViewIds.includes(view)) {
-      setActiveView("dashboard");
-      return;
-    }
     setActiveView(view);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -2119,6 +2186,7 @@ export default function App() {
   const isCreatureFavorite = (creature: BestiaryCreature) => favoriteIncludes(favorites, "creature", creature.id);
 
   const openFavoriteCreature = (creature: BestiaryCreature) => {
+    if (!ensureViewAccess("bestiary")) return;
     setDetailReturnTarget(captureDetailReturnTarget());
     setSelectedEntry(null);
     setSelectedReferenceKeyword("");
@@ -2131,6 +2199,17 @@ export default function App() {
   };
 
   const openQuestAssignment = (assignment: AssignmentRecord) => {
+    const targetView = assignment.targetRoute.startsWith("world:")
+      ? "world"
+      : assignment.targetRoute.startsWith("character:")
+        ? "characters"
+        : assignment.targetRoute.startsWith("bestiary:")
+          ? "bestiary"
+          : assignment.targetRoute.startsWith("art-binder:")
+            ? "artVault"
+            : null;
+    if (targetView && !ensureViewAccess(targetView)) return;
+
     setFocusedAssignment(assignment);
     setQuestDashboardOpen(false);
     setProfileOpen(false);
@@ -2294,6 +2373,7 @@ export default function App() {
 
   const openStorySource = (storyReferenceId: string) => {
     if (!storyReferenceId) return;
+    if (!ensureViewAccess("story", "Story Source of Truth")) return;
     setStoryReferenceFocusId(storyReferenceId);
     setDetailReturnTarget(null);
     setSelectedEntry(null);
@@ -2384,6 +2464,7 @@ export default function App() {
   };
 
   const openBestiaryCreature = (creature: BestiaryCreature) => {
+    if (!ensureViewAccess("bestiary")) return;
     setDetailReturnTarget(captureDetailReturnTarget());
     setSelectedEntry(null);
     setSelectedReferenceKeyword("");
@@ -2396,6 +2477,13 @@ export default function App() {
   };
 
   const openScribeChangedTarget = (target: AssistantChangedTarget) => {
+    if (target.kind === "entry" && target.entryId) {
+      const entry = database.entries.find((candidate) => candidate.id === target.entryId);
+      if (entry && !ensureEntryAccess(entry)) return;
+    }
+    if ((target.kind === "creature" || target.kind === "bestiaryCategory") && !ensureViewAccess("bestiary")) return;
+    if (target.kind === "worldEntry" && !ensureViewAccess("world", "World Building")) return;
+
     setDetailReturnTarget(null);
     setSelectedReferenceKeyword("");
     setKeywordPopup("");
@@ -2452,6 +2540,7 @@ export default function App() {
 
   const openArtVaultDashboard = () => {
     if (readOnly) return;
+    if (!ensureViewAccess("artVault", "Art Vault")) return;
     setDetailReturnTarget(null);
     setSelectedEntry(null);
     setSelectedReferenceKeyword("");
@@ -2469,6 +2558,7 @@ export default function App() {
 
   const openArtBinder = (filter: ArtBinderInitialFilter | null = null) => {
     if (readOnly) return;
+    if (!ensureViewAccess("artVault", "Art Vault")) return;
     setSelectedEntry(null);
     setSelectedReferenceKeyword("");
     setKeywordPopup("");
@@ -2485,6 +2575,7 @@ export default function App() {
 
   const openGwenToolBinder = (entryId?: string) => {
     if (readOnly) return;
+    if (!ensureViewAccess("characters")) return;
     const entry = entryId
       ? database.entries.find((candidate) => candidate.id === entryId)
       : database.entries.find((candidate) => isCharacterEntry(candidate) && /\bgwen\b/i.test(candidate.title));
@@ -2565,6 +2656,7 @@ export default function App() {
 
   useEffect(() => {
     const openSpriteAnimator = () => {
+      if (!ensureViewAccess("spriteAnimator", "Sprite Sheet Cutter")) return;
       setDetailReturnTarget(null);
       setSelectedEntry(null);
       setSelectedReferenceKeyword("");
@@ -2581,7 +2673,7 @@ export default function App() {
 
     window.addEventListener("tavern:open-sprite-animator", openSpriteAnimator);
     return () => window.removeEventListener("tavern:open-sprite-animator", openSpriteAnimator);
-  }, []);
+  }, [ensureViewAccess]);
   const themeClassName = theme === "dream" ? "theme-dream" : "theme-light";
   const desktopBrowserAuthMode = isDesktopBrowserAuthRequest();
 
@@ -2730,7 +2822,7 @@ export default function App() {
           ) : selectedCharacterEntry ? (
             <CharacterDetailPage
               entry={selectedCharacterEntry}
-              characterEntries={database.entries.filter(isCharacterEntry)}
+              characterEntries={visibleEntries.filter(isCharacterEntry)}
               readOnly={readOnly}
               referenceKeyword={selectedReferenceKeyword}
               onBack={closeCharacterDetailPage}
@@ -2744,8 +2836,9 @@ export default function App() {
               focusedAssignment={focusedAssignment}
               onOpenArtBinder={!readOnly ? () => openArtBinder({ kind: "character", subjectId: selectedCharacterEntry.id }) : undefined}
               openToolVaultRequestNonce={characterToolVaultRequest?.entryId === selectedCharacterEntry.id ? characterToolVaultRequest.nonce : 0}
-              storyReferences={database.storyReferences}
-              onCreateStoryReference={createLinkedStoryReference}
+              storyReferences={visibleStoryReferences}
+              storyReferencesLocked={storyReferencesLocked}
+              onCreateStoryReference={storyReferencesLocked ? undefined : createLinkedStoryReference}
               onOpenStorySource={openStorySource}
             />
           ) : (
@@ -2760,7 +2853,7 @@ export default function App() {
 
               {activeView === "storyJourney" && (
                 <StoryJourneyPage
-                  entries={database.entries}
+                  entries={visibleEntries}
                   bestiary={database.bestiary || []}
                   readOnly={readOnly}
                   onOpenEntry={openEntry}
@@ -2771,7 +2864,7 @@ export default function App() {
               {activeView === "story" && (
                 <StoryPage
                   database={database}
-                  entries={database.entries}
+                  entries={visibleEntries}
                   worldBuilding={database.worldBuilding}
                   readOnly={readOnly}
                   onNavigate={navigate}
@@ -2812,14 +2905,14 @@ export default function App() {
 
               {activeView === "timeline" && (
                 <TimelineView
-                  entries={database.entries}
+                  entries={visibleEntries}
                   onOpenEntry={openEntry}
                 />
               )}
 
               {activeView === "secrets" && (
                 <SecretsView
-                  entries={database.entries}
+                  entries={visibleEntries}
                   onOpenEntry={openEntry}
                 />
               )}
@@ -2875,15 +2968,16 @@ export default function App() {
                   onBackToPrevious={detailReturnTarget ? closeCharacterDetailPage : undefined}
                   onGoToBestiary={detailReturnTarget ? goToBestiaryPage : undefined}
                   onOpenArtBinder={!readOnly ? (filter) => openArtBinder(filter) : undefined}
-                  storyReferences={database.storyReferences}
-                  onCreateStoryReference={createLinkedStoryReference}
+                  storyReferences={visibleStoryReferences}
+                  storyReferencesLocked={storyReferencesLocked}
+                  onCreateStoryReference={storyReferencesLocked ? undefined : createLinkedStoryReference}
                   onOpenStorySource={openStorySource}
                 />
               )}
 
               {(activeView === "food" || activeView === "ingredients" || activeView === "recipes") && (
                 <PantryPage
-                  entries={database.entries}
+                  entries={visibleEntries}
                   bestiary={database.bestiary || []}
                   initialTab={activeView === "recipes" ? "meals" : "pantry"}
                   readOnly={readOnly}
@@ -2896,7 +2990,7 @@ export default function App() {
               {activeView === "world" && (
                 <WorldBuildingPage
                   worldBuilding={database.worldBuilding}
-                  loreEntries={database.entries}
+                  loreEntries={visibleEntries}
                   bestiary={database.bestiary || []}
                   readOnly={readOnly}
                   onWorldBuildingChange={updateWorldBuilding}
@@ -2904,8 +2998,9 @@ export default function App() {
                   onOpenCreature={openBestiaryCreature}
                   focusedAssignment={focusedAssignment}
                   focusTarget={worldBuildingFocus}
-                  storyReferences={database.storyReferences}
-                  onCreateStoryReference={createLinkedStoryReference}
+                  storyReferences={visibleStoryReferences}
+                  storyReferencesLocked={storyReferencesLocked}
+                  onCreateStoryReference={storyReferencesLocked ? undefined : createLinkedStoryReference}
                   onOpenStorySource={openStorySource}
                 />
               )}
@@ -2971,6 +3066,13 @@ export default function App() {
           />
         )}
 
+        {lockedAccessNotice && (
+          <LockedAccessModal
+            notice={lockedAccessNotice}
+            onClose={() => setLockedAccessNotice(null)}
+          />
+        )}
+
         {selectedEntry && !selectedCharacterEntry && (
           <EntryModal
             entry={selectedEntry}
@@ -2984,8 +3086,9 @@ export default function App() {
             currentUser={currentUser}
             isFavorite={isEntryFavorite(selectedEntry)}
             onToggleFavorite={() => toggleFavoriteById("entry", selectedEntry.id)}
-            storyReferences={database.storyReferences}
-            onCreateStoryReference={createLinkedStoryReference}
+            storyReferences={visibleStoryReferences}
+            storyReferencesLocked={storyReferencesLocked}
+            onCreateStoryReference={storyReferencesLocked ? undefined : createLinkedStoryReference}
             onOpenStorySource={openStorySource}
           />
         )}
@@ -2993,7 +3096,7 @@ export default function App() {
         {keywordPopup && (
           <KeywordReferencePopup
             keyword={keywordPopup}
-            entries={database.entries}
+            entries={visibleEntries}
             onClose={() => setKeywordPopup("")}
             onOpenEntry={openEntryFromKeywordPopup}
             onViewAllReferences={openAllReferences}
@@ -3017,7 +3120,9 @@ function expandHiddenViewIds(hiddenViewIds: ActiveView[]) {
     expanded.add("recipes");
     expanded.add("items");
   }
-  if (expanded.has("story")) {
+  if (expanded.has("story") || expanded.has("storyJourney")) {
+    expanded.add("story");
+    expanded.add("storyJourney");
     expanded.add("timeline");
     expanded.add("secrets");
     expanded.add("factions");
@@ -3026,6 +3131,13 @@ function expandHiddenViewIds(hiddenViewIds: ActiveView[]) {
     expanded.add("enemies");
   }
   return [...expanded];
+}
+
+function viewLabelForId(view: ActiveView) {
+  if (view === "dashboard") return "Dashboard";
+  if (view === "search") return "Search";
+  if (view === "settings") return "Settings";
+  return allViews.find((item) => item.id === view)?.label || view.replace(/([A-Z])/g, " $1").replace(/^./, (letter) => letter.toUpperCase());
 }
 
 function latestSyncDate(left = "", right = "") {
@@ -3509,6 +3621,39 @@ function assignmentBundleFromDatabase(database: LoreDatabase): AssignmentSyncBun
 
 function assignmentBundleHash(bundle: AssignmentSyncBundle) {
   return JSON.stringify(bundle);
+}
+
+function LockedAccessModal({
+  notice,
+  onClose
+}: {
+  notice: { title: string; message: string };
+  onClose: () => void;
+}) {
+  return (
+    <div className="sync-conflict-backdrop">
+      <section className="sync-conflict-modal locked-access-modal" role="dialog" aria-modal="true" aria-labelledby="locked-access-title">
+        <header>
+          <div className="sync-conflict-icon">
+            <Icon name="ShieldAlert" className="h-5 w-5" />
+          </div>
+          <div>
+            <p>Locked Section</p>
+            <h2 id="locked-access-title" className="font-display">{notice.title}</h2>
+          </div>
+          <button className="sync-publish-icon-button" onClick={onClose} title="Close">
+            <Icon name="X" className="h-5 w-5" />
+          </button>
+        </header>
+        <div className="sync-conflict-body">
+          <p>{notice.message}</p>
+        </div>
+        <footer>
+          <button className="button-frame rounded px-4 py-2" onClick={onClose}>Got it</button>
+        </footer>
+      </section>
+    </div>
+  );
 }
 
 function SyncConflictModal({

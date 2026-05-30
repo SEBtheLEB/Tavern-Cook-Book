@@ -40,6 +40,7 @@ interface EntryModalProps {
   isFavorite?: boolean;
   onToggleFavorite?: () => void;
   storyReferences?: StoryReference[];
+  storyReferencesLocked?: boolean;
   onCreateStoryReference?: (input: StoryReferenceDraftInput) => StoryReference;
   onOpenStorySource?: (storyReferenceId: string) => void;
 }
@@ -298,6 +299,7 @@ export function EntryModal({
   isFavorite = false,
   onToggleFavorite,
   storyReferences = [],
+  storyReferencesLocked = false,
   onCreateStoryReference,
   onOpenStorySource
 }: EntryModalProps) {
@@ -542,6 +544,7 @@ export function EntryModal({
             isFavorite={isFavorite}
             onToggleFavorite={onToggleFavorite}
             storyReferences={storyReferences}
+            storyReferencesLocked={storyReferencesLocked}
             onCreateStoryReference={onCreateStoryReference}
             onOpenStorySource={onOpenStorySource}
           />
@@ -637,6 +640,7 @@ export function EntryModal({
                   targetUpdatedAt={draft.updatedAt}
                   readOnly={readOnly}
                   isEditing={isEditing}
+                  locked={storyReferencesLocked}
                   onChangeLinkedIds={(linkedStoryReferenceIds) => updateDraft({ linkedStoryReferenceIds })}
                   onCreateReference={onCreateStoryReference}
                   onOpenStorySource={onOpenStorySource}
@@ -856,6 +860,7 @@ export function EntryModal({
                 targetUpdatedAt={draft.updatedAt}
                 readOnly={readOnly}
                 isEditing={isEditing}
+                locked={storyReferencesLocked}
                 onOpenStorySource={onOpenStorySource}
               />
 

@@ -33,6 +33,7 @@ interface CharacterDetailPageProps {
   onOpenArtBinder?: () => void;
   openToolVaultRequestNonce?: number;
   storyReferences?: StoryReference[];
+  storyReferencesLocked?: boolean;
   onCreateStoryReference?: (input: StoryReferenceDraftInput) => StoryReference;
   onOpenStorySource?: (storyReferenceId: string) => void;
 }
@@ -60,6 +61,7 @@ export function CharacterDetailPage({
   onOpenArtBinder,
   openToolVaultRequestNonce = 0,
   storyReferences = [],
+  storyReferencesLocked = false,
   onCreateStoryReference,
   onOpenStorySource
 }: CharacterDetailPageProps) {
@@ -228,6 +230,7 @@ export function CharacterDetailPage({
         onOpenArtBinder={onOpenArtBinder}
         openToolVaultRequestNonce={openToolVaultRequestNonce}
         storyReferences={storyReferences}
+        storyReferencesLocked={storyReferencesLocked}
         onCreateStoryReference={onCreateStoryReference}
         onOpenStorySource={onOpenStorySource}
       />

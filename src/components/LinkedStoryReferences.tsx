@@ -26,6 +26,8 @@ interface LinkedStoryReferencesSectionProps {
   readOnly?: boolean;
   isEditing?: boolean;
   title?: string;
+  locked?: boolean;
+  lockedMessage?: string;
   onChangeLinkedIds?: (ids: string[]) => void;
   onCreateReference?: (input: StoryReferenceDraftInput) => StoryReference;
   onOpenStorySource?: (storyReferenceId: string) => void;
@@ -124,6 +126,8 @@ export function LinkedStoryReferencesSection({
   readOnly = false,
   isEditing = false,
   title = "Linked Story References",
+  locked = false,
+  lockedMessage = "Story References are still under development and locked for your current access.",
   onChangeLinkedIds,
   onCreateReference,
   onOpenStorySource
@@ -131,7 +135,7 @@ export function LinkedStoryReferencesSection({
   const [pickerOpen, setPickerOpen] = useState(false);
   const uniqueLinkedIds = useMemo(() => uniqueStrings(linkedStoryReferenceIds), [linkedStoryReferenceIds]);
   const referenceById = useMemo(() => new Map(storyReferences.map((reference) => [reference.id, reference])), [storyReferences]);
-  const canEditLinks = !readOnly && isEditing && Boolean(onChangeLinkedIds);
+  const canEditLinks = !locked && !readOnly && isEditing && Boolean(onChangeLinkedIds);
 
   const unlink = (storyReferenceId: string) => {
     if (!canEditLinks) return;
@@ -158,7 +162,20 @@ export function LinkedStoryReferencesSection({
         )}
       </header>
       <div className="linked-story-reference-grid">
-        {uniqueLinkedIds.length ? (
+        {locked ? (
+          <article className="story-reference-card locked-source">
+            <header>
+              <div>
+                <p>Linked Story</p>
+                <h4>Story Source Locked</h4>
+              </div>
+              <span className="story-reference-sync missing">Locked</span>
+            </header>
+            <div className="story-reference-summary">
+              <p>{lockedMessage}</p>
+            </div>
+          </article>
+        ) : uniqueLinkedIds.length ? (
           uniqueLinkedIds.map((storyReferenceId) => (
             <StoryReferenceCard
               key={storyReferenceId}
@@ -175,7 +192,7 @@ export function LinkedStoryReferencesSection({
           </div>
         )}
       </div>
-      {pickerOpen && (
+      {pickerOpen && !locked && (
         <StoryReferencePicker
           storyReferences={storyReferences}
           linkedStoryReferenceIds={uniqueLinkedIds}

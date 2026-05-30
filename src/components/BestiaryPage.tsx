@@ -75,6 +75,7 @@ interface BestiaryPageProps {
   onGoToBestiary?: () => void;
   onOpenArtBinder?: (filter: ArtBinderInitialFilter) => void;
   storyReferences?: StoryReference[];
+  storyReferencesLocked?: boolean;
   onCreateStoryReference?: (input: StoryReferenceDraftInput) => StoryReference;
   onOpenStorySource?: (storyReferenceId: string) => void;
 }
@@ -143,6 +144,7 @@ export function BestiaryPage({
   onGoToBestiary,
   onOpenArtBinder,
   storyReferences = [],
+  storyReferencesLocked = false,
   onCreateStoryReference,
   onOpenStorySource
 }: BestiaryPageProps) {
@@ -767,6 +769,7 @@ export function BestiaryPage({
               isFavorite={Boolean(isCreatureFavorite?.(displayCreature))}
               onToggleFavorite={() => onToggleCreatureFavorite?.(displayCreature)}
               storyReferences={storyReferences}
+              storyReferencesLocked={storyReferencesLocked}
               onCreateStoryReference={onCreateStoryReference}
               onOpenStorySource={onOpenStorySource}
             />
@@ -1000,6 +1003,7 @@ function CreatureDetails({
   isFavorite,
   onToggleFavorite,
   storyReferences = [],
+  storyReferencesLocked = false,
   onCreateStoryReference,
   onOpenStorySource
 }: {
@@ -1027,6 +1031,7 @@ function CreatureDetails({
   isFavorite: boolean;
   onToggleFavorite?: () => void;
   storyReferences?: StoryReference[];
+  storyReferencesLocked?: boolean;
   onCreateStoryReference?: (input: StoryReferenceDraftInput) => StoryReference;
   onOpenStorySource?: (storyReferenceId: string) => void;
 }) {
@@ -1137,6 +1142,7 @@ function CreatureDetails({
         targetUpdatedAt={creature.updatedAt}
         readOnly={readOnly}
         isEditing={editing}
+        locked={storyReferencesLocked}
         onChangeLinkedIds={(linkedStoryReferenceIds) => onChange({ linkedStoryReferenceIds })}
         onCreateReference={onCreateStoryReference}
         onOpenStorySource={onOpenStorySource}

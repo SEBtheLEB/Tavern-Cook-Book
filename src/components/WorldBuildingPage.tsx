@@ -45,6 +45,7 @@ interface WorldBuildingPageProps {
   focusedAssignment?: AssignmentRecord | null;
   focusTarget?: WorldBuildingFocusTarget | null;
   storyReferences?: StoryReference[];
+  storyReferencesLocked?: boolean;
   onCreateStoryReference?: (input: StoryReferenceDraftInput) => StoryReference;
   onOpenStorySource?: (storyReferenceId: string) => void;
 }
@@ -125,6 +126,7 @@ export function WorldBuildingPage({
   focusedAssignment = null,
   focusTarget = null,
   storyReferences = [],
+  storyReferencesLocked = false,
   onCreateStoryReference,
   onOpenStorySource
 }: WorldBuildingPageProps) {
@@ -670,6 +672,7 @@ export function WorldBuildingPage({
           targetUpdatedAt={activeEntry.updatedAt}
           readOnly={readOnly}
           isEditing={isEditing}
+          locked={storyReferencesLocked}
           onChangeLinkedIds={(linkedStoryReferenceIds) =>
             setEntryDraft((current) => current ? { ...current, linkedStoryReferenceIds, updatedAt: new Date().toISOString() } : current)
           }

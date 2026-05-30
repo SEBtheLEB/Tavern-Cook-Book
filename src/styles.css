@@ -20796,6 +20796,11 @@ body > .picker-dialog-bg {
   padding: 1rem;
 }
 
+.story-reference-card.locked-source {
+  border-style: dashed;
+  background: color-mix(in srgb, var(--field-bg) 88%, rgba(245, 158, 11, 0.14));
+}
+
 .story-reference-card header,
 .story-reference-card footer,
 .story-consistency-card footer {
