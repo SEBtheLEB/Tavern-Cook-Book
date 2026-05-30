@@ -21,7 +21,12 @@ import {
   normalizeArtDirectionBoard,
   sanitizeArtDirectionBoardForPersistence
 } from "./artDirection";
-import { createStarterRoadmapData, normalizeRoadmapData, sanitizeRoadmapForPersistence } from "./roadmap";
+import {
+  createStarterRoadmapData,
+  mergeWhiskerWoodsPlaytestSetup,
+  normalizeRoadmapData,
+  sanitizeRoadmapForPersistence
+} from "./roadmap";
 import { normalizeAssignments, normalizeQuestCategories, normalizeTeamMembers, normalizeUserProfiles } from "./assignments";
 import { cloneDatabase, normalizeEntry, nowIso } from "./entries";
 import { normalizeImageFit } from "./imageFit";
@@ -41,10 +46,11 @@ export const DATABASE_KEY = "tavern-cook-book:data";
 export const THEME_KEY = "tavern-cook-book:theme";
 const LEGACY_MODE_KEY = "tavern-cook-book:mode";
 
-export const currentSchemaVersion = 6;
+export const currentSchemaVersion = 7;
 const loreExpansionSchemaVersion = 2;
 const magicalMealCanonSchemaVersion = 3;
 const storyReferenceSchemaVersion = 4;
+const whiskerWoodsPlaytestRoadmapSchemaVersion = 7;
 
 const loreExpansionEntryTitles = new Set([
   "Gwen",
@@ -215,6 +221,7 @@ export const migrateDatabase = (value: unknown): LoreDatabase => {
   const needsLoreExpansion = Number(incoming.schemaVersion || 0) < loreExpansionSchemaVersion;
   const needsMagicalMealCanon = Number(incoming.schemaVersion || 0) < magicalMealCanonSchemaVersion;
   const needsStoryReferences = Number(incoming.schemaVersion || 0) < storyReferenceSchemaVersion;
+  const needsWhiskerWoodsPlaytestRoadmap = Number(incoming.schemaVersion || 0) < whiskerWoodsPlaytestRoadmapSchemaVersion;
   let entries = Array.isArray(incoming.entries)
     ? repairScribeFoodEntries(incoming.entries.map((item) => normalizeEntry(item as Partial<LoreEntry>)))
     : starter.entries;
@@ -248,7 +255,7 @@ export const migrateDatabase = (value: unknown): LoreDatabase => {
     ? normalizeGlossaryTerms(incoming.glossaryTerms)
     : normalizeGlossaryTerms(starter.glossaryTerms);
   const artDirection = normalizeArtDirectionBoard(incoming.artDirection || starter.artDirection || createStarterArtDirectionBoard());
-  const roadmap = normalizeRoadmapData(incoming.roadmap || starter.roadmap || createStarterRoadmapData());
+  let roadmap = normalizeRoadmapData(incoming.roadmap || starter.roadmap || createStarterRoadmapData());
 
   if (needsLoreExpansion) {
     entries = mergeLoreExpansionEntries(entries, starter.entries);
@@ -265,6 +272,10 @@ export const migrateDatabase = (value: unknown): LoreDatabase => {
   if (needsStoryReferences) {
     storyReferences = mergeStoryReferences(storyReferences, createStarterStoryReferences());
     glossaryTerms = mergeGlossaryTerms(glossaryTerms, createStarterGlossaryTerms());
+  }
+
+  if (needsWhiskerWoodsPlaytestRoadmap) {
+    roadmap = mergeWhiskerWoodsPlaytestSetup(roadmap);
   }
 
   return {

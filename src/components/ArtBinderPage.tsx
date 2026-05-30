@@ -117,6 +117,14 @@ const APP_UI_SECTION_ID = "app-buttons-ui";
 const APP_UI_SECTION_TITLE = "App Buttons & UI Slots";
 const CHARACTER_APP_IMAGE_SLOTS = ["characterPortrait", "characterHoverImage", "mainImage", "iconImage", "dialogueSpriteImage", "ingameSpriteImage"] as const;
 const CREATURE_APP_IMAGE_SLOTS = ["slotImage", "hoverImage", "image", "expandedImage"] as const;
+const WHISKER_WOODS_ENVIRONMENT_REQUIREMENTS = [
+  "Whisker Woods tree set",
+  "Grass patch set",
+  "Village house props",
+  "Fishing dock",
+  "Farm plot",
+  "Cliff pieces"
+];
 
 export function ArtBinderPage({
   database,
@@ -1412,10 +1420,20 @@ function mergeAppUiSlotImage(
 
 function environmentSections(entry: LoreEntry): ArtVaultSection[] {
   const sectionId = `${entry.id}-environment-images`;
+  const productionSlots = environmentProductionSlotLabels(entry).map((label, index) => {
+    const slotId = `environment-production-${slugify(label)}`;
+    return imageSlotFromUrl(
+      slotId,
+      label,
+      stringField(entry.fields, artBinderImageField(sectionId, slotId)),
+      2 + entry.media.galleryImages.length + index
+    );
+  });
   const slots: ArtVaultSlot[] = [
-    imageSlotFromUrl("main-image", "Main Image", entry.media.mainImage),
-    imageSlotFromUrl("icon-image", "Icon Image", entry.media.iconImage),
-    ...entry.media.galleryImages.map((image, index) => imageSlotFromUrl(`gallery-${index}`, `Gallery Image ${index + 1}`, image))
+    imageSlotFromUrl("main-image", "Main Image", entry.media.mainImage, 0),
+    imageSlotFromUrl("icon-image", "Icon Image", entry.media.iconImage, 1),
+    ...entry.media.galleryImages.map((image, index) => imageSlotFromUrl(`gallery-${index}`, `Gallery Image ${index + 1}`, image, 2 + index)),
+    ...productionSlots
   ];
 
   return [{
@@ -1430,7 +1448,7 @@ function environmentSections(entry: LoreEntry): ArtVaultSection[] {
   }];
 }
 
-function imageSlotFromUrl(id: string, label: string, imageUrl?: string): ArtVaultSlot {
+function imageSlotFromUrl(id: string, label: string, imageUrl?: string, order = 0): ArtVaultSlot {
   return {
     id,
     label,
@@ -1449,7 +1467,7 @@ function imageSlotFromUrl(id: string, label: string, imageUrl?: string): ArtVaul
       notes: ""
     } : null,
     notes: "",
-    order: 0
+    order
   };
 }
 
@@ -2352,7 +2370,7 @@ function updateEnvironmentSectionFolder(entry: LoreEntry, sectionId: string, fol
   };
 }
 
-function updateEnvironmentImageSlot(entry: LoreEntry, slotId: string, imageSlot: ImageManagerSlotDraft): LoreEntry {
+function updateEnvironmentImageSlot(entry: LoreEntry, sectionId: string, slotId: string, imageSlot: ImageManagerSlotDraft): LoreEntry {
   if (slotId === "main-image") {
     return {
       ...entry,
@@ -2378,11 +2396,20 @@ function updateEnvironmentImageSlot(entry: LoreEntry, slotId: string, imageSlot:
       updatedAt: new Date().toISOString()
     };
   }
-  return entry;
+  return {
+    ...entry,
+    fields: {
+      ...entry.fields,
+      [artBinderImageField(sectionId, slotId)]: imageSlot.imageUrl,
+      [artBinderImageField(sectionId, slotId, "link")]: imageSlot.webViewLink || imageSlot.imageUrl,
+      [artBinderImageField(sectionId, slotId, "folderId")]: imageSlot.defaultFolderId || ""
+    },
+    updatedAt: new Date().toISOString()
+  };
 }
 
 function updateEnvironmentImageSlotAndFolder(entry: LoreEntry, card: ArtBinderSlotCard, imageSlot: ImageManagerSlotDraft): LoreEntry {
-  const updatedEntry = updateEnvironmentImageSlot(entry, card.slot.id, imageSlot);
+  const updatedEntry = updateEnvironmentImageSlot(entry, card.section.id, card.slot.id, imageSlot);
   if (!imageSlot.defaultFolderId) return updatedEntry;
   return updateEnvironmentSectionFolder(updatedEntry, card.section.id, {
     id: imageSlot.defaultFolderId,
@@ -2551,6 +2578,16 @@ function uniqueSectionCards(cards: ArtBinderSlotCard[]) {
 
 function artBinderFolderField(sectionId: string, field: "id" | "link" | "name") {
   return `artBinderFolder:${sectionId}:${field}`;
+}
+
+function artBinderImageField(sectionId: string, slotId: string, field = "url") {
+  return `artBinderImage:${sectionId}:${slotId}:${field}`;
+}
+
+function environmentProductionSlotLabels(entry: LoreEntry) {
+  const haystack = `${entry.title} ${entry.summary} ${entry.internalLore}`.toLowerCase();
+  if (haystack.includes("whisker woods")) return WHISKER_WOODS_ENVIRONMENT_REQUIREMENTS;
+  return [];
 }
 
 function stringField(fields: Record<string, unknown>, key: string) {

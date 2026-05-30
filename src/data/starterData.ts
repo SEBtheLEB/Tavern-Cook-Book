@@ -3628,7 +3628,7 @@ const starterBestiaryCategoryVaults: BestiaryCategoryArtVault[] = Array.from(
 ).map((category) => createBestiaryCategoryArtVaultRecord(category, starterBestiary));
 
 export const createStarterDatabase = (): LoreDatabase => ({
-  schemaVersion: 6,
+  schemaVersion: 7,
   entries: starterEntries.map((item) => JSON.parse(JSON.stringify(item)) as LoreEntry),
   bestiary: starterBestiary.map((item) => JSON.parse(JSON.stringify(item)) as BestiaryCreature),
   bestiaryCategoryVaults: starterBestiaryCategoryVaults.map((item) => JSON.parse(JSON.stringify(item)) as BestiaryCategoryArtVault),

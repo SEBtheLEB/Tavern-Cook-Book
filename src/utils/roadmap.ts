@@ -32,6 +32,28 @@ export interface RoadmapItemView extends RoadmapItem {
   binderSlotMissing: boolean;
 }
 
+export interface RoadmapPlaytestItemSpec {
+  id: string;
+  title: string;
+  category: RoadmapItemCategory;
+  type: string;
+  priority: RoadmapPriority;
+  buildTier: RoadmapBuildTier;
+  requiredFileTypes: string[];
+  notes: string;
+  subjectHints: string[];
+  sectionHints: string[];
+  slotHints: string[];
+}
+
+export interface RoadmapBinderResolution {
+  binderSlotId?: string;
+  driveFolderPath?: string;
+  googleDriveFolderId?: string;
+}
+
+export const WHISKER_WOODS_PLAYTEST_MILESTONE_ID = "milestone-whisker-woods-playtest";
+
 export const roadmapCategories: RoadmapItemCategory[] = [
   "Character Art",
   "Enemy Art",
@@ -77,17 +99,7 @@ export function createStarterRoadmapData(): RoadmapData {
   const now = new Date().toISOString();
   return {
     milestones: [
-      {
-        id: "milestone-whisker-woods-vertical-slice",
-        title: "Whisker Woods Vertical Slice",
-        description: "Core Act 1 production checklist for the first playable slice: Gwen, early enemies, pantry assets, UI, and build-critical art.",
-        status: "active",
-        dueDate: "",
-        bonusXp: 150,
-        categories: roadmapCategories,
-        createdAt: now,
-        updatedAt: now
-      },
+      createWhiskerWoodsPlaytestMilestone(now),
       {
         id: "milestone-act-1-content-lock",
         title: "Act 1 Content Lock",
@@ -100,10 +112,164 @@ export function createStarterRoadmapData(): RoadmapData {
         updatedAt: now
       }
     ],
-    items: [],
+    items: createWhiskerWoodsPlaytestItems(),
     updatedAt: now
   };
 }
+
+export function createWhiskerWoodsPlaytestMilestone(timestamp = new Date().toISOString()): RoadmapMilestone {
+  return {
+    id: WHISKER_WOODS_PLAYTEST_MILESTONE_ID,
+    title: "Whisker Woods Playtest",
+    description:
+      "Create the first playable demo area with Gwen, Tohm, Whisker Woods village, basic combat, cooking, NPC interaction, and one miniboss.",
+    status: "active",
+    dueDate: "",
+    bonusXp: 200,
+    categories: roadmapCategories,
+    createdAt: timestamp,
+    updatedAt: timestamp
+  };
+}
+
+export function createWhiskerWoodsPlaytestItems(
+  resolveBinder?: (spec: RoadmapPlaytestItemSpec) => RoadmapBinderResolution | null | undefined
+) {
+  return whiskerWoodsPlaytestItemSpecs.map((spec) => {
+    const resolution = resolveBinder?.(spec) || {};
+    return createRoadmapItem({
+      id: playtestItemId(spec.id),
+      milestoneId: WHISKER_WOODS_PLAYTEST_MILESTONE_ID,
+      title: spec.title,
+      category: spec.category,
+      type: spec.type,
+      priority: spec.priority,
+      status: "missing",
+      binderSlotId: resolution.binderSlotId || "",
+      driveFolderPath: resolution.driveFolderPath || "",
+      googleDriveFolderId: resolution.googleDriveFolderId || "",
+      requiredFileTypes: spec.requiredFileTypes,
+      xpReward: roadmapPriorityXp(spec.priority),
+      buildTier: spec.buildTier,
+      dependencies: [],
+      notes: spec.notes
+    });
+  });
+}
+
+export function mergeWhiskerWoodsPlaytestSetup(
+  roadmap: RoadmapData,
+  resolveBinder?: (spec: RoadmapPlaytestItemSpec) => RoadmapBinderResolution | null | undefined
+) {
+  const normalized = normalizeRoadmapData(roadmap);
+  const timestamp = new Date().toISOString();
+  const playtestMilestone = createWhiskerWoodsPlaytestMilestone(timestamp);
+  const oldMilestone = normalized.milestones.find((milestone) => milestone.id === WHISKER_WOODS_PLAYTEST_MILESTONE_ID);
+  const mergedMilestone: RoadmapMilestone = {
+    ...playtestMilestone,
+    ...(oldMilestone || {}),
+    id: WHISKER_WOODS_PLAYTEST_MILESTONE_ID,
+    title: playtestMilestone.title,
+    description: playtestMilestone.description,
+    status: oldMilestone?.status || playtestMilestone.status,
+    dueDate: oldMilestone?.dueDate || playtestMilestone.dueDate,
+    bonusXp: oldMilestone?.bonusXp || playtestMilestone.bonusXp,
+    categories: uniqueStrings([...roadmapCategories, ...(oldMilestone?.categories || [])]),
+    updatedAt: oldMilestone?.updatedAt || timestamp
+  };
+  const otherMilestones = normalized.milestones.filter((milestone) => milestone.id !== WHISKER_WOODS_PLAYTEST_MILESTONE_ID);
+  const itemsById = new Map(
+    normalized.items.map((item) => [
+      item.id,
+      item
+    ] as const)
+  );
+
+  whiskerWoodsPlaytestItemSpecs.forEach((spec) => {
+    const id = playtestItemId(spec.id);
+    const resolution = resolveBinder?.(spec) || {};
+    const existing = itemsById.get(id);
+    if (existing) {
+      itemsById.set(id, {
+        ...existing,
+        milestoneId: WHISKER_WOODS_PLAYTEST_MILESTONE_ID,
+        binderSlotId: existing.binderSlotId || resolution.binderSlotId || "",
+        driveFolderPath: existing.driveFolderPath || resolution.driveFolderPath || "",
+        googleDriveFolderId: existing.googleDriveFolderId || resolution.googleDriveFolderId || "",
+        requiredFileTypes: existing.requiredFileTypes?.length ? existing.requiredFileTypes : spec.requiredFileTypes,
+        xpReward: existing.xpReward || roadmapPriorityXp(spec.priority),
+        buildTier: existing.buildTier || spec.buildTier
+      });
+      return;
+    }
+
+    itemsById.set(id, createRoadmapItem({
+      id,
+      milestoneId: WHISKER_WOODS_PLAYTEST_MILESTONE_ID,
+      title: spec.title,
+      category: spec.category,
+      type: spec.type,
+      priority: spec.priority,
+      status: "missing",
+      binderSlotId: resolution.binderSlotId || "",
+      driveFolderPath: resolution.driveFolderPath || "",
+      googleDriveFolderId: resolution.googleDriveFolderId || "",
+      requiredFileTypes: spec.requiredFileTypes,
+      xpReward: roadmapPriorityXp(spec.priority),
+      buildTier: spec.buildTier,
+      notes: spec.notes
+    }));
+  });
+
+  const candidate = normalizeRoadmapData({
+    milestones: [mergedMilestone, ...otherMilestones],
+    items: [...itemsById.values()],
+    updatedAt: normalized.updatedAt
+  });
+  return sameRoadmapContent(normalized, candidate) ? normalized : { ...candidate, updatedAt: timestamp };
+}
+
+export const whiskerWoodsPlaytestItemSpecs: RoadmapPlaytestItemSpec[] = [
+  characterSpec("gwen-idle-sprites", "Gwen idle sprites", "Gwen", ["Idle Sprite Sheet", "Idle"]),
+  characterSpec("gwen-run-sprites", "Gwen run sprites", "Gwen", ["Run Sprite Sheet", "Run Cycle"]),
+  characterSpec("gwen-sword-swipe-sprites", "Gwen sword swipe sprites", "Gwen", ["Sword Attack 01", "Sword Attack", "Gwen's OG Sword"]),
+  characterSpec("gwen-hurt-sprite", "Gwen hurt sprite", "Gwen", ["Hit Reaction", "Hurt"]),
+  characterSpec("gwen-dialogue-portrait", "Gwen dialogue portrait", "Gwen", ["Dialogue Sprite", "Neutral"]),
+  characterSpec("tohm-idle-sprite", "Tohm idle sprite", "Tohm Kyatt", ["Idle Sprite Sheet", "Idle"]),
+  characterSpec("tohm-dialogue-portrait", "Tohm dialogue portrait", "Tohm Kyatt", ["Dialogue Sprite", "Neutral"]),
+  ...enemyAnimationSpecs("crayhusk", "Crayhusk", ["Crayhusk"]),
+  ...enemyAnimationSpecs("prawnhusk", "Prawnhusk", ["Prawnhusk", "PrawnHusk"]),
+  ...enemyAnimationSpecs("dapplefly", "Dapplefly", ["Dapplefly", "Dapply fly", "Dappleflys"]),
+  ...[
+    "Dusk Slime",
+    "Bitter Slime",
+    "Sweet Slime",
+    "Savory Slime",
+    "Sour Slime",
+    "Salty Slime",
+    "Spicy Slime",
+    "Cauldron Echo Slime"
+  ].map((name) => creatureAnimationSetSpec(`slime-${slugify(name)}`, `${name} animation set`, [name, "Slime"])),
+  environmentSpec("whisker-woods-tree-set", "Whisker Woods tree set"),
+  environmentSpec("grass-patch-set", "Grass patch set"),
+  environmentSpec("village-house-props", "Village house props"),
+  environmentSpec("fishing-dock", "Fishing dock"),
+  environmentSpec("farm-plot", "Farm plot"),
+  environmentSpec("cliff-pieces", "Cliff pieces"),
+  productionSpec("dialogue-box", "Dialogue box", "UI", "UI Asset", "critical", ["PNG", "Figma", "PSD"], "Dialogue presentation for Gwen/Tohm/NPC conversations."),
+  productionSpec("quest-tracker", "Quest tracker", "UI", "UI Asset", "critical", ["PNG", "Figma", "PSD"], "On-screen quest tracker for the first quest loop."),
+  productionSpec("inventory-icons", "Inventory icons", "UI", "UI Asset", "high", ["PNG", "PSD"], "Core inventory icon style for early playtest pickups."),
+  productionSpec("cooking-minigame-ui", "Cooking minigame UI", "UI", "UI Asset", "critical", ["PNG", "Figma", "PSD"], "Cooking minigame interface needed for the demo loop."),
+  productionSpec("meal-wheel", "Meal wheel", "UI", "UI Asset", "critical", ["PNG", "Figma", "PSD"], "Meal wheel UI for equipping/using cooked meals."),
+  productionSpec("gwen-intro-dialogue", "Gwen intro dialogue", "Writing", "Dialogue", "critical", ["TXT", "DOCX"], "Opening Gwen dialogue for the playtest."),
+  productionSpec("tohm-tutorial-dialogue", "Tohm tutorial dialogue", "Writing", "Dialogue", "critical", ["TXT", "DOCX"], "Tohm tutorial dialogue for gathering, cooking, and first responsibilities."),
+  productionSpec("farmer-npc-dialogue", "Farmer NPC dialogue", "Writing", "Dialogue", "high", ["TXT", "DOCX"], "Farmer NPC interaction in Whisker Woods village."),
+  productionSpec("first-quest-text", "First quest text", "Writing", "Quest Text", "critical", ["TXT", "DOCX"], "First quest objective text, handoff copy, and completion text."),
+  productionSpec("sword-swipe-sfx", "Sword swipe SFX", "Audio", "SFX", "critical", ["WAV", "MP3"], "Primary Gwen sword swipe sound."),
+  productionSpec("bug-hit-sfx", "Bug hit SFX", "Audio", "SFX", "high", ["WAV", "MP3"], "Impact sound when bug enemies are hit."),
+  productionSpec("cooking-chop-sfx", "Cooking chop SFX", "Audio", "SFX", "high", ["WAV", "MP3"], "Cooking chop sound for the minigame or prep flow."),
+  productionSpec("village-ambience", "Village ambience", "Audio", "Ambience", "high", ["WAV", "MP3", "OGG"], "Whisker Woods village ambience loop.")
+];
 
 export function normalizeRoadmapData(value: unknown): RoadmapData {
   const starter = createStarterRoadmapData();
@@ -298,6 +464,111 @@ export function unmetDependencies(item: RoadmapItem, allItems: RoadmapItemView[]
     });
 }
 
+function characterSpec(id: string, title: string, subjectName: string, slotHints: string[]): RoadmapPlaytestItemSpec {
+  const dialogue = /dialogue|portrait/i.test(title);
+  return {
+    id,
+    title,
+    category: "Character Art",
+    type: dialogue ? "Dialogue Portrait" : "Character Animation",
+    priority: /gwen/i.test(subjectName) ? "critical" : "high",
+    buildTier: "required",
+    requiredFileTypes: dialogue ? ["PNG", "PSD"] : ["PNG", "Sprite Sheet"],
+    notes: dialogue
+      ? `${title} for the Whisker Woods playtest dialogue scenes.`
+      : `${title} for the playable demo movement/combat set.`,
+    subjectHints: [subjectName],
+    sectionHints: dialogue ? ["Dialogue Sprites", "App Buttons & UI Slots"] : ["Sprite Sheets", "Combat / Gameplay Sprites", "Tool Binder"],
+    slotHints
+  };
+}
+
+function enemyAnimationSpecs(idPrefix: string, subjectName: string, subjectHints: string[]) {
+  return [
+    creatureAnimationSpec(`${idPrefix}-idle`, `${subjectName} idle`, subjectHints, ["Idle Sprite Sheet", "Idle"]),
+    creatureAnimationSpec(`${idPrefix}-walk`, `${subjectName} walk`, subjectHints, ["Move / Crawl Sprite Sheet", "Walk", "Move"]),
+    creatureAnimationSpec(`${idPrefix}-attack`, `${subjectName} attack`, subjectHints, ["Attack 01 Sprite Sheet", "Attack 01"]),
+    creatureAnimationSpec(`${idPrefix}-hurt`, `${subjectName} hurt`, subjectHints, ["Hit Reaction Sprite Sheet", "Hit Reaction", "Hurt"]),
+    creatureAnimationSpec(`${idPrefix}-death`, `${subjectName} death`, subjectHints, ["Death / Defeat Sprite Sheet", "Death", "Defeat"])
+  ];
+}
+
+function creatureAnimationSpec(id: string, title: string, subjectHints: string[], slotHints: string[]): RoadmapPlaytestItemSpec {
+  return {
+    id,
+    title,
+    category: "Enemy Art",
+    type: "Enemy Animation",
+    priority: "critical",
+    buildTier: "required",
+    requiredFileTypes: ["PNG", "Sprite Sheet"],
+    notes: `${title} animation for Whisker Woods combat readability.`,
+    subjectHints,
+    sectionHints: ["Sprite Sheets", "Creature Sprite Sheets"],
+    slotHints
+  };
+}
+
+function creatureAnimationSetSpec(id: string, title: string, subjectHints: string[]): RoadmapPlaytestItemSpec {
+  return {
+    id,
+    title,
+    category: "Enemy Art",
+    type: "Slime Animation Set",
+    priority: "high",
+    buildTier: "required",
+    requiredFileTypes: ["PNG", "Sprite Sheet"],
+    notes: "Animation set should cover idle, movement, contact/attack, hurt, and death/defeat states.",
+    subjectHints,
+    sectionHints: ["Sprite Sheets", "Creature Sprite Sheets"],
+    slotHints: ["Idle Sprite Sheet", "Move / Crawl Sprite Sheet", "Special Behavior Sprite Sheet", "Death / Defeat Sprite Sheet"]
+  };
+}
+
+function environmentSpec(id: string, title: string): RoadmapPlaytestItemSpec {
+  return {
+    id,
+    title,
+    category: "Environment Art",
+    type: "Environment Asset Set",
+    priority: "high",
+    buildTier: "required",
+    requiredFileTypes: ["PNG", "PSD", "Tileset"],
+    notes: `${title} needed for the first Whisker Woods village/playtest area.`,
+    subjectHints: ["Whisker Woods"],
+    sectionHints: ["Environment Images"],
+    slotHints: [title]
+  };
+}
+
+function productionSpec(
+  id: string,
+  title: string,
+  category: RoadmapItemCategory,
+  type: string,
+  priority: RoadmapPriority,
+  requiredFileTypes: string[],
+  notes: string
+): RoadmapPlaytestItemSpec {
+  return {
+    id,
+    title,
+    category,
+    type,
+    priority,
+    buildTier: "required",
+    requiredFileTypes,
+    notes,
+    subjectHints: [],
+    sectionHints: [],
+    slotHints: []
+  };
+}
+
+function playtestItemId(id: string) {
+  return `roadmap-whisker-woods-playtest-${slugify(id)}`;
+}
+
 function normalizeRoadmapMilestone(input: Partial<RoadmapMilestone> | null | undefined): RoadmapMilestone | null {
   if (!input || typeof input !== "object") return null;
   const title = stringValue(input.title, "");
@@ -352,6 +623,14 @@ function normalizeStringArray(value: unknown): string[] {
   return [];
 }
 
+function uniqueStrings(values: string[]) {
+  return values.map((value) => String(value || "").trim()).filter((value, index, list) => Boolean(value) && list.indexOf(value) === index);
+}
+
 function stringValue(value: unknown, fallback: string) {
   return typeof value === "string" && value.trim() ? value.trim() : fallback;
+}
+
+function sameRoadmapContent(left: RoadmapData, right: RoadmapData) {
+  return JSON.stringify({ ...left, updatedAt: "" }) === JSON.stringify({ ...right, updatedAt: "" });
 }

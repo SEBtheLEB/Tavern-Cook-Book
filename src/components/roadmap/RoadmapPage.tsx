@@ -10,8 +10,10 @@ import {
   calculateRoadmapXp,
   createRoadmapItem,
   filterRoadmapItems,
+  mergeWhiskerWoodsPlaytestSetup,
   normalizeRoadmapData,
   roadmapStatusLabel,
+  type RoadmapPlaytestItemSpec,
   type RoadmapFilter,
   type RoadmapItemView
 } from "../../utils/roadmap";
@@ -75,16 +77,15 @@ export function RoadmapPage({
   }, [roadmap.milestones, selectedMilestoneId]);
 
   useEffect(() => {
-    if (readOnly || roadmap.items.length || !binderCards.length) return;
-    const seeded = seedRoadmapItemsFromBinder(roadmap.milestones, binderCards);
-    if (!seeded.length) return;
+    if (readOnly) return;
+    const ensuredRoadmap = mergeWhiskerWoodsPlaytestSetup(
+      roadmap,
+      (spec) => resolvePlaytestBinderSlot(spec, binderCards)
+    );
+    if (JSON.stringify(ensuredRoadmap) === JSON.stringify(roadmap)) return;
     onDatabaseChange({
       ...database,
-      roadmap: {
-        ...roadmap,
-        items: seeded,
-        updatedAt: new Date().toISOString()
-      }
+      roadmap: ensuredRoadmap
     });
   }, [binderCards, database, onDatabaseChange, readOnly, roadmap]);
 
@@ -410,6 +411,61 @@ function seedRoadmapItemsFromBinder(milestones: RoadmapMilestone[], cards: ArtBi
         notes: card.slot.notes || ""
       });
     });
+}
+
+function resolvePlaytestBinderSlot(spec: RoadmapPlaytestItemSpec, cards: ArtBinderSlotCard[]) {
+  if (!spec.subjectHints.length && !spec.slotHints.length) return null;
+  const scored = cards
+    .map((card) => {
+      const score = playtestMatchScore(spec, card);
+      return { card, score };
+    })
+    .filter((item) => item.score > 0)
+    .sort((left, right) => right.score - left.score);
+  const card = scored[0]?.card;
+  if (!card) return null;
+  return {
+    binderSlotId: roadmapBinderSlotId(card),
+    driveFolderPath: artVaultDriveFolderPathLabel(artBinderDriveContext(card)),
+    googleDriveFolderId: card.section.driveFolderId || card.slot.image?.driveFolderId || ""
+  };
+}
+
+function playtestMatchScore(spec: RoadmapPlaytestItemSpec, card: ArtBinderSlotCard) {
+  const subject = normalizeSearch(card.subject.title);
+  const group = normalizeSearch(card.subject.groupLabel);
+  const section = normalizeSearch(card.section.title);
+  const slot = normalizeSearch(card.slot.label);
+  const requirement = normalizeSearch(card.slot.requirementType);
+  let score = 0;
+  spec.subjectHints.forEach((hint) => {
+    const value = normalizeSearch(hint);
+    if (!value) return;
+    if (subject === value) score += 80;
+    else if (subject.includes(value) || value.includes(subject)) score += 55;
+    else if (group.includes(value) || value.includes(group)) score += 20;
+  });
+  spec.sectionHints.forEach((hint) => {
+    const value = normalizeSearch(hint);
+    if (!value) return;
+    if (section === value) score += 22;
+    else if (section.includes(value) || value.includes(section)) score += 14;
+  });
+  spec.slotHints.forEach((hint) => {
+    const value = normalizeSearch(hint);
+    if (!value) return;
+    if (slot === value) score += 45;
+    else if (slot.includes(value) || value.includes(slot)) score += 26;
+    else if (requirement.includes(value) || value.includes(requirement)) score += 8;
+  });
+  if (spec.category === "Environment Art" && subject.includes("whisker woods")) score += 25;
+  if (spec.type.toLowerCase().includes("slime") && (subject.includes("slime") || group.includes("slime"))) score += 35;
+  if (!spec.subjectHints.length && !spec.slotHints.length) return 0;
+  return score;
+}
+
+function normalizeSearch(value: string) {
+  return String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
 
 function categoryForBinderCard(card: ArtBinderSlotCard) {
