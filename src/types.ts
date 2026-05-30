@@ -45,6 +45,7 @@ export type ActiveView =
   | "bestiary"
   | "artVault"
   | "artDirection"
+  | "roadmap"
   | "marketing"
   | "archive"
   | "settings"
@@ -595,6 +596,105 @@ export interface ArtDirectionBoard {
   updatedAt: string;
 }
 
+export type RoadmapMilestoneStatus =
+  | "planned"
+  | "active"
+  | "at-risk"
+  | "ready-for-build"
+  | "complete"
+  | "paused";
+
+export type RoadmapItemStatus =
+  | "missing"
+  | "assigned"
+  | "in-progress"
+  | "uploaded"
+  | "needs-review"
+  | "revision-needed"
+  | "approved"
+  | "complete"
+  | "blocked";
+
+export type RoadmapPriority = "optional" | "low" | "medium" | "high" | "critical";
+
+export type RoadmapBuildTier = "required" | "polish" | "optional";
+
+export type RoadmapItemCategory =
+  | "Character Art"
+  | "Enemy Art"
+  | "NPC Art"
+  | "Environment Art"
+  | "UI"
+  | "Writing"
+  | "Audio"
+  | "Animation"
+  | "Gameplay"
+  | string;
+
+export interface RoadmapRevisionHistoryEntry {
+  id: string;
+  action: "uploaded" | "approved" | "revision-requested" | "blocked" | "status-change" | "assigned" | string;
+  note: string;
+  authorId: string;
+  authorName: string;
+  createdAt: string;
+}
+
+export interface RoadmapUploadedFileRef {
+  id: string;
+  driveFileId: string;
+  fileName: string;
+  webViewLink: string;
+  thumbnailUrl: string;
+  uploadedAt: string;
+  uploadedById: string;
+  uploadedByName: string;
+}
+
+export interface RoadmapItem {
+  id: string;
+  milestoneId: string;
+  title: string;
+  category: RoadmapItemCategory;
+  type: string;
+  priority: RoadmapPriority;
+  status: RoadmapItemStatus;
+  assignedTo: string;
+  reviewer: string;
+  dueDate: string;
+  binderSlotId: string;
+  driveFolderPath: string;
+  googleDriveFolderId: string;
+  requiredFileTypes: string[];
+  xpReward: number;
+  buildTier: RoadmapBuildTier;
+  dependencies: string[];
+  notes: string;
+  uploadedFileIds: string[];
+  uploadedFiles?: RoadmapUploadedFileRef[];
+  revisionHistory: RoadmapRevisionHistoryEntry[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RoadmapMilestone {
+  id: string;
+  title: string;
+  description: string;
+  status: RoadmapMilestoneStatus;
+  dueDate: string;
+  bonusXp: number;
+  categories: RoadmapItemCategory[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RoadmapData {
+  milestones: RoadmapMilestone[];
+  items: RoadmapItem[];
+  updatedAt: string;
+}
+
 export interface LoreBackup {
   id: string;
   label: string;
@@ -606,6 +706,7 @@ export interface LoreBackup {
   storyReferences?: StoryReference[];
   glossaryTerms?: GlossaryTerm[];
   artDirection?: ArtDirectionBoard;
+  roadmap?: RoadmapData;
 }
 
 export interface LoreDatabase {
@@ -617,6 +718,7 @@ export interface LoreDatabase {
   storyReferences: StoryReference[];
   glossaryTerms: GlossaryTerm[];
   artDirection: ArtDirectionBoard;
+  roadmap: RoadmapData;
   assignments: AssignmentRecord[];
   teamMembers: TeamMember[];
   userProfiles: UserProfile[];

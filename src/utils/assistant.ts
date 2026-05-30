@@ -18,6 +18,7 @@ import { compactScribeTargetHelpers, getSelectedScribeHelpers, scribeTargetHelpe
 import type { ScribeMemoryRule } from "./scribeMemory";
 import { createEmptyWorldBuilding, createWorldBuildingEntry, worldBuildingCategoryIds } from "./worldBuilding";
 import { createStarterArtDirectionBoard } from "./artDirection";
+import { createStarterRoadmapData } from "./roadmap";
 
 const assistantJsonInstructions = `Return only structured JSON in this exact shape:
 {
@@ -1081,6 +1082,7 @@ const setDatabaseValue = (
           storyReferences: [],
           glossaryTerms: [],
           artDirection: createStarterArtDirectionBoard(),
+          roadmap: createStarterRoadmapData(),
           branding: { studioName: "STL Productionz" }
         }).entries[0] as LoreEntry;
         if (!safeSetDeepValue(next as unknown as Record<string, unknown>, action.path, action.newValue)) return entry;
@@ -1109,6 +1111,7 @@ const setDatabaseValue = (
           storyReferences: [],
           glossaryTerms: [],
           artDirection: createStarterArtDirectionBoard(),
+          roadmap: createStarterRoadmapData(),
           branding: { studioName: "STL Productionz" }
         }).bestiary[0] as BestiaryCreature;
         if (!safeSetDeepValue(next as unknown as Record<string, unknown>, action.path, action.newValue)) return creature;
@@ -1153,6 +1156,7 @@ const setDatabaseValue = (
           storyReferences: [],
           glossaryTerms: [],
           artDirection: createStarterArtDirectionBoard(),
+          roadmap: createStarterRoadmapData(),
           branding: { studioName: "STL Productionz" }
         }).bestiaryCategoryVaults[0] as BestiaryCategoryArtVault;
         if (!safeSetDeepValue(next as unknown as Record<string, unknown>, action.path, action.newValue)) return vault;
@@ -1515,6 +1519,7 @@ const applyAction = (database: LoreDatabase, action: AssistantAction): LoreDatab
         storyReferences: [],
         glossaryTerms: [],
         artDirection: createStarterArtDirectionBoard(),
+        roadmap: createStarterRoadmapData(),
         branding: { studioName: "STL Productionz" }
       }).entries[0] as LoreEntry;
       if (!safeSetDeepValue(next as unknown as Record<string, unknown>, action.field, action.newValue)) return entry;
@@ -1743,7 +1748,8 @@ export const applyAssistantPatch = (
     worldBuilding: cloneDatabase(database).worldBuilding || createEmptyWorldBuilding(),
     storyReferences: cloneDatabase(database).storyReferences || [],
     glossaryTerms: cloneDatabase(database).glossaryTerms || [],
-    artDirection: cloneDatabase(database).artDirection || createStarterArtDirectionBoard()
+    artDirection: cloneDatabase(database).artDirection || createStarterArtDirectionBoard(),
+    roadmap: cloneDatabase(database).roadmap || createStarterRoadmapData()
   };
 
   return {
@@ -1773,6 +1779,7 @@ export const undoLastAiChange = (database: LoreDatabase): LoreDatabase | null =>
       storyReferences: database.storyReferences || [],
       glossaryTerms: database.glossaryTerms || [],
       artDirection: database.artDirection || createStarterArtDirectionBoard(),
+      roadmap: database.roadmap || createStarterRoadmapData(),
       branding: database.branding
     }).entries,
     bestiary: backup.bestiary
@@ -1790,6 +1797,7 @@ export const undoLastAiChange = (database: LoreDatabase): LoreDatabase | null =>
           storyReferences: database.storyReferences || [],
           glossaryTerms: database.glossaryTerms || [],
           artDirection: database.artDirection || createStarterArtDirectionBoard(),
+          roadmap: database.roadmap || createStarterRoadmapData(),
           branding: database.branding
         }).bestiary
       : database.bestiary,

@@ -42,7 +42,7 @@ export interface ArtBinderInitialFilter {
   category?: string;
 }
 
-interface ArtBinderSubject {
+export interface ArtBinderSubject {
   id: string;
   kind: Exclude<ArtBinderKind, "all">;
   source: "character" | "creature" | "bestiary-category" | "environment" | "pantry";
@@ -61,7 +61,7 @@ interface ArtBinderSubject {
   sections: ArtVaultSection[];
 }
 
-interface ArtBinderSlotCard {
+export interface ArtBinderSlotCard {
   subject: ArtBinderSubject;
   section: ArtVaultSection;
   slot: ArtVaultSlot;
@@ -1051,7 +1051,7 @@ function BinderStat({ icon, label, value }: { icon: string; label: string; value
   );
 }
 
-function buildArtBinderSubjects(database: LoreDatabase): ArtBinderSubject[] {
+export function buildArtBinderSubjects(database: LoreDatabase): ArtBinderSubject[] {
   const characters = database.entries
     .filter(isCharacterEntry)
     .map((entry) => ({
@@ -1487,7 +1487,7 @@ function ArtBinderSpriteAnimation({
     </div>
   );
 }
-function artBinderSlotModule(card: ArtBinderSlotCard): AssignableModuleInfo {
+export function artBinderSlotModule(card: ArtBinderSlotCard): AssignableModuleInfo {
   return {
     moduleId: `art-binder-${card.subject.source}-${card.subject.id}-${card.section.id}-${card.slot.id}`,
     moduleTitle: `${card.subject.title} / ${card.slot.label}`,
@@ -1499,7 +1499,7 @@ function artBinderSlotModule(card: ArtBinderSlotCard): AssignableModuleInfo {
   };
 }
 
-function artBinderImagePreviewSource(image: ArtVaultImageMetadata | null | undefined) {
+export function artBinderImagePreviewSource(image: ArtVaultImageMetadata | null | undefined) {
   if (!image) return "";
   if (image.thumbnailUrl?.trim()) return image.thumbnailUrl;
   if (image.driveFileId?.trim()) return googleDriveThumbnailUrl(image.driveFileId);
@@ -1507,7 +1507,7 @@ function artBinderImagePreviewSource(image: ArtVaultImageMetadata | null | undef
   return "";
 }
 
-function artBinderImageManagerSlot(card: ArtBinderSlotCard) {
+export function artBinderImageManagerSlot(card: ArtBinderSlotCard) {
   return {
     id: card.slot.id,
     label: card.slot.label,
@@ -1534,7 +1534,7 @@ function artBinderImageManagerSlot(card: ArtBinderSlotCard) {
   };
 }
 
-function artBinderDriveContext(card: ArtBinderSlotCard): ArtVaultDriveFolderContext {
+export function artBinderDriveContext(card: ArtBinderSlotCard): ArtVaultDriveFolderContext {
   return {
     sourceType: card.subject.source,
     groupName: card.subject.groupLabel || kindLabel(card.subject.kind),
@@ -1970,7 +1970,7 @@ function normalizeArtBinderOrders<T extends { order: number }>(items: T[]) {
     .map((item, order) => ({ ...item, order }));
 }
 
-function updateDatabaseSlotImage(database: LoreDatabase, card: ArtBinderSlotCard, imageSlot: ImageManagerSlotDraft): LoreDatabase {
+export function updateDatabaseSlotImage(database: LoreDatabase, card: ArtBinderSlotCard, imageSlot: ImageManagerSlotDraft): LoreDatabase {
   if (card.subject.source === "character") {
     return {
       ...database,
@@ -2515,13 +2515,13 @@ function groupCardsByCategory(cards: ArtBinderSlotCard[]) {
   return [...groups.entries()].map(([category, groupCards]) => ({ category, cards: groupCards }));
 }
 
-function artBinderStatus(slot: ArtVaultSlot) {
+export function artBinderStatus(slot: ArtVaultSlot) {
   if (slot.status === "approved" || slot.image?.assetState === "final" || slot.image?.uploadStatus === "final") return "Final";
   if (slot.status === "needs-revision") return "Needs Revision";
   return isSlotFilled(slot) ? "WIP" : "Missing";
 }
 
-function artBinderAssetState(slot: ArtVaultSlot) {
+export function artBinderAssetState(slot: ArtVaultSlot) {
   if (!isSlotFilled(slot)) return "wip";
   if (slot.status === "approved" || slot.image?.assetState === "final" || slot.image?.uploadStatus === "final") return "final";
   return "wip";
@@ -2531,7 +2531,7 @@ function artBinderStatusClass(slot: ArtVaultSlot) {
   return artBinderStatus(slot).toLowerCase().replace(/\s+/g, "-");
 }
 
-function isSlotFilled(slot: ArtVaultSlot) {
+export function isSlotFilled(slot: ArtVaultSlot) {
   return Boolean(slot.image?.thumbnailUrl || slot.image?.webViewLink || slot.image?.driveFileId);
 }
 

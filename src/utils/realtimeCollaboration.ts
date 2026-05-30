@@ -2,6 +2,7 @@ import type { AccessRole, ActiveView, GoogleAccountUser, LoreDatabase } from "..
 import { databaseSyncHash } from "./cloudSync";
 import { migrateDatabase, sanitizeDatabaseForPersistence } from "./storage";
 import { normalizeArtDirectionBoard } from "./artDirection";
+import { normalizeRoadmapData } from "./roadmap";
 
 export const TAVERN_REALTIME_ROOM_ID = import.meta.env.VITE_TAVERN_REALTIME_ROOM_ID || "tavern-cook-book:live-v1";
 export const TAVERN_REALTIME_ENABLED = import.meta.env.VITE_TAVERN_REALTIME_DISABLED !== "true";
@@ -102,8 +103,28 @@ export function mergeDatabaseChange(
     userProfiles: mergeUserProfiles(previous.userProfiles || [], next.userProfiles || [], remote.userProfiles || []),
     questCategories: mergeRecordArray(previous.questCategories || [], next.questCategories || [], remote.questCategories || []),
     artDirection: mergeArtDirectionBoard(previous.artDirection, next.artDirection, remote.artDirection),
+    roadmap: mergeRoadmap(previous.roadmap, next.roadmap, remote.roadmap),
     branding: sameValue(previous.branding, next.branding) ? remote.branding : next.branding,
     worldBuilding
+  });
+}
+
+function mergeRoadmap(
+  previousRoadmap: LoreDatabase["roadmap"],
+  nextRoadmap: LoreDatabase["roadmap"],
+  remoteRoadmap: LoreDatabase["roadmap"]
+) {
+  const previous = normalizeRoadmapData(previousRoadmap);
+  const next = normalizeRoadmapData(nextRoadmap);
+  const remote = normalizeRoadmapData(remoteRoadmap);
+
+  if (sameValue(previous, next)) return remote;
+  if (sameValue(previous, remote)) return next;
+
+  return normalizeRoadmapData({
+    milestones: mergeRecordArray(previous.milestones || [], next.milestones || [], remote.milestones || []),
+    items: mergeRecordArray(previous.items || [], next.items || [], remote.items || []),
+    updatedAt: latestTimestamp(next.updatedAt, remote.updatedAt, previous.updatedAt)
   });
 }
 

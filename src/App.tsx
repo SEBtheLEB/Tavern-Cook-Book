@@ -57,6 +57,7 @@ import { Icon } from "./components/Icon";
 import { PantryPage } from "./components/PantryPage";
 import { ProfilePage } from "./components/ProfilePage";
 import { QuestDashboard } from "./components/QuestDashboard";
+import { RoadmapPage } from "./components/roadmap/RoadmapPage";
 import { SearchResults } from "./components/SearchResults";
 import { SecretsView } from "./components/SecretsView";
 import { SettingsPage } from "./components/SettingsPage";
@@ -2845,6 +2846,19 @@ export default function App() {
                 />
               )}
 
+              {activeView === "roadmap" && (
+                <RoadmapPage
+                  database={database}
+                  readOnly={readOnly}
+                  currentUser={currentUser}
+                  teamMembers={teamMembers}
+                  assignments={assignments}
+                  onDatabaseChange={updateDatabase}
+                  onAssignmentsChange={setAssignments}
+                  onOpenArtBinder={!readOnly ? openArtBinder : undefined}
+                />
+              )}
+
               {activeView === "bestiary" && (
                 <BestiaryPage
                   creatures={database.bestiary || []}
@@ -2896,7 +2910,7 @@ export default function App() {
                 />
               )}
 
-              {!["dashboard", "storyJourney", "story", "spriteAnimator", "search", "timeline", "secrets", "settings", "bestiary", "world", "food", "ingredients", "recipes", "artVault", "artDirection"].includes(activeView) && (
+              {!["dashboard", "storyJourney", "story", "spriteAnimator", "search", "timeline", "secrets", "settings", "bestiary", "world", "food", "ingredients", "recipes", "artVault", "artDirection", "roadmap"].includes(activeView) && (
                 <HubPage
                   view={activeConfig}
                   entries={viewEntries}

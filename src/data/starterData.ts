@@ -5,6 +5,7 @@ import { createStarterWorldBuilding } from "../utils/worldBuilding";
 import { createStarterGlossaryTerms, createStarterStoryReferences } from "../utils/storyReferences";
 import { defaultQuestCategories, defaultTeamMembers } from "../utils/assignments";
 import { createStarterArtDirectionBoard } from "../utils/artDirection";
+import { createStarterRoadmapData } from "../utils/roadmap";
 
 const stamp = "2026-05-07T00:00:00.000Z";
 
@@ -3627,7 +3628,7 @@ const starterBestiaryCategoryVaults: BestiaryCategoryArtVault[] = Array.from(
 ).map((category) => createBestiaryCategoryArtVaultRecord(category, starterBestiary));
 
 export const createStarterDatabase = (): LoreDatabase => ({
-  schemaVersion: 5,
+  schemaVersion: 6,
   entries: starterEntries.map((item) => JSON.parse(JSON.stringify(item)) as LoreEntry),
   bestiary: starterBestiary.map((item) => JSON.parse(JSON.stringify(item)) as BestiaryCreature),
   bestiaryCategoryVaults: starterBestiaryCategoryVaults.map((item) => JSON.parse(JSON.stringify(item)) as BestiaryCategoryArtVault),
@@ -3635,6 +3636,7 @@ export const createStarterDatabase = (): LoreDatabase => ({
   storyReferences: createStarterStoryReferences(),
   glossaryTerms: createStarterGlossaryTerms(),
   artDirection: createStarterArtDirectionBoard(),
+  roadmap: createStarterRoadmapData(),
   assignments: [],
   teamMembers: defaultTeamMembers.map((item) => JSON.parse(JSON.stringify(item))),
   userProfiles: [],

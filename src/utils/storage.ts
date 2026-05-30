@@ -21,6 +21,7 @@ import {
   normalizeArtDirectionBoard,
   sanitizeArtDirectionBoardForPersistence
 } from "./artDirection";
+import { createStarterRoadmapData, normalizeRoadmapData, sanitizeRoadmapForPersistence } from "./roadmap";
 import { normalizeAssignments, normalizeQuestCategories, normalizeTeamMembers, normalizeUserProfiles } from "./assignments";
 import { cloneDatabase, normalizeEntry, nowIso } from "./entries";
 import { normalizeImageFit } from "./imageFit";
@@ -40,7 +41,7 @@ export const DATABASE_KEY = "tavern-cook-book:data";
 export const THEME_KEY = "tavern-cook-book:theme";
 const LEGACY_MODE_KEY = "tavern-cook-book:mode";
 
-export const currentSchemaVersion = 5;
+export const currentSchemaVersion = 6;
 const loreExpansionSchemaVersion = 2;
 const magicalMealCanonSchemaVersion = 3;
 const storyReferenceSchemaVersion = 4;
@@ -247,6 +248,7 @@ export const migrateDatabase = (value: unknown): LoreDatabase => {
     ? normalizeGlossaryTerms(incoming.glossaryTerms)
     : normalizeGlossaryTerms(starter.glossaryTerms);
   const artDirection = normalizeArtDirectionBoard(incoming.artDirection || starter.artDirection || createStarterArtDirectionBoard());
+  const roadmap = normalizeRoadmapData(incoming.roadmap || starter.roadmap || createStarterRoadmapData());
 
   if (needsLoreExpansion) {
     entries = mergeLoreExpansionEntries(entries, starter.entries);
@@ -274,6 +276,7 @@ export const migrateDatabase = (value: unknown): LoreDatabase => {
     storyReferences,
     glossaryTerms,
     artDirection,
+    roadmap,
     assignments,
     teamMembers,
     userProfiles,
@@ -305,6 +308,9 @@ export const migrateDatabase = (value: unknown): LoreDatabase => {
               : undefined,
             artDirection: (backup as LoreBackup).artDirection
               ? normalizeArtDirectionBoard((backup as LoreBackup).artDirection)
+              : undefined,
+            roadmap: (backup as LoreBackup).roadmap
+              ? normalizeRoadmapData((backup as LoreBackup).roadmap)
               : undefined
           }))
           .slice(0, 12)
@@ -569,7 +575,8 @@ export const createBackup = (database: LoreDatabase, label: string): LoreDatabas
     worldBuilding: cloneDatabase(database).worldBuilding || createStarterWorldBuilding(database.entries, database.bestiary),
     storyReferences: cloneDatabase(database).storyReferences || [],
     glossaryTerms: cloneDatabase(database).glossaryTerms || [],
-    artDirection: cloneDatabase(database).artDirection || createStarterArtDirectionBoard()
+    artDirection: cloneDatabase(database).artDirection || createStarterArtDirectionBoard(),
+    roadmap: cloneDatabase(database).roadmap || createStarterRoadmapData()
   };
 
   next.backups = [backup, ...(next.backups || [])].slice(0, 12);
@@ -592,6 +599,7 @@ export const sanitizeDatabaseForPersistence = (database: LoreDatabase): LoreData
   storyReferences: normalizeStoryReferences(database.storyReferences),
   glossaryTerms: normalizeGlossaryTerms(database.glossaryTerms),
   artDirection: sanitizeArtDirectionBoardForPersistence(database.artDirection),
+  roadmap: sanitizeRoadmapForPersistence(database.roadmap),
   assignments: normalizeAssignments(database.assignments || []),
   teamMembers: normalizeTeamMembers(database.teamMembers || []),
   userProfiles: normalizeUserProfiles(database.userProfiles || []),
@@ -630,6 +638,10 @@ export const sanitizeDatabaseForPersistence = (database: LoreDatabase): LoreData
 
     if (backup.artDirection) {
       sanitizedBackup.artDirection = sanitizeArtDirectionBoardForPersistence(backup.artDirection);
+    }
+
+    if (backup.roadmap) {
+      sanitizedBackup.roadmap = sanitizeRoadmapForPersistence(backup.roadmap);
     }
 
     return sanitizedBackup;

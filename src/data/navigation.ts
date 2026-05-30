@@ -97,6 +97,15 @@ export const mainNavigation: ViewConfig[] = [
     icon: "StickyNote"
   },
   {
+    id: "roadmap",
+    label: "Roadmap",
+    description: "Milestone quest board for assets, writing, UI, audio, animation, reviews, and build readiness.",
+    tooltip:
+      "Track milestone production quests linked directly to Art Binder slots, Drive folders, assignments, review status, and team XP.",
+    category: "Production",
+    icon: "Map"
+  },
+  {
     id: "marketing",
     label: "Marketing",
     description: "Spoiler-safe descriptions, post ideas, platform-safe copy, and public lore.",
@@ -174,7 +183,7 @@ export const hubSections: Record<string, { title: string; view: ActiveView; desc
 
 export const dashboardBoxes: ViewConfig[] = [
   ...mainNavigation.filter((item) =>
-    ["storyJourney", "story", "characters", "world", "bestiary", "quests", "food", "gameplay", "artDirection", "marketing", "archive", "settings"].includes(
+    ["storyJourney", "story", "characters", "world", "bestiary", "quests", "food", "gameplay", "artDirection", "roadmap", "marketing", "archive", "settings"].includes(
       item.id
     )
   ),
