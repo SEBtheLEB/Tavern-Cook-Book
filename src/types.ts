@@ -619,6 +619,29 @@ export type RoadmapPriority = "optional" | "low" | "medium" | "high" | "critical
 
 export type RoadmapBuildTier = "required" | "polish" | "optional";
 
+export type RoadmapProductionTrack =
+  | "Art"
+  | "Gameplay Systems"
+  | "Level Design"
+  | "Quest"
+  | "Writing"
+  | "Audio"
+  | "UI"
+  | string;
+
+export type RoadmapSlotVisual =
+  | "art-binder"
+  | "bestiary"
+  | "character"
+  | "environment"
+  | "pantry"
+  | "quest"
+  | "system"
+  | "ui"
+  | "writing"
+  | "audio"
+  | string;
+
 export type RoadmapItemCategory =
   | "Character Art"
   | "Enemy Art"
@@ -657,6 +680,10 @@ export interface RoadmapItem {
   title: string;
   category: RoadmapItemCategory;
   type: string;
+  phase: string;
+  productionTrack: RoadmapProductionTrack;
+  slotVisual: RoadmapSlotVisual;
+  summary: string;
   priority: RoadmapPriority;
   status: RoadmapItemStatus;
   assignedTo: string;

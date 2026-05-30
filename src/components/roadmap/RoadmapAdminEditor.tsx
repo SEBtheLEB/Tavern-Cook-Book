@@ -61,6 +61,10 @@ export function RoadmapAdminEditor({
         title: `${card.subject.title} - ${card.slot.label}`,
         category: categoryForCard(card),
         type: card.slot.requirementType || card.section.title,
+        phase: phaseForCard(card),
+        productionTrack: "Art",
+        slotVisual: slotVisualForCard(card),
+        summary: card.slot.notes || `${card.subject.title} / ${card.section.title} / ${card.slot.label}`,
         priority: "medium",
         buildTier: "required",
         assignedTo: "",
@@ -159,8 +163,23 @@ function RoadmapQuickItemCreator({
 
 function categoryForCard(card: ArtBinderSlotCard) {
   if (card.subject.kind === "environment") return "Environment Art";
-  if (card.subject.kind === "pantry") return "UI";
+  if (card.subject.kind === "pantry") return "Ingredient Art";
   if (card.section.title.toLowerCase().includes("sprite")) return "Animation";
   if (card.subject.kind === "bestiary") return card.subject.groupLabel.toLowerCase().includes("npc") ? "NPC Art" : "Enemy Art";
   return "Character Art";
+}
+
+function slotVisualForCard(card: ArtBinderSlotCard) {
+  if (card.subject.kind === "pantry") return "pantry";
+  if (card.subject.kind === "bestiary") return "bestiary";
+  if (card.subject.kind === "environment") return "environment";
+  if (card.subject.kind === "character") return "character";
+  return "art-binder";
+}
+
+function phaseForCard(card: ArtBinderSlotCard) {
+  const value = `${card.subject.title} ${card.section.title} ${card.slot.label}`.toLowerCase();
+  if (value.includes("meal") || value.includes("cook") || value.includes("tavern")) return "Phase 3 - Tavern Return & Cooking";
+  if (value.includes("bug") || value.includes("enemy") || value.includes("prawn") || value.includes("kap") || value.includes("pool")) return "Phase 2 - Forest Rescue & Combat";
+  return "Phase 1 - Village & Core Loop";
 }

@@ -1,7 +1,12 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { RoadmapItemStatus, RoadmapMilestone } from "../../types";
 import type { TeamMember } from "../../utils/assignments";
-import type { RoadmapItemView } from "../../utils/roadmap";
+import {
+  calculateRoadmapStats,
+  roadmapPhases,
+  roadmapProductionTracks,
+  type RoadmapItemView
+} from "../../utils/roadmap";
 import type { ArtBinderSlotCard } from "../ArtBinderPage";
 import { Icon } from "../Icon";
 import { RoadmapBuildReadiness } from "./RoadmapBuildReadiness";
@@ -41,11 +46,51 @@ export function RoadmapMilestoneDetail({
   onUpdateNotes
 }: RoadmapMilestoneDetailProps) {
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
-  const groups = useMemo(() => {
-    const byCategory = new Map<string, RoadmapItemView[]>();
-    items.forEach((item) => byCategory.set(item.category, [...(byCategory.get(item.category) || []), item]));
-    return [...byCategory.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  const [selectedTrack, setSelectedTrack] = useState("All");
+  const trackTabs = useMemo(() => {
+    const itemTracks = new Set(items.map((item) => item.productionTrack || "Art"));
+    const ordered = ["All", ...roadmapProductionTracks.filter((track) => itemTracks.has(track))];
+    itemTracks.forEach((track) => {
+      if (!ordered.includes(track)) ordered.push(track);
+    });
+    return ordered;
   }, [items]);
+  const trackItems = useMemo(() => (
+    selectedTrack === "All" ? items : items.filter((item) => (item.productionTrack || "Art") === selectedTrack)
+  ), [items, selectedTrack]);
+  const phaseGroups = useMemo(() => {
+    const byPhase = new Map<string, RoadmapItemView[]>();
+    trackItems.forEach((item) => {
+      const phase = item.phase || roadmapPhases[0];
+      byPhase.set(phase, [...(byPhase.get(phase) || []), item]);
+    });
+    return [...byPhase.entries()]
+      .sort((left, right) => phaseSortIndex(left[0]) - phaseSortIndex(right[0]))
+      .map(([phase, phaseItems]) => {
+        const byCategory = new Map<string, RoadmapItemView[]>();
+        phaseItems.forEach((item) => byCategory.set(item.category, [...(byCategory.get(item.category) || []), item]));
+        return {
+          phase,
+          items: phaseItems,
+          stats: calculateRoadmapStats(phaseItems),
+          categories: [...byCategory.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+        };
+      });
+  }, [trackItems]);
+
+  useEffect(() => {
+    if (trackTabs.includes(selectedTrack)) return;
+    setSelectedTrack("All");
+  }, [selectedTrack, trackTabs]);
+
+  const toggleCollapsed = (key: string) => {
+    setCollapsed((current) => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
 
   return (
     <section className="roadmap-detail">
@@ -66,45 +111,82 @@ export function RoadmapMilestoneDetail({
         onOpenItem={(id) => document.getElementById(`roadmap-item-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" })}
       />
 
-      {groups.map(([category, categoryItems]) => {
-        const isCollapsed = collapsed.has(category);
-        return (
-          <section className="roadmap-category-section" key={category}>
-            <button
-              className="roadmap-category-header"
-              onClick={() => {
-                setCollapsed((current) => {
-                  const next = new Set(current);
-                  if (next.has(category)) next.delete(category);
-                  else next.add(category);
-                  return next;
-                });
-              }}
-            >
-              <Icon name={isCollapsed ? "ChevronRight" : "ChevronDown"} className="h-4 w-4" />
-              <span>{category}</span>
-              <strong>{categoryItems.length}</strong>
+      <div className="roadmap-track-tabs" aria-label="Roadmap production tabs">
+        {trackTabs.map((track) => {
+          const trackCount = track === "All" ? items.length : items.filter((item) => (item.productionTrack || "Art") === track).length;
+          return (
+            <button key={track} className={selectedTrack === track ? "active" : ""} onClick={() => setSelectedTrack(track)}>
+              {track}
+              <span>{trackCount}</span>
             </button>
-            {!isCollapsed && (
-              <div className="roadmap-item-grid">
-                {categoryItems.map((item) => (
-                  <RoadmapItemCard
-                    key={item.id}
-                    item={item}
-                    allItems={allItems}
-                    binderCard={binderCards.get(item.binderSlotId) || null}
-                    teamMembers={teamMembers}
-                    readOnly={readOnly}
-                    canReview={canReview}
-                    teammateName={teammateName}
-                    onOpenBinderSlot={onOpenBinderSlot}
-                    onUploadFile={onUploadFile}
-                    onAssign={onAssign}
-                    onReviewerChange={onReviewerChange}
-                    onStatusChange={onStatusChange}
-                    onUpdateNotes={onUpdateNotes}
-                  />
-                ))}
+          );
+        })}
+      </div>
+
+      <div className="roadmap-phase-summary-grid">
+        {phaseGroups.map((group) => (
+          <article key={group.phase}>
+            <span>{group.phase}</span>
+            <strong>{group.stats.progress}%</strong>
+            <small>{group.stats.completed} done / {group.stats.missing} missing / {group.stats.required} required</small>
+          </article>
+        ))}
+      </div>
+
+      {phaseGroups.map((group) => {
+        const phaseKey = `phase:${group.phase}`;
+        const phaseCollapsed = collapsed.has(phaseKey);
+        return (
+          <section className="roadmap-phase-section" key={group.phase}>
+            <button
+              className="roadmap-phase-header"
+              onClick={() => toggleCollapsed(phaseKey)}
+            >
+              <Icon name={phaseCollapsed ? "ChevronRight" : "ChevronDown"} className="h-4 w-4" />
+              <span>{group.phase}</span>
+              <small>{group.stats.progress}% ready</small>
+              <strong>{group.items.length}</strong>
+            </button>
+            {!phaseCollapsed && (
+              <div className="roadmap-phase-body">
+                {group.categories.map(([category, categoryItems]) => {
+                  const categoryKey = `category:${group.phase}:${category}`;
+                  const isCollapsed = collapsed.has(categoryKey);
+                  return (
+                    <section className="roadmap-category-section" key={categoryKey}>
+                      <button
+                        className="roadmap-category-header"
+                        onClick={() => toggleCollapsed(categoryKey)}
+                      >
+                        <Icon name={isCollapsed ? "ChevronRight" : "ChevronDown"} className="h-4 w-4" />
+                        <span>{category}</span>
+                        <strong>{categoryItems.length}</strong>
+                      </button>
+                      {!isCollapsed && (
+                        <div className="roadmap-item-grid">
+                          {categoryItems.map((item) => (
+                            <RoadmapItemCard
+                              key={item.id}
+                              item={item}
+                              allItems={allItems}
+                              binderCard={binderCards.get(item.binderSlotId) || null}
+                              teamMembers={teamMembers}
+                              readOnly={readOnly}
+                              canReview={canReview}
+                              teammateName={teammateName}
+                              onOpenBinderSlot={onOpenBinderSlot}
+                              onUploadFile={onUploadFile}
+                              onAssign={onAssign}
+                              onReviewerChange={onReviewerChange}
+                              onStatusChange={onStatusChange}
+                              onUpdateNotes={onUpdateNotes}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </section>
+                  );
+                })}
               </div>
             )}
           </section>
@@ -112,4 +194,9 @@ export function RoadmapMilestoneDetail({
       })}
     </section>
   );
+}
+
+function phaseSortIndex(phase: string) {
+  const index = roadmapPhases.indexOf(phase);
+  return index === -1 ? 999 : index;
 }

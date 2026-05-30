@@ -401,6 +401,10 @@ function seedRoadmapItemsFromBinder(milestones: RoadmapMilestone[], cards: ArtBi
         title: `${card.subject.title} - ${card.slot.label}`,
         category: categoryForBinderCard(card),
         type: card.slot.requirementType || card.section.title,
+        phase: phaseForBinderCard(card),
+        productionTrack: productionTrackForBinderCard(card),
+        slotVisual: slotVisualForBinderCard(card),
+        summary: card.slot.notes || `${card.subject.title} / ${card.section.title} / ${card.slot.label}`,
         priority,
         status: artBinderStatus(card.slot) === "Final" ? "approved" : artBinderStatus(card.slot) === "WIP" ? "needs-review" : "missing",
         binderSlotId: roadmapBinderSlotId(card),
@@ -472,9 +476,31 @@ function categoryForBinderCard(card: ArtBinderSlotCard) {
   const section = card.section.title.toLowerCase();
   if (section.includes("sprite") || section.includes("animation")) return "Animation";
   if (card.subject.kind === "environment") return "Environment Art";
-  if (card.subject.kind === "pantry") return "UI";
+  if (card.subject.kind === "pantry") return "Ingredient Art";
   if (card.subject.kind === "bestiary") return "Enemy Art";
   return "Character Art";
+}
+
+function productionTrackForBinderCard(card: ArtBinderSlotCard) {
+  if (card.subject.kind === "environment") return "Art";
+  if (card.subject.kind === "pantry") return "Art";
+  if (card.subject.kind === "bestiary") return "Art";
+  return "Art";
+}
+
+function slotVisualForBinderCard(card: ArtBinderSlotCard) {
+  if (card.subject.kind === "pantry") return "pantry";
+  if (card.subject.kind === "bestiary") return "bestiary";
+  if (card.subject.kind === "environment") return "environment";
+  if (card.subject.kind === "character") return "character";
+  return "art-binder";
+}
+
+function phaseForBinderCard(card: ArtBinderSlotCard) {
+  const value = `${card.subject.title} ${card.section.title} ${card.slot.label}`.toLowerCase();
+  if (value.includes("meal") || value.includes("cook") || value.includes("tavern")) return "Phase 3 - Tavern Return & Cooking";
+  if (value.includes("bug") || value.includes("enemy") || value.includes("prawn") || value.includes("kap") || value.includes("pool")) return "Phase 2 - Forest Rescue & Combat";
+  return "Phase 1 - Village & Core Loop";
 }
 
 function myTasksMilestone(base: RoadmapMilestone): RoadmapMilestone {
