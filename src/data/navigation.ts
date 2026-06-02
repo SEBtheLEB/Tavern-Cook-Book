@@ -4,230 +4,52 @@ export const mainNavigation: ViewConfig[] = [
   {
     id: "dashboard",
     label: "Dashboard",
-    description: "Overview of canon, questions, recent work, and focus areas.",
+    description: "Overview of characters, world modules, open questions, and recent edits.",
     icon: "LayoutDashboard"
-  },
-  {
-    id: "storyJourney",
-    label: "Story Journey",
-    description: "Interactive storybook timeline for the main Tales of the Tavern journey.",
-    tooltip:
-      "Choose story chapters from a magical timeline, read them page by page, and follow the journey from ancient history into the game.",
-    category: "Story",
-    icon: "BookOpen"
-  },
-  {
-    id: "story",
-    label: "Story",
-    description: "True history, reveals, arcs, secrets, cultures, and timeline work.",
-    tooltip:
-      "Track the true history, player-facing reveals, character arcs, and major story structure of Tales of the Tavern.",
-    category: "Story",
-    icon: "BookOpen"
-  },
-  {
-    id: "quests",
-    label: "Quests",
-    description: "Main quests, side quests, tutorials, flows, rewards, and reveals.",
-    tooltip:
-      "Track main quests, side quests, tutorials, quest flows, rewards, and lore reveals.",
-    category: "Quests",
-    icon: "ScrollText"
-  },
-  {
-    id: "gameplay",
-    label: "Gameplay Systems",
-    description: "Cooking, combat, crafting, inventory, charms, seasons, and progression.",
-    tooltip:
-      "Organize cooking, combat, crafting, inventory, charms, seasons, and progression systems.",
-    category: "Gameplay Systems",
-    icon: "Cog"
-  },
-  {
-    id: "food",
-    label: "The Pantry",
-    description: "Food inventory, menu items, ingredients, meals, recipes, and cooking magic.",
-    tooltip:
-      "Manage the dedicated pantry system for ingredients, food inventory, menu items, meals, recipes, drops, prep variants, and cooking-related gameplay.",
-    category: "Food & Inventory",
-    icon: "ChefHat"
   },
   {
     id: "characters",
     label: "Characters",
-    description: "Heroes, villains, NPCs, bosses, relationships, and visual notes.",
+    description: "Heroes, villains, NPCs, relationships, backstories, and visual notes.",
     tooltip:
-      "Manage heroes, villains, NPCs, bosses, personalities, relationships, and visual notes.",
+      "Manage heroes, villains, NPCs, personalities, relationships, histories, and visual references.",
     category: "Characters",
     icon: "Users"
   },
   {
     id: "world",
     label: "World Building",
-    description: "Living encyclopedia for locations, cultures, history, magic, food, myths, rules, and mysteries.",
+    description: "Living encyclopedia for locations, cultures, history, magic, myths, rules, and mysteries.",
     tooltip:
-      "Manage the lands, cultures, histories, creatures, factions, and mysteries that shape Tales of the Tavern.",
+      "Manage the lands, cultures, histories, factions, myths, rules, and mysteries that shape the setting.",
     category: "World",
     icon: "Map"
   },
   {
-    id: "bestiary",
-    label: "Bestiary",
-    description: "Creatures, monsters, beasts, insects, spirits, bosses, and wildlife.",
-    tooltip:
-      "Track creatures, monsters, bosses, wildlife, drops, habitats, and creature art requirements.",
-    icon: "Swords"
-  },
-  {
-    id: "artVault",
-    label: "Art Vault",
-    description: "Team art dashboard, Art Binder shelves, missing assets, and upload boards.",
-    tooltip:
-      "Open the team Art Vault page, choose an Art Binder shelf, and manage asset slots without leaving the app page flow.",
-    category: "Production",
-    icon: "Palette"
-  },
-  {
-    id: "artDirection",
-    label: "Art Direction",
-    description: "Shared Miro-style whiteboard for references, notes, mood images, and production direction.",
-    tooltip:
-      "Drop images, add notes, arrange visual references, and save everything to the shared Art Direction board.",
-    category: "Production",
-    icon: "StickyNote"
-  },
-  {
-    id: "roadmap",
-    label: "Roadmap",
-    description: "Milestone quest board for assets, writing, UI, audio, animation, reviews, and build readiness.",
-    tooltip:
-      "Track milestone production quests linked directly to Art Binder slots, Drive folders, assignments, review status, and team XP.",
-    category: "Production",
-    icon: "Map"
-  },
-  {
-    id: "marketing",
-    label: "Marketing",
-    description: "Spoiler-safe descriptions, post ideas, platform-safe copy, and public lore.",
-    category: "Marketing",
-    icon: "Megaphone"
-  },
-  {
-    id: "archive",
-    label: "Archive",
-    description: "Old versions, scrapped ideas, naming decisions, and replaced canon.",
-    category: "Archive",
-    icon: "Archive"
-  },
-  {
     id: "settings",
     label: "Settings",
-    description: "Data tools, storage, theme, backups, and assistant status.",
+    description: "Data tools, storage, theme, backups, sync, and Scribe AI status.",
     icon: "Settings"
   }
 ];
 
 export const hubSections: Record<string, { title: string; view: ActiveView; description: string }[]> = {
   story: [
-    { title: "World Overview", view: "story", description: "Broad story and worldbuilding entries." },
-    { title: "Timeline", view: "timeline", description: "True, player, quest, and emotional timeline." },
-    { title: "Secrets / Who Knows What", view: "secrets", description: "Truth, suspicion, ignorance, and player knowledge." },
-    { title: "Factions & Cultures", view: "factions", description: "People, kingdoms, cultures, and philosophies." },
-    { title: "Mythology", view: "story", description: "Cauldron myths, old tales, and divine food magic." },
-    { title: "Main Story Arcs", view: "story", description: "Core arcs for Gwen, Tohm, Lillia, and the world." },
-    { title: "Character Arcs", view: "characters", description: "Personal story arcs and relationships." },
-    { title: "Player Knowledge Timeline", view: "timeline", description: "What the player learns and when." }
+    { title: "Characters", view: "characters", description: "Profiles, relationships, biographies, and character notes." },
+    { title: "World Building", view: "world", description: "Locations, cultures, factions, histories, myths, rules, and mysteries." }
   ],
-  quests: [
-    { title: "Main Quests", view: "quests", description: "Primary story and progression quests." },
-    { title: "Side Quests", view: "quests", description: "Optional quest ideas and NPC work." },
-    { title: "Tutorial Quests", view: "quests", description: "Natural teaching moments and onboarding." },
-    { title: "Character Quests", view: "quests", description: "Character-led quests and relationship beats." },
-    { title: "Hidden Quests", view: "quests", description: "Secret quests and discovery-based flows." },
-    { title: "Boss Quests", view: "quests", description: "Recipe-page boss progression." },
-    { title: "Quest Flow Tracker", view: "quests", description: "Objective lists and quest state logic." }
-  ],
-  gameplay: [
-    { title: "Cooking System", view: "gameplay", description: "Preparation, meals, recipes, and cooking tasks." },
-    { title: "Combat System", view: "gameplay", description: "Weapons, enemies, bosses, and meal powers." },
-    { title: "Crafting System", view: "gameplay", description: "Tools, upgrades, gathering, and stations." },
-    { title: "Inventory System", view: "gameplay", description: "Basket UI, slots, prepared ingredients." },
-    { title: "Meal Wheel", view: "gameplay", description: "Equipped meals and battle consumption." },
-    { title: "Day/Night & Seasons", view: "gameplay", description: "Calendar, weather, and seasonal swaps." },
-    { title: "Charm System", view: "gameplay", description: "Equippable modifiers and build choices." },
-    { title: "Slime Flavor / Element System", view: "gameplay", description: "Flavor profiles, slimes, substitutions, elements." },
-    { title: "Dialogue / Quest Framework", view: "gameplay", description: "Story Framework 5 notes and quest logic." }
-  ],
-  food: [
-    { title: "The Pantry", view: "food", description: "All food inventory, ingredients, menu items, recipes, meals, drops, and prep variants." },
-    { title: "Pantry Ingredients", view: "ingredients", description: "All ingredients, creature drops, prep variants, spawn sources, and recipe uses." },
-    { title: "Pantry Meals / Recipes", view: "recipes", description: "Cooked dishes, magical meals, menu items, and food powers." },
-    { title: "Items", view: "items", description: "Inventory objects and practical items." },
-    { title: "Tools", view: "items", description: "Crafted tools and utility items." },
-    { title: "Artifacts", view: "items", description: "Magical objects and story artifacts." },
-    { title: "Slime Substitutes", view: "ingredients", description: "Slime gels, essences, and flavor substitutes." },
-    { title: "Ales / Tonics", view: "recipes", description: "Brewing, heals, buffs, and tavern consumables." },
-    { title: "Inventory Wiki", view: "items", description: "Terraria-style item reference pages." }
-  ],
+  quests: [],
+  gameplay: [],
+  food: [],
   world: [
-    { title: "Locations", view: "world", description: "Major places, villages, and story regions." },
-    { title: "Regions", view: "world", description: "Bigger map areas and biome groupings." },
-    { title: "Biomes", view: "world", description: "Environment types and visual identities." },
-    { title: "Villages", view: "world", description: "Settlements, hubs, and community spaces." },
-    { title: "Points of Interest", view: "world", description: "POIs, gathering spots, and landmarks." },
-    { title: "Corrupted / Purified Areas", view: "world", description: "State changes and restoration notes." },
-    { title: "Environmental Storytelling", view: "world", description: "Scene-level lore and world clues." },
-    { title: "Bestiary", view: "bestiary", description: "Creatures, wildlife, bosses, drops, and habitats." }
+    { title: "Locations", view: "world", description: "Major places, villages, regions, and landmarks." },
+    { title: "Cultures", view: "world", description: "Peoples, traditions, daily life, and beliefs." },
+    { title: "Factions", view: "world", description: "Groups, politics, leadership, resources, and conflicts." },
+    { title: "Rules & Mysteries", view: "world", description: "Canon rules, unresolved questions, and contradiction notes." }
   ]
 };
 
 export const dashboardBoxes: ViewConfig[] = [
-  ...mainNavigation.filter((item) =>
-    ["storyJourney", "story", "characters", "world", "bestiary", "quests", "food", "gameplay", "artDirection", "roadmap", "marketing", "archive", "settings"].includes(
-      item.id
-    )
-  ),
-  {
-    id: "recipes",
-    label: "Pantry Meals / Recipes",
-    description: "Magical meals, menu items, broths, corrupted dishes, ales, and cooking lore.",
-    icon: "Soup"
-  },
-  {
-    id: "ingredients",
-    label: "Pantry Ingredients",
-    description: "Raw ingredients, prepared ingredients, slime gels, enemy drops, and recipe uses.",
-    icon: "Wheat"
-  },
-  {
-    id: "enemies",
-    label: "Enemies & Creatures",
-    description: "Slimes, bugs, bosses, mini-bosses, drops, and behaviors.",
-    icon: "Swords"
-  },
-  {
-    id: "factions",
-    label: "Factions & Cultures",
-    description: "Kingdoms, cultures, cults, values, and naming issues.",
-    icon: "Landmark"
-  },
-  {
-    id: "items",
-    label: "Items & Artifacts",
-    description: "Tools, artifacts, collectibles, and inventory wiki entries.",
-    icon: "Package"
-  },
-  {
-    id: "timeline",
-    label: "Timeline",
-    description: "True, player, quest, and emotional chronology.",
-    icon: "GitBranch"
-  },
-  {
-    id: "secrets",
-    label: "Secrets / Who Knows What",
-    description: "Canon facts, who knows, who suspects, and reveal timing.",
-    icon: "EyeOff"
-  }
+  ...mainNavigation.filter((item) => ["characters", "world", "settings"].includes(item.id))
 ];
 

@@ -73,6 +73,7 @@ import { RealtimeCollaborationContext, realtimeTargetKey } from "./components/Re
 import { RealtimeRoomBridge, type RealtimeDatabaseResetter, type RealtimePresenceUpdater, type RealtimePublisher } from "./components/RealtimeRoomBridge";
 import { buildLoreKeywords, LoreKeywordProvider } from "./components/LoreKeywordText";
 import { buildArtVaultDashboardStats } from "./utils/artVaultDashboard";
+import { isWorldScribeCategoryId, worldScribeCategoryIds } from "./utils/worldBuilding";
 import {
   clearGoogleAccount,
   disableGoogleAutoSelect,
@@ -124,52 +125,11 @@ import {
   saveUserProfiles
 } from "./utils/assignments";
 
-const extraViews: ViewConfig[] = [
-  {
-    id: "timeline",
-    label: "Timeline",
-    description: "True, player, quest, and emotional chronology.",
-    icon: "GitBranch"
-  },
-  {
-    id: "secrets",
-    label: "Secrets / Who Knows What",
-    description: "Canon facts, who knows, who suspects, and reveal timing.",
-    icon: "EyeOff"
-  },
-  {
-    id: "recipes",
-    label: "Recipes & Food Magic",
-    description: "Meals, recipes, food magic, broths, ales, and corrupted dishes.",
-    icon: "Soup"
-  },
-  {
-    id: "ingredients",
-    label: "Ingredients",
-    description: "Ingredients, enemy drops, slime gels, and prepared food parts.",
-    icon: "Wheat"
-  },
-  {
-    id: "items",
-    label: "Items & Artifacts",
-    description: "Tools, artifacts, collectibles, inventory items, and magical objects.",
-    icon: "Package"
-  },
-  {
-    id: "enemies",
-    label: "Enemies & Creatures",
-    description: "Creatures, bosses, drops, bug enemies, slimes, and behaviors.",
-    icon: "Swords"
-  },
-  {
-    id: "factions",
-    label: "Factions & Cultures",
-    description: "Kingdoms, cultures, cults, naming issues, and world philosophies.",
-    icon: "Landmark"
-  }
-];
+const extraViews: ViewConfig[] = [];
 
 const allViews = [...mainNavigation, ...extraViews];
+const APP_NAME = "World Scribe Codex";
+const PRODUCT_ENABLED_VIEW_IDS: ActiveView[] = ["dashboard", "characters", "world", "settings", "search"];
 
 interface DetailReturnTarget {
   activeView: ActiveView;
@@ -250,12 +210,12 @@ function loadAppSessionUiState(): AppSessionUiState | null {
       selectedReferenceKeyword: typeof parsed.selectedReferenceKeyword === "string" ? parsed.selectedReferenceKeyword : "",
       searchQuery: typeof parsed.searchQuery === "string" ? parsed.searchQuery : "",
       committedSearch: typeof parsed.committedSearch === "string" ? parsed.committedSearch : "",
-      artVaultDashboardOpen: Boolean(parsed.artVaultDashboardOpen),
-      artBinderOpen: Boolean(parsed.artBinderOpen),
-      artBinderFilter: normalizeSessionArtBinderFilter(parsed.artBinderFilter),
-      artBinderSessionState: normalizeSessionArtBinderState(parsed.artBinderSessionState),
+      artVaultDashboardOpen: false,
+      artBinderOpen: false,
+      artBinderFilter: null,
+      artBinderSessionState: null,
       favoritesOpen: Boolean(parsed.favoritesOpen),
-      questDashboardOpen: Boolean(parsed.questDashboardOpen),
+      questDashboardOpen: false,
       profileOpen: Boolean(parsed.profileOpen),
       worldBuildingFocus: normalizeSessionWorldFocus(parsed.worldBuildingFocus),
       scrollY: clampSessionScroll(parsed.scrollY)
@@ -285,7 +245,7 @@ function clearAppSessionUiState() {
 
 function normalizeSessionActiveView(value: unknown): ActiveView {
   const candidate = String(value || "");
-  return allViews.some((view) => view.id === candidate) ? candidate as ActiveView : "dashboard";
+  return PRODUCT_ENABLED_VIEW_IDS.includes(candidate as ActiveView) ? candidate as ActiveView : "dashboard";
 }
 
 function normalizeSessionArtBinderFilter(value: unknown): ArtBinderInitialFilter | null {
@@ -328,22 +288,7 @@ function normalizeSessionWorldFocus(value: unknown): Omit<WorldBuildingFocusTarg
 }
 
 function isWorldBuildingCategoryId(value: unknown): value is WorldBuildingFocusTarget["category"] {
-  return [
-    "locations",
-    "cultures",
-    "factions",
-    "timeline",
-    "magicSystems",
-    "foodAndRecipes",
-    "creatureLinks",
-    "characterLinks",
-    "myths",
-    "items",
-    "quests",
-    "rules",
-    "mysteries",
-    "glossary"
-  ].includes(String(value || ""));
+  return isWorldScribeCategoryId(String(value || ""));
 }
 
 function clampSessionScroll(value: unknown) {
@@ -353,17 +298,19 @@ function clampSessionScroll(value: unknown) {
 }
 
 function buildWorkshopProgress(database: LoreDatabase, currentUser: GoogleAccountUser) {
-  const totalEntries = database.entries.length + database.bestiary.length;
+  const characterEntries = database.entries.filter(isWorldBuilderLoreEntry);
+  const totalWorldEntries = worldScribeCategoryIds.reduce((count, category) => count + (database.worldBuilding?.[category] || []).length, 0);
+  const totalEntries = characterEntries.length + totalWorldEntries;
   const completedEntries =
-    database.entries.filter((entry) => ["Canon", "Soft Canon", "Playtest Scope"].includes(entry.status)).length +
-    database.bestiary.length;
+    characterEntries.filter((entry) => ["Canon", "Soft Canon", "Playtest Scope"].includes(entry.status)).length +
+    totalWorldEntries;
   const total = Math.max(totalEntries, 1);
   return {
     percent: Math.round((completedEntries / total) * 100),
-    label: "Team cook book completion",
+    label: "World builder completion",
     completed: completedEntries,
     total,
-    source: "Tavern Cook Book team sync"
+    source: `${APP_NAME} team sync`
   };
 }
 
@@ -397,14 +344,14 @@ export default function App() {
   const [referenceQuery, setReferenceQuery] = useState("");
   const [selectedReferenceKeyword, setSelectedReferenceKeyword] = useState(initialSessionUi?.selectedReferenceKeyword || "");
   const [keywordPopup, setKeywordPopup] = useState("");
-  const [artVaultDashboardOpen, setArtVaultDashboardOpen] = useState(Boolean(initialSessionUi?.artVaultDashboardOpen));
-  const [artBinderOpen, setArtBinderOpen] = useState(Boolean(initialSessionUi?.artBinderOpen || initialSessionUi?.artBinderFilter));
-  const [artBinderFilter, setArtBinderFilter] = useState<ArtBinderInitialFilter | null>(initialSessionUi?.artBinderFilter || null);
-  const [artBinderSessionState, setArtBinderSessionState] = useState<ArtBinderSessionState | null>(initialSessionUi?.artBinderSessionState || null);
+  const [artVaultDashboardOpen, setArtVaultDashboardOpen] = useState(false);
+  const [artBinderOpen, setArtBinderOpen] = useState(false);
+  const [artBinderFilter, setArtBinderFilter] = useState<ArtBinderInitialFilter | null>(null);
+  const [artBinderSessionState, setArtBinderSessionState] = useState<ArtBinderSessionState | null>(null);
   const [characterToolVaultRequest, setCharacterToolVaultRequest] = useState<{ entryId: string; nonce: number } | null>(null);
   const [detailReturnTarget, setDetailReturnTarget] = useState<DetailReturnTarget | null>(null);
   const [favoritesOpen, setFavoritesOpen] = useState(Boolean(initialSessionUi?.favoritesOpen));
-  const [questDashboardOpen, setQuestDashboardOpen] = useState(Boolean(initialSessionUi?.questDashboardOpen));
+  const [questDashboardOpen, setQuestDashboardOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(Boolean(initialSessionUi?.profileOpen));
   const [tavernScribeOpen, setTavernScribeOpen] = useState(false);
   const [worldBuildingFocus, setWorldBuildingFocus] = useState<WorldBuildingFocusTarget | null>(
@@ -582,6 +529,7 @@ export default function App() {
     [appSyncSettings.visibility.hiddenForMembers, canAccessSettings]
   );
   const isViewLocked = useCallback((view: ActiveView) => {
+    if (!PRODUCT_ENABLED_VIEW_IDS.includes(view)) return true;
     if (canAccessSettings) return false;
     return view === "settings" || hiddenViewIds.includes(view);
   }, [canAccessSettings, hiddenViewIds]);
@@ -589,7 +537,7 @@ export default function App() {
     const viewLabel = label || viewLabelForId(view);
     setLockedAccessNotice({
       title: `${viewLabel} is locked`,
-      message: `${viewLabel} is still under development and is locked for your current access. You can keep using the cookbook pages your admin has enabled.`
+      message: `${viewLabel} is outside this first worldbuilder pass. You can keep using Characters and World Building.`
     });
   }, []);
   const ensureViewAccess = useCallback((view: ActiveView, label?: string) => {
@@ -599,17 +547,21 @@ export default function App() {
   }, [isViewLocked, showLockedViewNotice]);
   const entryViewIsLocked = useCallback((entry: LoreEntry) => isViewLocked(categoryToView(entry.category)), [isViewLocked]);
   const ensureEntryAccess = useCallback((entry: LoreEntry) => {
+    if (!isWorldBuilderLoreEntry(entry)) {
+      showLockedViewNotice("search", entry.category || "Lore entry");
+      return false;
+    }
     const targetView = categoryToView(entry.category);
     if (!isViewLocked(targetView)) return true;
     showLockedViewNotice(targetView, entry.category || viewLabelForId(targetView));
     return false;
   }, [isViewLocked, showLockedViewNotice]);
   const visibleEntries = useMemo(
-    () => database.entries.filter((entry) => !entryViewIsLocked(entry)),
+    () => database.entries.filter((entry) => isWorldBuilderLoreEntry(entry) && !entryViewIsLocked(entry)),
     [database.entries, entryViewIsLocked]
   );
-  const storyReferencesLocked = isViewLocked("story");
-  const visibleStoryReferences = storyReferencesLocked ? [] : database.storyReferences;
+  const storyReferencesLocked = true;
+  const visibleStoryReferences: StoryReference[] = [];
   const explicitRemovalSet = useMemo(() => new Set(explicitRemovalIds), [explicitRemovalIds]);
   const publishChanges = useMemo(
     () => LIVE_TEAM_SYNC
@@ -1051,10 +1003,10 @@ export default function App() {
 
   useEffect(() => {
     if (!currentUser) {
-      document.title = "STL Productionz";
+      document.title = APP_NAME;
       return;
     }
-    document.title = readOnly ? "The Tavern Cook Book - Live View" : "The Tavern Cook Book";
+    document.title = readOnly ? `${APP_NAME} - Live View` : APP_NAME;
   }, [currentUser, readOnly]);
 
   useEffect(() => {
@@ -1097,7 +1049,7 @@ export default function App() {
       if (!health.configured) {
         setCloudSync({
           phase: "offline",
-          message: health.error || "Cloud sync needs TAVERN_SYNC_GITHUB_TOKEN in Vercel.",
+          message: health.error || "Cloud sync needs the GitHub sync token in Vercel.",
           lastSavedAt: "",
           configured: false
         });
@@ -1193,7 +1145,7 @@ export default function App() {
           ? shouldRestorePendingTeamChange
             ? "Restored this teammate's unsaved edit and is saving it for everyone..."
             : publishedEnvelope
-            ? `Loaded shared team cookbook saved ${new Date(publishedEnvelope.updatedAt).toLocaleString()}.`
+            ? `Loaded shared worldbuilder saved ${new Date(publishedEnvelope.updatedAt).toLocaleString()}.`
             : "Live sync is ready. Your next edit will save for everyone."
           : mergedDraft?.privateCount
           ? `Loaded the latest team version and kept ${mergedDraft.privateCount} private ${mergedDraft.privateCount === 1 ? "change" : "changes"}.`
@@ -1429,10 +1381,10 @@ export default function App() {
     selectedBestiaryCreatureId,
     selectedReferenceKeyword,
     favoritesOpen,
-    artVaultDashboardOpen,
-    artBinderOpen,
-    artBinderFilter,
-    questDashboardOpen,
+    artVaultDashboardOpen: false,
+    artBinderOpen: false,
+    artBinderFilter: null,
+    questDashboardOpen: false,
     profileOpen,
     scrollY: window.scrollY
   });
@@ -1665,7 +1617,7 @@ export default function App() {
     setCloudSync((current) => ({
       ...current,
       phase: "saving",
-      message: "Saving this cookbook to the team database now..."
+      message: "Saving this worldbuilder to the team database now..."
     }));
 
     try {
@@ -1722,7 +1674,7 @@ export default function App() {
     setPushMessage(
       cloudSync.configured
         ? ""
-        : "Cloud sync is not configured yet. Add TAVERN_SYNC_GITHUB_TOKEN in Vercel before pushing globally."
+        : "Cloud sync is not configured yet. Add the GitHub sync token in Vercel before pushing globally."
     );
     setPushReviewOpen(true);
   };
@@ -1999,7 +1951,7 @@ export default function App() {
     if (!visibleEntries.some((entry) => searchEntries([entry], keyword).length > 0)) {
       setLockedAccessNotice({
         title: "References are locked",
-        message: "Those references are in a cookbook section that is still under development and locked for your current access."
+        message: "Those references are outside this first worldbuilder pass."
       });
       return;
     }
@@ -2019,7 +1971,7 @@ export default function App() {
     if (!visibleEntries.some((entry) => searchEntries([entry], keyword).length > 0)) {
       setLockedAccessNotice({
         title: "Reference is locked",
-        message: "That linked lore reference is in a cookbook section that is still under development and locked for your current access."
+        message: "That linked lore reference is outside this first worldbuilder pass."
       });
       return;
     }
@@ -2065,13 +2017,13 @@ export default function App() {
       : null;
     setActiveView(target.activeView);
     setSelectedEntry(returnEntry && !entryViewIsLocked(returnEntry) ? returnEntry : null);
-    setSelectedBestiaryCreatureId(target.selectedBestiaryCreatureId);
+    setSelectedBestiaryCreatureId("");
     setSelectedReferenceKeyword(target.selectedReferenceKeyword);
     setFavoritesOpen(target.favoritesOpen);
-    setArtVaultDashboardOpen(target.artVaultDashboardOpen);
-    setArtBinderOpen(target.artBinderOpen);
-    setArtBinderFilter(target.artBinderFilter);
-    setQuestDashboardOpen(target.questDashboardOpen);
+    setArtVaultDashboardOpen(false);
+    setArtBinderOpen(false);
+    setArtBinderFilter(null);
+    setQuestDashboardOpen(false);
     setProfileOpen(target.profileOpen);
     window.setTimeout(() => window.scrollTo({ top: target.scrollY, behavior: "smooth" }), 0);
   };
@@ -2723,7 +2675,7 @@ export default function App() {
           currentUser={currentUser}
           onOpenProfile={openProfile}
           onOpenTavernScribe={() => setTavernScribeOpen(true)}
-          onOpenQuestDashboard={openQuestDashboard}
+          onOpenQuestDashboard={undefined}
           onOpenPushChanges={LIVE_TEAM_SYNC ? undefined : openPushReview}
           onForceLiveSync={forceSaveTeamDatabase}
           questCount={currentQuestCount}
@@ -2732,7 +2684,7 @@ export default function App() {
           hiddenViewIds={hiddenViewIds}
           syncLabel={cloudSync.message}
           syncName="Live Sync"
-          syncActionTitle="Click to save this cookbook for everyone now"
+          syncActionTitle="Click to save this worldbuilder for everyone now"
           syncWorking={cloudSync.phase === "publishing" || cloudSync.phase === "saving" || cloudSync.phase === "loading"}
           liveUsers={realtimeUsers}
           liveStatus={realtimeStatus}
@@ -2753,19 +2705,19 @@ export default function App() {
           <TopBar
             theme={theme}
             searchQuery={searchQuery}
-            artVaultProgress={!readOnly ? artVaultProgress : undefined}
+            artVaultProgress={undefined}
             onThemeChange={setTheme}
             onSearchQueryChange={setSearchQuery}
             onSubmitSearch={submitSearch}
             onCreateEntry={createEntry}
-            onOpenArtVaultDashboard={!readOnly ? openArtVaultDashboard : undefined}
+            onOpenArtVaultDashboard={undefined}
             onOpenFavorites={openFavorites}
             onOpenMobileNav={() => setMobileNavOpen(true)}
             readOnly={readOnly}
             favoritesCount={favorites.length}
             favoritesOpen={favoritesOpen}
             assignMode={assignMode}
-            onToggleAssignMode={!readOnly ? () => setAssignMode((value) => !value) : undefined}
+            onToggleAssignMode={undefined}
           />
 
           {profileOpen ? (
@@ -2775,19 +2727,8 @@ export default function App() {
               profiles={userProfiles}
               onTeamMembersChange={setTeamMembers}
               onProfilesChange={setUserProfiles}
-              onOpenQuestDashboard={openQuestDashboard}
+              onOpenQuestDashboard={undefined}
               onBack={() => setProfileOpen(false)}
-            />
-          ) : questDashboardOpen ? (
-            <QuestDashboard
-              currentUser={currentUser}
-              assignments={assignments}
-              teamMembers={teamMembers}
-              questCategories={questCategories}
-              onAssignmentsChange={setAssignments}
-              onQuestCategoriesChange={setQuestCategories}
-              onOpenAssignment={openQuestAssignment}
-              onBack={() => setQuestDashboardOpen(false)}
             />
           ) : favoritesOpen ? (
             <FavoritesPage
@@ -2834,8 +2775,8 @@ export default function App() {
               isFavorite={isEntryFavorite(selectedCharacterEntry)}
               onToggleFavorite={() => toggleFavoriteById("entry", selectedCharacterEntry.id)}
               focusedAssignment={focusedAssignment}
-              onOpenArtBinder={!readOnly ? () => openArtBinder({ kind: "character", subjectId: selectedCharacterEntry.id }) : undefined}
-              openToolVaultRequestNonce={characterToolVaultRequest?.entryId === selectedCharacterEntry.id ? characterToolVaultRequest.nonce : 0}
+              onOpenArtBinder={undefined}
+              openToolVaultRequestNonce={0}
               storyReferences={visibleStoryReferences}
               storyReferencesLocked={storyReferencesLocked}
               onCreateStoryReference={storyReferencesLocked ? undefined : createLinkedStoryReference}
@@ -2991,11 +2932,11 @@ export default function App() {
                 <WorldBuildingPage
                   worldBuilding={database.worldBuilding}
                   loreEntries={visibleEntries}
-                  bestiary={database.bestiary || []}
+                  bestiary={[]}
                   readOnly={readOnly}
                   onWorldBuildingChange={updateWorldBuilding}
                   onOpenEntry={openEntry}
-                  onOpenCreature={openBestiaryCreature}
+                  onOpenCreature={() => undefined}
                   focusedAssignment={focusedAssignment}
                   focusTarget={worldBuildingFocus}
                   storyReferences={visibleStoryReferences}
@@ -3111,6 +3052,10 @@ export default function App() {
 
 function isCharacterEntry(entry: LoreEntry) {
   return /character/i.test(entry.category) || /character/i.test(entry.type);
+}
+
+function isWorldBuilderLoreEntry(entry: LoreEntry) {
+  return isCharacterEntry(entry);
 }
 
 function expandHiddenViewIds(hiddenViewIds: ActiveView[]) {
@@ -3912,14 +3857,11 @@ function categoryForView(view: ActiveView) {
   if (view === "enemies") return "Enemies & Creatures";
   if (view === "recipes" || view === "ingredients" || view === "items") return "Food & Inventory";
   if (view === "timeline" || view === "secrets" || view === "factions") return "Story";
-  return "Story";
+  return "Characters";
 }
 
 function categoryToView(category: string): ActiveView {
   if (category === "Characters") return "characters";
-  if (category === "Enemies & Creatures") return "bestiary";
-  if (category === "Food & Inventory") return "food";
-  if (category === "Marketing") return "marketing";
   return allViews.find((item) => item.category === category)?.id || "search";
 }
 

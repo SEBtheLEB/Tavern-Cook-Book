@@ -151,7 +151,7 @@ export function AccessGate({
           </div>
           <p className="access-eyebrow">Access Denied</p>
           <h1 className="font-display">STL Productionz</h1>
-          <p>You do not have access to this Cook Book. Please contact Sebastien to be added.</p>
+          <p>You do not have access to this worldbuilder. Please contact Sebastien to be added.</p>
           <div className="access-user-preview">
             {deniedUser.picture ? <DriveAwareImage src={deniedUser.picture} alt="" /> : <Icon name="UserRound" className="h-5 w-5" />}
             <div>
@@ -184,9 +184,9 @@ export function AccessGate({
             <Icon name="Sparkles" className="h-8 w-8" />
           )}
         </div>
-        <p className="access-eyebrow">Team Cook Book</p>
+        <p className="access-eyebrow">Team Worldbuilder</p>
         <h1 className="font-display">STL Productionz</h1>
-        <p>Sign in with Google to open The Tavern Cook Book.</p>
+        <p>Sign in with Google to open World Scribe Codex.</p>
         {desktopExternalSignIn ? (
           <div className="access-desktop-auth">
             <button

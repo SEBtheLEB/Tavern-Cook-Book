@@ -204,8 +204,8 @@ interface ArtVaultGalleryAdjustTarget {
 }
 
 const spoilerOptions = ["No Spoiler", "Minor Spoiler", "Major Spoiler", "Ending Spoiler"];
-const artUploadCategories = ["Portraits", "Expressions", "Turnarounds", "Screenshots", "Concept Art", "Marketing Art", "Reference", "Imported From Drive"];
-const artGalleryFilters = ["All", "Featured", "Portraits", "Expressions", "Turnarounds", "Screenshots", "Concept Art", "Marketing Art", "Imported From Drive"];
+const artUploadCategories = ["Portraits", "Expressions", "Turnarounds", "Screenshots", "Concept Art", "Reference", "Imported From Drive"];
+const artGalleryFilters = ["All", "Featured", "Portraits", "Expressions", "Turnarounds", "Screenshots", "Concept Art", "Reference", "Imported From Drive"];
 const artGallerySortOptions = ["Newest first", "Oldest first", "Title A-Z", "Category"];
 const artVaultStatusOptions = [
   { value: "empty", label: "Missing" },
@@ -1042,7 +1042,7 @@ export function CharacterProfileView({
       return <EditInput value={joinValues(entry.connections.locations) || value} placeholder="Osul" onChange={(next) => onConnectionChange("locations", next)} />;
     }
     if (label === "Role") {
-      return <EditInput value={fieldText(entry, ["Gameplay Role", "Role"]) || value} placeholder="Fighter - Cook - Protector" onChange={(next) => onSetField("Gameplay Role", next)} />;
+      return <EditInput value={fieldText(entry, ["Role", "Gameplay Role"]) || value} placeholder="Fighter - Cook - Protector" onChange={(next) => onSetField("Role", next)} />;
     }
     if (label === "Recruited By") {
       return <EditInput value={fieldText(entry, ["Recruited By", "Mentor"]) || value} placeholder="Tohm Kyatt" onChange={(next) => onSetField("Recruited By", next)} />;
@@ -1213,8 +1213,8 @@ export function CharacterProfileView({
     <article className="character-codex-shell">
       <aside className="character-codex-left">
         <div className="character-codex-brand">
-          <p>Tales of the</p>
-          <h2 className="font-display">Tavern</h2>
+          <p>World Scribe</p>
+          <h2 className="font-display">Codex</h2>
         </div>
 
         <div className="character-codex-portrait-card">
@@ -1242,27 +1242,6 @@ export function CharacterProfileView({
             </button>
           )}
         </div>
-
-        {!readOnly && (
-          <div className="character-art-vault-open-actions">
-            <button className="character-art-vault-open-button" onClick={() => openCharacterArtVault(false)}>
-              <Icon name="Archive" className="h-5 w-5" />
-              Open Art Vault
-            </button>
-            {isGwenCharacter && (
-              <button className="character-art-vault-open-button tools" onClick={() => openCharacterArtVault(true)}>
-                <Icon name="Hammer" className="h-5 w-5" />
-                Gwen Tools
-              </button>
-            )}
-            {onOpenArtBinder && (
-              <button className="character-art-vault-open-button secondary" onClick={onOpenArtBinder}>
-                <Icon name="BookOpen" className="h-5 w-5" />
-                Open Art Binder
-              </button>
-            )}
-          </div>
-        )}
 
         <CodexPanel title="Essentials" icon="Compass">
           {character.essentials.map((fact) => (
@@ -1362,7 +1341,6 @@ export function CharacterProfileView({
           onRemove={onRemoveImage}
           getImageFit={imageFitForSlot}
           onAdjustImage={(slot, label, previewFrame) => openImageAdjuster(slot, label, "16 / 10", previewFrame)}
-          onOpenGallery={openArtVaultGallery}
         />
 
         <div className="character-codex-section-divider" aria-hidden="true" />
@@ -1935,7 +1913,7 @@ function DriveUploadModal({
         </div>
 
         <footer>
-          <p>The file is uploaded to Google Drive. The Cook Book stores only Drive metadata.</p>
+          <p>The file is uploaded to Google Drive. World Scribe Codex stores only Drive metadata.</p>
           <div>
             <button className="character-codex-action-button" onClick={onCancel} disabled={draft.uploading}>Cancel</button>
             <button className="button-frame character-codex-action-button" onClick={onUpload} disabled={draft.uploading}>
@@ -4129,7 +4107,7 @@ function CharacterMiniAssistant({
 }
 
 function buildCharacterAssistantPrompt(entry: LoreEntry, character: ReturnType<typeof buildCharacterView>, changeRequest: string) {
-  return `You are helping fill out one character page for the local lore bible app "The Tavern Cook Book" for the game "Tales of the Tavern".
+  return `You are helping fill out one character page for the local lore bible app "World Scribe Codex".
 
 Task:
 Update this specific character page using my requested changes. Keep the character consistent with the existing data. Return ONLY valid JSON. Do not wrap it in markdown unless you absolutely have to.
@@ -4152,9 +4130,9 @@ What goes where:
 - publicDescription: spoiler-safe marketing/public text. Avoid secret reveals here.
 - internalLore: private lore, contradictions, spoilers, writer notes, and hidden truth.
 - personality: brief quick-read personality description.
-- coreFunction: brief explanation of why this character matters to the story/gameplay.
+- coreFunction: brief explanation of why this character matters to the world, story, or relationships.
 - relationships: small cards. Each needs name, relationship type, and a very short note.
-- worldConnections: small cards. Use type/title/note for important locations, factions, items, quests, arcs, or systems.
+- worldConnections: small cards. Use type/title/note for important locations, factions, cultures, myths, rules, items, arcs, or systems.
 - story.background: where they come from, early life, culture, family, training.
 - story.incitingIncident: what pulls them into the main plot.
 - story.mainStoryRole: what they do during the story and why they matter.
@@ -4163,7 +4141,7 @@ What goes where:
 - story.relationshipsInStory: how relationships affect the plot.
 - story.futureUnresolvedThreads: loose ends, mysteries, future plans, sequel hooks.
 - fullStory: the big readable story scroll. Put the complete in-depth character story here, including all major details, emotional beats, secrets, relationships, and future threads. This can be much longer than the quick cards.
-- notes: production/art/gameplay/marketing/unresolved notes only, not the main reader text.
+- notes: production, art, worldbuilding, continuity, and unresolved notes only, not the main reader text.
 
 Return this JSON shape:
 {
@@ -4204,9 +4182,9 @@ Return this JSON shape:
   "fullStory": "",
   "notes": {
     "art": "",
-    "gameplay": "",
+    "worldbuilding": "",
     "production": "",
-    "marketing": "",
+    "continuity": "",
     "unresolved": ""
   }
 }
@@ -4305,7 +4283,7 @@ function characterPayloadToEntryPatch(entry: LoreEntry, payload: CharacterAssist
 
   if (payload.essentials) {
     setField("Age", payload.essentials.age);
-    setField("Gameplay Role", payload.essentials.role);
+    setField("Role", payload.essentials.role);
     setField("Recruited By", payload.essentials.recruitedBy);
     setField("Favorite Food", payload.essentials.favoriteFood);
     setField("Character Status", payload.essentials.status);
@@ -4683,8 +4661,7 @@ function CharacterSpriteShowcase({
   onSetImage,
   onRemove,
   getImageFit,
-  onAdjustImage,
-  onOpenGallery
+  onAdjustImage
 }: {
   media: EntryMedia;
   isEditing: boolean;
@@ -4693,7 +4670,6 @@ function CharacterSpriteShowcase({
   onRemove: (slot: ImageSlot, galleryIndex?: number) => void;
   getImageFit: (slot: Exclude<ImageSlot, "galleryImages">) => ImageFitSettings;
   onAdjustImage: (slot: Exclude<ImageSlot, "galleryImages">, label: string, previewFrame?: { width: number; height: number }) => void;
-  onOpenGallery: (slot: Exclude<ImageSlot, "galleryImages">) => void;
 }) {
   const sprites: Array<{ label: string; helper: string; icon: string; slot: Exclude<ImageSlot, "galleryImages">; src: string }> = [
     {
@@ -4704,9 +4680,9 @@ function CharacterSpriteShowcase({
       src: media.dialogueSpriteImage || ""
     },
     {
-      label: "In-Game Sprite",
-      helper: "Small gameplay sprite or in-world character reference.",
-      icon: "Gamepad2",
+      label: "World Reference Sprite",
+      helper: "Small in-world character reference.",
+      icon: "UserRound",
       slot: "ingameSpriteImage",
       src: media.ingameSpriteImage || ""
     }
@@ -4717,28 +4693,14 @@ function CharacterSpriteShowcase({
       <div className="character-sprite-showcase-header">
         <div>
           <p>Character visual quick slots</p>
-          <h2 className="font-display">Dialogue & In-Game Sprites</h2>
+          <h2 className="font-display">Dialogue & World Sprites</h2>
         </div>
       </div>
       <div className="character-sprite-grid">
         {sprites.map((sprite) => (
           <article
             key={sprite.slot}
-            className="character-sprite-card clickable"
-            role="button"
-            tabIndex={0}
-            title={`Open ${sprite.label} gallery from the Art Vault`}
-            onClick={(event) => {
-              if (isInteractiveElement(event.target)) return;
-              onOpenGallery(sprite.slot);
-            }}
-            onKeyDown={(event) => {
-              if (isInteractiveElement(event.target)) return;
-              if (event.key === "Enter" || event.key === " ") {
-                event.preventDefault();
-                onOpenGallery(sprite.slot);
-              }
-            }}
+            className="character-sprite-card"
           >
             <div className="character-sprite-preview">
               {sprite.src ? (
@@ -5658,7 +5620,7 @@ function characterImageManagerSlots(
       imageFit: imageFitForSlot("ingameSpriteImage"),
       frameWidth: 210,
       frameHeight: 190,
-      uploadNameContext: { subjectName: entry.title, categoryName: "Gameplay Sprites", slotName: "In Game Sprite", sourceType: "Character" },
+      uploadNameContext: { subjectName: entry.title, categoryName: "Character References", slotName: "World Reference Sprite", sourceType: "Character" },
       ...base
     }
   ];

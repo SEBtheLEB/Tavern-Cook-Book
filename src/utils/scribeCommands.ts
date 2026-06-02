@@ -17,79 +17,7 @@ export const SCRIBE_TARGET_HELPERS: ScribeTargetHelper[] = [
     insertText: "[Scribe Target: Characters only]",
     description: "Only character modules and character-page data.",
     scribeGuidance:
-      "If the command contains [Scribe Target: Characters only], only change entries with category \"Characters\". For new entries, use entry.category \"Characters\" and entry.type \"Character\". Do not update quests, world entries, recipes, Bestiary creatures, or other pages unless the user removes this target."
-  },
-  {
-    id: "target-the-pantry",
-    label: "The Pantry",
-    group: "target",
-    insertText: "[Scribe Target: The Pantry only]",
-    description: "Food inventory, menu items, ingredients, meals, and recipes.",
-    scribeGuidance:
-      "If the command contains [Scribe Target: The Pantry only], the hard visible destination is the top-level The Pantry tab. Store these as entry.category \"Food & Inventory\" because that is the app's data category for The Pantry. Put recipes, meals, menu items, broths, ales, tonics, consumables, and food magic in The Pantry's Meals & Recipes tab with recipe/meal types, fields.pantryMealGroup, and fields.ingredientsRequired when known. Put ingredients, drops, slime gels, prep variants, and food inventory ingredients in The Pantry's Pantry Inventory tab with ingredient/drop types and fields.pantryCategory. If the user asks for a recipe and its ingredients, create or update the recipe plus separate concrete ingredient entries for the named ingredients. Never create Story entries for food, menu items, ingredients, meals, or recipes."
-  },
-  {
-    id: "target-recipes",
-    label: "Pantry Meals / Recipes",
-    group: "target",
-    insertText: "[Scribe Target: Meals / Recipes only]",
-    description: "Only The Pantry recipe, meal, menu, drink, and food magic entries.",
-    scribeGuidance:
-      "If the command contains [Scribe Target: Meals / Recipes only], the hard visible destination is The Pantry's Meals & Recipes tab. Store records as entry.category \"Food & Inventory\". Update an existing same-title Food & Inventory entry from entryIndex first; only add a new entry if no same-title recipe or meal exists. New recipe/meal entries must use entry.category \"Food & Inventory\", an entry.type containing Recipe, Meal, Broth, Ale, Tonic, Consumable, or Food Magic, and fields.pantryMealGroup plus fields.ingredientsRequired when ingredients are known. Never create a Story entry for a meal, menu item, drink, or recipe."
-  },
-  {
-    id: "target-pantry",
-    label: "Pantry Ingredients",
-    group: "target",
-    insertText: "[Scribe Target: Pantry / Ingredients only]",
-    description: "Only The Pantry ingredients, drops, prep variants, and food inventory entries.",
-    scribeGuidance:
-      "If the command contains [Scribe Target: Pantry / Ingredients only], the hard visible destination is The Pantry's Pantry Inventory tab. Store records as entry.category \"Food & Inventory\". Only change Food & Inventory entries whose type is ingredient, drop, prepared ingredient, substitute, or pantry item. For new entries, use entry.category \"Food & Inventory\", entry.type \"Ingredient\" unless the user names a more specific pantry type, and fields.pantryCategory. If this target is selected together with Meals / Recipes, create or update the recipe in The Pantry's Meals & Recipes tab and create/update separate concrete ingredient entries for its named ingredients."
-  },
-  {
-    id: "target-items",
-    label: "Items / Tools",
-    group: "target",
-    insertText: "[Scribe Target: Items / Tools only]",
-    description: "Only item, tool, artifact, and inventory object entries.",
-    scribeGuidance:
-      "If the command contains [Scribe Target: Items / Tools only], only change Food & Inventory entries whose type is item, tool, artifact, collectible, or inventory object. For new entries, use entry.category \"Food & Inventory\" and choose entry.type \"Item\", \"Tool\", or \"Artifact\" from the user's wording."
-  },
-  {
-    id: "target-bestiary",
-    label: "Bestiary",
-    group: "target",
-    insertText: "[Scribe Target: Bestiary only]",
-    description: "Only creature records, Bestiary categories, and creature slots.",
-    scribeGuidance:
-      "If the command contains [Scribe Target: Bestiary only], only change Bestiary creatures, Bestiary category art slots, or Bestiary creature art slots. Use addCreature for new creatures and removeCreature for deleted creatures. Do not update lore entries or world entries."
-  },
-  {
-    id: "target-art-vault",
-    label: "Art Vault",
-    group: "target",
-    insertText: "[Scribe Target: Art Vault only]",
-    description: "Only subject art vault categories, slots, labels, and notes.",
-    scribeGuidance:
-      "If the command contains [Scribe Target: Art Vault only], only organize art production data: artVault sections/categories, art slots, slot labels, requirement types, and notes. Use target \"entry\" plus an entry id for character/lore Art Vaults, target \"creature\" plus a creature id for Bestiary creature Art Vaults, and target \"bestiaryCategory\" plus categoryName for shared Bestiary category vaults. Prefer addArtCategory, renameArtCategory, removeArtCategory, addArtSlot, renameArtSlot, and removeArtSlot. Do not change lore text, UI layout, image files, Drive files, API keys, or uploaded image metadata. If removing a category or slot, only remove local app metadata."
-  },
-  {
-    id: "target-art-binder",
-    label: "Art Binder",
-    group: "target",
-    insertText: "[Scribe Target: Art Binder only]",
-    description: "Organize the cross-project art board by subject, category, and slot.",
-    scribeGuidance:
-      "If the command contains [Scribe Target: Art Binder only], organize the same artVault data as it appears in the Art Binder. If the user names one subject like Crayhusk or Gwen, affect only that subject's own Art Binder categories and slots unless the user explicitly says all subjects, all creatures, or a whole category. For creatures, avoid character-only categories such as Dialogue Sprites or character weapon attacks unless explicitly requested; use creature-specific categories such as Core Creature Art, Sprite Sheets, Drops, Habitat & UI References, Marketing & Misc Art, or custom creature categories. Prefer addArtCategory, renameArtCategory, removeArtCategory, addArtSlot, renameArtSlot, and removeArtSlot. Do not create lore entries or alter images/Drive files."
-  },
-  {
-    id: "target-gwen-tools",
-    label: "Gwen Tools",
-    group: "target",
-    insertText: "[Scribe Target: Gwen Tools only]",
-    description: "Only Gwen's tool, weapon, meal, and ale art pages.",
-    scribeGuidance:
-      "If the command contains [Scribe Target: Gwen Tools only], only organize Gwen's Art Vault Tool Binder pages. Use addArtCategory, renameArtCategory, removeArtCategory, addArtSlot, renameArtSlot, and removeArtSlot with target \"entry\", Gwen's entry id from entryIndex, and sectionTitle values like \"Tool: Makeshift Sickle\", \"Tool: Gwen's OG Sword\", \"Tool: Fire Meal\", or \"Tool: Regular Ale\". New Gwen pages must use the \"Tool:\" prefix and fit one Tool Binder category such as Sickles, Axes, Pickaxes, Shovels, Fishing Rods, Light Sources, Melee Weapons, Ranged Weapons, Magical Meals, Snacks, or Ales. Include slots such as Idle Pose, Run Pose, Start Animation, Middle / Loop Animation, and End Animation. Do not update non-Gwen art, Drive files, images, lore text, or layout."
+      "If the command contains [Scribe Target: Characters only], only change entries with category \"Characters\". For new entries, use entry.category \"Characters\" and entry.type \"Character\". Do not update world-building modules unless the user removes this target or also selects World Building."
   },
   {
     id: "target-world",
@@ -98,43 +26,7 @@ export const SCRIBE_TARGET_HELPERS: ScribeTargetHelper[] = [
     insertText: "[Scribe Target: World Building only]",
     description: "Only World Building modules like locations, cultures, myths, and rules.",
     scribeGuidance:
-      "If the command contains [Scribe Target: World Building only], only change worldEntry records or create addWorldEntry records. Choose the best world category from locations, cultures, history, magic, foodCulture, creatures, factions, quests, mysteries, glossary, or rules. Do not update normal lore entries unless the user removes this target."
-  },
-  {
-    id: "target-quests",
-    label: "Quests",
-    group: "target",
-    insertText: "[Scribe Target: Quests only]",
-    description: "Only quest modules and quest-page data.",
-    scribeGuidance:
-      "If the command contains [Scribe Target: Quests only], only change entries with category \"Quests\". For new entries, use entry.category \"Quests\" and entry.type \"Quest\"."
-  },
-  {
-    id: "target-story",
-    label: "Story",
-    group: "target",
-    insertText: "[Scribe Target: Story only]",
-    description: "Only story, lore, timeline, secret, faction, and culture entries.",
-    scribeGuidance:
-      "If the command contains [Scribe Target: Story only], only change entries with category \"Story\" or story-adjacent extra views such as factions, timeline, and secrets. For new entries, use entry.category \"Story\" and choose a story-focused type from the user's wording."
-  },
-  {
-    id: "target-marketing",
-    label: "Marketing",
-    group: "target",
-    insertText: "[Scribe Target: Marketing only]",
-    description: "Only spoiler-safe public copy and marketing notes.",
-    scribeGuidance:
-      "If the command contains [Scribe Target: Marketing only], only change entries with category \"Marketing\". For new entries, use entry.category \"Marketing\" and entry.type \"Marketing Note\"."
-  },
-  {
-    id: "target-archive",
-    label: "Archive",
-    group: "target",
-    insertText: "[Scribe Target: Archive only]",
-    description: "Only archive notes, old versions, and removed canon records.",
-    scribeGuidance:
-      "If the command contains [Scribe Target: Archive only], only create or update Archive entries. Use archive for notes about old canon. Do not use archive alone to remove Bestiary creatures; removeCreature is still required for Bestiary deletion."
+      "If the command contains [Scribe Target: World Building only], only change worldEntry records or create addWorldEntry records. Choose the best world category from locations, cultures, factions, timeline, magicSystems, characterLinks, myths, items, rules, mysteries, or glossary. Do not update character entries unless the user removes this target or also selects Characters."
   },
   {
     id: "mode-add-remove",
@@ -143,7 +35,7 @@ export const SCRIBE_TARGET_HELPERS: ScribeTargetHelper[] = [
     insertText: "[Scribe Mode: Add/remove entries only]",
     description: "Create or remove records and slots, without rewriting existing text.",
     scribeGuidance:
-      "If the command contains [Scribe Mode: Add/remove entries only], do not rewrite or update existing text fields. Only create or remove records: add, removeEntry, addCreature, removeCreature, addWorldEntry, addArtCategory, removeArtCategory, addArtSlot, removeArtSlot, or archive. If creating a new entry, creature, world entry, art category, art slot, or archive note, include the user's supplied text inside that new record. If the user asks to remove an existing normal lore entry, use removeEntry with the entry id from entryIndex/relevantEntries."
+      "If the command contains [Scribe Mode: Add/remove entries only], do not rewrite or update existing text fields. Only create or remove character entries or world-building entries. Use add for character entries, removeEntry for character removals, and addWorldEntry for world modules. Include the user's supplied text inside any new record."
   }
 ];
 
@@ -162,4 +54,4 @@ export const compactScribeTargetHelpers = () =>
 
 export const scribeTargetHelperGuidance = SCRIBE_TARGET_HELPERS.map((item) =>
   `- ${item.insertText}: ${item.scribeGuidance}`
-).join("\n") + "\n- The Pantry is a top-level app tab. Its stored entry.category is still \"Food & Inventory\" for compatibility. If a user asks for food, menu items, ingredients, meals, recipes, drinks, ales, tonics, or cooking inventory without picking a target, prefer The Pantry over Story.\n- If multiple [Scribe Target: ...] directives are present, treat them as multiple destinations. Produce separate actions for each destination instead of picking one. Do not copy target directives, app routing instructions, or phrases like \"in The Pantry section\" into entry descriptions; routing belongs in category, type, fields, and actions.";
+).join("\n") + "\n- If both Characters and World Building targets are present, satisfy each destination with separate correctly shaped actions. Do not copy target directives or app routing instructions into character or world descriptions.";

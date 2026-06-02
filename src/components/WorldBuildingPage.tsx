@@ -11,12 +11,12 @@ import type {
   WorldBuildingRelatedEntry
 } from "../types";
 import {
-  allWorldBuildingEntries,
+  activeWorldBuildingEntries,
   categoryConfig,
   createWorldBuildingEntry,
   normalizeWorldBuilding,
   normalizeWorldBuildingEntry,
-  worldBuildingCategories
+  worldScribeCategories
 } from "../utils/worldBuilding";
 import { imageFitToStyle, normalizeImageFit, resolveImageSourceUrl } from "../utils/imageFit";
 import type { AssignableModuleInfo, AssignmentRecord } from "../utils/assignments";
@@ -89,20 +89,19 @@ interface ImageAdjustTarget {
   previewFrame?: { width: number; height: number };
 }
 
-type WorldCategoryConfig = (typeof worldBuildingCategories)[number];
+type WorldCategoryConfig = (typeof worldScribeCategories)[number];
 
 const relationTypeOptions = [
   { label: "Character", type: "character" },
-  { label: "Creature", type: "creature" },
   { label: "Location", type: "location", category: "locations" as WorldBuildingCategoryId },
   { label: "Culture", type: "culture", category: "cultures" as WorldBuildingCategoryId },
   { label: "Faction", type: "faction", category: "factions" as WorldBuildingCategoryId },
   { label: "Item", type: "item", category: "items" as WorldBuildingCategoryId },
-  { label: "Recipe", type: "recipe", category: "foodAndRecipes" as WorldBuildingCategoryId },
   { label: "Magic System", type: "magic", category: "magicSystems" as WorldBuildingCategoryId },
   { label: "Timeline Event", type: "timeline", category: "timeline" as WorldBuildingCategoryId },
-  { label: "Quest", type: "quest", category: "quests" as WorldBuildingCategoryId },
   { label: "Myth", type: "myth", category: "myths" as WorldBuildingCategoryId },
+  { label: "Rule", type: "rule", category: "rules" as WorldBuildingCategoryId },
+  { label: "Mystery", type: "mystery", category: "mysteries" as WorldBuildingCategoryId },
   { label: "Glossary Term", type: "glossary", category: "glossary" as WorldBuildingCategoryId }
 ];
 
@@ -155,7 +154,7 @@ export function WorldBuildingPage({
   const [imageAdjustTarget, setImageAdjustTarget] = useState<ImageAdjustTarget | null>(null);
   const [imageManagerOpen, setImageManagerOpen] = useState(false);
 
-  const allWorldEntries = useMemo(() => allWorldBuildingEntries(normalizedWorldBuilding), [normalizedWorldBuilding]);
+  const allWorldEntries = useMemo(() => activeWorldBuildingEntries(normalizedWorldBuilding), [normalizedWorldBuilding]);
   const characterEntries = useMemo(() => loreEntries.filter(isCharacterEntry), [loreEntries]);
   const selectedCategory = categoryConfig(selectedCategoryId);
   const selectedEntry = selectedEntryId
@@ -424,7 +423,7 @@ export function WorldBuildingPage({
         onOpenTarget={(target) => target.open()}
       />
       <section className="world-building-category-grid">
-        {worldBuildingCategories.map((category) => {
+        {worldScribeCategories.map((category) => {
           const entries = normalizedWorldBuilding[category.id] || [];
           const lastEdited = latestEdited(entries);
           return (
@@ -543,7 +542,7 @@ export function WorldBuildingPage({
           }))}
           fullStory={fullStory}
           fullStoryEditValue={activeEntry.fields.fullStory || fullStory}
-          fullStoryPlaceholder="Write the full worldbuilding story here: history, cultural context, secrets, player-facing version, and future use."
+          fullStoryPlaceholder="Write the full worldbuilding story here: history, cultural context, secrets, public-facing version, and future use."
           steps={storySteps}
           isEditing={isEditing}
           onSetActiveTab={setActiveStoryTab}
@@ -849,10 +848,10 @@ function WorldBuildingHeader() {
         <Icon name="Map" className="h-9 w-9" />
       </div>
       <div>
-        <p>Tales of the Tavern</p>
+        <p>World Scribe Codex</p>
         <h1 className="font-display">World Building</h1>
         <span>
-          A living archive of the lands, cultures, histories, creatures, factions, and mysteries that shape the world of Tales of the Tavern.
+          A living archive of the lands, cultures, histories, factions, rules, myths, and mysteries that shape this world.
         </span>
       </div>
     </section>
@@ -1290,7 +1289,7 @@ function iconForWorldStorySection(sectionId: string) {
   if (/people|culture|belief|relationship/i.test(sectionId)) return "Users";
   if (/magic|power|rule/i.test(sectionId)) return "Sparkles";
   if (/visual|image|look/i.test(sectionId)) return "Image";
-  if (/quest|gameplay|story/i.test(sectionId)) return "Compass";
+  if (/world|story|use/i.test(sectionId)) return "Compass";
   return "BookOpen";
 }
 
@@ -1309,7 +1308,7 @@ function buildRelationTargets({
   onOpenEntry: (entry: LoreEntry) => void;
   onOpenCreature: (creature: BestiaryCreature) => void;
 }): RelationTarget[] {
-  const worldTargets = allWorldBuildingEntries(worldBuilding).map((entry) => {
+  const worldTargets = activeWorldBuildingEntries(worldBuilding).map((entry) => {
     const type = worldTypeForCategory(entry.category);
     return {
       key: `${type}:${entry.id}`,
@@ -1335,18 +1334,9 @@ function buildRelationTargets({
     tags: entry.tags || [],
     open: () => onOpenEntry(entry)
   }));
-  const creatureTargets = bestiary.map((creature) => ({
-    key: `creature:${creature.id}`,
-    type: "creature",
-    targetId: creature.id,
-    title: creature.name,
-    subtitle: `${creature.type} / ${creature.habitat || "Unknown region"}`,
-    summary: creature.description || creature.overview || "",
-    image: creature.image || creature.hoverImage || "",
-    tags: [creature.type, creature.habitat, creature.status, creature.threatLevel].filter(Boolean),
-    open: () => onOpenCreature(creature)
-  }));
-  return [...worldTargets, ...characterTargets, ...creatureTargets];
+  void bestiary;
+  void onOpenCreature;
+  return [...worldTargets, ...characterTargets];
 }
 
 function resolveRelatedTarget(related: WorldBuildingRelatedEntry, targets: RelationTarget[]) {
@@ -1420,12 +1410,12 @@ function worldTypeForCategory(category: WorldBuildingCategoryId) {
     factions: "faction",
     timeline: "timeline",
     magicSystems: "magic",
-    foodAndRecipes: "recipe",
-    creatureLinks: "creature-link",
+    foodAndRecipes: "world",
+    creatureLinks: "world",
     characterLinks: "character-link",
     myths: "myth",
     items: "item",
-    quests: "quest",
+    quests: "world",
     rules: "rule",
     mysteries: "mystery",
     glossary: "glossary"

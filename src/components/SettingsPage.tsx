@@ -343,7 +343,7 @@ export function SettingsPage({
       <section className="category-header-frame rounded p-5">
         <h2 className="font-display text-4xl">Settings</h2>
         <p className="mt-2 max-w-3xl leading-7" style={{ color: "var(--muted-ink)" }}>
-          Data tools, theme, storage, logo, backups, and assistant backend status.
+          Data tools, theme, storage, logo, backups, and Scribe AI backend status.
         </p>
       </section>
 
@@ -519,14 +519,14 @@ export function SettingsPage({
               onClick={() => onThemeChange("light")}
             >
               <Icon name="Sun" className="h-4 w-4" />
-              Cozy Tavern Mode
+              Light Mode
             </button>
             <button
               className={`tab-frame inline-flex items-center gap-2 rounded px-4 py-2 ${theme === "dream" ? "shadow-glow" : ""}`}
               onClick={() => onThemeChange("dream")}
             >
               <Icon name="Moon" className="h-4 w-4" />
-              Dream Tavern Mode
+              Dream Mode
             </button>
           </div>
         </div>
@@ -538,7 +538,7 @@ export function SettingsPage({
               {database.branding.logoImage ? (
                 <DriveAwareImage src={database.branding.logoImage} alt="STL Productionz" className="h-full w-full object-cover" />
               ) : (
-                <Icon name="ChefHat" className="h-8 w-8" />
+                <Icon name="BookOpen" className="h-8 w-8" />
               )}
             </div>
             <label className="button-frame inline-flex cursor-pointer items-center gap-2 rounded px-4 py-2">
@@ -556,7 +556,7 @@ export function SettingsPage({
             <h3 className="font-display text-2xl">Google Drive Integration</h3>
             <p className="mt-2 max-w-3xl text-sm leading-6" style={{ color: "var(--muted-ink)" }}>
               Add your Google OAuth Client ID from Google Cloud Console. A restricted API key is optional.
-              Admin-saved setup is synced through the shared app settings so STL Workshop and Tavern use the same connection.
+              Admin-saved setup is synced through the shared app settings so World Scribe Codex uses the same connection everywhere.
             </p>
           </div>
           <span className="rounded-full border px-3 py-1 text-sm" style={{ borderColor: "var(--card-border)", background: "var(--field-bg)" }}>
@@ -576,7 +576,7 @@ export function SettingsPage({
             <li>Optional API key restricted to this website/domain</li>
             <li>Optional API key restricted to only required Google APIs</li>
             <li>OAuth JavaScript origins restricted to this app domain</li>
-            <li>OAuth Drive scope allows creating folders and placing files in the selected Art Vault folder</li>
+            <li>OAuth Drive scope allows creating folders and placing files in the selected reference folder</li>
             <li>Shared Drive folder permissions configured manually in Google Drive</li>
           </ul>
         </div>
@@ -596,7 +596,7 @@ export function SettingsPage({
             onChange={(value) => updateDriveSetting("googleOAuthClientId", value)}
           />
           <DriveSettingsInput
-            label="Default Tales of the Tavern Drive Folder ID"
+            label="Default World Scribe Drive Folder ID"
             value={driveSettings.defaultTalesFolderId}
             placeholder="Main lore bible Drive folder ID or link"
             onChange={(value) => updateDriveSetting("defaultTalesFolderId", value)}
@@ -615,20 +615,6 @@ export function SettingsPage({
             placeholder="World art/reference folder ID or link"
             onChange={(value) => updateDriveSetting("defaultWorldArtFolderId", value)}
             onPickFolder={() => chooseDriveSettingsFolder("defaultWorldArtFolderId")}
-          />
-          <DriveSettingsInput
-            label="Default Marketing Art Folder ID"
-            value={driveSettings.defaultMarketingArtFolderId}
-            placeholder="Marketing art folder ID or link"
-            onChange={(value) => updateDriveSetting("defaultMarketingArtFolderId", value)}
-            onPickFolder={() => chooseDriveSettingsFolder("defaultMarketingArtFolderId")}
-          />
-          <DriveSettingsInput
-            label="Default Art Vault Parent Folder ID"
-            value={driveSettings.defaultArtVaultFolderId}
-            placeholder="Parent folder ID or link where the app creates Art Vault"
-            onChange={(value) => updateDriveSetting("defaultArtVaultFolderId", value)}
-            onPickFolder={() => chooseDriveSettingsFolder("defaultArtVaultFolderId")}
           />
         </div>
 
@@ -649,7 +635,7 @@ export function SettingsPage({
 
       <section className="grid gap-4 xl:grid-cols-2">
         <div className="soft-panel rounded p-4">
-          <h3 className="font-display text-2xl">AI Backend Status</h3>
+          <h3 className="font-display text-2xl">Scribe AI Backend Status</h3>
           <div className="mt-4 rounded border p-3" style={{ borderColor: "var(--card-border)", background: "var(--field-bg)" }}>
             <p className="font-semibold">{health?.ok ? "Backend Online" : "Backend Offline"}</p>
             <p className="mt-1 text-sm" style={{ color: "var(--muted-ink)" }}>
@@ -734,8 +720,8 @@ function DriveSettingsInput({
 
 function folderSettingLabel(key: keyof Pick<DriveSettings, "defaultTalesFolderId" | "defaultCharactersFolderId" | "defaultWorldArtFolderId" | "defaultMarketingArtFolderId" | "defaultArtVaultFolderId">) {
   if (key === "defaultCharactersFolderId") return "Default Characters Folder";
-  if (key === "defaultWorldArtFolderId") return "Default World Art Folder";
-  if (key === "defaultMarketingArtFolderId") return "Default Marketing Art Folder";
-  if (key === "defaultArtVaultFolderId") return "Default Art Vault Parent Folder";
-  return "Default Tales Folder";
+  if (key === "defaultWorldArtFolderId") return "Default World Reference Folder";
+  if (key === "defaultMarketingArtFolderId") return "Default Reference Folder";
+  if (key === "defaultArtVaultFolderId") return "Default Reference Parent Folder";
+  return "Default World Scribe Folder";
 }
