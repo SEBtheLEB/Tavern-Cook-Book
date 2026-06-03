@@ -11324,6 +11324,27 @@ button,
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--gold) 40%, transparent), 0 16px 28px color-mix(in srgb, var(--gold) 15%, transparent);
 }
 
+.art-binder-card.art-binder-target-highlight {
+  border-color: var(--gold);
+  outline: 3px solid color-mix(in srgb, var(--gold) 72%, transparent);
+  outline-offset: 5px;
+  box-shadow:
+    0 0 0 6px color-mix(in srgb, var(--gold) 16%, transparent),
+    0 0 38px color-mix(in srgb, var(--gold) 34%, transparent),
+    0 18px 34px color-mix(in srgb, #000 22%, transparent);
+  animation: artBinderTargetPulse 1100ms ease-in-out infinite;
+}
+
+@keyframes artBinderTargetPulse {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-2px) scale(1.012);
+  }
+}
+
 .art-binder-card:hover {
   border-color: var(--gold);
   box-shadow: 0 14px 28px color-mix(in srgb, var(--gold) 12%, transparent);

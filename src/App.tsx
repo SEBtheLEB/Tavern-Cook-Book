@@ -296,7 +296,10 @@ function normalizeSessionArtBinderFilter(value: unknown): ArtBinderInitialFilter
     kind,
     groupKey: typeof source.groupKey === "string" ? source.groupKey : undefined,
     subjectId: typeof source.subjectId === "string" ? source.subjectId : undefined,
-    category: typeof source.category === "string" ? source.category : undefined
+    category: typeof source.category === "string" ? source.category : undefined,
+    sectionId: typeof source.sectionId === "string" ? source.sectionId : undefined,
+    slotId: typeof source.slotId === "string" ? source.slotId : undefined,
+    focusNonce: typeof source.focusNonce === "number" ? source.focusNonce : undefined
   };
 }
 
@@ -2207,7 +2210,9 @@ export default function App() {
           ? "bestiary"
           : assignment.targetRoute.startsWith("art-binder:")
             ? "artVault"
-            : null;
+            : assignment.targetRoute.startsWith("roadmap:")
+              ? "roadmap"
+              : null;
     if (targetView && !ensureViewAccess(targetView)) return;
 
     setFocusedAssignment(assignment);
@@ -2233,7 +2238,7 @@ export default function App() {
       setSelectedBestiaryCreatureId(assignment.entryId);
       setActiveView("bestiary");
     } else if (assignment.targetRoute.startsWith("art-binder:")) {
-      const [, rawKind, subjectId, encodedCategory] = assignment.targetRoute.split(":");
+      const [, rawKind, subjectId, encodedCategory, encodedSectionId, encodedSlotId] = assignment.targetRoute.split(":");
       const kind = normalizeArtBinderKind(rawKind);
       setSelectedEntry(null);
       setSelectedReferenceKeyword("");
@@ -2241,11 +2246,25 @@ export default function App() {
       setArtBinderFilter({
         kind,
         subjectId: subjectId || assignment.entryId,
-        category: encodedCategory ? decodeURIComponent(encodedCategory) : undefined
+        category: encodedCategory ? decodeURIComponent(encodedCategory) : undefined,
+        sectionId: encodedSectionId ? decodeURIComponent(encodedSectionId) : undefined,
+        slotId: encodedSlotId ? decodeURIComponent(encodedSlotId) : undefined,
+        focusNonce: Date.now()
       });
       setArtBinderOpen(true);
       setArtVaultDashboardOpen(true);
       setActiveView("artVault");
+    } else if (assignment.targetRoute.startsWith("roadmap:")) {
+      const [, , itemId] = assignment.targetRoute.split(":");
+      setSelectedEntry(null);
+      setSelectedReferenceKeyword("");
+      setSelectedBestiaryCreatureId("");
+      setArtBinderOpen(false);
+      setArtBinderFilter(null);
+      setArtVaultDashboardOpen(false);
+      setActiveView("roadmap");
+      window.setTimeout(() => scrollToRoadmapItem(itemId || assignment.entryId), 350);
+      window.setTimeout(() => scrollToRoadmapItem(itemId || assignment.entryId), 900);
     }
 
     window.setTimeout(() => scrollToAssignmentModule(assignment.moduleId), 350);
@@ -3937,4 +3956,12 @@ function scrollToAssignmentModule(moduleId: string) {
   window.setTimeout(() => element.classList.remove("assignment-open-flash"), 1800);
 }
 
+function scrollToRoadmapItem(itemId: string) {
+  if (!itemId) return;
+  const element = document.getElementById(`roadmap-item-${itemId}`);
+  if (!element) return;
+  element.scrollIntoView({ behavior: "smooth", block: "center" });
+  element.classList.add("assignment-open-flash");
+  window.setTimeout(() => element.classList.remove("assignment-open-flash"), 1800);
+}
 

@@ -199,7 +199,7 @@ export function RoadmapPage({
       moduleTitle: item.title,
       moduleType: "roadmap-item",
       entryCategory: `Roadmap / ${item.category}`,
-      targetRoute: `roadmap:${item.milestoneId}:${item.id}`
+      targetRoute: card ? module.targetRoute : `roadmap:${item.milestoneId}:${item.id}`
     };
     const existing = assignments.find((assignment) => assignment.moduleId === assignmentModule.moduleId);
     const nextAssignment = existing
@@ -255,7 +255,10 @@ export function RoadmapPage({
       kind: card.subject.kind,
       groupKey: card.subject.groupKey,
       subjectId: card.subject.id,
-      category: card.section.title
+      category: card.section.title,
+      sectionId: card.section.id,
+      slotId: card.slot.id,
+      focusNonce: Date.now()
     });
   };
 

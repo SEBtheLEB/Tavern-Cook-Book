@@ -40,6 +40,9 @@ export interface ArtBinderInitialFilter {
   groupKey?: string;
   subjectId?: string;
   category?: string;
+  sectionId?: string;
+  slotId?: string;
+  focusNonce?: number;
 }
 
 export interface ArtBinderSubject {
@@ -160,6 +163,8 @@ export function ArtBinderPage({
   const [renameDraft, setRenameDraft] = useState<{ group: ArtBinderFolderGroup; title: string } | null>(null);
   const [slotEditDraft, setSlotEditDraft] = useState<{ card: ArtBinderSlotCard; label: string; requirementType: string; notes: string } | null>(null);
   const [folderActionBusy, setFolderActionBusy] = useState<string | null>(null);
+  const [highlightedModuleId, setHighlightedModuleId] = useState("");
+  const handledFocusSignatureRef = useRef("");
 
   useEffect(() => {
     if (!initialFilter) return;
@@ -173,6 +178,14 @@ export function ArtBinderPage({
     setCategoryFilter(initialFilter.category || "all");
     setStatusFilter("All");
     setSearch("");
+    if (initialFilter.category) {
+      setCollapsedCategories((current) => {
+        if (!current.has(initialFilter.category || "")) return current;
+        const next = new Set(current);
+        next.delete(initialFilter.category || "");
+        return next;
+      });
+    }
   }, [initialFilter, subjects]);
 
   useEffect(() => {
@@ -221,6 +234,26 @@ export function ArtBinderPage({
   const completion = totalSlots ? Math.round((filledSlots / totalSlots) * 100) : 0;
   const selectedAssignmentCards = cards.filter((card) => assignmentContext.isModuleSelected(artBinderSlotModule(card).moduleId));
   const editableVisibleSubjects = visibleSubjects.filter((subject) => subject.source !== "environment");
+
+  useEffect(() => {
+    if (!initialFilter?.slotId) return;
+    const focusSignature = artBinderInitialFilterSignature(initialFilter);
+    if (!focusSignature || focusSignature === handledFocusSignatureRef.current) return;
+    const targetCard = cards.find((card) =>
+      card.slot.id === initialFilter.slotId &&
+      (!initialFilter.sectionId || card.section.id === initialFilter.sectionId) &&
+      (!initialFilter.subjectId || card.subject.id === initialFilter.subjectId)
+    );
+    if (!targetCard) return;
+    handledFocusSignatureRef.current = focusSignature;
+    const moduleId = artBinderSlotModule(targetCard).moduleId;
+    setHighlightedModuleId(moduleId);
+    window.setTimeout(() => scrollToArtBinderModule(moduleId), 80);
+    window.setTimeout(() => scrollToArtBinderModule(moduleId), 450);
+    window.setTimeout(() => {
+      setHighlightedModuleId((current) => current === moduleId ? "" : current);
+    }, 3200);
+  }, [cards, initialFilter]);
 
   useEffect(() => {
     if (subjectGroupFilter === "all") return;
@@ -852,6 +885,7 @@ export function ArtBinderPage({
                       assignMode={assignmentContext.assignMode}
                       assignment={assignmentContext.assignmentForModule(artBinderSlotModule(card).moduleId)}
                       focused={assignmentContext.focusedAssignment?.moduleId === artBinderSlotModule(card).moduleId}
+                      targeted={highlightedModuleId === artBinderSlotModule(card).moduleId}
                       onActivate={activateCard}
                       onEditSlot={requestEditSlot}
                       onDeleteSlot={deleteSlot}
@@ -926,6 +960,7 @@ function ArtBinderCard({
   assignMode,
   assignment,
   focused,
+  targeted,
   onActivate,
   onEditSlot,
   onDeleteSlot,
@@ -937,6 +972,7 @@ function ArtBinderCard({
   assignMode: boolean;
   assignment: AssignmentRecord | null;
   focused: boolean;
+  targeted: boolean;
   onActivate: (card: ArtBinderSlotCard) => void;
   onEditSlot: (card: ArtBinderSlotCard) => void;
   onDeleteSlot: (card: ArtBinderSlotCard) => void;
@@ -955,11 +991,13 @@ function ArtBinderCard({
 
   return (
     <article
-      className={`art-binder-card realtime-hover-surface ${artBinderStatusClass(card.slot)} ${readOnly ? "" : "is-clickable"} ${assignMode ? "assignable-module" : ""} ${selected ? "assignment-selected" : ""} ${focused ? "assignment-focus" : ""} ${hoveringUsers.length ? "realtime-hover-active" : ""}`}
+      className={`art-binder-card realtime-hover-surface ${artBinderStatusClass(card.slot)} ${readOnly ? "" : "is-clickable"} ${assignMode ? "assignable-module" : ""} ${selected ? "assignment-selected" : ""} ${focused ? "assignment-focus" : ""} ${targeted ? "art-binder-target-highlight" : ""} ${hoveringUsers.length ? "realtime-hover-active" : ""}`}
       role={readOnly ? undefined : "button"}
       tabIndex={readOnly ? undefined : 0}
       title={readOnly ? undefined : assignMode ? "Select this slot for assignment" : "Open upload, import, download, and image adjustment tools"}
       data-module-id={module.moduleId}
+      data-art-binder-section-id={card.section.id}
+      data-art-binder-slot-id={card.slot.id}
       data-module-title={module.moduleTitle}
       data-module-type={module.moduleType}
       onClick={() => onActivate(card)}
@@ -1513,7 +1551,7 @@ export function artBinderSlotModule(card: ArtBinderSlotCard): AssignableModuleIn
     entryId: card.subject.id,
     entryTitle: card.subject.title,
     entryCategory: `Art Binder / ${card.section.title}`,
-    targetRoute: `art-binder:${card.subject.kind}:${card.subject.id}:${encodeURIComponent(card.section.title)}`
+    targetRoute: `art-binder:${card.subject.kind}:${card.subject.id}:${encodeURIComponent(card.section.title)}:${encodeURIComponent(card.section.id)}:${encodeURIComponent(card.slot.id)}`
   };
 }
 
@@ -2703,8 +2741,17 @@ function artBinderInitialFilterSignature(filter: ArtBinderInitialFilter | null |
     filter.kind || "all",
     filter.groupKey || "",
     filter.subjectId || "",
-    filter.category || ""
+    filter.category || "",
+    filter.sectionId || "",
+    filter.slotId || "",
+    String(filter.focusNonce || "")
   ].join("|");
+}
+
+function scrollToArtBinderModule(moduleId: string) {
+  const element = document.querySelector(`[data-module-id="${CSS.escape(moduleId)}"]`);
+  if (!element) return;
+  element.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
 function normalizeArtBinderKind(value: unknown): ArtBinderKind {
