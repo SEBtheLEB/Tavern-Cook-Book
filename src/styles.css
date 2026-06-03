@@ -23044,3 +23044,135 @@ body > .picker-dialog-bg {
 .theme-dream .art-direction-inspector a {
   color: var(--app-ink);
 }
+
+.roadmap-page {
+  --roadmap-surface: color-mix(in srgb, var(--panel-bg) 94%, var(--modal-bg));
+  --roadmap-card-surface: color-mix(in srgb, var(--card-bg) 92%, transparent);
+  --roadmap-soft-surface: color-mix(in srgb, var(--field-bg) 64%, var(--card-bg));
+  --roadmap-chip-surface: color-mix(in srgb, var(--field-bg) 76%, transparent);
+  --roadmap-border: color-mix(in srgb, var(--card-border) 78%, transparent);
+  --roadmap-title: var(--app-ink);
+  --roadmap-muted: var(--muted-ink);
+  --roadmap-chip-ink: color-mix(in srgb, var(--app-ink) 86%, var(--gold));
+  --roadmap-preview-bg: color-mix(in srgb, var(--modal-bg) 88%, #020817);
+}
+
+.theme-dream .roadmap-page {
+  --roadmap-card-surface: color-mix(in srgb, var(--card-bg) 95%, #020817);
+  --roadmap-soft-surface: color-mix(in srgb, var(--field-bg) 76%, var(--card-bg));
+  --roadmap-chip-surface: color-mix(in srgb, var(--field-bg) 86%, var(--panel-bg));
+  --roadmap-muted: color-mix(in srgb, var(--muted-ink) 88%, var(--app-ink));
+  --roadmap-preview-bg: color-mix(in srgb, var(--modal-bg) 92%, #020817);
+}
+
+.roadmap-milestone-card,
+.roadmap-detail,
+.roadmap-admin-editor,
+.roadmap-xp-panel,
+.roadmap-readiness,
+.roadmap-filters,
+.roadmap-message {
+  color: var(--roadmap-title);
+}
+
+.roadmap-milestone-dropdown-header,
+.roadmap-milestone-phase-pack,
+.roadmap-milestone-track-title,
+.roadmap-milestone-slot-row,
+.roadmap-hero-stats article,
+.roadmap-xp-grid article,
+.roadmap-phase-summary-grid article,
+.roadmap-readiness-column button,
+.roadmap-item-card,
+.roadmap-item-card dl div,
+.roadmap-milestone-card footer span {
+  border-color: var(--roadmap-border);
+  background: var(--roadmap-card-surface);
+  color: var(--roadmap-title);
+}
+
+.roadmap-milestone-dropdown-header {
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--gold) 10%, transparent), transparent 54%),
+    var(--roadmap-card-surface);
+}
+
+.roadmap-milestone-phase-pack {
+  background: color-mix(in srgb, var(--roadmap-card-surface) 88%, var(--roadmap-surface));
+}
+
+.roadmap-milestone-track-title,
+.roadmap-milestone-slot-row {
+  background: var(--roadmap-soft-surface);
+}
+
+.roadmap-milestone-dropdown-header p,
+.roadmap-phase-summary-grid span,
+.roadmap-milestone-empty svg {
+  color: var(--gold);
+}
+
+.roadmap-milestone-dropdown-header strong,
+.roadmap-milestone-phase-title span,
+.roadmap-milestone-track-title strong,
+.roadmap-milestone-slot-title strong,
+.roadmap-readiness-column strong,
+.roadmap-detail-header > div:last-child,
+.roadmap-milestone-meter strong {
+  color: var(--roadmap-title);
+}
+
+.roadmap-milestone-dropdown-header > span,
+.roadmap-milestone-slot-main p,
+.roadmap-milestone-empty,
+.roadmap-phase-summary-grid small,
+.roadmap-readiness-column small,
+.roadmap-milestone-card p,
+.roadmap-item-summary,
+.roadmap-item-card dd {
+  color: var(--roadmap-muted);
+}
+
+.roadmap-milestone-card header span,
+.roadmap-milestone-card header strong,
+.roadmap-milestone-phase-title small,
+.roadmap-milestone-track-title span,
+.roadmap-milestone-slot-title span,
+.roadmap-milestone-slot-meta span,
+.roadmap-item-badges span,
+.roadmap-item-meta summary,
+.roadmap-kicker {
+  border-color: color-mix(in srgb, var(--panel-border) 64%, transparent);
+  background: var(--roadmap-chip-surface);
+  color: var(--roadmap-chip-ink);
+}
+
+.roadmap-milestone-slot-thumb {
+  border-color: color-mix(in srgb, var(--panel-border) 62%, transparent);
+  background:
+    radial-gradient(circle at center, color-mix(in srgb, var(--gold) 9%, transparent), transparent 58%),
+    var(--roadmap-preview-bg);
+  color: var(--gold);
+}
+
+.theme-dream .roadmap-milestone-slot-actions button,
+.theme-dream .roadmap-item-actions button,
+.theme-dream .roadmap-view-tabs button,
+.theme-dream .roadmap-track-tabs button,
+.theme-dream .roadmap-filter-tabs button,
+.theme-dream .roadmap-admin-editor button,
+.theme-dream .roadmap-readiness-column button {
+  color: var(--roadmap-title);
+}
+
+.roadmap-milestone-slot-row.status-approved,
+.roadmap-milestone-slot-row.status-complete,
+.roadmap-item-card.status-approved,
+.roadmap-item-card.status-complete {
+  background: color-mix(in srgb, var(--accent-2) 12%, var(--roadmap-soft-surface));
+}
+
+.roadmap-milestone-empty {
+  border-color: color-mix(in srgb, var(--panel-border) 62%, transparent);
+  background: color-mix(in srgb, var(--roadmap-soft-surface) 72%, transparent);
+}
