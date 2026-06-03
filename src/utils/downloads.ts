@@ -1,6 +1,3 @@
-import { fetchDriveImageBlobUrl } from "./googlePicker";
-import { extractGoogleDriveFileId } from "./imageFit";
-
 type SavePickerOptions = {
   suggestedName?: string;
   types?: Array<{
@@ -28,13 +25,11 @@ interface SaveImageSourceOptions {
 export async function saveImageSourceAsFile({
   url,
   fileName,
-  driveFileId,
   mimeType = "image/png"
 }: SaveImageSourceOptions) {
   const sourceUrl = url.trim();
   if (!sourceUrl) throw new Error("No image has been assigned yet.");
 
-  const resolvedDriveFileId = driveFileId?.trim() || extractGoogleDriveFileId(sourceUrl);
   const safeFileName = ensureDownloadExtension(sanitizeDownloadFileName(fileName || "image"), extensionForMime(mimeType) || "png");
   const picker = nativeSaveFilePicker();
   let fileHandle: SaveFileHandle | null = null;
@@ -49,7 +44,7 @@ export async function saveImageSourceAsFile({
   }
 
   try {
-    const blob = await fetchImageBlob(sourceUrl, resolvedDriveFileId);
+    const blob = await fetchImageBlob(sourceUrl);
     if (fileHandle) {
       const writable = await fileHandle.createWritable();
       await writable.write(blob);
@@ -59,7 +54,7 @@ export async function saveImageSourceAsFile({
     triggerBrowserDownload(URL.createObjectURL(blob), safeFileName, true);
     return { mode: "download" as const };
   } catch (error) {
-    triggerBrowserDownload(driveDownloadUrl(resolvedDriveFileId) || sourceUrl, safeFileName, false);
+    triggerBrowserDownload(sourceUrl, safeFileName, false);
     return { mode: "download" as const };
   }
 }
@@ -86,18 +81,7 @@ function buildPickerOptions(fileName: string, mimeType: string): SavePickerOptio
   };
 }
 
-async function fetchImageBlob(url: string, driveFileId: string) {
-  if (driveFileId) {
-    try {
-      const objectUrl = await fetchDriveImageBlobUrl(driveFileId);
-      const blob = await fetchBlob(objectUrl);
-      if (isUsableImageBlob(blob)) return blob;
-    } catch {
-      // Fall through to the visible URL. Public Drive thumbnails and non-Drive
-      // image URLs can still be downloaded without an authenticated media fetch.
-    }
-  }
-
+async function fetchImageBlob(url: string) {
   const blob = await fetchBlob(url);
   if (!isUsableImageBlob(blob)) throw new Error("The selected file could not be downloaded as an image.");
   return blob;
@@ -162,10 +146,6 @@ function mimeForExtension(extension: string) {
   if (normalized === "gif") return "image/gif";
   if (normalized === "svg") return "image/svg+xml";
   return "";
-}
-
-function driveDownloadUrl(fileId: string) {
-  return fileId ? `https://drive.google.com/uc?export=download&id=${encodeURIComponent(fileId)}` : "";
 }
 
 function isAbortError(error: unknown) {

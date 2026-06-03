@@ -1,17 +1,12 @@
-﻿import { useEffect, useRef, useState } from "react";
-import { getDriveSettings } from "../utils/driveSettings";
-import {
-  googleDriveFolderLink,
-  openGoogleDriveFolderPicker,
-  openGoogleDriveImagePicker,
-  uploadImageToDrive,
-  type DriveUploadNameContext,
-  type GoogleDriveFolder,
-  type GooglePickerFile,
-  type UploadedDriveFile
+import { useEffect, useRef, useState } from "react";
+import type {
+  DriveUploadNameContext,
+  GoogleDriveFolder,
+  GooglePickerFile,
+  UploadedDriveFile
 } from "../utils/googlePicker";
-import { googleDriveThumbnailUrl, resolveImageSourceUrl } from "../utils/imageFit";
-import { isSupportedImage } from "../utils/media";
+import { resolveImageSourceUrl } from "../utils/imageFit";
+import { isSupportedImage, readImageFileForStorage } from "../utils/media";
 import { Icon } from "./Icon";
 
 interface DriveImageSourceControlsProps {
@@ -40,23 +35,13 @@ interface DriveImageSourceControlsProps {
 export function DriveImageSourceControls({
   value = "",
   label = "Image",
-  title,
   className = "",
   compact = false,
   disabled = false,
-  defaultFolderId,
-  defaultFolderLink,
-  defaultFolderName,
-  uploadNameContext,
-  uploadFileName,
   showUploadState = false,
   uploadAssetState = "wip",
   showManualFallback = true,
-  resolveUploadFolder,
   onChange,
-  onPick,
-  onUpload,
-  onFolderChange,
   onUploadAssetStateChange
 }: DriveImageSourceControlsProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -64,15 +49,10 @@ export function DriveImageSourceControls({
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [selectedUploadState, setSelectedUploadState] = useState<"wip" | "final">(uploadAssetState);
-  const [folder, setFolder] = useState<GoogleDriveFolder>(() => defaultDriveFolder(defaultFolderId, defaultFolderLink, defaultFolderName, !resolveUploadFolder));
 
   useEffect(() => {
     setManualValue(value);
   }, [value]);
-
-  useEffect(() => {
-    setFolder(defaultDriveFolder(defaultFolderId, defaultFolderLink, defaultFolderName, !resolveUploadFolder));
-  }, [defaultFolderId, defaultFolderLink, defaultFolderName, resolveUploadFolder]);
 
   useEffect(() => {
     setSelectedUploadState(uploadAssetState);
@@ -83,79 +63,15 @@ export function DriveImageSourceControls({
     onUploadAssetStateChange?.(assetState);
   };
 
-  const chooseFolder = async () => {
-    setBusy(true);
-    setMessage("Opening Google Drive folder picker...");
-    try {
-      const pickedFolder = await openGoogleDriveFolderPicker(`Choose folder for ${label}`);
-      if (!pickedFolder) {
-        setMessage("");
-        return null;
-      }
-      setFolder(pickedFolder);
-      onFolderChange?.(pickedFolder);
-      setMessage(`Upload folder set to "${pickedFolder.name}".`);
-      return pickedFolder;
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not choose a Google Drive folder.");
-      return null;
-    } finally {
-      setBusy(false);
+  const applyImageUrl = (imageUrl: string, successMessage: string) => {
+    const resolved = resolveImageSourceUrl(imageUrl);
+    if (!resolved) {
+      setMessage("Paste an image URL first.");
+      return;
     }
-  };
-
-  const importFromDrive = async () => {
-    setBusy(true);
-    setMessage("Opening Google Drive image picker...");
-    try {
-      const file = await openGoogleDriveImagePicker(title || `Choose ${label}`);
-      if (!file) {
-        setMessage("");
-        return;
-      }
-      const imageUrl = persistentDriveThumbnail(file.id);
-      setManualValue(imageUrl);
-      onChange(imageUrl);
-      onPick?.(imageUrl, file);
-      setMessage(`Imported "${file.name}" from Google Drive.`);
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not import from Google Drive.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const beginUpload = async () => {
-    if (!folder.id && !resolveUploadFolder) {
-      const uploadFolder = await chooseFolder();
-      if (!uploadFolder?.id) return;
-    }
-    if (!folder.id && resolveUploadFolder) {
-      setBusy(true);
-      try {
-        const uploadFolder = await resolveFolderForUpload();
-        if (!uploadFolder?.id) return;
-      } catch (error) {
-        setMessage(error instanceof Error ? error.message : "Could not prepare the Art Vault folder.");
-        return;
-      } finally {
-        setBusy(false);
-      }
-    }
-    fileInputRef.current?.click();
-  };
-
-  const resolveFolderForUpload = async () => {
-    if (folder.id) return folder;
-    if (resolveUploadFolder) {
-      setMessage("Preparing Art Vault folder in Google Drive...");
-      const resolvedFolder = await resolveUploadFolder();
-      if (!resolvedFolder?.id) return null;
-      setFolder(resolvedFolder);
-      onFolderChange?.(resolvedFolder);
-      return resolvedFolder;
-    }
-    return chooseFolder();
+    setManualValue(resolved);
+    onChange(resolved);
+    setMessage(successMessage);
   };
 
   const uploadSelectedFile = async (file: File | undefined) => {
@@ -167,47 +83,22 @@ export function DriveImageSourceControls({
 
     setBusy(true);
     try {
-      const uploadFolder = await resolveFolderForUpload();
-      if (!uploadFolder?.id) return;
-      setMessage(`Uploading "${file.name}" to Google Drive...`);
-      const uploaded = await uploadImageToDrive(file, uploadFolder.id, {
-        fileName: typeof uploadFileName === "function" ? uploadFileName(file) : uploadFileName,
-        naming: {
-          sourceType: "Tavern Cookbook",
-          categoryName: uploadTitleToCategory(title),
-          slotName: label,
-          ...uploadNameContext,
-          state: selectedUploadState
-        }
-      });
-      const imageUrl = persistentDriveThumbnail(uploaded.id);
+      const imageUrl = await readImageFileForStorage(file);
       setManualValue(imageUrl);
       onChange(imageUrl);
-      onUpload?.(imageUrl, uploaded, uploadFolder, selectedUploadState);
-      setMessage(`Uploaded "${uploaded.name}" to Google Drive.`);
+      setMessage(`Saved "${file.name}" in this browser.`);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Google Drive upload failed.");
+      setMessage(error instanceof Error ? error.message : "Could not prepare this image for local storage.");
     } finally {
       setBusy(false);
     }
   };
 
-  const applyManualLink = () => {
-    const imageUrl = resolveImageSourceUrl(manualValue);
-    if (!imageUrl) {
-      setMessage("Paste an image link first, or choose/import from Google Drive.");
-      return;
-    }
-    setManualValue(imageUrl);
-    onChange(imageUrl);
-    setMessage("Image link applied.");
-  };
-
   return (
     <div className={`drive-image-source-control ${compact ? "compact" : ""} ${className}`.trim()}>
       {showUploadState && (
-        <div className="drive-image-source-state" aria-label="Upload state">
-          <span>Upload State</span>
+        <div className="drive-image-source-state" aria-label="Image state">
+          <span>State</span>
           <button
             type="button"
             className={selectedUploadState === "wip" ? "active" : ""}
@@ -226,37 +117,27 @@ export function DriveImageSourceControls({
           </button>
         </div>
       )}
-      <div className="drive-image-source-actions">
-        <button type="button" onClick={importFromDrive} disabled={disabled || busy}>
-          <Icon name="FolderOpen" className="h-4 w-4" />
-          Import From Drive
-        </button>
-        <button type="button" onClick={beginUpload} disabled={disabled || busy}>
-          <Icon name="Upload" className="h-4 w-4" />
-          Upload to Drive
-        </button>
-        <button type="button" onClick={chooseFolder} disabled={disabled || busy}>
-          <Icon name="Folder" className="h-4 w-4" />
-          Folder
-        </button>
-      </div>
 
-      <div className="drive-image-source-folder">
-        <span>{folder.name || folder.id ? "Upload folder" : "No upload folder selected"}</span>
-        {(folder.name || folder.id) && <strong>{folder.name || folder.id}</strong>}
+      <div className="drive-image-source-actions">
+        <button type="button" onClick={() => fileInputRef.current?.click()} disabled={disabled || busy}>
+          <Icon name="Upload" className="h-4 w-4" />
+          Choose Local Image
+        </button>
       </div>
 
       {showManualFallback && (
-        <details className="drive-image-manual-fallback">
-          <summary>Manual link fallback</summary>
+        <details className="drive-image-manual-fallback" open={!compact}>
+          <summary>Image link</summary>
           <div>
             <input
               value={manualValue}
-              placeholder="Paste Google Drive image link or image URL"
+              placeholder="Paste image URL"
               onChange={(event) => setManualValue(event.target.value)}
-              onBlur={applyManualLink}
+              onBlur={() => applyImageUrl(manualValue, "Image link applied.")}
             />
-            <button type="button" onClick={applyManualLink}>Use Link</button>
+            <button type="button" onClick={() => applyImageUrl(manualValue, "Image link applied.")}>
+              Use Link
+            </button>
           </div>
         </details>
       )}
@@ -267,7 +148,7 @@ export function DriveImageSourceControls({
         type="file"
         accept="image/png,image/jpeg,image/webp,image/gif"
         onChange={(event) => {
-          uploadSelectedFile(event.target.files?.[0]);
+          void uploadSelectedFile(event.target.files?.[0]);
           event.currentTarget.value = "";
         }}
       />
@@ -275,28 +156,3 @@ export function DriveImageSourceControls({
     </div>
   );
 }
-
-function defaultDriveFolder(defaultFolderId?: string, defaultFolderLink?: string, defaultFolderName?: string, allowSettingsFallback = true): GoogleDriveFolder {
-  const settings = getDriveSettings();
-  const folderId = defaultFolderId || (allowSettingsFallback ? settings.defaultTalesFolderId || settings.defaultWorldArtFolderId || settings.defaultCharactersFolderId : "");
-  return {
-    id: folderId || "",
-    name: defaultFolderName || (folderId ? "Default Drive folder" : ""),
-    url: defaultFolderLink || (folderId ? googleDriveFolderLink(folderId) : ""),
-    mimeType: "application/vnd.google-apps.folder"
-  };
-}
-
-function uploadTitleToCategory(title?: string) {
-  return (title || "")
-    .replace(/^choose\s+/i, "")
-    .replace(/^select\s+/i, "")
-    .replace(/\s+image$/i, "")
-    .trim();
-}
-
-function persistentDriveThumbnail(fileId: string) {
-  return googleDriveThumbnailUrl(fileId);
-}
-
-

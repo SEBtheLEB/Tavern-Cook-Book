@@ -40,12 +40,8 @@ import {
   type StoryReferenceDraftInput
 } from "./utils/storyReferences";
 import { AssignmentProvider } from "./components/AssignmentSystem";
-import { ArtDirectionPage } from "./components/ArtDirectionPage";
-import { ArtVaultDashboard } from "./components/ArtVaultDashboard";
 import type { ArtBinderInitialFilter, ArtBinderKind, ArtBinderSessionState } from "./components/ArtBinderPage";
-import { AccessGate } from "./components/AccessGate";
 import { AssistantPanel } from "./components/AssistantPanel";
-import { BestiaryPage } from "./components/BestiaryPage";
 import { CharacterDetailPage } from "./components/CharacterDetailPage";
 import { Dashboard } from "./components/Dashboard";
 import { DriveAwareImage } from "./components/DriveAwareImage";
@@ -54,52 +50,25 @@ import { EntryModal } from "./components/EntryModal";
 import { FavoritesPage } from "./components/FavoritesPage";
 import { HubPage } from "./components/HubPage";
 import { Icon } from "./components/Icon";
-import { PantryPage } from "./components/PantryPage";
 import { ProfilePage } from "./components/ProfilePage";
 import { QuestDashboard } from "./components/QuestDashboard";
-import { RoadmapPage } from "./components/roadmap/RoadmapPage";
 import { SearchResults } from "./components/SearchResults";
 import { SecretsView } from "./components/SecretsView";
 import { SettingsPage } from "./components/SettingsPage";
 import { Sidebar } from "./components/Sidebar";
 import { StoryPage } from "./components/StoryPage";
 import { StoryJourneyPage } from "./components/StoryJourneyPage";
-import { SpriteSheetAnimatorPage } from "./components/SpriteSheetAnimatorPage";
 import { SyncPublishModal } from "./components/SyncPublishModal";
 import { TimelineView } from "./components/TimelineView";
 import { TopBar } from "./components/TopBar";
 import { WorldBuildingPage } from "./components/WorldBuildingPage";
 import { RealtimeCollaborationContext, realtimeTargetKey } from "./components/RealtimeCollaborationContext";
-import { RealtimeRoomBridge, type RealtimeDatabaseResetter, type RealtimePresenceUpdater, type RealtimePublisher } from "./components/RealtimeRoomBridge";
+import type { RealtimeDatabaseResetter, RealtimePresenceUpdater, RealtimePublisher } from "./components/RealtimeRoomBridge";
 import { buildLoreKeywords, LoreKeywordProvider } from "./components/LoreKeywordText";
 import { buildArtVaultDashboardStats } from "./utils/artVaultDashboard";
 import { isWorldScribeCategoryId, worldScribeCategoryIds } from "./utils/worldBuilding";
-import {
-  clearGoogleAccount,
-  disableGoogleAutoSelect,
-  getGoogleUserAccess,
-  loadGoogleAccount,
-  roleCanAccessSettings,
-  roleCanEdit,
-  saveAccessUsers,
-  saveGoogleAccount
-} from "./utils/accessControl";
 import { loadAppSyncSettings, normalizeAppSyncSettings, saveAppSyncSettings } from "./utils/appSettings";
-import {
-  databaseSyncHash,
-  fetchCloudHealth,
-  fetchPublishedDatabase,
-  fetchRemoteAppSettings,
-  fetchUserDraft,
-  loadPublishedSyncState,
-  savePublishedDatabase,
-  savePublishedSyncState,
-  saveRemoteAppSettings,
-  saveUserDraft
-} from "./utils/cloudSync";
-import { isDesktopBrowserAuthRequest } from "./utils/desktopShell";
 import { isFavorite as favoriteIncludes, loadFavorites, saveFavorites, toggleFavorite } from "./utils/favorites";
-import { listenForLauncherProgressRequests, listenForLauncherSession } from "./utils/launcherBridge";
 import { hydrateDatabaseSpriteAnimationSnapshots } from "./utils/spriteAnimationSlots";
 import {
   applySelectedPublishChanges,
@@ -129,7 +98,130 @@ const extraViews: ViewConfig[] = [];
 
 const allViews = [...mainNavigation, ...extraViews];
 const APP_NAME = "World Scribe Codex";
+const STANDALONE_LOCAL_APP = true;
+const LOCAL_WORLD_SCRIBE_USER: GoogleAccountUser = {
+  name: "World Builder",
+  email: "local@world-scribe.local",
+  picture: "",
+  role: "admin"
+};
 const PRODUCT_ENABLED_VIEW_IDS: ActiveView[] = ["dashboard", "characters", "world", "settings", "search"];
+const LOCAL_SYNC_DISABLED_MESSAGE = "Cloud sync is disabled in this standalone app.";
+
+type AppSyncSettings = ReturnType<typeof loadAppSyncSettings>;
+
+interface LocalCloudSyncEnvelope<T> {
+  updatedAt: string;
+  updatedBy: string;
+  payload: T;
+}
+
+interface LocalCloudSyncResponse<T> {
+  ok: boolean;
+  configured: boolean;
+  envelope: LocalCloudSyncEnvelope<T> | null;
+  error?: string;
+}
+
+interface LocalDatabaseSyncPayload {
+  database: LoreDatabase;
+}
+
+function localSyncDisabled<T>(): LocalCloudSyncResponse<T> {
+  return {
+    ok: false,
+    configured: false,
+    envelope: null,
+    error: LOCAL_SYNC_DISABLED_MESSAGE
+  };
+}
+
+async function fetchCloudHealth() {
+  return {
+    ok: false,
+    configured: false,
+    error: LOCAL_SYNC_DISABLED_MESSAGE
+  };
+}
+
+async function fetchPublishedDatabase(): Promise<LocalCloudSyncResponse<LocalDatabaseSyncPayload>> {
+  return localSyncDisabled();
+}
+
+async function fetchRemoteAppSettings(): Promise<LocalCloudSyncResponse<AppSyncSettings>> {
+  return localSyncDisabled();
+}
+
+async function fetchUserDraft(_email: string): Promise<LocalCloudSyncResponse<LocalDatabaseSyncPayload>> {
+  return localSyncDisabled();
+}
+
+async function savePublishedDatabase(_email: string, _database: LoreDatabase): Promise<LocalCloudSyncResponse<LocalDatabaseSyncPayload>> {
+  return localSyncDisabled();
+}
+
+async function saveRemoteAppSettings(_email: string, _settings: AppSyncSettings): Promise<LocalCloudSyncResponse<AppSyncSettings>> {
+  return localSyncDisabled();
+}
+
+async function saveUserDraft(_email: string, _database: LoreDatabase): Promise<LocalCloudSyncResponse<LocalDatabaseSyncPayload>> {
+  return localSyncDisabled();
+}
+
+function loadPublishedSyncState() {
+  return { hash: "", updatedAt: "" };
+}
+
+function savePublishedSyncState(_database: LoreDatabase, _updatedAt: string) {
+  // Standalone app: local browser storage is the source of truth.
+}
+
+function databaseSyncHash(database: LoreDatabase) {
+  return compactStringHash(JSON.stringify(sanitizeDatabaseForPersistence(database)));
+}
+
+function compactStringHash(value: string) {
+  let first = 0xdeadbeef ^ value.length;
+  let second = 0x41c6ce57 ^ value.length;
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    first = Math.imul(first ^ code, 2654435761);
+    second = Math.imul(second ^ code, 1597334677);
+  }
+  first = Math.imul(first ^ (first >>> 16), 2246822507) ^ Math.imul(second ^ (second >>> 13), 3266489909);
+  second = Math.imul(second ^ (second >>> 16), 2246822507) ^ Math.imul(first ^ (first >>> 13), 3266489909);
+  return `${value.length.toString(36)}-${(first >>> 0).toString(36)}${(second >>> 0).toString(36)}`;
+}
+
+function listenForLauncherSession(_onSession: (user: GoogleAccountUser) => void) {
+  return () => {};
+}
+
+function listenForLauncherProgressRequests(_getProgress: () => unknown) {
+  return () => {};
+}
+
+function roleCanEdit(role: GoogleAccountUser["role"]) {
+  return role === "admin" || role === "editor";
+}
+
+function roleCanAccessSettings(role: GoogleAccountUser["role"]) {
+  return role === "admin";
+}
+
+function StandaloneFeaturePlaceholder({ title }: { title: string }) {
+  return (
+    <section className="mx-auto grid max-w-3xl gap-4 px-6 py-10">
+      <div className="rounded border border-[color:var(--line)] bg-[color:var(--panel)] p-6 shadow-sm">
+        <p className="text-sm uppercase tracking-[0.14em] text-[color:var(--muted-ink)]">Standalone app</p>
+        <h1 className="font-display text-3xl text-[color:var(--ink)]">{title}</h1>
+        <p className="mt-3 text-[color:var(--muted-ink)]">
+          This Tavern Cook Book workflow is not part of World Scribe Codex. Use Characters, World, Search, Settings, or Scribe AI.
+        </p>
+      </div>
+    </section>
+  );
+}
 
 interface DetailReturnTarget {
   activeView: ActiveView;
@@ -323,13 +415,13 @@ export default function App() {
     initialSessionUiRef.current = hostedViewer ? null : loadAppSessionUiState();
   }
   const initialSessionUi = initialSessionUiRef.current;
-  const [currentUser, setCurrentUser] = useState<GoogleAccountUser | null>(() => loadGoogleAccount());
+  const [currentUser, setCurrentUser] = useState<GoogleAccountUser>(() => LOCAL_WORLD_SCRIBE_USER);
   const initialLocalDatabaseRef = useRef<LoreDatabase | null>(null);
   if (!initialLocalDatabaseRef.current) {
     initialLocalDatabaseRef.current = hostedViewer ? createStarterDatabase() : loadDatabase();
   }
   const [database, setLocalDatabase] = useState<LoreDatabase>(() =>
-    hostedViewer || currentUser ? createStarterDatabase() : initialLocalDatabaseRef.current || loadDatabase()
+    hostedViewer ? createStarterDatabase() : initialLocalDatabaseRef.current || loadDatabase()
   );
   const [theme, setTheme] = useState<ThemeMode>(() => loadTheme());
   const [activeView, setActiveView] = useState<ActiveView>(() => initialSessionUi?.activeView || "dashboard");
@@ -368,13 +460,13 @@ export default function App() {
   const [userProfiles, setUserProfilesState] = useState<UserProfile[]>(() => getUserProfiles());
   const [questCategories, setQuestCategoriesState] = useState<QuestCategory[]>(() => getQuestCategories());
   const [favorites, setFavorites] = useState(() => loadFavorites());
-  const [publishedDatabase, setPublishedDatabase] = useState<LoreDatabase>(() => createStarterDatabase());
-  const [publishedReady, setPublishedReady] = useState(false);
+  const [publishedDatabase, setPublishedDatabase] = useState<LoreDatabase>(() => initialLocalDatabaseRef.current || createStarterDatabase());
+  const [publishedReady, setPublishedReady] = useState(STANDALONE_LOCAL_APP);
   const [teamSaveSignal, setTeamSaveSignal] = useState(0);
   const [appSyncSettings, setAppSyncSettings] = useState(() => loadAppSyncSettings());
   const [cloudSync, setCloudSync] = useState<CloudSyncUiState>({
     phase: "idle",
-    message: "Cloud sync is waiting for sign-in.",
+    message: "Local browser save is active.",
     lastSavedAt: "",
     configured: false
   });
@@ -418,9 +510,9 @@ export default function App() {
   const canEdit = roleCanEdit(currentRole);
   const canAccessSettings = roleCanAccessSettings(currentRole);
   const canWriteTeamDatabase = LIVE_TEAM_SYNC && canEdit;
-  const realtimeActive = Boolean(currentUser && !hostedViewer && realtimeReady);
-  const teamDataReady = publishedReady;
-  const readOnly = forcedReadOnly || !canEdit || Boolean(currentUser && !hostedViewer && !teamDataReady);
+  const realtimeActive = !STANDALONE_LOCAL_APP && Boolean(currentUser && !hostedViewer && realtimeReady);
+  const teamDataReady = STANDALONE_LOCAL_APP || publishedReady;
+  const readOnly = forcedReadOnly || !canEdit || (!STANDALONE_LOCAL_APP && Boolean(currentUser && !hostedViewer && !teamDataReady));
   const setDatabase = useCallback((
     nextValue: LoreDatabase | ((current: LoreDatabase) => LoreDatabase),
     options: { source?: "local" | "remote" } = {}
@@ -512,7 +604,7 @@ export default function App() {
   }, [currentUser?.email, hostedViewer]);
 
   useEffect(() => {
-    if (!currentUser || hostedViewer) return;
+    if (STANDALONE_LOCAL_APP || !currentUser || hostedViewer) return;
     if (realtimeStatus === "disconnected" || realtimeStatus.startsWith("failed")) {
       setCloudSync((current) => ({
         ...current,
@@ -564,7 +656,7 @@ export default function App() {
   const visibleStoryReferences: StoryReference[] = [];
   const explicitRemovalSet = useMemo(() => new Set(explicitRemovalIds), [explicitRemovalIds]);
   const publishChanges = useMemo(
-    () => LIVE_TEAM_SYNC
+    () => STANDALONE_LOCAL_APP || LIVE_TEAM_SYNC
       ? []
       : buildPublishChanges(database, publishedDatabase).filter((change) =>
         change.action !== "removed" || explicitRemovalSet.has(change.id)
@@ -604,6 +696,7 @@ export default function App() {
   }, [database, currentUser?.email, hostedViewer, readOnly, publishedReady, setDatabase]);
 
   useEffect(() => {
+    if (STANDALONE_LOCAL_APP) return;
     if (!publishedReady) return;
     if (!currentUser || readOnly || hostedViewer || remoteLoadRef.current || realtimeRemoteLoadRef.current) return;
     const pendingDatabase = databaseRef.current;
@@ -631,7 +724,7 @@ export default function App() {
         .then((result) => {
           if (!result.ok || !result.envelope) {
             setCloudSync({
-              phase: result.error?.includes("sign-in token") ? "needsAuth" : "offline",
+              phase: "offline",
               message: result.error || "Live sync failed. Local browser save is still active.",
               lastSavedAt: "",
               configured: result.configured
@@ -748,6 +841,7 @@ export default function App() {
   }, [explicitRemovalIds]);
 
   useEffect(() => {
+    if (STANDALONE_LOCAL_APP) return;
     if (LIVE_TEAM_SYNC) return;
     if (!currentUser || readOnly || hostedViewer) return;
     const interval = window.setInterval(() => {
@@ -790,6 +884,7 @@ export default function App() {
   }, [currentUser?.email, database, readOnly, hostedViewer]);
 
   useEffect(() => {
+    if (STANDALONE_LOCAL_APP) return;
     if (!publishedReady) return;
     if (!currentUser || hostedViewer) return;
     const interval = window.setInterval(() => {
@@ -987,7 +1082,7 @@ export default function App() {
 
   useEffect(() => {
     saveAppSyncSettings(appSyncSettings);
-    if (!currentUser || !canAccessSettings || hostedViewer) return;
+    if (STANDALONE_LOCAL_APP || !currentUser || !canAccessSettings || hostedViewer) return;
     if (syncSettingsSaveTimerRef.current) window.clearTimeout(syncSettingsSaveTimerRef.current);
     syncSettingsSaveTimerRef.current = window.setTimeout(() => {
       void saveRemoteAppSettings(currentUser.email, appSyncSettings).catch(() => {});
@@ -1010,7 +1105,7 @@ export default function App() {
   }, [currentUser, readOnly]);
 
   useEffect(() => {
-    if (hostedViewer) return;
+    if (STANDALONE_LOCAL_APP || hostedViewer) return;
     return listenForLauncherSession((launcherUser) => {
       setCurrentUser((current) => {
         if (
@@ -1026,12 +1121,12 @@ export default function App() {
   }, [hostedViewer]);
 
   useEffect(() => {
-    if (!currentUser || hostedViewer) return;
+    if (STANDALONE_LOCAL_APP || !currentUser || hostedViewer) return;
     return listenForLauncherProgressRequests(() => buildWorkshopProgress(database, currentUser));
   }, [currentUser, database, hostedViewer]);
 
   useEffect(() => {
-    if (!currentUser || hostedViewer) return;
+    if (STANDALONE_LOCAL_APP || !currentUser || hostedViewer) return;
     let cancelled = false;
     const localDatabase = initialLocalDatabaseRef.current || database;
 
@@ -1069,7 +1164,6 @@ export default function App() {
       if (settingsResult.ok && settingsResult.envelope?.payload) {
         const remoteSettings = normalizeAppSyncSettings(settingsResult.envelope.payload);
         saveAppSyncSettings(remoteSettings);
-        saveAccessUsers(remoteSettings.accessUsers);
         setAppSyncSettings(remoteSettings);
         const currentEmail = currentUser.email.trim().toLowerCase();
         const access = remoteSettings.accessUsers.find((user) => user.email === currentEmail);
@@ -1077,7 +1171,6 @@ export default function App() {
           effectiveCurrentUser = { ...currentUser, role: access.role };
           effectiveCanEdit = roleCanEdit(access.role);
           if (access.role !== currentUser.role) {
-            saveGoogleAccount(effectiveCurrentUser);
             setCurrentUser(effectiveCurrentUser);
           }
         }
@@ -1166,7 +1259,7 @@ export default function App() {
           .then((saveResult) => {
             if (!saveResult.ok || !saveResult.envelope?.payload.database) {
               setCloudSync({
-                phase: saveResult.error?.includes("sign-in token") ? "needsAuth" : "offline",
+                phase: "offline",
                 message: saveResult.error || "Restored the local edit, but team save failed. Try the Live Sync button before refreshing.",
                 lastSavedAt: pendingTeamChange.updatedAt,
                 configured: saveResult.configured
@@ -1624,7 +1717,7 @@ export default function App() {
       const result = await savePublishedDatabase(currentUser.email, databaseToSave);
       if (!result.ok || !result.envelope?.payload.database) {
         setCloudSync({
-          phase: result.error?.includes("sign-in token") ? "needsAuth" : "offline",
+          phase: "offline",
           message: result.error || "Team save failed. Local browser save is still active.",
           lastSavedAt: cloudSync.lastSavedAt,
           configured: result.configured
@@ -2568,9 +2661,7 @@ export default function App() {
 
   const signOut = () => {
     clearAppSessionUiState();
-    clearGoogleAccount();
-    disableGoogleAutoSelect();
-    setCurrentUser(null);
+    setCurrentUser(LOCAL_WORLD_SCRIBE_USER);
     setSelectedEntry(null);
     setSelectedReferenceKeyword("");
     setKeywordPopup("");
@@ -2582,26 +2673,16 @@ export default function App() {
   };
 
   const refreshCurrentUserAccess = () => {
-    if (!currentUser) return;
-    const access = getGoogleUserAccess(currentUser.email);
-    if (!access) {
-      signOut();
-      return;
-    }
-    const updatedUser = { ...currentUser, role: access.role };
-    saveGoogleAccount(updatedUser);
-    setCurrentUser(updatedUser);
+    setCurrentUser(LOCAL_WORLD_SCRIBE_USER);
   };
 
-  const updateAccessUsersFromSettings = (users: Parameters<typeof saveAccessUsers>[0]) => {
-    saveAccessUsers(users);
+  const updateAccessUsersFromSettings = (users: typeof appSyncSettings.accessUsers) => {
     setAppSyncSettings((current) => normalizeAppSyncSettings({ ...current, accessUsers: users }));
     refreshCurrentUserAccess();
   };
 
   const updateAppSyncSettings = (settings: typeof appSyncSettings) => {
     const normalized = normalizeAppSyncSettings(settings);
-    saveAccessUsers(normalized.accessUsers);
     setAppSyncSettings(normalized);
     refreshCurrentUserAccess();
   };
@@ -2627,40 +2708,11 @@ export default function App() {
     return () => window.removeEventListener("tavern:open-sprite-animator", openSpriteAnimator);
   }, [ensureViewAccess]);
   const themeClassName = theme === "dream" ? "theme-dream" : "theme-light";
-  const desktopBrowserAuthMode = isDesktopBrowserAuthRequest();
-
-  if (!currentUser || desktopBrowserAuthMode) {
-    return (
-      <div className={themeClassName}>
-        <AccessGate
-          onSignIn={setCurrentUser}
-          brandingLogoImage={database.branding.logoImage}
-          onBrandingLogoChange={!forcedReadOnly ? updateBrandingLogo : undefined}
-        />
-      </div>
-    );
-  }
 
   return (
     <div className={themeClassName}>
       <LoreKeywordProvider keywords={loreKeywords} onKeywordClick={openKeywordReference}>
       <RealtimeCollaborationContext.Provider value={realtimeContextValue}>
-      <RealtimeRoomBridge
-        currentUser={currentUser}
-        database={database}
-        canonicalDatabase={publishedReady ? publishedDatabase : database}
-        canonicalReady={publishedReady}
-        activeView={activeView}
-        selectedEntry={selectedEntry}
-        selectedBestiaryCreatureId={selectedBestiaryCreatureId}
-        enabled={Boolean(currentUser && !hostedViewer)}
-        onDatabaseFromRoom={handleRealtimeDatabase}
-        onPublisherReady={handleRealtimePublisherReady}
-        onResetterReady={handleRealtimeResetterReady}
-        onPresenceUpdaterReady={handleRealtimePresenceUpdaterReady}
-        onUsersChange={setRealtimeUsers}
-        onStatusChange={setRealtimeStatus}
-      />
       <div className="app-shell flex min-h-screen">
         <Sidebar
           database={database}
@@ -2672,22 +2724,22 @@ export default function App() {
           onCloseMobile={() => setMobileNavOpen(false)}
           readOnly={readOnly}
           storageWarning={storageWarning}
-          currentUser={currentUser}
-          onOpenProfile={openProfile}
+          currentUser={null}
+          onOpenProfile={undefined}
           onOpenTavernScribe={() => setTavernScribeOpen(true)}
           onOpenQuestDashboard={undefined}
-          onOpenPushChanges={LIVE_TEAM_SYNC ? undefined : openPushReview}
-          onForceLiveSync={forceSaveTeamDatabase}
-          questCount={currentQuestCount}
-          pendingPublishCount={pendingPublishCount}
+          onOpenPushChanges={undefined}
+          onForceLiveSync={undefined}
+          questCount={0}
+          pendingPublishCount={0}
           canAccessSettings={canAccessSettings}
           hiddenViewIds={hiddenViewIds}
-          syncLabel={cloudSync.message}
-          syncName="Live Sync"
-          syncActionTitle="Click to save this worldbuilder for everyone now"
-          syncWorking={cloudSync.phase === "publishing" || cloudSync.phase === "saving" || cloudSync.phase === "loading"}
-          liveUsers={realtimeUsers}
-          liveStatus={realtimeStatus}
+          syncLabel="Local browser save is active."
+          syncName="Local Save"
+          syncActionTitle="Saved in this browser"
+          syncWorking={false}
+          liveUsers={[]}
+          liveStatus="local"
         />
 
         <main className="min-w-0 flex-1">
@@ -2739,27 +2791,7 @@ export default function App() {
               onToggleFavorite={toggleFavoriteById}
             />
           ) : activeView === "artVault" && !readOnly ? (
-            <ArtVaultDashboard
-              database={database}
-              readOnly={readOnly}
-              onDatabaseChange={updateDatabase}
-              onNavigate={navigate}
-              onOpenEntry={openEntry}
-              initialBinderFilter={artBinderFilter}
-              initialBinderOpen={artBinderOpen}
-              initialBinderSessionState={artBinderSessionState}
-              onClearBinderFilter={() => {
-                setArtBinderFilter(null);
-                setArtBinderOpen(false);
-              }}
-              onBinderVisibilityChange={(open, filter) => {
-                setArtBinderOpen(open);
-                setArtBinderFilter(filter);
-                if (open) setArtBinderSessionState(null);
-              }}
-              onBinderSessionStateChange={setArtBinderSessionState}
-              onOpenGwenToolBinder={openGwenToolBinder}
-            />
+            <StandaloneFeaturePlaceholder title="Art Vault" />
           ) : selectedCharacterEntry ? (
             <CharacterDetailPage
               entry={selectedCharacterEntry}
@@ -2789,7 +2821,7 @@ export default function App() {
               )}
 
               {activeView === "spriteAnimator" && (
-                <SpriteSheetAnimatorPage readOnly={readOnly} />
+                <StandaloneFeaturePlaceholder title="Sprite Animator" />
               )}
 
               {activeView === "storyJourney" && (
@@ -2864,68 +2896,23 @@ export default function App() {
                   theme={theme}
                   onDatabaseChange={updateDatabase}
                   onThemeChange={setTheme}
-                  currentUser={currentUser}
-                  appSyncSettings={appSyncSettings}
-                  onAccessUsersChange={updateAccessUsersFromSettings}
-                  onAppSyncSettingsChange={updateAppSyncSettings}
                 />
               )}
 
               {activeView === "artDirection" && (
-                <ArtDirectionPage
-                  database={database}
-                  readOnly={readOnly}
-                  currentUser={currentUser}
-                  onDatabaseChange={updateDatabase}
-                />
+                <StandaloneFeaturePlaceholder title="Art Direction" />
               )}
 
               {activeView === "roadmap" && (
-                <RoadmapPage
-                  database={database}
-                  readOnly={readOnly}
-                  currentUser={currentUser}
-                  teamMembers={teamMembers}
-                  assignments={assignments}
-                  onDatabaseChange={updateDatabase}
-                  onAssignmentsChange={setAssignments}
-                  onOpenArtBinder={!readOnly ? openArtBinder : undefined}
-                />
+                <StandaloneFeaturePlaceholder title="Roadmap" />
               )}
 
               {activeView === "bestiary" && (
-                <BestiaryPage
-                  creatures={database.bestiary || []}
-                  categoryArtVaults={database.bestiaryCategoryVaults || []}
-                  readOnly={readOnly}
-                  onSaveCreature={upsertCreature}
-                  onDeleteCreature={deleteCreature}
-                  onSaveCategoryArtVault={upsertBestiaryCategoryArtVault}
-                  currentUser={currentUser}
-                  selectedCreatureId={selectedBestiaryCreatureId}
-                  isCreatureFavorite={isCreatureFavorite}
-                  onToggleCreatureFavorite={(creature) => toggleFavoriteById("creature", creature.id)}
-                  focusedAssignment={focusedAssignment}
-                  onBackToPrevious={detailReturnTarget ? closeCharacterDetailPage : undefined}
-                  onGoToBestiary={detailReturnTarget ? goToBestiaryPage : undefined}
-                  onOpenArtBinder={!readOnly ? (filter) => openArtBinder(filter) : undefined}
-                  storyReferences={visibleStoryReferences}
-                  storyReferencesLocked={storyReferencesLocked}
-                  onCreateStoryReference={storyReferencesLocked ? undefined : createLinkedStoryReference}
-                  onOpenStorySource={openStorySource}
-                />
+                <StandaloneFeaturePlaceholder title="Bestiary" />
               )}
 
               {(activeView === "food" || activeView === "ingredients" || activeView === "recipes") && (
-                <PantryPage
-                  entries={visibleEntries}
-                  bestiary={database.bestiary || []}
-                  initialTab={activeView === "recipes" ? "meals" : "pantry"}
-                  readOnly={readOnly}
-                  onOpenEntry={openEntry}
-                  onOpenCreature={openBestiaryCreature}
-                  onSaveEntry={(entry) => upsertEntry(entry, { openDetail: false })}
-                />
+                <StandaloneFeaturePlaceholder title="Cook Book Pantry" />
               )}
 
               {activeView === "world" && (

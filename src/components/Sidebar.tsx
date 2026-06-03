@@ -605,6 +605,25 @@ export function Sidebar({
             </div>
           </div>
         )}
+        {!currentUser && onOpenTavernScribe && !readOnly && (
+          <button
+            className={`sidebar-live-sync-status mb-2 ${collapsed ? "collapsed" : ""}`}
+            title={collapsed ? "Scribe AI" : "Open Scribe AI"}
+            aria-label="Open Scribe AI"
+            onClick={onOpenTavernScribe}
+            onMouseEnter={(event) => showCollapsedTooltip("Scribe AI", event)}
+            onMouseMove={moveCollapsedTooltip}
+            onMouseLeave={hideCollapsedTooltip}
+          >
+            <Icon name="ScrollText" className="h-5 w-5" />
+            {!collapsed && (
+              <span>
+                <strong>Scribe AI</strong>
+                <small>Worldbuilding assistant</small>
+              </span>
+            )}
+          </button>
+        )}
         {storageWarning && (
           <div className={`sidebar-storage-warning ${collapsed ? "collapsed" : ""}`}>
             <button

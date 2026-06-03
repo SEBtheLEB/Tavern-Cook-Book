@@ -17,7 +17,6 @@ import { DriveImageSourceControls } from "./DriveImageSourceControls";
 import { normalizeSpriteAnimationSlotReference, resolveSpriteAnimationSlot } from "../utils/spriteAnimationSlots";
 import { saveImageSourceAsFile } from "../utils/downloads";
 import { SpriteAnimation } from "./SpriteAnimation";
-import { SpriteCutterModal } from "./SpriteCutterModal";
 import { Icon } from "./Icon";
 import { DriveAwareImage } from "./DriveAwareImage";
 import { InteractiveImageFitFrame } from "./InteractiveImageFitFrame";
@@ -63,7 +62,6 @@ export function ImageManagerModal({ title, subtitle, slots, onClose, onSave, onA
   const [draftSlots, setDraftSlots] = useState<ImageManagerSlotDraft[]>(() => draftSlotsRef.current);
   const [bulkLink, setBulkLink] = useState("");
   const [bulkMessage, setBulkMessage] = useState("");
-  const [spriteSlotId, setSpriteSlotId] = useState("");
 
   useEffect(() => {
     const nextSlots = slots.map(normalizeSlot);
@@ -78,12 +76,10 @@ export function ImageManagerModal({ title, subtitle, slots, onClose, onSave, onA
     if (options.autoSave) onAutoSave?.(nextSlots);
   };
 
-  const spriteSlot = draftSlots.find((slot) => slot.id === spriteSlotId) || null;
-
   const applyBulkLinkToAllSlots = () => {
     const resolved = resolveImageSourceUrl(bulkLink);
     if (!resolved) {
-      setBulkMessage("Paste a Google Drive image link or image URL first.");
+      setBulkMessage("Paste an image URL first.");
       return;
     }
     let appliedCount = 0;
@@ -122,7 +118,7 @@ export function ImageManagerModal({ title, subtitle, slots, onClose, onSave, onA
         <section className="image-manager-bulk-link" aria-label="Apply one image link to all image slots">
           <div>
             <strong>Use one image for every slot</strong>
-            <span>Paste a Google Drive image link or image URL, then apply it to all modules currently open here.</span>
+            <span>Paste an image URL, then apply it to all modules currently open here.</span>
           </div>
           <div className="image-manager-bulk-link-controls">
             <input
@@ -142,21 +138,14 @@ export function ImageManagerModal({ title, subtitle, slots, onClose, onSave, onA
 
         <div className="image-manager-slot-list">
           {draftSlots.map((slot) => (
-            <ManagedImageSlotCard key={slot.id} slot={slot} onChange={(patch, options) => updateSlot(slot.id, patch, options)} onOpenSpriteCutter={() => setSpriteSlotId(slot.id)} />
+            <ManagedImageSlotCard
+              key={slot.id}
+              slot={slot}
+              onChange={(patch, options) => updateSlot(slot.id, patch, options)}
+              onOpenSpriteCutter={() => setBulkMessage("Sprite animation cutting is not part of this standalone worldbuilding app.")}
+            />
           ))}
         </div>
-
-        {spriteSlot && (
-          <SpriteCutterModal
-            slot={spriteSlot}
-            onClose={() => setSpriteSlotId("")}
-            onAdd={(patch) => {
-              updateSlot(spriteSlot.id, patch, { autoSave: true });
-              setBulkMessage(`Sprite animation saved to ${spriteSlot.label}.`);
-              setSpriteSlotId("");
-            }}
-          />
-        )}
 
         <footer className="image-manager-footer">
           <button className="character-codex-action-button" onClick={onClose}>Cancel</button>
@@ -253,7 +242,7 @@ function ManagedImageSlotCard({
               onClick={() => driveLink && window.open(driveLink, "_blank", "noopener,noreferrer")}
             >
               <Icon name="FolderOpen" className="h-4 w-4" />
-              Drive
+              Open Link
             </button>
             <button
               className="character-codex-action-button"

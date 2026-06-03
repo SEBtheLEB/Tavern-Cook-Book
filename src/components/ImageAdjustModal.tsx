@@ -1,9 +1,8 @@
 import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ImageFitSettings } from "../types";
-import { googleDriveFolderLink, openGoogleDriveFolderPicker, openGoogleDriveImagePicker } from "../utils/googlePicker";
-import { defaultImageFit, googleDriveThumbnailUrl, imageFitToStyle, normalizeImageFit, resolveImageSourceUrl } from "../utils/imageFit";
-import { isSupportedImage } from "../utils/media";
+import { defaultImageFit, imageFitToStyle, normalizeImageFit, resolveImageSourceUrl } from "../utils/imageFit";
+import { isSupportedImage, readImageFileForStorage } from "../utils/media";
 import { CustomSelect } from "./CustomSelect";
 import { DriveAwareImage } from "./DriveAwareImage";
 import { Icon } from "./Icon";
@@ -35,32 +34,20 @@ export function ImageAdjustModal({
   aspectRatio = "4 / 3",
   previewFrame,
   onSave,
-  onCancel,
-  driveFolderId = "",
-  driveFolderLink = "",
-  driveFolderName = "",
-  showUploadState = true,
-  uploadAssetState = "wip",
-  onUploadToDrive,
-  onImportFromDrive
+  onCancel
 }: ImageAdjustModalProps) {
   const portalTarget = document.querySelector(".app-shell") || document.body;
   const [draftUrl, setDraftUrl] = useState(imageUrl);
-  const [driveLink, setDriveLink] = useState("");
+  const [imageLink, setImageLink] = useState("");
   const [draftFit, setDraftFit] = useState<ImageFitSettings>(() => normalizeImageFit(imageFit));
-  const [selectedFolder, setSelectedFolder] = useState({
-    id: driveFolderId,
-    link: driveFolderLink || googleDriveFolderLink(driveFolderId),
-    name: driveFolderName || (driveFolderId ? "Current Drive folder" : "")
-  });
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
-  const [selectedUploadState, setSelectedUploadState] = useState<"wip" | "final">(uploadAssetState);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const updateFit = (patch: Partial<ImageFitSettings>) => {
     setDraftFit((current) => normalizeImageFit({ ...current, ...patch }));
   };
+
   const measuredFrame =
     previewFrame && previewFrame.width > 0 && previewFrame.height > 0
       ? previewFrame
@@ -78,78 +65,30 @@ export function ImageAdjustModal({
       }
     : { aspectRatio };
 
-  const useDriveLink = () => {
-    const resolved = resolveImageSourceUrl(driveLink);
+  const useImageLink = () => {
+    const resolved = resolveImageSourceUrl(imageLink);
     if (!resolved) {
-      setMessage("Paste a Google Drive image link or normal image URL first.");
+      setMessage("Paste an image URL first.");
       return;
     }
     setDraftUrl(resolved);
     setMessage("Preview updated. Click Save Image Fit to apply it.");
   };
 
-  const uploadFile = async (file: File | undefined) => {
+  const useLocalFile = async (file: File | undefined) => {
     if (!file) return;
     if (!isSupportedImage(file)) {
       setMessage("Choose a PNG, JPG, WEBP, or GIF image.");
       return;
     }
-    if (!onUploadToDrive) {
-      setMessage("Google Drive upload is not available for this slot yet.");
-      return;
-    }
+
     setBusy(true);
-    setMessage(`Uploading "${file.name}" to Google Drive...`);
     try {
-      const nextUrl = await onUploadToDrive(file, selectedFolder.id.trim() || undefined, slotLabel, selectedUploadState);
+      const nextUrl = await readImageFileForStorage(file);
       setDraftUrl(nextUrl);
-      setMessage("Upload finished. Click Save Image Fit to apply it.");
+      setMessage(`Saved "${file.name}" in this browser. Click Save Image Fit to apply it.`);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Upload failed. Try again.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const chooseUploadFolder = async () => {
-    setBusy(true);
-    setMessage("Opening Google Drive folder picker...");
-    try {
-      const folder = await openGoogleDriveFolderPicker("Choose Upload Folder");
-      if (!folder) {
-        setMessage("");
-        return;
-      }
-      setSelectedFolder({
-        id: folder.id,
-        link: folder.url,
-        name: folder.name
-      });
-      setMessage(`Upload target set to "${folder.name}".`);
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not choose a Drive folder.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const importFromDrive = async () => {
-    setBusy(true);
-    setMessage("Opening Google Drive picker...");
-    try {
-      const nextUrl = onImportFromDrive
-        ? await onImportFromDrive()
-        : await openGoogleDriveImagePicker(`Choose image for ${slotLabel}`).then((file) =>
-            file ? googleDriveThumbnailUrl(file.id) : ""
-          );
-      if (nextUrl) {
-        setDraftUrl(nextUrl);
-        setMessage("Image imported. Click Save Image Fit to apply it.");
-      } else {
-        setMessage("");
-      }
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not import from Google Drive.");
+      setMessage(error instanceof Error ? error.message : "Could not prepare this image.");
     } finally {
       setBusy(false);
     }
@@ -213,47 +152,16 @@ export function ImageAdjustModal({
 
             <div className="image-adjust-source-box">
               <strong>Replace Image</strong>
-              <div className="image-adjust-folder-target">
-                <span>Upload Target Folder</span>
-                <strong>{selectedFolder.name || selectedFolder.id || "No folder selected"}</strong>
-                {selectedFolder.id && <small>{selectedFolder.id}</small>}
-                <button className="character-codex-action-button" onClick={chooseUploadFolder} disabled={busy}>
-                  <Icon name="FolderOpen" className="h-4 w-4" />
-                  Choose Folder
-                </button>
-              </div>
-              {showUploadState && onUploadToDrive && (
-                <div className="drive-image-source-state image-adjust-upload-state">
-                  <span>Upload State</span>
-                  <button
-                    type="button"
-                    className={selectedUploadState === "wip" ? "active" : ""}
-                    onClick={() => setSelectedUploadState("wip")}
-                    disabled={busy}
-                  >
-                    WIP
-                  </button>
-                  <button
-                    type="button"
-                    className={selectedUploadState === "final" ? "active final" : "final"}
-                    onClick={() => setSelectedUploadState("final")}
-                    disabled={busy}
-                  >
-                    FINAL
-                  </button>
-                </div>
-              )}
               <label className="image-adjust-field">
-                <span>Google Drive or Image Link</span>
-                <input value={driveLink} placeholder="Paste Google Drive image link..." onChange={(event) => setDriveLink(event.target.value)} />
+                <span>Image Link</span>
+                <input value={imageLink} placeholder="Paste image URL..." onChange={(event) => setImageLink(event.target.value)} />
               </label>
               <div className="image-adjust-source-actions">
-                <button className="character-codex-action-button" onClick={useDriveLink}>Use Drive Link</button>
-                <button className="character-codex-action-button" onClick={importFromDrive} disabled={busy}>
-                  <Icon name="FolderOpen" className="h-4 w-4" />
-                  Choose from Drive
+                <button className="character-codex-action-button" onClick={useImageLink}>Use Link</button>
+                <button className="character-codex-action-button" onClick={() => fileInputRef.current?.click()} disabled={busy}>
+                  <Icon name="ImagePlus" className="h-4 w-4" />
+                  Choose Local Image
                 </button>
-                <button className="character-codex-action-button" onClick={() => fileInputRef.current?.click()} disabled={busy}>Upload to Drive</button>
               </div>
               <input
                 ref={fileInputRef}
@@ -261,7 +169,7 @@ export function ImageAdjustModal({
                 type="file"
                 accept="image/png,image/jpeg,image/webp,image/gif"
                 onChange={(event) => {
-                  uploadFile(event.target.files?.[0]);
+                  void useLocalFile(event.target.files?.[0]);
                   event.currentTarget.value = "";
                 }}
               />
