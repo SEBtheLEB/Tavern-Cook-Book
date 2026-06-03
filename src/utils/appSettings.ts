@@ -1,14 +1,11 @@
 import type { AccessUserPermission, ActiveView } from "../types";
-
-export interface DriveSettings {
-  googleApiKey: string;
-  googleOAuthClientId: string;
-  defaultTalesFolderId: string;
-  defaultCharactersFolderId: string;
-  defaultWorldArtFolderId: string;
-  defaultMarketingArtFolderId: string;
-  defaultArtVaultFolderId: string;
-}
+import { DEFAULT_ACCESS_USERS, loadAccessUsers, saveAccessUsers } from "./accessControl";
+import {
+  type DriveSettings,
+  getDriveSettings,
+  normalizeDriveSettings,
+  saveDriveSettings
+} from "./driveSettings";
 
 export interface AppVisibilitySettings {
   hiddenForMembers: ActiveView[];
@@ -21,13 +18,6 @@ export interface AppSyncSettings {
 }
 
 export const APP_SYNC_SETTINGS_KEY = "tavern-cook-book:sync-settings";
-const DEFAULT_ACCESS_USERS: AccessUserPermission[] = [
-  {
-    email: "local@world-scribe.local",
-    role: "admin",
-    label: "World Builder"
-  }
-];
 
 const hideableTabs: ActiveView[] = [
   "storyJourney",
@@ -47,8 +37,8 @@ export function createDefaultAppSyncSettings(): AppSyncSettings {
     visibility: {
       hiddenForMembers: []
     },
-    accessUsers: DEFAULT_ACCESS_USERS,
-    driveSettings: createEmptyDriveSettings()
+    accessUsers: loadAccessUsers(),
+    driveSettings: getDriveSettings()
   };
 }
 
@@ -65,6 +55,8 @@ export function loadAppSyncSettings(): AppSyncSettings {
 export function saveAppSyncSettings(settings: AppSyncSettings) {
   const normalized = normalizeAppSyncSettings(settings);
   localStorage.setItem(APP_SYNC_SETTINGS_KEY, JSON.stringify(normalized));
+  saveAccessUsers(normalized.accessUsers);
+  saveDriveSettings(normalized.driveSettings);
 }
 
 export function normalizeAppSyncSettings(value: unknown): AppSyncSettings {
@@ -77,10 +69,10 @@ export function normalizeAppSyncSettings(value: unknown): AppSyncSettings {
     : [];
   const accessUsers = Array.isArray(source.accessUsers) && source.accessUsers.length
     ? normalizeAccessUsers(source.accessUsers)
-    : DEFAULT_ACCESS_USERS;
+    : loadAccessUsers();
   const driveSettings = source.driveSettings
     ? normalizeDriveSettings(source.driveSettings)
-    : createEmptyDriveSettings();
+    : getDriveSettings();
 
   return {
     visibility: {
@@ -88,31 +80,6 @@ export function normalizeAppSyncSettings(value: unknown): AppSyncSettings {
     },
     accessUsers,
     driveSettings
-  };
-}
-
-function createEmptyDriveSettings(): DriveSettings {
-  return {
-    googleApiKey: "",
-    googleOAuthClientId: "",
-    defaultTalesFolderId: "",
-    defaultCharactersFolderId: "",
-    defaultWorldArtFolderId: "",
-    defaultMarketingArtFolderId: "",
-    defaultArtVaultFolderId: ""
-  };
-}
-
-function normalizeDriveSettings(value: unknown): DriveSettings {
-  const settings = value && typeof value === "object" ? value as Partial<DriveSettings> : {};
-  return {
-    googleApiKey: "",
-    googleOAuthClientId: "",
-    defaultTalesFolderId: String(settings.defaultTalesFolderId || "").trim(),
-    defaultCharactersFolderId: String(settings.defaultCharactersFolderId || "").trim(),
-    defaultWorldArtFolderId: String(settings.defaultWorldArtFolderId || "").trim(),
-    defaultMarketingArtFolderId: String(settings.defaultMarketingArtFolderId || "").trim(),
-    defaultArtVaultFolderId: String(settings.defaultArtVaultFolderId || "").trim()
   };
 }
 

@@ -27,7 +27,7 @@ import {
   type ScribeHistoryItem,
   type ScribeMemoryRule
 } from "../utils/scribeMemory";
-import { categoryConfig, worldScribeCategoryIds } from "../utils/worldBuilding";
+import { categoryConfig, worldBuildingCategoryIds } from "../utils/worldBuilding";
 import { CustomSelect } from "./CustomSelect";
 import { Icon } from "./Icon";
 
@@ -233,7 +233,7 @@ export function AssistantPanel({
       previewPatch(result, indexes);
       if (!result.changes.length) {
         setChangeReport([]);
-        setMessage(result.summary || "Scribe AI did not find any changes to apply.");
+        setMessage(result.summary || "Tavern Scribe did not find any changes to apply.");
         return;
       }
       setLastSummary(result.summary);
@@ -390,9 +390,9 @@ export function AssistantPanel({
         <section className="assistant-frame settings-assistant-panel rounded p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h3 className="font-display text-2xl">Scribe AI</h3>
+              <h3 className="font-display text-2xl">Tavern Scribe</h3>
               <p className="mt-1 text-sm leading-6" style={{ color: "var(--muted-ink)" }}>
-                Type what should change. Scribe can update character profiles and world-building modules through the backend API.
+                Type what should change in the Cook Book. Scribe can update lore text, fields, bestiary details, pantry entries, world notes, and production slots.
               </p>
             </div>
             <button className="button-frame inline-flex items-center gap-2 rounded px-4 py-2" onClick={() => setAssistantOpen(true)}>
@@ -404,7 +404,7 @@ export function AssistantPanel({
             <input
               className="field min-w-0 rounded px-3 py-2 text-sm"
               value={command}
-              placeholder="Example: Update the Whisken faith notes in characters and world modules."
+              placeholder="Example: Update the Whisken faith notes everywhere."
               onChange={(event) => setCommand(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === "Enter") {
@@ -424,12 +424,12 @@ export function AssistantPanel({
             <button
               className="button-frame grid h-12 w-12 place-items-center rounded-full"
               onClick={() => setAssistantOpen(true)}
-              title="Open Scribe AI"
+              title="Open Tavern Scribe"
             >
               <Icon name="WandSparkles" className="h-5 w-5" />
             </button>
             <div className="w-52 pr-2">
-              <p className="text-sm font-semibold">Scribe AI</p>
+              <p className="text-sm font-semibold">Tavern Scribe</p>
               <div className="mt-1 flex gap-1">
                 <input
                   className="field min-w-0 flex-1 rounded px-2 py-1 text-xs"
@@ -466,9 +466,9 @@ export function AssistantPanel({
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-sm uppercase tracking-[0.18em]" style={{ color: "var(--muted-ink)" }}>
-                World Scribe Codex
+                The Tavern Cook Book
               </p>
-              <h2 className="font-display text-3xl">Scribe AI</h2>
+              <h2 className="font-display text-3xl">Tavern Scribe</h2>
               <p className="mt-1 text-sm leading-6" style={{ color: "var(--muted-ink)" }}>
                 Drag this window by the header and keep the lore page visible while you write.
               </p>
@@ -480,7 +480,7 @@ export function AssistantPanel({
             >
               <Icon name="RefreshCw" className="h-5 w-5" />
             </button>
-            <button className="rounded p-2 hover:bg-black/10" onClick={() => setAssistantOpen(false)} title="Close Scribe AI">
+            <button className="rounded p-2 hover:bg-black/10" onClick={() => setAssistantOpen(false)} title="Close Tavern Scribe">
               <Icon name="X" className="h-5 w-5" />
             </button>
           </header>
@@ -494,7 +494,7 @@ export function AssistantPanel({
                   className="field tavern-scribe-command-input"
                   value={command}
                   onChange={(event) => setCommand(event.target.value)}
-                  placeholder="Example: Gwen is now 25. Update her profile and any connected world-building notes that should reflect this."
+                  placeholder="Example: Gwen is now 25. Update every profile, timeline note, Whisken culture note, pantry item, bestiary section, or production slot that should reflect this."
                 />
               </label>
               <div className="tavern-scribe-target-helper">
@@ -751,7 +751,7 @@ export function AssistantPanel({
                     className="field tavern-scribe-memory-input"
                     value={memoryDraft}
                     onChange={(event) => setMemoryDraft(event.target.value)}
-                    placeholder="Example: Character ages belong in profile fields and matching world-building notes."
+                    placeholder="Example: Fire Meal recipes always go in The Pantry, and ingredients become separate pantry entries."
                   />
                 </label>
                 <button className="button-frame inline-flex items-center gap-2 rounded px-3 py-2 text-sm" onClick={saveMemoryRule} disabled={!memoryDraft.trim()}>
@@ -829,7 +829,7 @@ function resolveChangedItem(
   if (change.action === "renameReference") {
     return {
       key: `all:${change.oldName}:${change.newName}`,
-      title: "Whole Codex",
+      title: "Whole Cook Book",
       subtitle: "Global Text Update",
       summary: `Renamed ${change.oldName} to ${change.newName}`,
       changeCount: 1
@@ -969,7 +969,7 @@ function resolveChangedItem(
 
   return {
     key: `change:${JSON.stringify(change).slice(0, 80)}`,
-    title: "Codex Data",
+    title: "Cook Book Data",
     subtitle: "Scribe Change",
     summary: describeChange(change),
     changeCount: 1
@@ -1011,7 +1011,7 @@ function findCreature(database: LoreDatabase, id: string) {
 }
 
 function findWorldEntry(database: LoreDatabase, id: string, category?: string) {
-  const categories = validWorldReportCategory(category) ? [category as WorldBuildingCategoryId] : worldScribeCategoryIds;
+  const categories = validWorldReportCategory(category) ? [category as WorldBuildingCategoryId] : worldBuildingCategoryIds;
   for (const categoryId of categories) {
     const entry = (database.worldBuilding?.[categoryId] || []).find((candidate) => candidate.id === id);
     if (entry) return { category: categoryId, entry };
@@ -1084,7 +1084,7 @@ function findAddedWorldEntry(
 }
 
 function validWorldReportCategory(value: unknown): value is WorldBuildingCategoryId {
-  return worldScribeCategoryIds.includes(value as WorldBuildingCategoryId);
+  return worldBuildingCategoryIds.includes(value as WorldBuildingCategoryId);
 }
 
 function describeChange(change: AssistantAction) {
@@ -1092,7 +1092,7 @@ function describeChange(change: AssistantAction) {
   if (change.action === "setData") return `Updated ${humanLabel(change.path.split(".").slice(-1)[0] || change.path)}`;
   if (change.action === "renameReference") return `Rename ${change.oldName} to ${change.newName}`;
   if (change.action === "add") return `Add ${change.entry.title || "new entry"}`;
-  if (change.action === "removeEntry") return `Remove entry ${change.title || change.id || "from Codex"}`;
+  if (change.action === "removeEntry") return `Remove entry ${change.title || change.id || "from Cook Book"}`;
   if (change.action === "addCreature") return `Add creature ${change.creature.name || "new creature"}`;
   if (change.action === "removeCreature") return `Remove creature ${change.name || change.id || "from Bestiary"}`;
   if (change.action === "addWorldEntry") return `Add world entry ${change.entry.title || "new world entry"}`;

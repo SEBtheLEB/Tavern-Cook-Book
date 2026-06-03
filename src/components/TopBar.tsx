@@ -70,7 +70,7 @@ export function TopBar({
           STL Productionz
         </p>
         <p className="app-version-label">{APP_VERSION_LABEL}</p>
-        <h2 className="truncate font-display text-2xl leading-7">World Scribe Codex</h2>
+        <h2 className="truncate font-display text-2xl leading-7">The Tavern Cook Book</h2>
       </div>
 
       <div className="hidden items-center gap-2 md:flex">
@@ -83,17 +83,17 @@ export function TopBar({
         <button
           className="tab-frame inline-flex items-center gap-2 rounded px-3 py-2 text-sm"
           onClick={() => onThemeChange(theme === "light" ? "dream" : "light")}
-          title={theme === "light" ? "Dream Mode" : "Light Mode"}
+          title={theme === "light" ? "Dream Tavern Mode" : "Cozy Tavern Mode"}
         >
           <Icon name={theme === "light" ? "Sun" : "Moon"} className="h-4 w-4" />
-          {theme === "light" ? "Light Mode" : "Dream Mode"}
+          {theme === "light" ? "Cozy Tavern Mode" : "Dream Tavern Mode"}
         </button>
       </div>
 
       <button
         className="tab-frame top-refresh-button inline-flex items-center gap-2 rounded px-3 py-2 text-sm"
         onClick={() => window.location.reload()}
-        title="Refresh World Scribe Codex"
+        title="Refresh Cook Book"
       >
         <Icon name="RefreshCw" className="h-4 w-4" />
         <span className="hidden sm:inline">Refresh</span>

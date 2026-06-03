@@ -40,7 +40,7 @@ export const worldBuildingCategories: WorldBuildingCategoryConfig[] = [
       section("visualIdentity", "Visual Identity", "Mood, palette, architecture, terrain, weather, sound, and art direction.", "Environment mood, color palette, lighting, architecture, foliage, landmarks, weather, sound/music notes."),
       section("history", "History", "Origin, founders, disasters, wars, migrations, and major changes over time.", "Important past events, who founded it, what changed, disasters, curses, corruption, or migrations."),
       section("inhabitants", "Inhabitants", "Characters, cultures, creatures, and factions connected to this place.", "Characters from here, peoples who live here, creatures found here, factions that influence it."),
-      section("gameplayUse", "World Use", "Narrative role, travel value, resources, hazards, conflicts, and reveals.", "World role, resources, local dangers, important people, conflicts, reveals, and constraints.")
+      section("gameplayUse", "Gameplay Use", "Hub, dungeon, boss arena, resources, quests, hazards, and unlocks.", "Gameplay role, resources, enemies, bosses, NPCs, quests, unlocks, and hazards.")
     ]
   },
   {
@@ -72,7 +72,7 @@ export const worldBuildingCategories: WorldBuildingCategoryConfig[] = [
       section("leadership", "Leadership", "Important members, ranks, hierarchy, succession, and internal conflict.", "Leader, members, ranks, hierarchy, succession rules, internal conflicts."),
       section("beliefsGoals", "Beliefs & Goals", "Ideology, fears, morals, wants, and what they will do to win.", "Main ideology, what they want, what they fear, limits, tone, moral alignment."),
       section("resourcesPower", "Resources & Power", "Military, magic, money, food, artifacts, territory, and influence.", "Military power, magic access, money, food supply, artifacts, political influence, territory."),
-      section("storyRole", "World Role", "How this faction affects conflicts, alliances, reveals, and stakes.", "Political role, important events, conflicts, enemies, allies, and connected characters.")
+      section("storyRole", "Story Role", "How this faction affects the plot, quests, bosses, enemies, and stakes.", "Plot role, important story events, quests, bosses, enemies, connected characters.")
     ]
   },
   {
@@ -87,7 +87,7 @@ export const worldBuildingCategories: WorldBuildingCategoryConfig[] = [
       section("event", "Timeline Event", "Era, event type, summary, full description, and tags.", "Date / era / year, event type, short summary, full description."),
       section("causes", "Causes", "What caused this event and what forces were involved.", "What caused it, who made it happen, what pressures led to it."),
       section("consequences", "Consequences", "What changed afterward for people, places, factions, magic, and story.", "What changed because of it, consequences, damage, rewards, political changes."),
-      section("involved", "Involved Entries", "Characters, locations, factions, items, relics, and mysteries tied to the event.", "Characters involved, locations involved, factions involved, items/relics involved, related mysteries.")
+      section("involved", "Involved Entries", "Characters, locations, factions, items, relics, and quests tied to the event.", "Characters involved, locations involved, factions involved, items/relics involved, related quests.")
     ]
   },
   {
@@ -95,14 +95,14 @@ export const worldBuildingCategories: WorldBuildingCategoryConfig[] = [
     title: "Magic & Culinary Arts",
     shortTitle: "Magic",
     icon: "WandSparkles",
-    description: "Explain culinary magic, Dark Culinary Arts, sacred meals, curses, faery magic, and limitations.",
+    description: "Explain culinary magic, Dark Culinary Arts, recipe powers, curses, faery magic, and limitations.",
     defaultType: "Magic System",
     entryLabel: "Magic System",
     sections: [
       section("overview", "Magic Overview", "Source, users, learning method, manifestation, and limitations.", "Name, type, source, who can use it, how it is learned, how it manifests, limitations."),
-      section("rules", "Rules", "What it can do, cannot do, costs, risks, materials, tools, and side effects.", "Capabilities, hard limits, costs, risks, required materials/tools, effects on body/mind/world."),
+      section("rules", "Rules", "What it can do, cannot do, costs, risks, ingredients, tools, and side effects.", "Capabilities, hard limits, costs, risks, required tools/ingredients/recipes, effects on body/mind/world."),
       section("visualEffects", "Visual Effects", "Palette, particles, symbols, aura, sound, animation, and UI notes.", "Color palette, particles, symbol shapes, aura, sound design, animation notes, UI notes."),
-      section("gameplayFunction", "World Function", "How it affects society, limits, conflicts, discoveries, and character choices.", "Who can use it, what it changes, social impact, restrictions, risks, and important consequences."),
+      section("gameplayFunction", "Gameplay Function", "Player use, unlocks, combat, puzzles, progression, restrictions, and balance.", "How the player uses it, unlock conditions, combat/puzzle/progression use, restrictions, balancing notes."),
       section("storyFunction", "Story Function", "Who uses it, conflict, Gwen/Tohm/Lillia connections, and world impact.", "Why it matters, who uses it, how it causes conflict, story stakes, world changes.")
     ]
   },
@@ -145,7 +145,7 @@ export const worldBuildingCategories: WorldBuildingCategoryConfig[] = [
     entryLabel: "Character Link",
     sections: [
       section("worldRole", "World Role", "How this character fits into regions, cultures, factions, and history.", "Region, culture, faction, story role, act, status, species, occupation."),
-      section("relationships", "Relationship Web", "How relationships affect the world, politics, mysteries, and reveals.", "Important relationships, alliances, rivalries, family, mentors, enemies."),
+      section("relationships", "Relationship Web", "How relationships affect the world, politics, quests, and reveals.", "Important relationships, alliances, rivalries, family, mentors, enemies."),
       section("automaticLinks", "Automatic World Links", "Notes for locations, factions, cultures, magic, and bestiary connections.", "Which world entries should show this character and why.")
     ]
   },
@@ -162,7 +162,7 @@ export const worldBuildingCategories: WorldBuildingCategoryConfig[] = [
       section("fullStory", "Full Story", "Long-form text for the myth, legend, prophecy, or folktale.", "Write the full myth or legend here."),
       section("meaning", "Meaning", "What it teaches, what people believe, and whether it is true.", "Lesson, belief, cultural effect, what is true or false in the actual world."),
       section("symbols", "Symbols", "Colors, foods, relics, places, marks, and sacred visual language.", "Important symbols, colors, foods, relics, places, rituals."),
-      section("storyRole", "World Role", "How it affects plot, characters, items, and locations.", "Plot role, characters who believe it, items, locations, cultures, and magic systems.")
+      section("storyRole", "Story/Game Role", "How it affects plot, quests, characters, items, and locations.", "Plot role, characters who believe it, quests, items, locations, magic systems.")
     ]
   },
   {
@@ -170,13 +170,13 @@ export const worldBuildingCategories: WorldBuildingCategoryConfig[] = [
     title: "Items, Relics & Artifacts",
     shortTitle: "Items",
     icon: "Package",
-    description: "Track Dragon Knife, Cat Cauldron, recipe book, charms, relics, sacred objects, and important items.",
+    description: "Track Dragon Knife, Cat Cauldron, recipe book, charms, relics, quest items, and important objects.",
     defaultType: "Artifact",
     entryLabel: "Item",
     sections: [
       section("overview", "Item Overview", "Type, owner, location, origin, rarity, status, and summary.", "Name, type, owner, current location, origin, rarity, status."),
       section("visualDesign", "Visual Design", "Shape, materials, colors, symbols, wear, damage, and reference art.", "Shape, materials, colors, symbols, damage, reference art."),
-      section("powersUses", "Powers / Uses", "What it does, limits, risks, story use, and character impact.", "Power, limitations, risks, required conditions, story use, and character impact."),
+      section("powersUses", "Powers / Uses", "What it does, limits, risks, gameplay function, and story use.", "Power, limitations, risks, required conditions, gameplay use, story use."),
       section("history", "History", "Maker, owners, important events, and how it changed hands.", "Who made it, who owned it, major events, thefts, damage, recoveries.")
     ]
   },
@@ -207,7 +207,7 @@ export const worldBuildingCategories: WorldBuildingCategoryConfig[] = [
     sections: [
       section("rule", "Rule", "Name, category, description, reason, allowances, limits, exceptions, and examples.", "Rule name, category, description, why it exists, what it allows, what it prevents."),
       section("exceptions", "Exceptions", "When the rule can bend and what consequences follow.", "Exceptions, edge cases, consequences, who can break this rule."),
-      section("affectedEntries", "Entries Affected By This Rule", "Characters, magic systems, locations, cultures, mysteries, and items constrained by it.", "Entries affected, examples, contradiction warnings.")
+      section("affectedEntries", "Entries Affected By This Rule", "Characters, magic systems, locations, creatures, quests, and items constrained by it.", "Entries affected, examples, contradiction warnings.")
     ]
   },
   {
@@ -243,26 +243,6 @@ export const worldBuildingCategories: WorldBuildingCategoryConfig[] = [
 
 export const worldBuildingCategoryIds = worldBuildingCategories.map((category) => category.id);
 
-const inactiveWorldBuilderCategoryIds = new Set<WorldBuildingCategoryId>([
-  "foodAndRecipes",
-  "creatureLinks",
-  "quests"
-]);
-
-export const worldScribeCategoryIds = worldBuildingCategories
-  .map((category) => category.id)
-  .filter((category): category is WorldBuildingCategoryId => !inactiveWorldBuilderCategoryIds.has(category));
-
-export const worldScribeCategories = worldBuildingCategories.filter((category) =>
-  worldScribeCategoryIds.includes(category.id)
-);
-
-export const isWorldScribeCategoryId = (category: string | undefined): category is WorldBuildingCategoryId =>
-  Boolean(category && worldScribeCategoryIds.includes(category as WorldBuildingCategoryId));
-
-export const activeWorldBuildingEntries = (worldBuilding: WorldBuildingData) =>
-  worldScribeCategoryIds.flatMap((category) => worldBuilding[category] || []);
-
 export const createEmptyWorldBuilding = (): WorldBuildingData =>
   Object.fromEntries(worldBuildingCategories.map((category) => [category.id, []])) as unknown as WorldBuildingData;
 
@@ -280,7 +260,6 @@ export const createStarterWorldBuilding = (
     fields: Record<string, string> = {},
     relatedEntries: WorldBuildingRelatedEntry[] = []
   ) => {
-    if (!isWorldScribeCategoryId(category)) return;
     data[category].push(normalizeWorldBuildingEntry({
       id: slugify(title),
       title,
@@ -319,12 +298,12 @@ export const createStarterWorldBuilding = (
     overview: "Forest region with villages, ponds, groves, bug nests, farms, and magical points of interest. Current state: partially corrupted.",
     visualIdentity: "Warm earthy colors, bold whimsical trees, cozy tavern culture, flowers, cliffs, ponds, and pockets of dark corruption.",
     inhabitants: "Gwen, Tohm Kyatt, Kap, Oswin, Whisken villagers, slimes, bugs, Prawnhusk, and the Ice Queen.",
-    gameplayUse: "Opening-region lore, village life, gathering traditions, corrupted pond mystery, Whisken survival pressure, and Act 1 world context."
+    gameplayUse: "Opening exploration area, tutorial region, gathering zone, combat encounters, village hub, corrupted pond event, and Act 1 boss buildup."
   }, [
     related("character", gwen?.id, "Gwen protects villages and explores this region early."),
     related("character", tohm?.id, "Tohm rebuilds his life here after Tabby Island."),
-    related("world", prawnhusk?.id, "Corrupted pond threat tied to this region."),
-    related("world", iceQueen?.id, "Cursed-bug threat tied to this region.")
+    related("creature", prawnhusk?.id, "Mini-boss tied to the corrupted pond."),
+    related("creature", iceQueen?.id, "Planned Act 1 boss tied to cursed bugs.")
   ]);
   seedEntry("locations", "Tabby Island", "Island / Lost Home", "Original home of the Whisken people, twice struck by Cat Cauldron decay and later infiltrated by the Mas'eel Cult.", ["Tabby Island", "Cat Cauldron", "Tohm Kyatt", "Whisken", "Mas'eel", "Major Spoiler"], {
     overview: "The original home of the Whisken people. The island first decayed after ancient Whisken created the Cat Cauldron, then decayed again after Tohm awakened it.",
@@ -334,25 +313,25 @@ export const createStarterWorldBuilding = (
   seedEntry("locations", "Faery Realm", "Magical Realm", "A realm rich in ambient magic where Lillia can mass-produce Dark Culinary Arts.", ["Faery Realm", "Lillia", "Dark Culinary Arts", "Magic"], {
     overview: "Magical realm connected to faeries and Lillia's later use of corrupted cooking.",
     history: "Lillia camps here because the environment lets her draw ambient magic rather than infusing every meal individually.",
-    gameplayUse: "Late-story region, corrupted meal production source, and faery political space."
+    gameplayUse: "Potential late-story region, corrupted meal production source, and faery political space."
   }, [related("character", lillia?.id, "Lillia uses this realm to empower corrupted food.")]);
   seedEntry("locations", "Ovenhold", "Ancient Mortal Kingdom", "An ancient kingdom of hearths, ovens, labor, craft, survival, and cooked food that fought the Faery Realm for 300 years.", ["Ovenhold", "300 Year War", "Tablemaker", "Hearth"], {
     overview: "Mortal kingdom defined by cooking fires, stone ovens, hard work, craft, cooked food, and survival.",
     visualIdentity: "Stone kitchens, bread ovens, smoke, copper pots, labor-worn hands, hearth banners, and practical warm light.",
     history: "Ovenhold fought the Faery Realm for 300 years until the Tablemaker ended the war with a meal prepared through Passion, Taste, and Love.",
-    gameplayUse: "Ancient-history context, religious origin context, and visual contrast to the Faery Realm."
+    gameplayUse: "Ancient-history slot, possible memory chapter, religious origin context, and visual contrast to the Faery Realm."
   }, [related("character", tablemaker?.id, "The Tablemaker's meal ended Ovenhold's war with the Faery Realm.")]);
   seedEntry("locations", "The Everfeast", "Sacred Culinary Realm", "A heavenly culinary realm where perfect meals are remembered and where the Tablemaker returned after his sacrifice.", ["Everfeast", "Tablemaker", "Food Essence", "Sacred Realm"], {
     overview: "A sacred culinary beyond connected to the Tablemaker, holy meals, and the memory of food that heals.",
     visualIdentity: "Endless warm kitchens, impossible banquet tables, golden steam, and meals remembered in perfect form.",
     history: "After the Tablemaker's final meal ended the 300 Year War and cost him his mortal life, his spirit returned to The Everfeast.",
-    gameplayUse: "Mythic frame for late-story revelations, Food Essence, and the spiritual meaning of magical cooking."
+    gameplayUse: "Mythic frame for late-game revelations, Food Essence, and the spiritual meaning of magical cooking."
   }, [related("character", tablemaker?.id, "The Tablemaker returns to The Everfeast.")]);
   seedEntry("locations", "Lillia's Camp", "Enemy Camp", "A Faery Realm camp where Lillia uses ambient magic to mass-produce Dark Culinary Arts with Mas'eel support.", ["Lillia", "Faery Realm", "Dark Culinary Arts", "Mas'eel"], {
     overview: "Villain-side production site for corrupted meals and late-story enemy logistics.",
-    visualIdentity: "Beautiful faery light bent into black kitchen smoke, elegant tents, corrupted banquet stations, and torn-page worktables.",
+    visualIdentity: "Beautiful faery light bent into black kitchen smoke, elegant tents, corrupted banquet stations, and recipe-page worktables.",
     inhabitants: "Princess Lillia, Mas'eel agents, corrupted cooks, and food-magic experiments.",
-    gameplayUse: "Late-story investigation space and a place to connect Lillia's ambitions to the Mas'eel hunt."
+    gameplayUse: "Potential late-story dungeon, stealth/investigation space, and place to connect Lillia's ambitions to the Mas'eel hunt."
   }, [
     related("character", lillia?.id, "Lillia uses the camp to scale Dark Culinary Arts."),
     related("character", muramar?.id, "Mur'amar can connect the camp to the Mas'eel network.")
@@ -384,13 +363,13 @@ export const createStarterWorldBuilding = (
     overview: "Corrupted culinary magic that imitates true Magical Meals through a dark source rather than the Tablemaker.",
     rules: "Tohm's first apparent Magical Meal was actually a Dark Magical Meal because he sought magic apart from the Tablemaker. Lillia ate it, received dark magic, and later learned to corrupt food at scale. Consumers may gain powers or become corrupted. Faery ambient magic helps mass-produce it.",
     visualEffects: "Dark glowing ingredients, corrupted meal auras, unstable magic, and theatrical food-based powers.",
-    storyFunction: "Explains corrupted food, dark powers, and magical meals as both power and danger."
+    storyFunction: "Explains corrupted bosses, recipe-powered enemies, and magical food as both power and danger."
   }, [related("character", lillia?.id, "Lillia spreads corrupted meals through this magic.")]);
   seedEntry("magicSystems", "Food Essence", "Sacred Culinary Magic", "The spiritual and magical force released into the world by the Tablemaker after the meal that ended the 300 Year War.", ["Food Essence", "Tablemaker", "Passion", "Taste", "Love", "Magical Meals"], {
     overview: "Food Essence is the sacred foundation that lets meals carry healing, memory, culture, magic, danger, and true Magical Meal power.",
     rules: "Healthy Food Essence is aligned with Passion, Taste, and Love. True Magical Meals are Tablemaker-given expressions of it. Dark Culinary Arts, Dark Magical Meals, and Mas'eel FEAST doctrine distort it toward control, hunger, and corruption.",
     visualEffects: "Warm steam, golden motes, meal-memory glows, and three-dot Triadic symbolism when expressed cleanly.",
-    gameplayFunction: "Frames why cooking can heal, empower, reveal, corrupt, and reshape story problems.",
+    gameplayFunction: "Frames why cooking can heal, empower, reveal, corrupt, and solve story problems.",
     storyFunction: "Connects the Tablemaker, Tohm's obsession, Gwen's Fire Meal, Lillia's corrupted meals, and the Mas'eel distortion."
   }, [
     related("character", tablemaker?.id, "The Tablemaker released Food Essence into the world."),

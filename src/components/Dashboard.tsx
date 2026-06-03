@@ -1,6 +1,5 @@
 import type { ActiveView, LoreDatabase, LoreEntry } from "../types";
 import { dashboardBoxes } from "../data/navigation";
-import { worldScribeCategoryIds } from "../utils/worldBuilding";
 import { Icon } from "./Icon";
 
 interface DashboardProps {
@@ -11,16 +10,15 @@ interface DashboardProps {
 }
 
 const focusPanels = [
-  "Character Profiles",
-  "Relationship Web",
-  "Locations",
-  "Cultures & Factions",
-  "Mysteries & Rules"
+  "Whisker Woods Vertical Slice",
+  "Act 1 Story",
+  "Cooking & Recipe System",
+  "Lillia / Dark Culinary Arts Arc",
+  "Tohm Kyatt Redemption Arc"
 ];
 
 export function Dashboard({ database, onNavigate, onOpenEntry, hiddenViewIds = [] }: DashboardProps) {
-  const entries = database.entries.filter((entry) => /character/i.test(entry.category) || /character/i.test(entry.type));
-  const worldEntryCount = worldScribeCategoryIds.reduce((count, category) => count + (database.worldBuilding?.[category] || []).length, 0);
+  const entries = database.entries;
   const hiddenViewSet = new Set(hiddenViewIds);
   const countStatus = (status: string) => entries.filter((entry) => entry.status === status).length;
   const unresolved = entries.filter((entry) => entry.notes.unresolved || entry.status === "Needs Rewrite");
@@ -29,16 +27,29 @@ export function Dashboard({ database, onNavigate, onOpenEntry, hiddenViewIds = [
     .slice(0, 6);
 
   const stats = [
-    ["Characters", entries.length],
-    ["World Modules", worldEntryCount],
-    ["Canon Characters", countStatus("Canon")],
-    ["Soft Canon", countStatus("Soft Canon")],
+    ["Total Entries", entries.length],
+    ["Canon Entries", countStatus("Canon")],
+    ["Soft Canon Entries", countStatus("Soft Canon")],
     ["Needs Rewrite", countStatus("Needs Rewrite")],
+    ["Old / Scrapped", countStatus("Old Version") + countStatus("Scrapped")],
     ["Unresolved Questions", unresolved.length]
   ];
 
   const countForBox = (view: ActiveView) => {
-    if (view === "world") return worldEntryCount;
+    if (view === "bestiary") return database.bestiary?.length || 0;
+    if (view === "recipes") {
+      return entries.filter((entry) => /recipe|meal|menu|dish|broth|tonic|ale|drink|consumable|food magic|food item/i.test(entry.type)).length;
+    }
+    if (view === "ingredients") {
+      return entries.filter((entry) => /ingredient|drop|substitute/i.test(entry.type)).length;
+    }
+    if (view === "items") {
+      return entries.filter((entry) => /item|artifact|tool|collectible/i.test(entry.type)).length;
+    }
+    if (view === "enemies") return entries.filter((entry) => entry.category === "Enemies & Creatures").length;
+    if (view === "timeline") return entries.filter((entry) => entry.type === "Timeline Event").length;
+    if (view === "secrets") return entries.filter((entry) => entry.type === "Secret").length;
+    if (view === "factions") return entries.filter((entry) => /Faction|Culture|Cult/i.test(entry.type)).length;
     const box = dashboardBoxes.find((item) => item.id === view);
     return box?.category ? entries.filter((entry) => entry.category === box.category).length : entries.length;
   };
@@ -49,12 +60,12 @@ export function Dashboard({ database, onNavigate, onOpenEntry, hiddenViewIds = [
         <div className="grid gap-5 lg:grid-cols-[1fr_360px]">
           <div>
             <p className="text-sm uppercase tracking-[0.18em]" style={{ color: "var(--muted-ink)" }}>
-              STL Productionz / World Builder
+              STL Productionz / Tales of the Tavern
             </p>
-            <h2 className="mt-2 font-display text-4xl leading-tight md:text-5xl">World Scribe Codex</h2>
+            <h2 className="mt-2 font-display text-4xl leading-tight md:text-5xl">The Tavern Cook Book</h2>
             <p className="mt-3 max-w-3xl leading-7" style={{ color: "var(--muted-ink)" }}>
-              A focused workspace for character profiles, cultures, locations, rules, mysteries, and Scribe-assisted
-              worldbuilding edits.
+              A living lore bible, story database, quest tracker, recipe book, wiki, and assistant-ready
+              organization tool for the whole tavern-shaped world.
             </p>
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -117,10 +128,10 @@ export function Dashboard({ database, onNavigate, onOpenEntry, hiddenViewIds = [
             <p className="text-xs uppercase tracking-[0.16em]" style={{ color: "var(--muted-ink)" }}>
               Main workspace
             </p>
-            <h3 className="font-display text-3xl md:text-4xl">Worldbuilder Hubs</h3>
+            <h3 className="font-display text-3xl md:text-4xl">Cook Book Hubs</h3>
           </div>
           <p className="max-w-xl text-sm" style={{ color: "var(--muted-ink)" }}>
-            Jump into the active character and worldbuilding areas.
+            Jump into the major lore, art, story, quest, and production areas.
           </p>
         </div>
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">

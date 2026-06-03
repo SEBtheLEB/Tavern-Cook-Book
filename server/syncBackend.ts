@@ -64,7 +64,7 @@ export async function handleSyncRequest(request: SyncRequest): Promise<SyncResul
 
   if (!syncToken()) {
     return json(503, {
-      error: "Cloud sync is not configured. Set the GitHub sync token in Vercel.",
+      error: "Cloud sync is not configured. Set TAVERN_SYNC_GITHUB_TOKEN in Vercel.",
       configured: false
     });
   }
@@ -274,7 +274,7 @@ function gitHubHeaders() {
   return {
     Accept: "application/vnd.github+json",
     Authorization: `Bearer ${syncToken()}`,
-    "User-Agent": "world-scribe-codex-sync",
+    "User-Agent": "the-tavern-cook-book-sync",
     "X-GitHub-Api-Version": "2022-11-28"
   };
 }
@@ -303,9 +303,9 @@ function safeEmailFileName(email: string) {
 }
 
 function commitMessage(scope: SyncScope, email: string) {
-  if (scope === "published") return `Publish World Scribe Codex changes from ${email}`;
-  if (scope === "settings") return `Update World Scribe Codex team settings from ${email}`;
-  return `Autosave World Scribe Codex draft for ${email}`;
+  if (scope === "published") return `Publish Tavern Cook Book changes from ${email}`;
+  if (scope === "settings") return `Update Tavern Cook Book team settings from ${email}`;
+  return `Autosave Tavern Cook Book draft for ${email}`;
 }
 
 function readPayload(body: unknown) {

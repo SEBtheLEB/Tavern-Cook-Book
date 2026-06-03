@@ -66,7 +66,7 @@ export function Sidebar({
   hiddenViewIds = [],
   syncLabel = "",
   syncName = "Live Sync",
-  syncActionTitle = "Click to save this worldbuilder to team sync now",
+  syncActionTitle = "Click to save this cookbook to team sync now",
   syncWorking = false,
   liveUsers = [],
   liveStatus = "initial"
@@ -277,14 +277,14 @@ export function Sidebar({
               className="h-full w-full object-cover"
             />
           ) : (
-            <Icon name="BookOpen" className="h-7 w-7 text-amber-100" />
+            <Icon name="ChefHat" className="h-7 w-7 text-amber-100" />
           )}
         </div>
         {!collapsed && (
           <div className="min-w-0">
             <p className="text-xs uppercase tracking-[0.18em] text-amber-100/80">STL Productionz</p>
-            <h1 className="font-display text-2xl leading-7 text-white">World Scribe Codex</h1>
-            <p className="mt-1 text-xs text-amber-100/75">Worldbuilding + characters</p>
+            <h1 className="font-display text-2xl leading-7 text-white">The Tavern Cook Book</h1>
+            <p className="mt-1 text-xs text-amber-100/75">Tales of the Tavern</p>
           </div>
         )}
       </div>
@@ -475,10 +475,10 @@ export function Sidebar({
                 <button
                   className="sidebar-live-roster-button"
                   onClick={() => setLiveRosterOpen((value) => !value)}
-                  title={collapsed ? "People in the Codex" : `${liveRosterUsers.length} in the Codex`}
-                  aria-label="People in the Codex"
+                  title={collapsed ? "People in the Cook Book" : `${liveRosterUsers.length} in the Cook Book`}
+                  aria-label="People in the Cook Book"
                   aria-expanded={liveRosterOpen}
-                  onMouseEnter={(event) => showCollapsedTooltip(`${liveRosterUsers.length} in the Codex`, event)}
+                  onMouseEnter={(event) => showCollapsedTooltip(`${liveRosterUsers.length} in the Cook Book`, event)}
                   onMouseMove={moveCollapsedTooltip}
                   onMouseLeave={hideCollapsedTooltip}
                 >
@@ -507,7 +507,7 @@ export function Sidebar({
                           <small>
                             {user.hovering?.label
                               ? `Hovering ${user.hovering.label}`
-                              : user.location?.label || "In the Codex"}
+                              : user.location?.label || "In the Cook Book"}
                           </small>
                         </span>
                       </div>
@@ -549,7 +549,7 @@ export function Sidebar({
                   <div>
                     <strong>{currentUser.name}</strong>
                     <span>{currentUser.email}</span>
-                    <em>{currentUser.role}</em>
+                    <em>{currentUser.role}{questCount ? ` / ${questCount} quests` : ""}</em>
                   </div>
                 </div>
                 {onOpenProfile && (
@@ -585,7 +585,7 @@ export function Sidebar({
                     }}
                   >
                     <Icon name="ScrollText" className="h-4 w-4" />
-                    <span>Scribe AI</span>
+                    <span>Tavern Scribe</span>
                   </button>
                 )}
                 {onOpenQuestDashboard && (
@@ -604,25 +604,6 @@ export function Sidebar({
               )}
             </div>
           </div>
-        )}
-        {!currentUser && onOpenTavernScribe && !readOnly && (
-          <button
-            className={`sidebar-live-sync-status mb-2 ${collapsed ? "collapsed" : ""}`}
-            title={collapsed ? "Scribe AI" : "Open Scribe AI"}
-            aria-label="Open Scribe AI"
-            onClick={onOpenTavernScribe}
-            onMouseEnter={(event) => showCollapsedTooltip("Scribe AI", event)}
-            onMouseMove={moveCollapsedTooltip}
-            onMouseLeave={hideCollapsedTooltip}
-          >
-            <Icon name="ScrollText" className="h-5 w-5" />
-            {!collapsed && (
-              <span>
-                <strong>Scribe AI</strong>
-                <small>Worldbuilding assistant</small>
-              </span>
-            )}
-          </button>
         )}
         {storageWarning && (
           <div className={`sidebar-storage-warning ${collapsed ? "collapsed" : ""}`}>
@@ -815,9 +796,6 @@ function SidebarNavItem({
 
 function countForItem(item: ViewConfig, database: LoreDatabase) {
   if (item.id === "bestiary") return database.bestiary?.length || 0;
-  if (item.id === "world") {
-    return Object.values(database.worldBuilding || {}).reduce((count, entries) => count + entries.length, 0);
-  }
   return item.category
     ? database.entries.filter((entry) => entry.category === item.category).length
     : undefined;

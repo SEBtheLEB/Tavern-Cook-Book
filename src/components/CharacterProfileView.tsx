@@ -16,13 +16,14 @@ import type {
   LoreEntry,
   StoryReference
 } from "../types";
-type ArtVaultDriveFolderContext = {
-  sourceType?: string;
-  groupName?: string;
-  subjectName: string;
-  categoryName: string;
-  folderPath?: string[];
-};
+import { isDriveConfigured, showDriveSetupMessage } from "../utils/driveSettings";
+import {
+  artVaultDriveFolderPathLabel,
+  artVaultFolderTarget,
+  repairArtVaultDriveFolderHierarchy,
+  resolveArtVaultDriveFolder,
+  type ArtVaultDriveFolderContext
+} from "../utils/artVaultDriveFolders";
 import {
   ensureGwenToolArtVault,
   GWEN_TOOL_PAGE_TYPES,
@@ -37,6 +38,14 @@ import {
   normalizeArtVault,
   normalizeCharacterArtBoard
 } from "../utils/entries";
+import {
+  addUploadedDriveImageToCharacter,
+  googleDriveFolderLink,
+  handlePickedDriveFile,
+  openGoogleDriveFolderPicker,
+  openGooglePickerForCharacter,
+  uploadImageToDrive
+} from "../utils/googlePicker";
 import type { GooglePickerFile, UploadedDriveFile } from "../utils/googlePicker";
 import { recordArtVaultActivity } from "../utils/activityLog";
 import { fileSizeLabel, isSupportedImage, readImageFileForStorage } from "../utils/media";
@@ -195,8 +204,8 @@ interface ArtVaultGalleryAdjustTarget {
 }
 
 const spoilerOptions = ["No Spoiler", "Minor Spoiler", "Major Spoiler", "Ending Spoiler"];
-const artUploadCategories = ["Portraits", "Expressions", "Turnarounds", "Screenshots", "Concept Art", "Reference", "Imported Images"];
-const artGalleryFilters = ["All", "Featured", "Portraits", "Expressions", "Turnarounds", "Screenshots", "Concept Art", "Reference", "Imported Images"];
+const artUploadCategories = ["Portraits", "Expressions", "Turnarounds", "Screenshots", "Concept Art", "Marketing Art", "Reference", "Imported From Drive"];
+const artGalleryFilters = ["All", "Featured", "Portraits", "Expressions", "Turnarounds", "Screenshots", "Concept Art", "Marketing Art", "Imported From Drive"];
 const artGallerySortOptions = ["Newest first", "Oldest first", "Title A-Z", "Category"];
 const artVaultStatusOptions = [
   { value: "empty", label: "Missing" },
@@ -213,106 +222,6 @@ const characterArtBoardMediaSlots: Record<string, Exclude<ImageSlot, "galleryIma
   "art-board-concept-art": "mainImage",
   "art-board-sprite-sheet": "iconImage"
 };
-const LOCAL_IMAGE_STORAGE_MESSAGE = "Cloud image storage is not part of this standalone app. Use a local image or an image URL.";
-
-function isDriveConfigured() {
-  return false;
-}
-
-function showDriveSetupMessage() {
-  window.alert(LOCAL_IMAGE_STORAGE_MESSAGE);
-  return false;
-}
-
-function googleDriveFolderLink(_folderId: string) {
-  return "";
-}
-
-async function openGoogleDriveFolderPicker(_title?: string): Promise<{ id: string; name: string; url: string; mimeType: string }> {
-  throw new Error(LOCAL_IMAGE_STORAGE_MESSAGE);
-}
-
-async function openGooglePickerForCharacter(_characterId: string): Promise<GooglePickerFile | null> {
-  throw new Error(LOCAL_IMAGE_STORAGE_MESSAGE);
-}
-
-async function uploadImageToDrive(_file: File, _folderId: string, _options?: unknown): Promise<UploadedDriveFile> {
-  throw new Error(LOCAL_IMAGE_STORAGE_MESSAGE);
-}
-
-function addUploadedDriveImageToCharacter(
-  characterId: string,
-  uploadedFile: UploadedDriveFile,
-  category: string,
-  notes: string,
-  addToCharacterGallery?: (item: CharacterArtGalleryItem) => void,
-  driveFolder?: { id?: string; link?: string; name?: string }
-): CharacterArtGalleryItem {
-  const item: CharacterArtGalleryItem = {
-    id: `local-upload-${characterId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    title: uploadedFile.name || "Imported Image",
-    category: category || "Concept Art",
-    driveFileId: uploadedFile.id || "",
-    thumbnailUrl: uploadedFile.thumbnailLink || uploadedFile.webViewLink || "",
-    webViewLink: uploadedFile.webViewLink || uploadedFile.thumbnailLink || "",
-    dateAdded: new Date().toISOString(),
-    isFeatured: false,
-    notes,
-    uploadStatus: "linked",
-    driveFolderId: driveFolder?.id || "",
-    driveFolderLink: driveFolder?.link || "",
-    driveFolderName: driveFolder?.name || ""
-  };
-  addToCharacterGallery?.(item);
-  return item;
-}
-
-function handlePickedDriveFile(
-  file: GooglePickerFile,
-  characterId: string,
-  addToCharacterGallery?: (item: CharacterArtGalleryItem) => void
-): CharacterArtGalleryItem {
-  const item: CharacterArtGalleryItem = {
-    id: `local-import-${characterId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    title: file.name || "Imported Image",
-    category: "Imported Images",
-    driveFileId: file.id || "",
-    thumbnailUrl: file.thumbnailUrl || file.url || "",
-    webViewLink: file.url || file.thumbnailUrl || "",
-    dateAdded: new Date().toISOString(),
-    isFeatured: false,
-    notes: "",
-    uploadStatus: "linked"
-  };
-  addToCharacterGallery?.(item);
-  return item;
-}
-
-function artVaultDriveFolderPathLabel(context: ArtVaultDriveFolderContext) {
-  return [
-    context.sourceType,
-    context.groupName,
-    context.subjectName,
-    context.categoryName,
-    ...(context.folderPath || [])
-  ].map((part) => String(part || "").trim()).filter(Boolean).join(" / ");
-}
-
-function artVaultFolderTarget(folder: { id?: string; name?: string; url?: string; link?: string }) {
-  return {
-    id: folder.id || "",
-    link: folder.link || folder.url || "",
-    name: folder.name || ""
-  };
-}
-
-async function resolveArtVaultDriveFolder(_context: ArtVaultDriveFolderContext): Promise<{ id: string; name: string; url: string }> {
-  throw new Error(LOCAL_IMAGE_STORAGE_MESSAGE);
-}
-
-async function repairArtVaultDriveFolderHierarchy(_context: ArtVaultDriveFolderContext, _existingFolderId: string): Promise<{ id: string; name: string; url: string }> {
-  throw new Error(LOCAL_IMAGE_STORAGE_MESSAGE);
-}
 
 const storySections: Array<{
   key: StoryKey;
@@ -412,6 +321,8 @@ export function CharacterProfileView({
   const [assistantPrompt, setAssistantPrompt] = useState("");
   const [assistantImport, setAssistantImport] = useState("");
   const [assistantMessage, setAssistantMessage] = useState("");
+  const [artVaultOpen, setArtVaultOpen] = useState(false);
+  const [artVaultStartInTools, setArtVaultStartInTools] = useState(false);
   const handledToolVaultRequestRef = useRef(0);
   const [artGalleryModalOpen, setArtGalleryModalOpen] = useState(false);
   const [editingArtGalleryId, setEditingArtGalleryId] = useState<string | null>(null);
@@ -477,19 +388,28 @@ export function CharacterProfileView({
     ? relationshipCharactersById.get(selectedRelationshipCharacterId)
     : undefined;
 
+  const openCharacterArtVault = (startInTools = false) => {
+    setArtVaultStartInTools(startInTools);
+    setArtVaultOpen(true);
+  };
+
   useEffect(() => {
     if (!openToolVaultRequestNonce || handledToolVaultRequestRef.current === openToolVaultRequestNonce) return;
     if (!isGwenCharacter || readOnly) return;
     handledToolVaultRequestRef.current = openToolVaultRequestNonce;
+    openCharacterArtVault(true);
   }, [isGwenCharacter, openToolVaultRequestNonce, readOnly]);
 
   useEffect(() => {
-    onArtVaultOpenChange?.(false);
+    onArtVaultOpenChange?.(artVaultOpen);
     return () => onArtVaultOpenChange?.(false);
-  }, [onArtVaultOpenChange]);
+  }, [artVaultOpen, onArtVaultOpenChange]);
 
   useEffect(() => {
     if (!focusedAssignment || focusedAssignment.entryId !== entry.id) return;
+    if (!readOnly && focusedAssignment.targetRoute.includes(":art-vault:")) {
+      setArtVaultOpen(true);
+    }
   }, [entry.id, focusedAssignment, readOnly]);
 
   const commitCharacterPatch = (patch: Partial<LoreEntry>) => {
@@ -865,7 +785,7 @@ export function CharacterProfileView({
       });
       window.alert(`Imported "${pickedFile.name}" from Google Drive into ${entry.title}'s gallery.`);
     } catch (pickerError) {
-      window.alert(pickerError instanceof Error ? pickerError.message : "The image picker could not import that image.");
+      window.alert(pickerError instanceof Error ? pickerError.message : "Google Picker could not import that image.");
     }
   };
 
@@ -1122,7 +1042,7 @@ export function CharacterProfileView({
       return <EditInput value={joinValues(entry.connections.locations) || value} placeholder="Osul" onChange={(next) => onConnectionChange("locations", next)} />;
     }
     if (label === "Role") {
-      return <EditInput value={fieldText(entry, ["Role", "Gameplay Role"]) || value} placeholder="Fighter - Cook - Protector" onChange={(next) => onSetField("Role", next)} />;
+      return <EditInput value={fieldText(entry, ["Gameplay Role", "Role"]) || value} placeholder="Fighter - Cook - Protector" onChange={(next) => onSetField("Gameplay Role", next)} />;
     }
     if (label === "Recruited By") {
       return <EditInput value={fieldText(entry, ["Recruited By", "Mentor"]) || value} placeholder="Tohm Kyatt" onChange={(next) => onSetField("Recruited By", next)} />;
@@ -1166,6 +1086,29 @@ export function CharacterProfileView({
       setAssistantMessage(importError instanceof Error ? importError.message : "Could not read that character JSON.");
     }
   };
+
+  if (artVaultOpen) {
+    return (
+      <CharacterArtVaultView
+        entry={entry}
+        character={character}
+        artGallery={artGallery}
+        readOnly={readOnly}
+        isEditing={isEditing}
+        onBack={() => {
+          setArtVaultOpen(false);
+          setArtVaultStartInTools(false);
+        }}
+        initialToolVaultOpen={artVaultStartInTools}
+        onEdit={onEdit}
+        onSave={onSave}
+        onCancel={onCancel}
+        onChange={onChange}
+        currentUser={currentUser}
+        focusedAssignment={focusedAssignment}
+      />
+    );
+  }
 
   const actionToolbar = (
     <div className="character-codex-actions">
@@ -1270,8 +1213,8 @@ export function CharacterProfileView({
     <article className="character-codex-shell">
       <aside className="character-codex-left">
         <div className="character-codex-brand">
-          <p>World Scribe</p>
-          <h2 className="font-display">Codex</h2>
+          <p>Tales of the</p>
+          <h2 className="font-display">Tavern</h2>
         </div>
 
         <div className="character-codex-portrait-card">
@@ -1299,6 +1242,27 @@ export function CharacterProfileView({
             </button>
           )}
         </div>
+
+        {!readOnly && (
+          <div className="character-art-vault-open-actions">
+            <button className="character-art-vault-open-button" onClick={() => openCharacterArtVault(false)}>
+              <Icon name="Archive" className="h-5 w-5" />
+              Open Art Vault
+            </button>
+            {isGwenCharacter && (
+              <button className="character-art-vault-open-button tools" onClick={() => openCharacterArtVault(true)}>
+                <Icon name="Hammer" className="h-5 w-5" />
+                Gwen Tools
+              </button>
+            )}
+            {onOpenArtBinder && (
+              <button className="character-art-vault-open-button secondary" onClick={onOpenArtBinder}>
+                <Icon name="BookOpen" className="h-5 w-5" />
+                Open Art Binder
+              </button>
+            )}
+          </div>
+        )}
 
         <CodexPanel title="Essentials" icon="Compass">
           {character.essentials.map((fact) => (
@@ -1398,6 +1362,7 @@ export function CharacterProfileView({
           onRemove={onRemoveImage}
           getImageFit={imageFitForSlot}
           onAdjustImage={(slot, label, previewFrame) => openImageAdjuster(slot, label, "16 / 10", previewFrame)}
+          onOpenGallery={openArtVaultGallery}
         />
 
         <div className="character-codex-section-divider" aria-hidden="true" />
@@ -1557,6 +1522,28 @@ export function CharacterProfileView({
         />
       )}
 
+      {driveFolderModalOpen && (
+        <CharacterDriveFolderModal
+          driveFolderId={driveFolderDraft.id}
+          driveFolderLink={driveFolderDraft.link}
+          onChange={setDriveFolderDraft}
+          onPickFolder={chooseCharacterDriveFolder}
+          onSave={saveDriveFolder}
+          onClose={() => setDriveFolderModalOpen(false)}
+        />
+      )}
+
+      {driveUploadDraft && (
+        <DriveUploadModal
+          draft={driveUploadDraft}
+          characterName={entry.title}
+          onChange={(patch) => setDriveUploadDraft((current) => current ? { ...current, ...patch } : current)}
+          onChooseFolder={chooseDriveUploadFolder}
+          onCancel={closeDriveUpload}
+          onUpload={uploadSelectedImageToDrive}
+        />
+      )}
+
       {relationshipModalOpen && (
         <AddRelationshipModal
           characters={relationshipOptions}
@@ -1615,8 +1602,13 @@ export function CharacterProfileView({
           imageFit={imageAdjustTarget.imageFit}
           aspectRatio={imageAdjustTarget.aspectRatio}
           previewFrame={imageAdjustTarget.previewFrame}
+          driveFolderId={entry.driveFolderId}
+          driveFolderLink={entry.driveFolderLink}
+          driveFolderName={entry.driveFolderId ? `${entry.title} Drive Folder` : ""}
           onSave={saveImageAdjustment}
           onCancel={() => setImageAdjustTarget(null)}
+          onUploadToDrive={uploadAdjustedImageToDrive}
+          onImportFromDrive={importAdjustedImageFromDrive}
         />
       )}
 
@@ -1773,7 +1765,7 @@ function CharacterDriveFolderModule({
       <div>
         <button onClick={onSetFolder} disabled={!isEditing} title={isEditing ? "Set Drive folder metadata" : "Click Edit first"}>
           <Icon name="Edit3" className="h-4 w-4" />
-          Set Image Folder
+          Set Drive Folder
         </button>
         <button onClick={onOpenFolder} disabled={!driveFolderLink}>
           <Icon name="FolderOpen" className="h-4 w-4" />
@@ -1805,7 +1797,7 @@ function CharacterDriveFolderModal({
         <header>
           <div>
             <p>Character Drive Folder</p>
-            <h2 className="font-display">Set Image Folder</h2>
+            <h2 className="font-display">Set Drive Folder</h2>
           </div>
           <button className="character-codex-icon-button" onClick={onClose} title="Close Drive folder form">
             <Icon name="X" className="h-5 w-5" />
@@ -1869,7 +1861,7 @@ function DriveUploadModal({
         <header>
           <div>
             <p>Google Drive Upload</p>
-            <h2 className="font-display">Add Local Image</h2>
+            <h2 className="font-display">Upload to Drive</h2>
           </div>
           <button className="character-codex-icon-button" onClick={onCancel} title="Close upload form">
             <Icon name="X" className="h-5 w-5" />
@@ -1943,12 +1935,12 @@ function DriveUploadModal({
         </div>
 
         <footer>
-          <p>The file is uploaded to Google Drive. World Scribe Codex stores only Drive metadata.</p>
+          <p>The file is uploaded to Google Drive. The Cook Book stores only Drive metadata.</p>
           <div>
             <button className="character-codex-action-button" onClick={onCancel} disabled={draft.uploading}>Cancel</button>
             <button className="button-frame character-codex-action-button" onClick={onUpload} disabled={draft.uploading}>
               <Icon name="Upload" className="h-4 w-4" />
-              {draft.uploading ? "Adding..." : "Add Image"}
+              {draft.uploading ? "Uploading..." : "Upload to Drive"}
             </button>
           </div>
         </footer>
@@ -2596,7 +2588,7 @@ function CharacterArtVaultView({
     if (!match) return;
 
     setBusySlotId(ref.slotId);
-    setVaultMessage("Opening image picker...");
+    setVaultMessage("Opening Google Picker...");
     try {
       const actionType = match.slot.image ? "replace" : "upload";
       const pickedFile = await openGooglePickerForCharacter(entry.id);
@@ -2624,7 +2616,7 @@ function CharacterArtVaultView({
       );
       setVaultMessage(`Imported "${pickedFile.name}" and assigned it to "${match.slot.label}".`);
     } catch (pickerError) {
-      setVaultMessage(pickerError instanceof Error ? pickerError.message : "The image picker could not import that image.");
+      setVaultMessage(pickerError instanceof Error ? pickerError.message : "Google Picker could not import that image.");
     } finally {
       setBusySlotId(null);
     }
@@ -2834,7 +2826,7 @@ function CharacterArtVaultView({
               Upload / Replace image
             </button>
             <button onClick={() => { importDriveArtToSlot(ref); setSlotMenuRef(null); }} disabled={busySlotId === slot.id}>
-              Choose Local Image
+              Select from Google Drive
             </button>
             <button onClick={() => downloadSlotImage(slot)} disabled={!slot.image}>
               Download image
@@ -3290,7 +3282,7 @@ function CharacterArtVaultView({
                             Upload / Replace image
                           </button>
                           <button onClick={() => { importDriveArtToSlot(ref); setSlotMenuRef(null); }} disabled={busySlotId === slot.id}>
-                            Choose Local Image
+                            Select from Google Drive
                           </button>
                           <button onClick={() => downloadSlotImage(slot)} disabled={!slot.image}>
                             Download image
@@ -3611,7 +3603,7 @@ function CharacterArtVaultSlotModal({
           <div>
             <button className="character-codex-action-button" onClick={onUpload}>
               <Icon name="Upload" className="h-4 w-4" />
-              Add Image
+              Upload to Drive
             </button>
             <button className="character-codex-action-button" onClick={onChooseUploadFolder}>
               <Icon name="FolderOpen" className="h-4 w-4" />
@@ -3619,7 +3611,7 @@ function CharacterArtVaultSlotModal({
             </button>
             <button className="character-codex-action-button" onClick={onImport}>
               <Icon name="Import" className="h-4 w-4" />
-              Add From Link
+              Import From Drive
             </button>
             <button className="character-codex-action-button" onClick={onLink}>
               <Icon name="Image" className="h-4 w-4" />
@@ -3738,11 +3730,11 @@ function CharacterArtGallery({
           </button>
           <button onClick={onUploadToDrive} title="Choose art to upload to Google Drive">
             <Icon name="Upload" className="h-4 w-4" />
-            Add Image
+            Upload to Drive
           </button>
           <button onClick={onImportFromDrive} title="Import art metadata from Google Drive">
             <Icon name="Import" className="h-4 w-4" />
-            Add From Link
+            Import From Drive
           </button>
           <button onClick={onOpenDriveFolder} title="Open this character's Drive folder">
             <Icon name="Folder" className="h-4 w-4" />
@@ -3827,11 +3819,11 @@ function CharacterArtGallery({
             </button>
             <button onClick={onUploadToDrive}>
               <Icon name="Upload" className="h-4 w-4" />
-              Add Image
+              Upload to Drive
             </button>
             <button onClick={onImportFromDrive}>
               <Icon name="Import" className="h-4 w-4" />
-              Add From Link
+              Import From Drive
             </button>
           </div>
         </div>
@@ -3937,8 +3929,30 @@ function CharacterArtGalleryModal({
   onSave: () => void;
   onClose: () => void;
 }) {
-  const applyImageUrl = (value: string) => {
-    onChange({ thumbnailUrl: value, webViewLink: value });
+  const applyDriveFileLink = (value: string) => {
+    const driveFileId = extractGoogleDriveFileId(value);
+    if (!driveFileId) {
+      onChange({ thumbnailUrl: value });
+      return;
+    }
+    onChange({
+      driveFileId,
+      webViewLink: googleDriveWebViewLink(driveFileId),
+      thumbnailUrl: googleDriveThumbnailUrl(driveFileId)
+    });
+  };
+
+  const applyDriveViewLink = (value: string) => {
+    const driveFileId = extractGoogleDriveFileId(value);
+    if (!driveFileId) {
+      onChange({ webViewLink: value });
+      return;
+    }
+    onChange({
+      driveFileId,
+      webViewLink: googleDriveWebViewLink(driveFileId),
+      thumbnailUrl: googleDriveThumbnailUrl(driveFileId)
+    });
   };
 
   return (
@@ -3954,7 +3968,7 @@ function CharacterArtGalleryModal({
           </button>
         </header>
         <p className="character-art-gallery-helper-note">
-          Choose a local image or paste a normal image URL. The gallery stores the reference and notes with this character.
+          Paste a Google Drive image link or a normal image URL. Google Drive links will automatically generate a preview when possible.
         </p>
 
         <div className="character-art-gallery-form">
@@ -3972,28 +3986,28 @@ function CharacterArtGalleryModal({
               value={draft.thumbnailUrl}
               label={draft.title || "Gallery image"}
               title="Choose Character Gallery Image"
-              onChange={applyImageUrl}
+              onChange={applyDriveFileLink}
               onPick={(imageUrl, file) => onChange({
                   thumbnailUrl: imageUrl,
                   driveFileId: file.id,
-                  webViewLink: file.url || imageUrl,
-                  title: draft.title || file.name || "Imported Image"
+                  webViewLink: file.url || googleDriveWebViewLink(file.id),
+                  title: draft.title || file.name || "Imported Drive Image"
               })}
               onUpload={(imageUrl, file) => onChange({
                 thumbnailUrl: imageUrl,
                 driveFileId: file.id,
-                webViewLink: file.webViewLink || imageUrl,
-                title: draft.title || file.name || "Uploaded Image"
+                webViewLink: file.webViewLink || googleDriveWebViewLink(file.id),
+                title: draft.title || file.name || "Uploaded Drive Image"
               })}
             />
           </label>
           <label>
-            <span>Source ID</span>
-            <EditInput value={draft.driveFileId} placeholder="Optional source ID" onChange={(value) => onChange({ driveFileId: value })} />
+            <span>Google Drive File ID</span>
+            <EditInput value={draft.driveFileId} placeholder="Drive file ID" onChange={(value) => onChange({ driveFileId: value })} />
           </label>
           <label>
-            <span>Source Link</span>
-            <EditInput value={draft.webViewLink} placeholder="https://..." onChange={(value) => onChange({ webViewLink: value })} />
+            <span>Google Drive View Link</span>
+            <EditInput value={draft.webViewLink} placeholder="https://drive.google.com/..." onChange={applyDriveViewLink} />
           </label>
           <label className="character-art-gallery-notes">
             <span>Notes</span>
@@ -4007,7 +4021,7 @@ function CharacterArtGalleryModal({
         </div>
 
         <footer>
-          <p>This stores gallery metadata only. It will not upload, delete, or modify external files.</p>
+          <p>This stores metadata only. It will not upload or delete files from Google Drive.</p>
           <div>
             <button className="character-codex-action-button" onClick={onClose}>Cancel</button>
             <button className="button-frame character-codex-action-button" onClick={onSave}>
@@ -4115,7 +4129,7 @@ function CharacterMiniAssistant({
 }
 
 function buildCharacterAssistantPrompt(entry: LoreEntry, character: ReturnType<typeof buildCharacterView>, changeRequest: string) {
-  return `You are helping fill out one character page for the local lore bible app "World Scribe Codex".
+  return `You are helping fill out one character page for the local lore bible app "The Tavern Cook Book" for the game "Tales of the Tavern".
 
 Task:
 Update this specific character page using my requested changes. Keep the character consistent with the existing data. Return ONLY valid JSON. Do not wrap it in markdown unless you absolutely have to.
@@ -4138,9 +4152,9 @@ What goes where:
 - publicDescription: spoiler-safe marketing/public text. Avoid secret reveals here.
 - internalLore: private lore, contradictions, spoilers, writer notes, and hidden truth.
 - personality: brief quick-read personality description.
-- coreFunction: brief explanation of why this character matters to the world, story, or relationships.
+- coreFunction: brief explanation of why this character matters to the story/gameplay.
 - relationships: small cards. Each needs name, relationship type, and a very short note.
-- worldConnections: small cards. Use type/title/note for important locations, factions, cultures, myths, rules, items, arcs, or systems.
+- worldConnections: small cards. Use type/title/note for important locations, factions, items, quests, arcs, or systems.
 - story.background: where they come from, early life, culture, family, training.
 - story.incitingIncident: what pulls them into the main plot.
 - story.mainStoryRole: what they do during the story and why they matter.
@@ -4149,7 +4163,7 @@ What goes where:
 - story.relationshipsInStory: how relationships affect the plot.
 - story.futureUnresolvedThreads: loose ends, mysteries, future plans, sequel hooks.
 - fullStory: the big readable story scroll. Put the complete in-depth character story here, including all major details, emotional beats, secrets, relationships, and future threads. This can be much longer than the quick cards.
-- notes: production, art, worldbuilding, continuity, and unresolved notes only, not the main reader text.
+- notes: production/art/gameplay/marketing/unresolved notes only, not the main reader text.
 
 Return this JSON shape:
 {
@@ -4190,9 +4204,9 @@ Return this JSON shape:
   "fullStory": "",
   "notes": {
     "art": "",
-    "worldbuilding": "",
+    "gameplay": "",
     "production": "",
-    "continuity": "",
+    "marketing": "",
     "unresolved": ""
   }
 }
@@ -4291,7 +4305,7 @@ function characterPayloadToEntryPatch(entry: LoreEntry, payload: CharacterAssist
 
   if (payload.essentials) {
     setField("Age", payload.essentials.age);
-    setField("Role", payload.essentials.role);
+    setField("Gameplay Role", payload.essentials.role);
     setField("Recruited By", payload.essentials.recruitedBy);
     setField("Favorite Food", payload.essentials.favoriteFood);
     setField("Character Status", payload.essentials.status);
@@ -4669,7 +4683,8 @@ function CharacterSpriteShowcase({
   onSetImage,
   onRemove,
   getImageFit,
-  onAdjustImage
+  onAdjustImage,
+  onOpenGallery
 }: {
   media: EntryMedia;
   isEditing: boolean;
@@ -4678,6 +4693,7 @@ function CharacterSpriteShowcase({
   onRemove: (slot: ImageSlot, galleryIndex?: number) => void;
   getImageFit: (slot: Exclude<ImageSlot, "galleryImages">) => ImageFitSettings;
   onAdjustImage: (slot: Exclude<ImageSlot, "galleryImages">, label: string, previewFrame?: { width: number; height: number }) => void;
+  onOpenGallery: (slot: Exclude<ImageSlot, "galleryImages">) => void;
 }) {
   const sprites: Array<{ label: string; helper: string; icon: string; slot: Exclude<ImageSlot, "galleryImages">; src: string }> = [
     {
@@ -4688,9 +4704,9 @@ function CharacterSpriteShowcase({
       src: media.dialogueSpriteImage || ""
     },
     {
-      label: "World Reference Sprite",
-      helper: "Small in-world character reference.",
-      icon: "UserRound",
+      label: "In-Game Sprite",
+      helper: "Small gameplay sprite or in-world character reference.",
+      icon: "Gamepad2",
       slot: "ingameSpriteImage",
       src: media.ingameSpriteImage || ""
     }
@@ -4701,14 +4717,28 @@ function CharacterSpriteShowcase({
       <div className="character-sprite-showcase-header">
         <div>
           <p>Character visual quick slots</p>
-          <h2 className="font-display">Dialogue & World Sprites</h2>
+          <h2 className="font-display">Dialogue & In-Game Sprites</h2>
         </div>
       </div>
       <div className="character-sprite-grid">
         {sprites.map((sprite) => (
           <article
             key={sprite.slot}
-            className="character-sprite-card"
+            className="character-sprite-card clickable"
+            role="button"
+            tabIndex={0}
+            title={`Open ${sprite.label} gallery from the Art Vault`}
+            onClick={(event) => {
+              if (isInteractiveElement(event.target)) return;
+              onOpenGallery(sprite.slot);
+            }}
+            onKeyDown={(event) => {
+              if (isInteractiveElement(event.target)) return;
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                onOpenGallery(sprite.slot);
+              }
+            }}
           >
             <div className="character-sprite-preview">
               {sprite.src ? (
@@ -5628,7 +5658,7 @@ function characterImageManagerSlots(
       imageFit: imageFitForSlot("ingameSpriteImage"),
       frameWidth: 210,
       frameHeight: 190,
-      uploadNameContext: { subjectName: entry.title, categoryName: "Character References", slotName: "World Reference Sprite", sourceType: "Character" },
+      uploadNameContext: { subjectName: entry.title, categoryName: "Gameplay Sprites", slotName: "In Game Sprite", sourceType: "Character" },
       ...base
     }
   ];
