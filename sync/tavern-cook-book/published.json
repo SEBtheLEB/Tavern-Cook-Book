@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-06-03T21:52:49.718Z",
+  "updatedAt": "2026-06-03T21:52:54.504Z",
   "updatedBy": "stlprodz1101@gmail.com",
   "payload": {
     "database": {
@@ -132322,11 +132322,11 @@
             "id": "art-image-1tVodPTgd_c9MCf6pPL41KcN_cDeoMR7C",
             "type": "image",
             "title": "2c795b3f-c950-4548-8ecd-94ee3b7e44dd",
-            "x": 787,
-            "y": 188.84375,
+            "x": 738,
+            "y": 201.84375,
             "width": 620,
             "height": 520,
-            "zIndex": 37,
+            "zIndex": 38,
             "image": {
               "driveFileId": "1tVodPTgd_c9MCf6pPL41KcN_cDeoMR7C",
               "thumbnailUrl": "https://drive.google.com/thumbnail?id=1tVodPTgd_c9MCf6pPL41KcN_cDeoMR7C&sz=w1000",
@@ -132344,14 +132344,14 @@
             },
             "notes": "",
             "createdAt": "2026-05-28T08:06:54.555Z",
-            "updatedAt": "2026-06-03T21:52:48.927Z"
+            "updatedAt": "2026-06-03T21:52:53.694Z"
           }
         ],
         "driveFolderId": "1egYEd_MeGJsBX_U3Klvyy8CkV17PTZiF",
         "driveFolderLink": "https://drive.google.com/drive/folders/1egYEd_MeGJsBX_U3Klvyy8CkV17PTZiF",
         "driveFolderName": "Art Direction",
         "createdAt": "2026-05-27T00:00:00.000Z",
-        "updatedAt": "2026-06-03T21:52:49.016Z"
+        "updatedAt": "2026-06-03T21:52:53.732Z"
       },
       "roadmap": {
         "milestones": [
