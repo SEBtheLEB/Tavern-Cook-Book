@@ -3,8 +3,8 @@ import { getDriveSettings } from "./driveSettings";
 import { getOrCreateGoogleDriveFolderPath, googleDriveFolderLink, type GoogleDriveFolder } from "./googlePicker";
 
 const ART_DIRECTION_FOLDER_NAME = "Art Direction";
-const DEFAULT_BOARD_WIDTH = 5200;
-const DEFAULT_BOARD_HEIGHT = 3400;
+const DEFAULT_BOARD_WIDTH = 9000;
+const DEFAULT_BOARD_HEIGHT = 6000;
 const defaultCreatedAt = "2026-05-27T00:00:00.000Z";
 
 export function createStarterArtDirectionBoard(): ArtDirectionBoard {
@@ -32,8 +32,8 @@ export function normalizeArtDirectionBoard(value: unknown): ArtDirectionBoard {
     id: stringOr(source.id, starter.id),
     title: stringOr(source.title, starter.title),
     description: stringOr(source.description, starter.description),
-    width: clampNumber(source.width, 2400, 12000, starter.width),
-    height: clampNumber(source.height, 1600, 9000, starter.height),
+    width: clampNumber(source.width, DEFAULT_BOARD_WIDTH, 18000, starter.width),
+    height: clampNumber(source.height, DEFAULT_BOARD_HEIGHT, 12000, starter.height),
     background: source.background === "plain" ? "plain" : "grid",
     items: Array.isArray(source.items)
       ? source.items.map(normalizeArtDirectionBoardItem).sort((a, b) => a.zIndex - b.zIndex)

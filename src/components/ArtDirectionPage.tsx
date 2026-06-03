@@ -31,6 +31,13 @@ interface DragState {
   offsetY: number;
 }
 
+interface PanState {
+  startX: number;
+  startY: number;
+  startScrollLeft: number;
+  startScrollTop: number;
+}
+
 const BOARD_PADDING = 80;
 
 export function ArtDirectionPage({ database, readOnly, currentUser, onDatabaseChange }: ArtDirectionPageProps) {
@@ -41,10 +48,14 @@ export function ArtDirectionPage({ database, readOnly, currentUser, onDatabaseCh
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [draggingFiles, setDraggingFiles] = useState(false);
+  const [controlsOpen, setControlsOpen] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isPanning, setIsPanning] = useState(false);
   const boardRef = useRef<HTMLDivElement | null>(null);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const latestBoardRef = useRef(localBoard);
+  const panStateRef = useRef<PanState | null>(null);
 
   const commitBoard = useCallback((nextBoard: ArtDirectionBoard) => {
     if (readOnly) return;
@@ -97,6 +108,47 @@ export function ArtDirectionPage({ database, readOnly, currentUser, onDatabaseCh
       window.removeEventListener("pointerup", handlePointerUp);
     };
   }, [commitBoard, dragState, localBoard.height, localBoard.width]);
+
+  useEffect(() => {
+    if (!isPanning) return;
+
+    const handlePointerMove = (event: PointerEvent) => {
+      const scroller = scrollerRef.current;
+      const panState = panStateRef.current;
+      if (!scroller || !panState) return;
+      const deltaX = event.clientX - panState.startX;
+      const deltaY = event.clientY - panState.startY;
+      scroller.scrollLeft = panState.startScrollLeft - deltaX;
+      scroller.scrollTop = panState.startScrollTop - deltaY;
+      event.preventDefault();
+    };
+
+    const stopPanning = () => {
+      panStateRef.current = null;
+      setIsPanning(false);
+    };
+
+    const previousCursor = document.body.style.cursor;
+    document.body.style.cursor = "grabbing";
+    window.addEventListener("pointermove", handlePointerMove, { passive: false });
+    window.addEventListener("pointerup", stopPanning, { once: true });
+    window.addEventListener("pointercancel", stopPanning, { once: true });
+    return () => {
+      document.body.style.cursor = previousCursor;
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", stopPanning);
+      window.removeEventListener("pointercancel", stopPanning);
+    };
+  }, [isPanning]);
+
+  useEffect(() => {
+    if (!isFullscreen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsFullscreen(false);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isFullscreen]);
 
   const selectedItem = localBoard.items.find((item) => item.id === selectedItemId) || null;
   const imageCount = localBoard.items.filter((item) => item.type === "image").length;
@@ -258,8 +310,26 @@ export function ArtDirectionPage({ database, readOnly, currentUser, onDatabaseCh
     void uploadFiles(files, point);
   };
 
+  const startBoardPan = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.button !== 1) return;
+    const target = event.target as HTMLElement;
+    if (target.closest("button, a, input, textarea")) return;
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+    event.preventDefault();
+    setControlsOpen(true);
+    panStateRef.current = {
+      startX: event.clientX,
+      startY: event.clientY,
+      startScrollLeft: scroller.scrollLeft,
+      startScrollTop: scroller.scrollTop
+    };
+    setIsPanning(true);
+  };
+
   const startDrag = (event: ReactPointerEvent, item: ArtDirectionBoardItem) => {
     if (readOnly) return;
+    if (event.button !== 0) return;
     const target = event.target as HTMLElement;
     if (target.closest("textarea, input, button, a")) return;
     const rect = boardRef.current?.getBoundingClientRect();
@@ -308,7 +378,7 @@ export function ArtDirectionPage({ database, readOnly, currentUser, onDatabaseCh
   };
 
   return (
-    <section className="art-direction-page">
+    <section className={`art-direction-page ${isFullscreen ? "board-fullscreen" : ""}`}>
       <header className="art-direction-hero">
         <div>
           <p>Production Whiteboard</p>
@@ -353,6 +423,14 @@ export function ArtDirectionPage({ database, readOnly, currentUser, onDatabaseCh
           <Icon name="RefreshCw" className="h-4 w-4" />
           Top Left
         </button>
+        <button type="button" onClick={() => setControlsOpen((open) => !open)} className={controlsOpen ? "active" : ""}>
+          <Icon name="PanelsTopLeft" className="h-4 w-4" />
+          Controls
+        </button>
+        <button type="button" className="button-frame" onClick={() => setIsFullscreen((fullscreen) => !fullscreen)}>
+          <Icon name={isFullscreen ? "Minimize2" : "Maximize2"} className="h-4 w-4" />
+          {isFullscreen ? "Exit Fullscreen" : "Fullscreen Board"}
+        </button>
         <input
           ref={fileInputRef}
           className="hidden"
@@ -367,10 +445,34 @@ export function ArtDirectionPage({ database, readOnly, currentUser, onDatabaseCh
         {message && <span className={`art-direction-message ${busy ? "busy" : ""}`}>{message}</span>}
       </div>
 
+      {controlsOpen && (
+        <section className="art-direction-controls-panel">
+          <button type="button" className="art-direction-controls-close" onClick={() => setControlsOpen(false)} title="Close controls">
+            <Icon name="X" className="h-4 w-4" />
+          </button>
+          <div>
+            <strong>Board Controls</strong>
+            <span>Middle mouse hold + drag the board like paper. Drag left to move your view right, drag up to move your view down.</span>
+          </div>
+          <div>
+            <strong>Arrange</strong>
+            <span>Left-drag cards to move them. Drop image files onto the board to upload them into the Art Direction Drive folder.</span>
+          </div>
+          <div>
+            <strong>Fullscreen</strong>
+            <span>Use Fullscreen Board for a larger workspace. Press Escape to leave fullscreen.</span>
+          </div>
+        </section>
+      )}
+
       <div className="art-direction-layout">
         <div
           ref={scrollerRef}
-          className={`art-direction-scroller ${draggingFiles ? "dragging-files" : ""}`}
+          className={`art-direction-scroller ${draggingFiles ? "dragging-files" : ""} ${isPanning ? "panning" : ""}`}
+          onPointerDown={startBoardPan}
+          onAuxClick={(event) => {
+            if (event.button === 1) event.preventDefault();
+          }}
           onDragEnter={(event) => {
             event.preventDefault();
             setDraggingFiles(true);
