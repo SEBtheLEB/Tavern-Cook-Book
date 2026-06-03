@@ -467,20 +467,35 @@ export function calculateRoadmapStats(items: RoadmapItemView[]) {
   const required = items.filter((item) => item.buildTier === "required");
   const completed = items.filter((item) => item.liveStatus === "approved" || item.liveStatus === "complete");
   const missing = items.filter((item) => item.liveStatus === "missing");
+  const submitted = items.filter((item) => item.liveStatus === "uploaded" || item.liveStatus === "needs-review");
+  const inProgress = items.filter((item) => item.liveStatus === "assigned" || item.liveStatus === "in-progress");
   const blocked = items.filter((item) => item.liveStatus === "blocked" || unmetDependencies(item, items).length > 0);
   const assigned = items.filter((item) => Boolean(item.assignedTo));
-  const progress = items.length ? Math.round((completed.length / items.length) * 100) : 0;
+  const weightedProgress = items.reduce((total, item) => total + roadmapStatusProgressWeight(item.liveStatus), 0);
+  const progress = items.length ? Math.round(weightedProgress / items.length) : 0;
   const ready = required.every((item) => item.liveStatus === "approved" || item.liveStatus === "complete");
   return {
     total: items.length,
     required: required.length,
     completed: completed.length,
     missing: missing.length,
+    submitted: submitted.length,
+    inProgress: inProgress.length,
     blocked: blocked.length,
     assigned: assigned.length,
     progress,
     buildReady: required.length > 0 && ready
   };
+}
+
+function roadmapStatusProgressWeight(status: RoadmapItemStatus | string) {
+  if (status === "complete" || status === "approved") return 100;
+  if (status === "uploaded" || status === "needs-review") return 72;
+  if (status === "revision-needed") return 58;
+  if (status === "in-progress") return 42;
+  if (status === "assigned") return 18;
+  if (status === "blocked") return 8;
+  return 0;
 }
 
 export function calculateRoadmapXp(items: RoadmapItemView[], milestones: RoadmapMilestone[]) {

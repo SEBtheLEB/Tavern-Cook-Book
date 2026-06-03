@@ -21732,7 +21732,8 @@ body > .picker-dialog-bg {
 
 .roadmap-view-tabs,
 .roadmap-filter-tabs,
-.roadmap-item-actions {
+.roadmap-item-actions,
+.roadmap-milestone-slot-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -21741,6 +21742,7 @@ body > .picker-dialog-bg {
 .roadmap-view-tabs button,
 .roadmap-filter-tabs button,
 .roadmap-item-actions button,
+.roadmap-milestone-slot-actions button,
 .roadmap-admin-editor button {
   display: inline-flex;
   align-items: center;
@@ -21770,11 +21772,13 @@ body > .picker-dialog-bg {
 .roadmap-view-tabs button:hover,
 .roadmap-filter-tabs button:hover,
 .roadmap-item-actions button:hover,
+.roadmap-milestone-slot-actions button:hover,
 .roadmap-admin-editor button:hover {
   transform: translateY(-1px);
 }
 
 .roadmap-item-actions button:disabled,
+.roadmap-milestone-slot-actions button:disabled,
 .roadmap-admin-editor button:disabled,
 .roadmap-assignment-panel select:disabled,
 .roadmap-notes-field textarea:disabled {
@@ -21835,25 +21839,46 @@ body > .picker-dialog-bg {
 
 .roadmap-milestone-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: 1fr;
   gap: 14px;
 }
 
 .roadmap-milestone-card {
   display: grid;
   gap: 12px;
-  min-height: 250px;
   padding: 18px;
   border: 1px solid rgba(125, 81, 35, 0.32);
   border-radius: 12px;
   background: linear-gradient(180deg, rgba(255, 244, 209, 0.98), rgba(228, 194, 132, 0.94));
   color: #2f2117;
   text-align: left;
-  cursor: pointer;
 }
 
 .roadmap-milestone-card.active {
   outline: 3px solid rgba(182, 108, 36, 0.35);
+}
+
+.roadmap-milestone-summary {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.roadmap-milestone-summary:focus-visible {
+  outline: 3px solid rgba(182, 108, 36, 0.42);
+  outline-offset: 5px;
+}
+
+.roadmap-milestone-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
 }
 
 .roadmap-milestone-card header,
@@ -21909,6 +21934,20 @@ body > .picker-dialog-bg {
   background: linear-gradient(90deg, #c96d1d, #ffcc67);
 }
 
+.roadmap-milestone-meter {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.roadmap-milestone-meter strong {
+  color: #573519;
+  font-size: 0.82rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
 .roadmap-milestone-card footer {
   display: flex;
   flex-wrap: wrap;
@@ -21921,6 +21960,219 @@ body > .picker-dialog-bg {
   background: rgba(58, 34, 14, 0.08);
   color: #573519;
   font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.roadmap-milestone-dropdown {
+  display: grid;
+  gap: 12px;
+  margin-top: 4px;
+  border-top: 1px solid rgba(92, 54, 22, 0.16);
+  padding-top: 14px;
+}
+
+.roadmap-milestone-dropdown-header,
+.roadmap-milestone-phase-title,
+.roadmap-milestone-track-title,
+.roadmap-milestone-slot-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.roadmap-milestone-dropdown-header {
+  border: 1px solid rgba(92, 54, 22, 0.14);
+  border-radius: 10px;
+  padding: 12px;
+  background: rgba(255, 252, 239, 0.52);
+}
+
+.roadmap-milestone-dropdown-header p {
+  margin: 0 0 4px;
+  color: #986525;
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.roadmap-milestone-dropdown-header strong {
+  display: block;
+  color: #432714;
+}
+
+.roadmap-milestone-dropdown-header > span {
+  color: #6b4d33;
+  font-size: 0.86rem;
+  font-weight: 800;
+  text-align: right;
+}
+
+.roadmap-milestone-phase-pack {
+  display: grid;
+  gap: 10px;
+  border: 1px solid rgba(92, 54, 22, 0.16);
+  border-radius: 12px;
+  padding: 12px;
+  background: rgba(255, 252, 239, 0.42);
+}
+
+.roadmap-milestone-phase-title span {
+  color: #432714;
+  font-weight: 900;
+}
+
+.roadmap-milestone-phase-title small,
+.roadmap-milestone-track-title span {
+  border-radius: 999px;
+  padding: 4px 8px;
+  background: rgba(92, 54, 22, 0.1);
+  color: #7a4d1e;
+  font-weight: 900;
+}
+
+.roadmap-milestone-track-block {
+  display: grid;
+  gap: 8px;
+}
+
+.roadmap-milestone-track-title {
+  border-radius: 9px;
+  padding: 8px 10px;
+  background: rgba(50, 31, 17, 0.08);
+}
+
+.roadmap-milestone-track-title strong {
+  color: #573519;
+}
+
+.roadmap-milestone-slot-list {
+  display: grid;
+  gap: 8px;
+}
+
+.roadmap-milestone-slot-row {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid rgba(92, 54, 22, 0.16);
+  border-radius: 10px;
+  padding: 10px;
+  background: rgba(255, 252, 239, 0.68);
+}
+
+.roadmap-milestone-slot-row.status-approved,
+.roadmap-milestone-slot-row.status-complete {
+  border-color: rgba(57, 133, 83, 0.42);
+}
+
+.roadmap-milestone-slot-thumb {
+  display: grid;
+  width: 76px;
+  aspect-ratio: 1;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid rgba(92, 54, 22, 0.2);
+  border-radius: 8px;
+  background: rgba(31, 20, 13, 0.88);
+  color: #e5b86a;
+}
+
+.roadmap-milestone-slot-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.roadmap-milestone-slot-main {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.roadmap-milestone-slot-title strong {
+  color: #2f2117;
+  font-size: 0.96rem;
+}
+
+.roadmap-milestone-slot-title span {
+  border-radius: 999px;
+  padding: 4px 8px;
+  background: rgba(92, 54, 22, 0.1);
+  color: #7a4d1e;
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.roadmap-milestone-slot-main p {
+  margin: 0;
+  color: #624633;
+  font-size: 0.86rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.roadmap-milestone-slot-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.roadmap-milestone-slot-meta span {
+  border-radius: 7px;
+  padding: 4px 7px;
+  background: rgba(58, 34, 14, 0.08);
+  color: #573519;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.roadmap-source-pill.source-pantry,
+.roadmap-milestone-slot-thumb.slot-pantry {
+  border-color: rgba(172, 99, 43, 0.42);
+}
+
+.roadmap-source-pill.source-bestiary,
+.roadmap-milestone-slot-thumb.slot-bestiary {
+  border-color: rgba(90, 118, 70, 0.48);
+}
+
+.roadmap-source-pill.source-character,
+.roadmap-milestone-slot-thumb.slot-character {
+  border-color: rgba(125, 84, 167, 0.42);
+}
+
+.roadmap-source-pill.source-quest,
+.roadmap-source-pill.source-writing,
+.roadmap-milestone-slot-thumb.slot-quest,
+.roadmap-milestone-slot-thumb.slot-writing {
+  border-color: rgba(92, 78, 158, 0.42);
+}
+
+.roadmap-milestone-slot-actions {
+  justify-content: flex-end;
+  min-width: 260px;
+}
+
+.roadmap-milestone-slot-actions button {
+  min-height: 34px;
+  padding: 0 10px;
+  font-size: 0.78rem;
+}
+
+.roadmap-milestone-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px dashed rgba(92, 54, 22, 0.24);
+  border-radius: 10px;
+  padding: 18px;
+  color: #6b4d33;
   font-weight: 900;
 }
 
@@ -22382,8 +22634,26 @@ body > .picker-dialog-bg {
   .roadmap-hero-stats,
   .roadmap-assignment-panel,
   .roadmap-admin-grid,
-  .roadmap-item-card dl {
+  .roadmap-item-card dl,
+  .roadmap-milestone-slot-row,
+  .roadmap-milestone-dropdown-header {
     grid-template-columns: 1fr;
+  }
+
+  .roadmap-milestone-slot-actions,
+  .roadmap-milestone-slot-actions button {
+    width: 100%;
+  }
+
+  .roadmap-milestone-slot-thumb {
+    width: 100%;
+    max-width: 180px;
+  }
+
+  .roadmap-milestone-meter,
+  .roadmap-milestone-slot-title {
+    grid-template-columns: 1fr;
+    display: grid;
   }
 }
 
@@ -22547,6 +22817,7 @@ body > .picker-dialog-bg {
 .roadmap-track-tabs button,
 .roadmap-filter-tabs button,
 .roadmap-item-actions button,
+.roadmap-milestone-slot-actions button,
 .roadmap-admin-editor button,
 .roadmap-readiness-column button {
   border-color: color-mix(in srgb, var(--panel-border) 72%, transparent);
@@ -22564,6 +22835,7 @@ body > .picker-dialog-bg {
 .roadmap-track-tabs button:hover,
 .roadmap-filter-tabs button:hover,
 .roadmap-item-actions button:hover,
+.roadmap-milestone-slot-actions button:hover,
 .roadmap-admin-editor button:hover,
 .roadmap-readiness-column button:hover {
   border-color: color-mix(in srgb, var(--gold) 82%, var(--panel-border));
@@ -22639,6 +22911,10 @@ body > .picker-dialog-bg {
 
 .art-direction-item footer,
 .roadmap-item-card,
+.roadmap-milestone-dropdown-header,
+.roadmap-milestone-phase-pack,
+.roadmap-milestone-track-title,
+.roadmap-milestone-slot-row,
 .roadmap-hero-stats article,
 .roadmap-xp-grid article,
 .roadmap-phase-summary-grid article,
@@ -22722,6 +22998,10 @@ body > .picker-dialog-bg {
 
 .roadmap-milestone-card header span,
 .roadmap-milestone-card header strong,
+.roadmap-milestone-phase-title small,
+.roadmap-milestone-track-title span,
+.roadmap-milestone-slot-title span,
+.roadmap-milestone-slot-meta span,
 .roadmap-item-badges span,
 .roadmap-item-meta summary,
 .roadmap-kicker {
@@ -22740,7 +23020,9 @@ body > .picker-dialog-bg {
 
 .roadmap-readiness.ready,
 .roadmap-item-card.status-approved,
-.roadmap-item-card.status-complete {
+.roadmap-item-card.status-complete,
+.roadmap-milestone-slot-row.status-approved,
+.roadmap-milestone-slot-row.status-complete {
   border-color: color-mix(in srgb, var(--accent-2) 64%, var(--panel-border));
 }
 
@@ -22755,6 +23037,7 @@ body > .picker-dialog-bg {
 .theme-dream .roadmap-view-tabs button,
 .theme-dream .roadmap-track-tabs button,
 .theme-dream .roadmap-item-actions button,
+.theme-dream .roadmap-milestone-slot-actions button,
 .theme-dream .roadmap-admin-editor button,
 .theme-dream .art-direction-toolbar button,
 .theme-dream .art-direction-inspector button,

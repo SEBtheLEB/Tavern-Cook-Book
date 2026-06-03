@@ -310,7 +310,14 @@ export function RoadmapPage({
               milestones={roadmap.milestones}
               items={items}
               selectedMilestoneId={selectedMilestone?.id || ""}
+              binderCards={binderCardMap}
+              readOnly={readOnly}
+              canReview={isAdmin}
+              uploadingItemId={uploadingItemId}
               onSelectMilestone={setSelectedMilestoneId}
+              onOpenBinderSlot={openBinderSlot}
+              onUploadFile={handleUpload}
+              onStatusChange={handleStatusChange}
             />
           )}
 
