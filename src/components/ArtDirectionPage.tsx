@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type PointerEvent as ReactPointerEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from "react";
 import type { ArtDirectionBoard, ArtDirectionBoardItem, GoogleAccountUser, LoreDatabase } from "../types";
 import {
   artDirectionDriveFolderPathLabel,
@@ -39,6 +39,19 @@ interface PanState {
 }
 
 const BOARD_PADDING = 80;
+const TEXT_BACKGROUND_SWATCHES = ["#fff7d6", "#dff7ff", "#eadcff", "#e4f8dd", "#ffe1d6", "#111827"];
+const TEXT_COLOR_SWATCHES = ["#2c1d12", "#fff0d6", "#d8a85d", "#7dd3fc", "#86efac", "#fda4af"];
+const TEXT_FONT_OPTIONS = [
+  { value: "body", label: "Clean Sans" },
+  { value: "display", label: "Tavern Serif" },
+  { value: "handwritten", label: "Sketch Note" },
+  { value: "mono", label: "Production Mono" }
+];
+const TEXT_STYLE_OPTIONS: Array<{ value: NonNullable<ArtDirectionBoardItem["textStyle"]>; label: string }> = [
+  { value: "body", label: "Body" },
+  { value: "heading", label: "Heading" },
+  { value: "caption", label: "Caption" }
+];
 
 export function ArtDirectionPage({ database, readOnly, currentUser, onDatabaseChange }: ArtDirectionPageProps) {
   const board = useMemo(() => normalizeArtDirectionBoard(database.artDirection), [database.artDirection]);
@@ -51,6 +64,7 @@ export function ArtDirectionPage({ database, readOnly, currentUser, onDatabaseCh
   const [controlsOpen, setControlsOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isPanning, setIsPanning] = useState(false);
+  const [textPlacementActive, setTextPlacementActive] = useState(false);
   const boardRef = useRef<HTMLDivElement | null>(null);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -80,9 +94,10 @@ export function ArtDirectionPage({ database, readOnly, currentUser, onDatabaseCh
     const handlePointerMove = (event: PointerEvent) => {
       const element = boardRef.current;
       if (!element) return;
+      const activeItem = latestBoardRef.current.items.find((item) => item.id === dragState.id);
       const rect = element.getBoundingClientRect();
-      const x = clamp(event.clientX - rect.left - dragState.offsetX, 0, localBoard.width - 120);
-      const y = clamp(event.clientY - rect.top - dragState.offsetY, 0, localBoard.height - 120);
+      const x = clamp(event.clientX - rect.left - dragState.offsetX, 0, Math.max(0, localBoard.width - (activeItem?.width || 120)));
+      const y = clamp(event.clientY - rect.top - dragState.offsetY, 0, Math.max(0, localBoard.height - (activeItem?.height || 120)));
       setLocalBoard((current) => {
         const next = {
           ...current,
@@ -142,13 +157,19 @@ export function ArtDirectionPage({ database, readOnly, currentUser, onDatabaseCh
   }, [isPanning]);
 
   useEffect(() => {
-    if (!isFullscreen) return;
+    if (!isFullscreen && !textPlacementActive) return;
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setIsFullscreen(false);
+      if (event.key !== "Escape") return;
+      if (textPlacementActive) {
+        setTextPlacementActive(false);
+        setMessage("");
+        return;
+      }
+      if (isFullscreen) setIsFullscreen(false);
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isFullscreen]);
+  }, [isFullscreen, textPlacementActive]);
 
   const selectedItem = localBoard.items.find((item) => item.id === selectedItemId) || null;
   const imageCount = localBoard.items.filter((item) => item.type === "image").length;
@@ -171,26 +192,43 @@ export function ArtDirectionPage({ database, readOnly, currentUser, onDatabaseCh
     }), commit);
   };
 
-  const addTextNote = () => {
+  const startTextPlacement = () => {
     if (readOnly) return;
-    const position = insertionPoint();
+    setTextPlacementActive((active) => {
+      const next = !active;
+      setMessage(next ? "Click the board where you want the text box." : "");
+      return next;
+    });
+  };
+
+  const addTextNoteAt = (point: { x: number; y: number }) => {
+    if (readOnly) return;
     const stamp = new Date().toISOString();
+    const current = latestBoardRef.current;
+    const width = 340;
+    const height = 210;
     const item: ArtDirectionBoardItem = {
       id: `art-note-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       type: "text",
       title: "Direction Note",
-      text: "Write the art direction note here.",
+      text: "New art direction note",
       color: "#fff7d6",
-      x: position.x,
-      y: position.y,
-      width: 320,
-      height: 220,
-      zIndex: nextZIndex(localBoard),
+      textColor: "#2c1d12",
+      textStyle: "body",
+      fontSize: 18,
+      fontFamily: "body",
+      x: clamp(point.x, BOARD_PADDING, current.width - width),
+      y: clamp(point.y, BOARD_PADDING, current.height - height),
+      width,
+      height,
+      zIndex: nextZIndex(current),
       createdAt: stamp,
       updatedAt: stamp
     };
     setSelectedItemId(item.id);
-    commitBoard({ ...localBoard, items: [...localBoard.items, item], updatedAt: stamp });
+    setTextPlacementActive(false);
+    setMessage("");
+    commitBoard({ ...current, items: [...current.items, item], updatedAt: stamp });
   };
 
   const importFromDrive = async () => {
@@ -303,11 +341,20 @@ export function ArtDirectionPage({ database, readOnly, currentUser, onDatabaseCh
 
   const handleBoardDrop = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
+    event.stopPropagation();
     setDraggingFiles(false);
     if (readOnly || busy) return;
     const files = event.dataTransfer.files;
+    if (!files.length) return;
     const point = boardPointFromClient(event.clientX, event.clientY);
     void uploadFiles(files, point);
+  };
+
+  const handleBoardClick = (event: ReactMouseEvent<HTMLDivElement>) => {
+    if (!textPlacementActive || readOnly || busy) return;
+    event.preventDefault();
+    const point = boardPointFromClient(event.clientX, event.clientY);
+    addTextNoteAt(point);
   };
 
   const startBoardPan = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -334,6 +381,8 @@ export function ArtDirectionPage({ database, readOnly, currentUser, onDatabaseCh
     if (target.closest("textarea, input, button, a")) return;
     const rect = boardRef.current?.getBoundingClientRect();
     if (!rect) return;
+    event.preventDefault();
+    event.stopPropagation();
     event.currentTarget.setPointerCapture(event.pointerId);
     setSelectedItemId(item.id);
     setDragState({
@@ -393,9 +442,9 @@ export function ArtDirectionPage({ database, readOnly, currentUser, onDatabaseCh
       </header>
 
       <div className="art-direction-toolbar">
-        <button type="button" className="button-frame" onClick={addTextNote} disabled={readOnly}>
+        <button type="button" className={textPlacementActive ? "button-frame active" : "button-frame"} onClick={startTextPlacement} disabled={readOnly}>
           <Icon name="StickyNote" className="h-4 w-4" />
-          Add Text
+          {textPlacementActive ? "Click Board" : "Add Text"}
         </button>
         <button type="button" onClick={() => fileInputRef.current?.click()} disabled={readOnly || busy}>
           <Icon name="UploadCloud" className="h-4 w-4" />
@@ -456,7 +505,11 @@ export function ArtDirectionPage({ database, readOnly, currentUser, onDatabaseCh
           </div>
           <div>
             <strong>Arrange</strong>
-            <span>Left-drag cards to move them. Drop image files onto the board to upload them into the Art Direction Drive folder.</span>
+            <span>Left-drag images or notes to move the actual board item. Drop image files onto the board to upload them into the Art Direction Drive folder.</span>
+          </div>
+          <div>
+            <strong>Text</strong>
+            <span>Click Add Text, then click the board where the text box should land. Select it to change color, style, size, and font.</span>
           </div>
           <div>
             <strong>Fullscreen</strong>
@@ -468,7 +521,7 @@ export function ArtDirectionPage({ database, readOnly, currentUser, onDatabaseCh
       <div className="art-direction-layout">
         <div
           ref={scrollerRef}
-          className={`art-direction-scroller ${draggingFiles ? "dragging-files" : ""} ${isPanning ? "panning" : ""}`}
+          className={`art-direction-scroller ${draggingFiles ? "dragging-files" : ""} ${isPanning ? "panning" : ""} ${textPlacementActive ? "placing-text" : ""}`}
           onPointerDown={startBoardPan}
           onAuxClick={(event) => {
             if (event.button === 1) event.preventDefault();
@@ -488,6 +541,7 @@ export function ArtDirectionPage({ database, readOnly, currentUser, onDatabaseCh
             ref={boardRef}
             className={`art-direction-board ${localBoard.background === "plain" ? "plain" : ""}`}
             style={{ width: localBoard.width, height: localBoard.height }}
+            onClick={handleBoardClick}
           >
             <div className="art-direction-origin">
               <Icon name="Compass" className="h-4 w-4" />
@@ -505,35 +559,55 @@ export function ArtDirectionPage({ database, readOnly, currentUser, onDatabaseCh
                   zIndex: item.zIndex,
                   background: item.type === "text" ? item.color || "#fff7d6" : undefined
                 }}
+                draggable={false}
                 onPointerDown={(event) => startDrag(event, item)}
-                onClick={() => setSelectedItemId(item.id)}
+                onDragStart={(event) => event.preventDefault()}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setSelectedItemId(item.id);
+                }}
               >
-                <header>
-                  <span>{item.type === "image" ? "Reference" : "Note"}</span>
-                  {!readOnly && (
-                    <button type="button" onClick={() => removeItem(item.id)} title="Remove from board">
-                      <Icon name="Trash2" className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                </header>
                 {item.type === "image" && item.image ? (
                   <>
                     <div className="art-direction-image-frame">
-                      <DriveAwareImage src={item.image.thumbnailUrl || item.image.webViewLink} alt={item.title} />
+                      <DriveAwareImage
+                        src={item.image.thumbnailUrl || item.image.webViewLink}
+                        alt={item.title}
+                        draggable={false}
+                        onDragStart={(event) => event.preventDefault()}
+                      />
                     </div>
-                    <footer>
-                      <strong>{item.title}</strong>
-                      <span>{item.image.fileName}</span>
-                    </footer>
+                    {!readOnly && (
+                      <button type="button" className="art-direction-item-remove" onClick={() => removeItem(item.id)} title="Remove image from board">
+                        <Icon name="Trash2" className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                   </>
                 ) : (
-                  <textarea
-                    value={item.text || ""}
-                    disabled={readOnly}
-                    onChange={(event) => patchItem(item.id, { text: event.target.value }, false)}
-                    onBlur={() => commitBoard(latestBoardRef.current)}
-                    aria-label={`${item.title} text`}
-                  />
+                  <>
+                    <header>
+                      <span>Text</span>
+                      {!readOnly && (
+                        <button type="button" onClick={() => removeItem(item.id)} title="Remove text from board">
+                          <Icon name="Trash2" className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </header>
+                    <textarea
+                      value={item.text || ""}
+                      disabled={readOnly}
+                      onChange={(event) => patchItem(item.id, { text: event.target.value }, false)}
+                      onBlur={() => commitBoard(latestBoardRef.current)}
+                      aria-label={`${item.title} text`}
+                      style={{
+                        color: item.textColor || "#2c1d12",
+                        fontSize: `${item.fontSize || 18}px`,
+                        fontFamily: artDirectionFontFamily(item.fontFamily),
+                        fontWeight: item.textStyle === "heading" ? 900 : item.textStyle === "caption" ? 700 : 600,
+                        lineHeight: item.textStyle === "heading" ? 1.16 : 1.42
+                      }}
+                    />
+                  </>
                 )}
               </article>
             ))}
@@ -581,18 +655,104 @@ export function ArtDirectionPage({ database, readOnly, currentUser, onDatabaseCh
                 </button>
               </div>
               {selectedItem.type === "text" && (
-                <div className="art-direction-color-row">
-                  {["#fff7d6", "#dff7ff", "#eadcff", "#e4f8dd", "#ffe1d6"].map((color) => (
-                    <button
-                      key={color}
-                      type="button"
-                      title={color}
+                <div className="art-direction-text-style-fields">
+                  <label>
+                    Text Style
+                    <div className="art-direction-segment-row">
+                      {TEXT_STYLE_OPTIONS.map((option) => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          disabled={readOnly}
+                          className={(selectedItem.textStyle || "body") === option.value ? "active" : ""}
+                          onClick={() => patchItem(selectedItem.id, textStylePatch(option.value))}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  </label>
+                  <label>
+                    Font
+                    <select
+                      value={selectedItem.fontFamily || "body"}
                       disabled={readOnly}
-                      style={{ background: color }}
-                      className={selectedItem.color === color ? "active" : ""}
-                      onClick={() => patchItem(selectedItem.id, { color })}
-                    />
-                  ))}
+                      onChange={(event) => patchItem(selectedItem.id, { fontFamily: event.target.value })}
+                    >
+                      {TEXT_FONT_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Text Size
+                    <div className="art-direction-text-size-field">
+                      <input
+                        type="range"
+                        min={12}
+                        max={72}
+                        value={selectedItem.fontSize || 18}
+                        disabled={readOnly}
+                        onChange={(event) => patchItem(selectedItem.id, { fontSize: Number(event.target.value) }, false)}
+                        onBlur={() => commitBoard(latestBoardRef.current)}
+                      />
+                      <input
+                        type="number"
+                        min={12}
+                        max={96}
+                        value={selectedItem.fontSize || 18}
+                        disabled={readOnly}
+                        onChange={(event) => patchItem(selectedItem.id, { fontSize: Number(event.target.value) || 18 }, false)}
+                        onBlur={() => commitBoard(latestBoardRef.current)}
+                      />
+                    </div>
+                  </label>
+                  <label>
+                    Text Color
+                    <div className="art-direction-color-row">
+                      {TEXT_COLOR_SWATCHES.map((color) => (
+                        <button
+                          key={color}
+                          type="button"
+                          title={color}
+                          disabled={readOnly}
+                          style={{ background: color }}
+                          className={(selectedItem.textColor || "#2c1d12").toLowerCase() === color.toLowerCase() ? "active" : ""}
+                          onClick={() => patchItem(selectedItem.id, { textColor: color })}
+                        />
+                      ))}
+                      <input
+                        type="color"
+                        value={selectedItem.textColor || "#2c1d12"}
+                        disabled={readOnly}
+                        onChange={(event) => patchItem(selectedItem.id, { textColor: event.target.value })}
+                        aria-label="Custom text color"
+                      />
+                    </div>
+                  </label>
+                  <label>
+                    Box Color
+                    <div className="art-direction-color-row">
+                      {TEXT_BACKGROUND_SWATCHES.map((color) => (
+                        <button
+                          key={color}
+                          type="button"
+                          title={color}
+                          disabled={readOnly}
+                          style={{ background: color }}
+                          className={(selectedItem.color || "#fff7d6").toLowerCase() === color.toLowerCase() ? "active" : ""}
+                          onClick={() => patchItem(selectedItem.id, { color })}
+                        />
+                      ))}
+                      <input
+                        type="color"
+                        value={selectedItem.color || "#fff7d6"}
+                        disabled={readOnly}
+                        onChange={(event) => patchItem(selectedItem.id, { color: event.target.value })}
+                        aria-label="Custom text box color"
+                      />
+                    </div>
+                  </label>
                 </div>
               )}
               {selectedItem.type === "image" && selectedItem.image?.webViewLink && (
@@ -700,6 +860,19 @@ function folderFromBoard(board: ArtDirectionBoard): GoogleDriveFolder {
     url: board.driveFolderLink,
     mimeType: "application/vnd.google-apps.folder"
   };
+}
+
+function artDirectionFontFamily(value: string | undefined) {
+  if (value === "display") return "Georgia, Cambria, 'Times New Roman', serif";
+  if (value === "handwritten") return "'Segoe Print', 'Bradley Hand ITC', 'Comic Sans MS', cursive";
+  if (value === "mono") return "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace";
+  return "Inter, ui-sans-serif, system-ui, sans-serif";
+}
+
+function textStylePatch(style: NonNullable<ArtDirectionBoardItem["textStyle"]>): Partial<ArtDirectionBoardItem> {
+  if (style === "heading") return { textStyle: style, fontSize: 34, fontFamily: "display" };
+  if (style === "caption") return { textStyle: style, fontSize: 14, fontFamily: "body" };
+  return { textStyle: style, fontSize: 18, fontFamily: "body" };
 }
 
 function nextZIndex(board: ArtDirectionBoard) {

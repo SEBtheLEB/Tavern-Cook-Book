@@ -98,6 +98,10 @@ function normalizeArtDirectionBoardItem(value: unknown): ArtDirectionBoardItem {
     zIndex: clampNumber(source.zIndex, 0, 100000, 1),
     text: type === "text" ? stringOr(source.text, "New note") : undefined,
     color: type === "text" ? stringOr(source.color, "#fff7d6") : undefined,
+    textColor: type === "text" ? stringOr(source.textColor, "#2c1d12") : undefined,
+    textStyle: type === "text" ? normalizeTextStyle(source.textStyle) : undefined,
+    fontSize: type === "text" ? clampNumber(source.fontSize, 12, 96, 18) : undefined,
+    fontFamily: type === "text" ? normalizeFontFamily(source.fontFamily) : undefined,
     image: type === "image" && source.image ? sanitizeArtDirectionImageMetadata(source.image) : undefined,
     notes: stringOr(source.notes, ""),
     createdAt,
@@ -134,6 +138,15 @@ function safePersistentUrl(value: unknown) {
   const lower = text.toLowerCase();
   if (lower.startsWith("blob:") || lower.startsWith("data:")) return "";
   return text;
+}
+
+function normalizeTextStyle(value: unknown): "body" | "heading" | "caption" {
+  return value === "heading" || value === "caption" ? value : "body";
+}
+
+function normalizeFontFamily(value: unknown) {
+  const text = stringOr(value, "body");
+  return ["body", "display", "handwritten", "mono"].includes(text) ? text : "body";
 }
 
 function clampNumber(value: unknown, min: number, max: number, fallback: number) {

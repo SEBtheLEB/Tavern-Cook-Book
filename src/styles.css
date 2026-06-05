@@ -21462,6 +21462,11 @@ body > .picker-dialog-bg {
   user-select: none;
 }
 
+.art-direction-scroller.placing-text,
+.art-direction-scroller.placing-text .art-direction-board {
+  cursor: crosshair;
+}
+
 .art-direction-page.board-fullscreen .art-direction-scroller {
   min-height: 0;
   height: calc(100vh - 102px);
@@ -21521,6 +21526,17 @@ body > .picker-dialog-bg {
   box-shadow: 0 24px 54px rgba(55, 35, 20, 0.25);
 }
 
+.art-direction-item.image {
+  overflow: visible;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.art-direction-item.image.dragging {
+  box-shadow: none;
+}
+
 .art-direction-item header {
   display: flex;
   align-items: center;
@@ -21552,10 +21568,52 @@ body > .picker-dialog-bg {
   background: #111827;
 }
 
+.art-direction-item.image .art-direction-image-frame {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  pointer-events: none;
+}
+
 .art-direction-image-frame img {
   width: 100%;
   height: 100%;
   object-fit: contain;
+}
+
+.art-direction-item.image .art-direction-image-frame img {
+  display: block;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  filter: drop-shadow(0 16px 26px rgba(31, 20, 12, 0.22));
+}
+
+.art-direction-item-remove {
+  position: absolute;
+  right: -12px;
+  top: -12px;
+  display: inline-grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 1px solid rgba(63, 37, 17, 0.28);
+  border-radius: 999px;
+  background: rgba(34, 22, 15, 0.92);
+  color: #fff6e4;
+  opacity: 0;
+  transform: scale(0.92);
+  transition: opacity 140ms ease, transform 140ms ease, box-shadow 140ms ease;
+}
+
+.art-direction-item:hover .art-direction-item-remove,
+.art-direction-item.selected .art-direction-item-remove {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.art-direction-item-remove:hover {
+  box-shadow: 0 0 0 4px rgba(210, 133, 33, 0.16);
 }
 
 .art-direction-item footer {
@@ -22679,7 +22737,8 @@ body > .picker-dialog-bg {
 }
 
 .art-direction-size-row,
-.art-direction-color-row {
+.art-direction-color-row,
+.art-direction-segment-row {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -22695,6 +22754,42 @@ body > .picker-dialog-bg {
 .art-direction-color-row button.active {
   outline: 3px solid rgba(36, 24, 14, 0.5);
   outline-offset: 2px;
+}
+
+.art-direction-color-row input[type="color"] {
+  width: 38px;
+  height: 32px;
+  min-height: 32px;
+  border: 1px solid rgba(94, 62, 34, 0.26);
+  border-radius: 7px;
+  background: transparent;
+  padding: 2px;
+  cursor: pointer;
+}
+
+.art-direction-text-style-fields {
+  display: grid;
+  gap: 12px;
+}
+
+.art-direction-segment-row button {
+  flex: 1 1 86px;
+}
+
+.art-direction-segment-row button.active {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 16%, transparent);
+}
+
+.art-direction-text-size-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 72px;
+  gap: 8px;
+  align-items: center;
+}
+
+.art-direction-text-size-field input[type="range"] {
+  padding: 0;
 }
 
 .art-direction-inspector a {
@@ -22909,6 +23004,12 @@ body > .picker-dialog-bg {
   box-shadow: 0 18px 38px color-mix(in srgb, #000 22%, transparent);
 }
 
+.art-direction-item.image {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
 .art-direction-item header,
 .roadmap-category-header {
   border-color: color-mix(in srgb, var(--panel-border) 72%, transparent);
@@ -22928,6 +23029,14 @@ body > .picker-dialog-bg {
     radial-gradient(circle at center, color-mix(in srgb, var(--gold) 8%, transparent), transparent 58%),
     color-mix(in srgb, var(--modal-bg) 88%, #020817);
   color: var(--gold);
+}
+
+.art-direction-item.image .art-direction-image-frame {
+  background: transparent;
+}
+
+.theme-dream .art-direction-item.image .art-direction-image-frame img {
+  filter: drop-shadow(0 18px 30px color-mix(in srgb, #000 44%, transparent));
 }
 
 .art-direction-item footer,

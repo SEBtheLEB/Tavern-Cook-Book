@@ -575,6 +575,10 @@ export interface ArtDirectionBoardItem {
   zIndex: number;
   text?: string;
   color?: string;
+  textColor?: string;
+  textStyle?: "body" | "heading" | "caption";
+  fontSize?: number;
+  fontFamily?: string;
   image?: ArtDirectionImageMetadata;
   notes?: string;
   createdAt: string;
