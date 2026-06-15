@@ -121,7 +121,8 @@ import {
   saveAssignments,
   saveQuestCategories,
   saveTeamMembers,
-  saveUserProfiles
+  saveUserProfiles,
+  syncTeamMembersWithAccessUsers
 } from "./utils/assignments";
 
 const extraViews: ViewConfig[] = [
@@ -1049,6 +1050,14 @@ export default function App() {
     setQuestCategoriesState(next);
     saveAssignmentBundleToDatabase({ questCategories: next });
   }, [saveAssignmentBundleToDatabase]);
+
+  useEffect(() => {
+    const syncedTeamMembers = syncTeamMembersWithAccessUsers(teamMembers, appSyncSettings.accessUsers, userProfiles);
+    if (JSON.stringify(syncedTeamMembers) === JSON.stringify(teamMembers)) return;
+    saveTeamMembers(syncedTeamMembers);
+    setTeamMembersState(syncedTeamMembers);
+    saveAssignmentBundleToDatabase({ teamMembers: syncedTeamMembers });
+  }, [appSyncSettings.accessUsers, saveAssignmentBundleToDatabase, teamMembers, userProfiles]);
 
   useEffect(() => {
     saveAppSyncSettings(appSyncSettings);
@@ -2898,6 +2907,7 @@ export default function App() {
           {profileOpen ? (
             <ProfilePage
               currentUser={currentUser}
+              accessUsers={appSyncSettings.accessUsers}
               teamMembers={teamMembers}
               profiles={userProfiles}
               onTeamMembersChange={setTeamMembers}

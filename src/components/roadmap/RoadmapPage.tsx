@@ -63,7 +63,7 @@ export function RoadmapPage({
   const binderCards = useMemo(() => buildArtBinderCards(database), [database]);
   const binderCardMap = useMemo(() => new Map(binderCards.map((card) => [roadmapBinderSlotId(card), card] as const)), [binderCards]);
   const currentMember = currentUser ? getTeamMemberForGoogleUser(currentUser, teamMembers) : null;
-  const isAdmin = currentUser?.role === "admin" || currentMember?.permission === "owner" || currentMember?.permission === "admin";
+  const isAdmin = currentUser?.role === "admin";
   const [selectedMilestoneId, setSelectedMilestoneId] = useState(roadmap.milestones[0]?.id || "");
   const [filter, setFilter] = useState<RoadmapFilter>("all");
   const [search, setSearch] = useState("");

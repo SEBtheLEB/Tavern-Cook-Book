@@ -544,7 +544,7 @@ export function SettingsPage({
             <div>
               <h3 className="font-display text-2xl">Team Access</h3>
               <p className="mt-1 text-sm" style={{ color: "var(--muted-ink)" }}>
-                Admin can access Settings and manage Gmail permissions. Editors can create, edit, upload, and download. Viewers can only read and click links.
+                This is the only place that controls app access. Admin can manage permissions, editors can work across the cookbook, freelancers are limited to Art Vault / Art Binder, and viewers can only read.
               </p>
             </div>
             <span className="rounded border px-3 py-1 text-sm" style={{ borderColor: "var(--card-border)", background: "var(--field-bg)" }}>

@@ -14093,6 +14093,45 @@ button,
   align-items: center;
 }
 
+.profile-panel-header span {
+  display: block;
+  max-width: 680px;
+  color: var(--muted-ink);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.team-access-badge {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  padding: 0.65rem 0.8rem;
+  background: var(--field-bg);
+  color: var(--app-ink);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.team-access-badge.freelancer {
+  border-color: rgba(32, 156, 131, 0.45);
+  color: #117360;
+}
+
+.team-access-badge.admin {
+  border-color: rgba(185, 126, 38, 0.45);
+  color: #8a5918;
+}
+
+.team-access-badge.assignment-only {
+  color: var(--muted-ink);
+}
+
 @media (max-width: 980px) {
   .quest-dashboard-header,
   .profile-header-panel,

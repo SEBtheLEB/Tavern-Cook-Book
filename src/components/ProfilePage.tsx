@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
-import type { GoogleAccountUser } from "../types";
+import type { AccessRole, AccessUserPermission, GoogleAccountUser } from "../types";
 import {
-  type AssignmentPermission,
   type TeamMember,
   type UserProfile,
   getCurrentUserProfile,
@@ -9,13 +8,13 @@ import {
   saveTeamMembers,
   saveUserProfiles
 } from "../utils/assignments";
-import { CustomSelect } from "./CustomSelect";
 import { DriveAwareImage } from "./DriveAwareImage";
 import { DriveImageSourceControls } from "./DriveImageSourceControls";
 import { Icon } from "./Icon";
 
 interface ProfilePageProps {
   currentUser: GoogleAccountUser;
+  accessUsers: AccessUserPermission[];
   teamMembers: TeamMember[];
   profiles: UserProfile[];
   onTeamMembersChange: (members: TeamMember[]) => void;
@@ -24,10 +23,9 @@ interface ProfilePageProps {
   onBack: () => void;
 }
 
-const permissions: AssignmentPermission[] = ["owner", "admin", "editor", "viewer"];
-
 export function ProfilePage({
   currentUser,
+  accessUsers,
   teamMembers,
   profiles,
   onTeamMembersChange,
@@ -40,8 +38,12 @@ export function ProfilePage({
     () => getCurrentUserProfile(currentUser, teamMembers, profiles),
     [currentUser, profiles, teamMembers]
   );
+  const accessByEmail = useMemo(
+    () => new Map(accessUsers.map((user) => [normalizeEmail(user.email), user] as const)),
+    [accessUsers]
+  );
   const [draft, setDraft] = useState(profile);
-  const canManageTeam = currentMember.permission === "owner" || currentMember.permission === "admin";
+  const canManageTeam = currentUser.role === "admin";
 
   const saveProfile = () => {
     const next = [
@@ -59,24 +61,26 @@ export function ProfilePage({
   };
 
   const addTeamMember = () => {
+    const newMember: TeamMember = {
+      id: `team-${Date.now()}`,
+      name: "New Teammate",
+      email: "",
+      role: "Editor",
+      avatar: "",
+      permission: "viewer",
+      department: ""
+    };
     const next = [
       ...teamMembers,
-      {
-        id: `team-${Date.now()}`,
-        name: "New Teammate",
-        email: "",
-        role: "Editor",
-        avatar: "",
-        permission: "viewer" as AssignmentPermission,
-        department: ""
-      }
+      newMember
     ];
     saveTeamMembers(next);
     onTeamMembersChange(next);
   };
 
   const removeTeamMember = (memberId: string) => {
-    if (memberId === currentMember.id) return;
+    const member = teamMembers.find((item) => item.id === memberId);
+    if (memberId === currentMember.id || accessByEmail.has(normalizeEmail(member?.email || ""))) return;
     const next = teamMembers.filter((member) => member.id !== memberId);
     saveTeamMembers(next);
     onTeamMembersChange(next);
@@ -96,7 +100,7 @@ export function ProfilePage({
         <div>
           <p>Profile</p>
           <h1 className="font-display">{draft.displayName}</h1>
-          <span>{draft.role || currentUser.role}</span>
+          <span>{accessRoleLabel(currentUser.role)}{draft.role ? ` / ${draft.role}` : ""}</span>
         </div>
         <button className="button-frame primary" onClick={onOpenQuestDashboard}>
           Personal Quest Dashboard
@@ -111,7 +115,7 @@ export function ProfilePage({
             <input value={draft.displayName} onChange={(event) => setDraft({ ...draft, displayName: event.target.value })} />
           </label>
           <label>
-            <span>Role/title</span>
+            <span>Job title</span>
             <input value={draft.role} placeholder="Producer, Writer, Animator..." onChange={(event) => setDraft({ ...draft, role: event.target.value })} />
           </label>
           <label>
@@ -142,40 +146,65 @@ export function ProfilePage({
         <section className="profile-edit-panel">
           <header className="profile-panel-header">
             <div>
-              <p>Owner/Admin</p>
-              <h2 className="font-display">Team Members</h2>
+              <p>Settings-synced roster</p>
+              <h2 className="font-display">Team Profiles</h2>
+              <span>Access roles come from Settings &gt; Team Access. This page only manages names, avatars, departments, and assignment-only contacts.</span>
             </div>
             <button className="button-frame" onClick={addTeamMember}>
               <Icon name="Plus" className="h-4 w-4" />
-              Add Teammate
+              Add Assignment Contact
             </button>
           </header>
           <div className="team-member-list">
-            {teamMembers.map((member) => (
-              <article key={member.id} className="team-member-row">
-                <input value={member.name} placeholder="Name" onChange={(event) => updateTeamMember(member.id, { name: event.target.value })} />
-                <input value={member.email} placeholder="email@example.com" onChange={(event) => updateTeamMember(member.id, { email: event.target.value })} />
-                <input value={member.role} placeholder="Role" onChange={(event) => updateTeamMember(member.id, { role: event.target.value })} />
-                <DriveImageSourceControls
-                  value={member.avatar}
-                  label={`${member.name || "Teammate"} avatar`}
-                  title="Choose Teammate Avatar"
-                  compact
-                  onChange={(avatar) => updateTeamMember(member.id, { avatar })}
-                />
-                <CustomSelect
-                  value={member.permission}
-                  onChange={(value) => updateTeamMember(member.id, { permission: value as AssignmentPermission })}
-                  options={permissions}
-                />
-                <button className="button-frame danger" onClick={() => removeTeamMember(member.id)} disabled={member.id === currentMember.id}>
-                  Remove
-                </button>
-              </article>
-            ))}
+            {teamMembers.map((member) => {
+              const access = accessByEmail.get(normalizeEmail(member.email));
+              const accessManaged = Boolean(access);
+              return (
+                <article key={member.id} className="team-member-row">
+                  <input value={member.name} placeholder="Name" onChange={(event) => updateTeamMember(member.id, { name: event.target.value })} />
+                  <input
+                    value={member.email}
+                    placeholder="email@example.com"
+                    disabled={accessManaged}
+                    title={accessManaged ? "Change access emails in Settings > Team Access." : "Assignment-only contact email"}
+                    onChange={(event) => updateTeamMember(member.id, { email: event.target.value })}
+                  />
+                  <input value={member.role} placeholder="Role/title" onChange={(event) => updateTeamMember(member.id, { role: event.target.value })} />
+                  <DriveImageSourceControls
+                    value={member.avatar}
+                    label={`${member.name || "Teammate"} avatar`}
+                    title="Choose Teammate Avatar"
+                    compact
+                    onChange={(avatar) => updateTeamMember(member.id, { avatar })}
+                  />
+                  <span className={`team-access-badge ${access?.role || "assignment-only"}`}>
+                    {access ? accessRoleLabel(access.role) : "Assignment Only"}
+                  </span>
+                  <button
+                    className="button-frame danger"
+                    onClick={() => removeTeamMember(member.id)}
+                    disabled={member.id === currentMember.id || accessManaged}
+                    title={accessManaged ? "Remove Gmail access in Settings > Team Access." : "Remove assignment-only contact"}
+                  >
+                    Remove
+                  </button>
+                </article>
+              );
+            })}
           </div>
         </section>
       )}
     </div>
   );
+}
+
+function normalizeEmail(value: string) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function accessRoleLabel(role: AccessRole) {
+  if (role === "admin") return "Admin Access";
+  if (role === "editor") return "Editor Access";
+  if (role === "freelancer") return "Freelancer Access";
+  return "Viewer Access";
 }

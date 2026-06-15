@@ -1,7 +1,7 @@
-import type { AccessRole, GoogleAccountUser } from "../types";
+import type { AccessRole, AccessUserPermission, GoogleAccountUser } from "../types";
 
 export type AssignmentStatus = "not-started" | "wip" | "done" | "needs-review";
-export type AssignmentPermission = "owner" | "admin" | "editor" | "viewer";
+export type AssignmentPermission = "owner" | "admin" | "editor" | "freelancer" | "viewer";
 
 export interface AssignmentRecord {
   id: string;
@@ -101,9 +101,9 @@ export const defaultTeamMembers: TeamMember[] = [
     id: "sebastianac1101-gmail-com",
     name: "Sebastien Backup",
     email: "sebastianac1101@gmail.com",
-    role: "Editor",
+    role: "Freelancer",
     avatar: "",
-    permission: "editor",
+    permission: "freelancer",
     department: "Production"
   },
   {
@@ -243,7 +243,14 @@ export function getCurrentUserProfile(user: GoogleAccountUser, members = getTeam
 
 export function getTeamMemberForGoogleUser(user: GoogleAccountUser, members = getTeamMembers()): TeamMember {
   const existing = members.find((member) => normalizeEmail(member.email) === normalizeEmail(user.email));
-  if (existing) return existing;
+  if (existing) {
+    return {
+      ...existing,
+      role: shouldUseAccessRoleLabel(existing.role) ? roleLabel(user.role) : existing.role,
+      avatar: existing.avatar || user.picture || "",
+      permission: permissionFromAccessRole(user.role)
+    };
+  }
   return {
     id: user.email || `user-${Date.now()}`,
     name: user.name || user.email,
@@ -259,7 +266,7 @@ export function getTeamMemberForGoogleUser(user: GoogleAccountUser, members = ge
 export function permissionFromAccessRole(role: AccessRole): AssignmentPermission {
   if (role === "admin") return "owner";
   if (role === "editor") return "editor";
-  if (role === "freelancer") return "editor";
+  if (role === "freelancer") return "freelancer";
   return "viewer";
 }
 
@@ -268,7 +275,7 @@ export function canAssignToOthers(permission: AssignmentPermission) {
 }
 
 export function canSelfAssign(permission: AssignmentPermission) {
-  return permission === "owner" || permission === "admin" || permission === "editor";
+  return permission === "owner" || permission === "admin" || permission === "editor" || permission === "freelancer";
 }
 
 export function statusLabel(status: AssignmentStatus) {
@@ -340,6 +347,48 @@ export function normalizeTeamMembers(members: unknown[]) {
   return [...byId.values()];
 }
 
+export function syncTeamMembersWithAccessUsers(
+  members: TeamMember[],
+  accessUsers: AccessUserPermission[],
+  profiles: UserProfile[] = []
+) {
+  const normalizedMembers = normalizeTeamMembers(members);
+  const accessByEmail = new Map(accessUsers.map((user) => [normalizeEmail(user.email), user] as const));
+  const profileByEmail = new Map(profiles.map((profile) => [normalizeEmail(profile.email), profile] as const));
+  const memberByEmail = new Map(
+    normalizedMembers
+      .filter((member) => normalizeEmail(member.email))
+      .map((member) => [normalizeEmail(member.email), member] as const)
+  );
+  const usedIds = new Set<string>();
+
+  const syncedAccessMembers = accessUsers.map((access) => {
+    const email = normalizeEmail(access.email);
+    const existing = memberByEmail.get(email);
+    const profile = profileByEmail.get(email);
+    const id = existing?.id || memberIdFromEmail(email);
+    usedIds.add(id);
+    return normalizeTeamMember({
+      ...existing,
+      id,
+      email,
+      name: existing?.name || profile?.displayName || access.label || email,
+      role: existing && !shouldUseAccessRoleLabel(existing.role) ? existing.role : roleLabel(access.role),
+      avatar: existing?.avatar || profile?.picture || "",
+      permission: permissionFromAccessRole(access.role),
+      department: existing?.department || profile?.department || "",
+      bio: existing?.bio || profile?.bio || ""
+    }) as TeamMember;
+  });
+
+  const assignmentOnlyMembers = normalizedMembers.filter((member) => {
+    if (usedIds.has(member.id)) return false;
+    return !accessByEmail.has(normalizeEmail(member.email));
+  });
+
+  return [...syncedAccessMembers, ...assignmentOnlyMembers];
+}
+
 export function normalizeQuestCategories(categories: unknown[]) {
   const saved = categories.map(normalizeQuestCategory).filter((category): category is QuestCategory => Boolean(category));
   const byId = new Map<string, QuestCategory>();
@@ -409,7 +458,7 @@ function normalizeMoodLabels(value: unknown) {
 }
 
 function normalizePermission(value: unknown): AssignmentPermission {
-  if (value === "owner" || value === "admin" || value === "editor") return value;
+  if (value === "owner" || value === "admin" || value === "editor" || value === "freelancer") return value;
   return "viewer";
 }
 
@@ -418,6 +467,14 @@ function roleLabel(role: AccessRole) {
   if (role === "editor") return "Editor";
   if (role === "freelancer") return "Freelancer";
   return "Viewer";
+}
+
+function shouldUseAccessRoleLabel(value: string) {
+  return ["producer", "admin", "owner", "editor", "freelancer", "viewer"].includes(value.trim().toLowerCase());
+}
+
+function memberIdFromEmail(email: string) {
+  return email.replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || `team-${Date.now()}`;
 }
 
 function statusWeight(status: AssignmentStatus) {
