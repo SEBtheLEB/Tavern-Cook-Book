@@ -468,6 +468,7 @@ export default function App() {
   const pendingTeamChangeHashRef = useRef(getFreshPendingTeamChange().hash);
   const spriteSnapshotRepairHashRef = useRef("");
   const syncSettingsSaveTimerRef = useRef<number | null>(null);
+  const remoteSettingsLoadedRef = useRef(false);
   const sessionUiStateRef = useRef<AppSessionUiState | null>(null);
   const restoredSessionScrollRef = useRef(false);
   const restoredSessionEntryRef = useRef(Boolean(selectedEntry));
@@ -1062,6 +1063,7 @@ export default function App() {
   useEffect(() => {
     saveAppSyncSettings(appSyncSettings);
     if (!currentUser || !canAccessSettings || hostedViewer) return;
+    if (!remoteSettingsLoadedRef.current) return;
     if (syncSettingsSaveTimerRef.current) window.clearTimeout(syncSettingsSaveTimerRef.current);
     syncSettingsSaveTimerRef.current = window.setTimeout(() => {
       void saveRemoteAppSettings(currentUser.email, appSyncSettings).catch(() => {});
@@ -1154,6 +1156,7 @@ export default function App() {
       }
       if (settingsResult.ok && settingsResult.envelope?.payload) {
         const remoteSettings = normalizeAppSyncSettings(settingsResult.envelope.payload);
+        remoteSettingsLoadedRef.current = true;
         saveAppSyncSettings(remoteSettings);
         saveAccessUsers(remoteSettings.accessUsers);
         setAppSyncSettings(remoteSettings);
@@ -1178,6 +1181,8 @@ export default function App() {
           });
           return;
         }
+      } else if (settingsResult.ok) {
+        remoteSettingsLoadedRef.current = true;
       }
 
       const fetchedPublished = publishedResult.ok && publishedResult.envelope?.payload.database

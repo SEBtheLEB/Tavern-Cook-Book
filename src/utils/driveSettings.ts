@@ -26,11 +26,14 @@ const driveSettingLabels: Record<keyof DriveSettings, string> = {
   defaultArtVaultFolderId: "Default Art Vault Parent Folder ID"
 };
 
+export const DEFAULT_GOOGLE_OAUTH_CLIENT_ID = "55508806253-p292f7oom6s1do0f9er1unfhi0mjjaen.apps.googleusercontent.com";
+export const DEFAULT_TALES_DRIVE_FOLDER_ID = "1FcmPITLSZkg_XEHLtpaN6wVRkQlMnMIY";
+
 export function createEmptyDriveSettings(): DriveSettings {
   return {
     googleApiKey: "",
-    googleOAuthClientId: "",
-    defaultTalesFolderId: "",
+    googleOAuthClientId: DEFAULT_GOOGLE_OAUTH_CLIENT_ID,
+    defaultTalesFolderId: DEFAULT_TALES_DRIVE_FOLDER_ID,
     defaultCharactersFolderId: "",
     defaultWorldArtFolderId: "",
     defaultMarketingArtFolderId: "",
@@ -96,8 +99,8 @@ export function normalizeDriveSettings(value: unknown): DriveSettings {
   const settings = typeof value === "object" && value !== null ? value as Partial<DriveSettings> : {};
   return {
     googleApiKey: normalizeGoogleApiKey(settings.googleApiKey),
-    googleOAuthClientId: String(settings.googleOAuthClientId ?? "").trim(),
-    defaultTalesFolderId: normalizeDriveFolderId(settings.defaultTalesFolderId),
+    googleOAuthClientId: String(settings.googleOAuthClientId || DEFAULT_GOOGLE_OAUTH_CLIENT_ID).trim(),
+    defaultTalesFolderId: normalizeDriveFolderId(settings.defaultTalesFolderId || DEFAULT_TALES_DRIVE_FOLDER_ID),
     defaultCharactersFolderId: normalizeDriveFolderId(settings.defaultCharactersFolderId),
     defaultWorldArtFolderId: normalizeDriveFolderId(settings.defaultWorldArtFolderId),
     defaultMarketingArtFolderId: normalizeDriveFolderId(settings.defaultMarketingArtFolderId),

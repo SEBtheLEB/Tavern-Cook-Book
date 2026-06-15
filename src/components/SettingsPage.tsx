@@ -15,7 +15,7 @@ import {
   normalizeDriveSettings,
   saveDriveSettings
 } from "../utils/driveSettings";
-import { saveRemoteAppSettings } from "../utils/cloudSync";
+import { fetchRemoteAppSettings, saveRemoteAppSettings } from "../utils/cloudSync";
 import { estimateStorageBytes, formatBytes, migrateDatabase, sanitizeDatabaseForPersistence } from "../utils/storage";
 import { ACCESS_ROLE_OPTIONS, loadAccessUsers, saveAccessUsers } from "../utils/accessControl";
 import { openGoogleDriveFolderPicker } from "../utils/googlePicker";
@@ -278,7 +278,7 @@ export function SettingsPage({
 
     setMessage(
       optionalFoldersMissing
-        ? "Drive setup has the required API Key and OAuth Client ID. Folder IDs can be added now or later."
+        ? "Drive setup has the required OAuth Client ID. The API key is optional, and folder IDs can be added now or later."
         : "Drive setup looks ready locally. No Google connection or upload was attempted."
     );
   };
@@ -338,9 +338,14 @@ export function SettingsPage({
     try {
       saveAccessUsers(accessUsers);
       const savedUsers = loadAccessUsers();
+      const remoteSettingsResult = await fetchRemoteAppSettings();
+      const remoteSettings = remoteSettingsResult.ok && remoteSettingsResult.envelope?.payload
+        ? normalizeAppSyncSettings(remoteSettingsResult.envelope.payload)
+        : null;
       const nextAppSyncSettings = {
         ...appSyncSettings,
-        accessUsers: savedUsers
+        accessUsers: savedUsers,
+        driveSettings: remoteSettings?.driveSettings || appSyncSettings.driveSettings
       };
       setAccessUsers(savedUsers);
       onAccessUsersChange(savedUsers);
