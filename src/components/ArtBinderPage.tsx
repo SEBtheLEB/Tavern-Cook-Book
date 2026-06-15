@@ -86,6 +86,7 @@ interface ArtBinderSubjectGroup {
 interface ArtBinderPageProps {
   database: LoreDatabase;
   readOnly: boolean;
+  canManageStructure?: boolean;
   onDatabaseChange: (database: LoreDatabase) => void;
   initialFilter?: ArtBinderInitialFilter | null;
   initialSessionState?: ArtBinderSessionState | null;
@@ -132,6 +133,7 @@ const WHISKER_WOODS_ENVIRONMENT_REQUIREMENTS = [
 export function ArtBinderPage({
   database,
   readOnly,
+  canManageStructure = !readOnly,
   onDatabaseChange,
   initialFilter = null,
   initialSessionState = null,
@@ -141,6 +143,7 @@ export function ArtBinderPage({
   onOpenEntry,
   onOpenGwenToolBinder
 }: ArtBinderPageProps) {
+  const canEditStructure = !readOnly && canManageStructure;
   const assignmentContext = useAssignments();
   const subjects = useMemo(() => buildArtBinderSubjects(database), [database]);
   const initialFilterSignature = artBinderInitialFilterSignature(initialFilter);
@@ -475,7 +478,7 @@ export function ArtBinderPage({
   };
 
   const addCategoryToVisibleSubjects = () => {
-    if (readOnly) return;
+    if (!canEditStructure) return;
     if (!editableVisibleSubjects.length) {
       window.alert("Choose a character, bestiary, or category subject before adding an Art Binder category.");
       return;
@@ -493,7 +496,7 @@ export function ArtBinderPage({
   };
 
   const requestRenameCategory = (group: ArtBinderFolderGroup) => {
-    if (readOnly) return;
+    if (!canEditStructure) return;
     const cardsToRename = uniqueSectionCards(group.cards).filter((card) => card.subject.source !== "environment");
     if (!cardsToRename.length) {
       window.alert("This category is generated from environment media and cannot be renamed from the Art Binder yet.");
@@ -503,7 +506,7 @@ export function ArtBinderPage({
   };
 
   const renameCategory = async (group: ArtBinderFolderGroup, nextTitleRaw: string) => {
-    if (readOnly) return;
+    if (!canEditStructure) return;
     const cardsToRename = uniqueSectionCards(group.cards).filter((card) => card.subject.source !== "environment");
     if (!cardsToRename.length) {
       window.alert("This category is generated from environment media and cannot be renamed from the Art Binder yet.");
@@ -568,7 +571,7 @@ export function ArtBinderPage({
   };
 
   const addSlotToCategory = (group: ArtBinderFolderGroup) => {
-    if (readOnly) return;
+    if (!canEditStructure) return;
     const cardsToUpdate = uniqueSectionCards(group.cards).filter((card) => card.subject.source !== "environment");
     if (!cardsToUpdate.length) {
       window.alert("This category is generated from environment media and cannot receive custom slots from the Art Binder yet.");
@@ -581,7 +584,7 @@ export function ArtBinderPage({
   };
 
   const requestEditSlot = (card: ArtBinderSlotCard) => {
-    if (readOnly) return;
+    if (!canEditStructure) return;
     setSlotEditDraft({
       card,
       label: card.slot.label,
@@ -591,7 +594,7 @@ export function ArtBinderPage({
   };
 
   const saveSlotDetails = () => {
-    if (!slotEditDraft || readOnly) return;
+    if (!slotEditDraft || !canEditStructure) return;
     const label = slotEditDraft.label.trim();
     const requirementType = slotEditDraft.requirementType.trim() || slotEditDraft.card.section.title;
     if (!label) return;
@@ -604,7 +607,7 @@ export function ArtBinderPage({
   };
 
   const deleteSlot = (card: ArtBinderSlotCard) => {
-    if (readOnly) return;
+    if (!canEditStructure) return;
     if (isGeneratedAppUiSlot(card)) {
       window.alert("This slot is connected to a live app image field, so it cannot be deleted from the Art Binder. You can rename it or clear its image assignment instead.");
       return;
@@ -617,7 +620,7 @@ export function ArtBinderPage({
   };
 
   const deleteCategory = (group: ArtBinderFolderGroup) => {
-    if (readOnly) return;
+    if (!canEditStructure) return;
     if (group.category === APP_UI_SECTION_TITLE) {
       window.alert("App Buttons & UI Slots is connected to live app image fields, so it cannot be removed from the Art Binder.");
       return;
@@ -659,7 +662,7 @@ export function ArtBinderPage({
           <span>{filledSlots} / {totalSlots} slots filled</span>
           <i><b style={{ width: `${completion}%` }} /></i>
         </div>
-        {!readOnly && (
+        {canEditStructure && (
           <div className="art-binder-hero-actions">
             {selectedGwenSubject && onOpenGwenToolBinder && (
               <button className="button-frame" onClick={() => onOpenGwenToolBinder(selectedGwenSubject.id)}>
@@ -842,18 +845,22 @@ export function ArtBinderPage({
                   <span>{group.cards.length} slot{group.cards.length === 1 ? "" : "s"}</span>
                   {!readOnly && (
                     <>
-                      <button className="art-binder-set-folder-button" onClick={() => requestRenameCategory(group)} disabled={renameBusy || folderBusy || repairBusy}>
-                        <Icon name="Edit3" className="h-4 w-4" />
-                        {renameBusy ? "Renaming..." : "Rename"}
-                      </button>
-                      <button className="art-binder-set-folder-button" onClick={() => addSlotToCategory(group)}>
-                        <Icon name="Plus" className="h-4 w-4" />
-                        Slot
-                      </button>
-                      <button className="art-binder-set-folder-button danger" onClick={() => deleteCategory(group)}>
-                        <Icon name="Trash2" className="h-4 w-4" />
-                        Remove
-                      </button>
+                      {canEditStructure && (
+                        <>
+                          <button className="art-binder-set-folder-button" onClick={() => requestRenameCategory(group)} disabled={renameBusy || folderBusy || repairBusy}>
+                            <Icon name="Edit3" className="h-4 w-4" />
+                            {renameBusy ? "Renaming..." : "Rename"}
+                          </button>
+                          <button className="art-binder-set-folder-button" onClick={() => addSlotToCategory(group)}>
+                            <Icon name="Plus" className="h-4 w-4" />
+                            Slot
+                          </button>
+                          <button className="art-binder-set-folder-button danger" onClick={() => deleteCategory(group)}>
+                            <Icon name="Trash2" className="h-4 w-4" />
+                            Remove
+                          </button>
+                        </>
+                      )}
                       <button
                         className="art-binder-set-folder-button"
                         onClick={() => handleCategoryFolderAction(group)}
@@ -886,6 +893,7 @@ export function ArtBinderPage({
                       assignment={assignmentContext.assignmentForModule(artBinderSlotModule(card).moduleId)}
                       focused={assignmentContext.focusedAssignment?.moduleId === artBinderSlotModule(card).moduleId}
                       targeted={highlightedModuleId === artBinderSlotModule(card).moduleId}
+                      canManageStructure={canEditStructure}
                       onActivate={activateCard}
                       onEditSlot={requestEditSlot}
                       onDeleteSlot={deleteSlot}
@@ -961,6 +969,7 @@ function ArtBinderCard({
   assignment,
   focused,
   targeted,
+  canManageStructure,
   onActivate,
   onEditSlot,
   onDeleteSlot,
@@ -973,6 +982,7 @@ function ArtBinderCard({
   assignment: AssignmentRecord | null;
   focused: boolean;
   targeted: boolean;
+  canManageStructure: boolean;
   onActivate: (card: ArtBinderSlotCard) => void;
   onEditSlot: (card: ArtBinderSlotCard) => void;
   onDeleteSlot: (card: ArtBinderSlotCard) => void;
@@ -1045,7 +1055,7 @@ function ArtBinderCard({
       <footer>
         <span className={`art-binder-status ${artBinderStatusClass(card.slot)}`}>{artBinderStatus(card.slot)}</span>
         <div className="art-binder-card-actions">
-          {!readOnly && (
+          {canManageStructure && (
             <>
               <button
                 type="button"

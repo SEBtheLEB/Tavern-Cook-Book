@@ -12,6 +12,7 @@ import { useRealtimeCollaboration } from "./RealtimeCollaborationContext";
 interface ArtVaultDashboardProps {
   database: LoreDatabase;
   readOnly: boolean;
+  canManageStructure?: boolean;
   onDatabaseChange: (database: LoreDatabase) => void;
   onNavigate: (view: ActiveView) => void;
   onOpenEntry: (entry: LoreEntry) => void;
@@ -27,6 +28,7 @@ interface ArtVaultDashboardProps {
 export function ArtVaultDashboard({
   database,
   readOnly,
+  canManageStructure = !readOnly,
   onDatabaseChange,
   onNavigate,
   onOpenEntry,
@@ -82,6 +84,7 @@ export function ArtVaultDashboard({
       <ArtBinderPage
         database={database}
         readOnly={readOnly}
+        canManageStructure={canManageStructure}
         onDatabaseChange={onDatabaseChange}
         initialFilter={binderFilter}
         initialSessionState={initialBinderSessionState}

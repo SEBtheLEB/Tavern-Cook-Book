@@ -330,19 +330,30 @@ export function SettingsPage({
     setAccessUsers((current) => current.filter((user) => user.email !== email));
   };
 
-  const saveCurrentAccessUsers = () => {
+  const saveCurrentAccessUsers = async () => {
     try {
       saveAccessUsers(accessUsers);
       const savedUsers = loadAccessUsers();
-      setAccessUsers(savedUsers);
-      onAccessUsersChange(savedUsers);
-      onAppSyncSettingsChange({
+      const nextAppSyncSettings = {
         ...appSyncSettings,
         accessUsers: savedUsers
-      });
-      setMessage("Team access saved. New sign-ins will use these permissions.");
-    } catch {
-      setMessage("Could not save team access in this browser.");
+      };
+      setAccessUsers(savedUsers);
+      onAccessUsersChange(savedUsers);
+      onAppSyncSettingsChange(nextAppSyncSettings);
+      setMessage("Saving team access for everyone...");
+
+      const remoteResult = await saveRemoteAppSettings(currentUser.email, nextAppSyncSettings);
+      if (!remoteResult.ok) {
+        setMessage(
+          `Team access saved in this browser, but the shared team copy did not update: ${remoteResult.error || "remote settings save failed"}.`
+        );
+        return;
+      }
+
+      setMessage("Team access saved for everyone. Open teammates will update automatically, or after refresh.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not save team access.");
     }
   };
 

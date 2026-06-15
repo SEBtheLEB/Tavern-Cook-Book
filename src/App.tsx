@@ -1145,6 +1145,17 @@ export default function App() {
             saveGoogleAccount(effectiveCurrentUser);
             setCurrentUser(effectiveCurrentUser);
           }
+        } else {
+          clearGoogleAccount();
+          setCurrentUser(null);
+          setPublishedReady(false);
+          setCloudSync({
+            phase: "offline",
+            message: "Your Tavern Cook Book access was removed by an admin.",
+            lastSavedAt: "",
+            configured: true
+          });
+          return;
         }
       }
 
@@ -1966,7 +1977,7 @@ export default function App() {
   };
 
   const deleteEntry = (entry: LoreEntry) => {
-    if (readOnly) return;
+    if (readOnly || freelancerMode) return;
     rememberExplicitRemoval(`entry:${entry.id}:removed`);
     setDatabase((current) => ({
       ...current,
@@ -2306,7 +2317,7 @@ export default function App() {
   };
 
   const deleteCreature = (creatureId: string) => {
-    if (readOnly) return;
+    if (readOnly || freelancerMode) return;
     rememberExplicitRemoval(`creature:${creatureId}:removed`);
     setDatabase((current) => ({
       ...current,
@@ -2697,6 +2708,56 @@ export default function App() {
   };
 
   useEffect(() => {
+    if (!currentUser || hostedViewer || canAccessSettings) return;
+    let cancelled = false;
+
+    const refreshAccessFromSharedSettings = async () => {
+      const settingsResult = await fetchRemoteAppSettings();
+      if (cancelled || !settingsResult.ok || !settingsResult.envelope?.payload) return;
+
+      const remoteSettings = normalizeAppSyncSettings(settingsResult.envelope.payload);
+      saveAppSyncSettings(remoteSettings);
+      saveAccessUsers(remoteSettings.accessUsers);
+      setAppSyncSettings(remoteSettings);
+
+      const currentEmail = currentUser.email.trim().toLowerCase();
+      const access = remoteSettings.accessUsers.find((user) => user.email === currentEmail);
+      if (!access) {
+        clearGoogleAccount();
+        setCurrentUser(null);
+        setLockedAccessNotice({
+          title: "Access removed",
+          message: "Your Tavern Cook Book access was removed by an admin."
+        });
+        return;
+      }
+
+      if (access.role !== currentUser.role) {
+        const updatedUser = { ...currentUser, role: access.role };
+        saveGoogleAccount(updatedUser);
+        setCurrentUser(updatedUser);
+        setLockedAccessNotice({
+          title: "Access updated",
+          message: `Your role is now ${access.role}. Locked cookbook sections will close automatically.`
+        });
+      }
+    };
+
+    const handleFocus = () => {
+      void refreshAccessFromSharedSettings();
+    };
+    const interval = window.setInterval(handleFocus, 12_000);
+    window.addEventListener("focus", handleFocus);
+    void refreshAccessFromSharedSettings();
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, [currentUser?.email, currentUser?.role, hostedViewer, canAccessSettings]);
+
+  useEffect(() => {
     const openSpriteAnimator = () => {
       if (!ensureViewAccess("spriteAnimator", "Sprite Sheet Cutter")) return;
       setDetailReturnTarget(null);
@@ -2843,6 +2904,7 @@ export default function App() {
             <ArtVaultDashboard
               database={database}
               readOnly={readOnly}
+              canManageStructure={!freelancerMode}
               onDatabaseChange={updateDatabase}
               onNavigate={navigate}
               onOpenEntry={openEntry}
