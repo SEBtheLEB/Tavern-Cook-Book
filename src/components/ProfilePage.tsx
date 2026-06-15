@@ -19,7 +19,7 @@ interface ProfilePageProps {
   profiles: UserProfile[];
   onTeamMembersChange: (members: TeamMember[]) => void;
   onProfilesChange: (profiles: UserProfile[]) => void;
-  onOpenQuestDashboard: () => void;
+  onOpenQuestDashboard?: () => void;
   onBack: () => void;
 }
 
@@ -102,9 +102,11 @@ export function ProfilePage({
           <h1 className="font-display">{draft.displayName}</h1>
           <span>{accessRoleLabel(currentUser.role)}{draft.role ? ` / ${draft.role}` : ""}</span>
         </div>
-        <button className="button-frame primary" onClick={onOpenQuestDashboard}>
-          Personal Quest Dashboard
-        </button>
+        {onOpenQuestDashboard && (
+          <button className="button-frame primary" onClick={onOpenQuestDashboard}>
+            Personal Quest Dashboard
+          </button>
+        )}
       </section>
 
       <section className="profile-edit-panel">

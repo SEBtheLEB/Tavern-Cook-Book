@@ -87,6 +87,7 @@ interface ArtBinderPageProps {
   database: LoreDatabase;
   readOnly: boolean;
   canManageStructure?: boolean;
+  canOpenSourcePages?: boolean;
   onDatabaseChange: (database: LoreDatabase) => void;
   initialFilter?: ArtBinderInitialFilter | null;
   initialSessionState?: ArtBinderSessionState | null;
@@ -134,6 +135,7 @@ export function ArtBinderPage({
   database,
   readOnly,
   canManageStructure = !readOnly,
+  canOpenSourcePages = true,
   onDatabaseChange,
   initialFilter = null,
   initialSessionState = null,
@@ -286,6 +288,7 @@ export function ArtBinderPage({
   };
 
   const openSubject = (subject: ArtBinderSubject) => {
+    if (!canOpenSourcePages) return;
     if (subject.kind === "character") {
       const entry = database.entries.find((candidate) => candidate.id === subject.id);
       if (entry) onOpenEntry(entry);
@@ -898,6 +901,7 @@ export function ArtBinderPage({
                       onEditSlot={requestEditSlot}
                       onDeleteSlot={deleteSlot}
                       onOpenSubject={openSubject}
+                      canOpenSource={canOpenSourcePages}
                     />
                   ))}
                 </div>
@@ -970,6 +974,7 @@ function ArtBinderCard({
   focused,
   targeted,
   canManageStructure,
+  canOpenSource,
   onActivate,
   onEditSlot,
   onDeleteSlot,
@@ -983,6 +988,7 @@ function ArtBinderCard({
   focused: boolean;
   targeted: boolean;
   canManageStructure: boolean;
+  canOpenSource: boolean;
   onActivate: (card: ArtBinderSlotCard) => void;
   onEditSlot: (card: ArtBinderSlotCard) => void;
   onDeleteSlot: (card: ArtBinderSlotCard) => void;
@@ -1082,15 +1088,17 @@ function ArtBinderCard({
               </button>
             </>
           )}
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              onOpenSubject(card.subject);
-            }}
-          >
-            Open Source
-          </button>
+          {canOpenSource && (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onOpenSubject(card.subject);
+              }}
+            >
+              Open Source
+            </button>
+          )}
         </div>
       </footer>
     </article>

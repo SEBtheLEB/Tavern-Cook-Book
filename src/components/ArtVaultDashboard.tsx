@@ -13,6 +13,7 @@ interface ArtVaultDashboardProps {
   database: LoreDatabase;
   readOnly: boolean;
   canManageStructure?: boolean;
+  canOpenSourcePages?: boolean;
   onDatabaseChange: (database: LoreDatabase) => void;
   onNavigate: (view: ActiveView) => void;
   onOpenEntry: (entry: LoreEntry) => void;
@@ -29,6 +30,7 @@ export function ArtVaultDashboard({
   database,
   readOnly,
   canManageStructure = !readOnly,
+  canOpenSourcePages = true,
   onDatabaseChange,
   onNavigate,
   onOpenEntry,
@@ -64,6 +66,7 @@ export function ArtVaultDashboard({
   };
 
   const openSourceForItem = (item: ArtVaultDashboardItem) => {
+    if (!canOpenSourcePages) return;
     setDestinationChoice(null);
     if (item.kind === "bestiary") {
       onNavigate("bestiary");
@@ -97,6 +100,7 @@ export function ArtVaultDashboard({
         }}
         onNavigate={onNavigate}
         onOpenEntry={onOpenEntry}
+        canOpenSourcePages={canOpenSourcePages}
         onOpenGwenToolBinder={onOpenGwenToolBinder}
       />
     );
@@ -171,14 +175,14 @@ export function ArtVaultDashboard({
               <RouteButton
                 icon="Hammer"
                 label="GWEN"
-                detail="Choose Gwen's personal Art Binder or her character page."
+                detail={canOpenSourcePages ? "Choose Gwen's personal Art Binder or her character page." : "Open Gwen's Art Binder board."}
                 onClick={() => setDestinationChoice({ type: "route", kind: "character", label: "GWEN", subjectId: gwenEntry.id, sourceEntryId: gwenEntry.id })}
               />
             )}
-            <RouteButton icon="Users" label="Character Assets" detail="Choose Art Binder or the character page." onClick={() => setDestinationChoice({ type: "route", kind: "character", label: "Characters" })} />
-            <RouteButton icon="Swords" label="Bestiary Assets" detail="Choose Art Binder or the Bestiary page." onClick={() => setDestinationChoice({ type: "route", kind: "bestiary", label: "Bestiary" })} />
-            <RouteButton icon="Soup" label="Pantry Assets" detail="Choose Art Binder or the Pantry page." onClick={() => setDestinationChoice({ type: "route", kind: "pantry", label: "The Pantry" })} />
-            <RouteButton icon="Map" label="Environment Assets" detail="Choose Art Binder or the World page." onClick={() => setDestinationChoice({ type: "route", kind: "environment", label: "Environment" })} />
+            <RouteButton icon="Users" label="Character Assets" detail={canOpenSourcePages ? "Choose Art Binder or the character page." : "Open character asset boards in Art Binder."} onClick={() => setDestinationChoice({ type: "route", kind: "character", label: "Characters" })} />
+            <RouteButton icon="Swords" label="Bestiary Assets" detail={canOpenSourcePages ? "Choose Art Binder or the Bestiary page." : "Open bestiary asset boards in Art Binder."} onClick={() => setDestinationChoice({ type: "route", kind: "bestiary", label: "Bestiary" })} />
+            <RouteButton icon="Soup" label="Pantry Assets" detail={canOpenSourcePages ? "Choose Art Binder or the Pantry page." : "Open pantry asset boards in Art Binder."} onClick={() => setDestinationChoice({ type: "route", kind: "pantry", label: "The Pantry" })} />
+            <RouteButton icon="Map" label="Environment Assets" detail={canOpenSourcePages ? "Choose Art Binder or the World page." : "Open environment asset boards in Art Binder."} onClick={() => setDestinationChoice({ type: "route", kind: "environment", label: "Environment" })} />
           </div>
         </div>
       </section>
@@ -186,9 +190,11 @@ export function ArtVaultDashboard({
       {destinationChoice && (
         <ArtVaultDestinationModal
           choice={destinationChoice}
+          canOpenSource={canOpenSourcePages}
           onClose={() => setDestinationChoice(null)}
           onOpenBinder={(filter) => openBinder(filter)}
           onOpenSource={(choice) => {
+            if (!canOpenSourcePages) return;
             if (choice.type === "item") {
               openSourceForItem(choice.item);
               return;
@@ -309,11 +315,13 @@ function ArtVaultQueueItem({ item, onOpen }: { item: ArtVaultDashboardItem; onOp
 
 function ArtVaultDestinationModal({
   choice,
+  canOpenSource,
   onClose,
   onOpenBinder,
   onOpenSource
 }: {
   choice: ArtVaultDestinationChoice;
+  canOpenSource: boolean;
   onClose: () => void;
   onOpenBinder: (filter: ArtBinderInitialFilter | null) => void;
   onOpenSource: (choice: ArtVaultDestinationChoice) => void;
@@ -330,16 +338,18 @@ function ArtVaultDestinationModal({
         </button>
         <p>Choose Destination</p>
         <h2 className="font-display">{title}</h2>
-        <span>Open the shared Art Binder category view, or jump to the regular source page.</span>
+        <span>{canOpenSource ? "Open the shared Art Binder category view, or jump to the regular source page." : "Open this asset route in the shared Art Binder."}</span>
         <div>
           <button className="button-frame" onClick={() => onOpenBinder({ kind, subjectId })}>
             <Icon name="BookOpen" className="h-4 w-4" />
             Open in Art Binder
           </button>
-          <button onClick={() => onOpenSource(choice)}>
-            <Icon name={kindIconForBinder(kind)} className="h-4 w-4" />
-            Go to {sourcePageLabel(kind)}
-          </button>
+          {canOpenSource && (
+            <button onClick={() => onOpenSource(choice)}>
+              <Icon name={kindIconForBinder(kind)} className="h-4 w-4" />
+              Go to {sourcePageLabel(kind)}
+            </button>
+          )}
         </div>
       </section>
     </div>

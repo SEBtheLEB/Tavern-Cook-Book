@@ -1362,6 +1362,27 @@ export default function App() {
   }, [activeView, isViewLocked]);
 
   useEffect(() => {
+    if (!freelancerMode) return;
+    setFavoritesOpen(false);
+    setQuestDashboardOpen(false);
+    setAssignMode(false);
+    setFocusedAssignment(null);
+    if (activeView !== "dashboard" && activeView !== "artVault" && isViewLocked(activeView)) {
+      setActiveView("dashboard");
+    }
+    if (selectedEntry && entryViewIsLocked(selectedEntry)) {
+      setSelectedEntry(null);
+      setSelectedReferenceKeyword("");
+    }
+    if (selectedBestiaryCreatureId && isViewLocked("bestiary")) {
+      setSelectedBestiaryCreatureId("");
+    }
+    if (worldBuildingFocus && isViewLocked("world")) {
+      setWorldBuildingFocus(null);
+    }
+  }, [activeView, entryViewIsLocked, freelancerMode, isViewLocked, selectedBestiaryCreatureId, selectedEntry, worldBuildingFocus]);
+
+  useEffect(() => {
     if (!hostedViewer) return;
 
     fetch("./lore-data.json", { cache: "no-store" })
@@ -2888,7 +2909,7 @@ export default function App() {
             questCategories={questCategories}
             focusedAssignment={focusedAssignment}
             onAssignmentsChange={setAssignments}
-            onOpenQuestDashboard={openQuestDashboard}
+            onOpenQuestDashboard={freelancerMode ? undefined : openQuestDashboard}
           >
           <div className={assignMode ? "assign-mode" : ""}>
           <TopBar
@@ -2917,7 +2938,7 @@ export default function App() {
               profiles={userProfiles}
               onTeamMembersChange={setTeamMembers}
               onProfilesChange={setUserProfiles}
-              onOpenQuestDashboard={openQuestDashboard}
+              onOpenQuestDashboard={freelancerMode ? undefined : openQuestDashboard}
               onBack={() => setProfileOpen(false)}
             />
           ) : questDashboardOpen ? (
@@ -2944,6 +2965,7 @@ export default function App() {
               database={database}
               readOnly={readOnly}
               canManageStructure={!freelancerMode}
+              canOpenSourcePages={!freelancerMode}
               onDatabaseChange={updateDatabase}
               onNavigate={navigate}
               onOpenEntry={openEntry}

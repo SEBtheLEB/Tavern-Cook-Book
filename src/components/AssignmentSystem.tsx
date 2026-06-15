@@ -50,7 +50,7 @@ interface AssignmentProviderProps {
   questCategories: QuestCategory[];
   focusedAssignment: AssignmentRecord | null;
   onAssignmentsChange: (assignments: AssignmentRecord[]) => void;
-  onOpenQuestDashboard: () => void;
+  onOpenQuestDashboard?: () => void;
   children: ReactNode;
 }
 
@@ -190,7 +190,7 @@ export function AssignmentProvider({
     clearSelectedModules: () => setSelectedModulesById({}),
     assignmentForModule: (moduleId) => getAssignmentForModule(assignments, moduleId),
     setAssignmentStatus,
-    openQuestDashboard: onOpenQuestDashboard
+    openQuestDashboard: onOpenQuestDashboard || (() => {})
   };
 
   return (
