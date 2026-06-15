@@ -1131,6 +1131,18 @@ export default function App() {
 
       let effectiveCurrentUser = currentUser;
       let effectiveCanEdit = canEdit;
+      if (!settingsResult.ok && isAccessRefreshAuthError(settingsResult.error)) {
+        clearGoogleAccount();
+        setCurrentUser(null);
+        setPublishedReady(false);
+        setCloudSync({
+          phase: "needsAuth",
+          message: "Sign in again so the cookbook can refresh your current team access.",
+          lastSavedAt: "",
+          configured: settingsResult.configured
+        });
+        return;
+      }
       if (settingsResult.ok && settingsResult.envelope?.payload) {
         const remoteSettings = normalizeAppSyncSettings(settingsResult.envelope.payload);
         saveAppSyncSettings(remoteSettings);
@@ -2713,7 +2725,19 @@ export default function App() {
 
     const refreshAccessFromSharedSettings = async () => {
       const settingsResult = await fetchRemoteAppSettings();
-      if (cancelled || !settingsResult.ok || !settingsResult.envelope?.payload) return;
+      if (cancelled) return;
+      if (!settingsResult.ok) {
+        if (isAccessRefreshAuthError(settingsResult.error)) {
+          clearGoogleAccount();
+          setCurrentUser(null);
+          setLockedAccessNotice({
+            title: "Sign in again",
+            message: "Your Google session expired before the cookbook could verify your current role. Sign in again to reload your latest team access."
+          });
+        }
+        return;
+      }
+      if (!settingsResult.envelope?.payload) return;
 
       const remoteSettings = normalizeAppSyncSettings(settingsResult.envelope.payload);
       saveAppSyncSettings(remoteSettings);
@@ -2952,7 +2976,7 @@ export default function App() {
                   database={dashboardDatabase}
                   onNavigate={navigate}
                   onOpenEntry={openEntry}
-                  hiddenViewIds={freelancerMode ? [] : hiddenViewIds}
+                  hiddenViewIds={hiddenViewIds}
                 />
               )}
 
@@ -3259,6 +3283,10 @@ function isSyncDateAfter(left = "", right = "") {
   if (!left) return false;
   if (!right) return true;
   return new Date(left).getTime() > new Date(right).getTime();
+}
+
+function isAccessRefreshAuthError(error = "") {
+  return /google sign-in token|sign out and sign back in|token expired|could not be verified/i.test(error);
 }
 
 function mergeDraftOntoPublished(

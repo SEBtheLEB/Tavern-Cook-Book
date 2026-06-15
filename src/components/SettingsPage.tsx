@@ -3,7 +3,7 @@ import type { AccessRole, AccessUserPermission, ActiveView, GoogleAccountUser, L
 import { createStarterDatabase } from "../data/starterData";
 import { mainNavigation } from "../data/navigation";
 import type { AppSyncSettings } from "../utils/appSettings";
-import { getHideableNavigationTabs } from "../utils/appSettings";
+import { getHideableNavigationTabs, normalizeAppSyncSettings } from "../utils/appSettings";
 import type { DriveSettings } from "../utils/driveSettings";
 import {
   clearDriveSettings,
@@ -95,6 +95,10 @@ export function SettingsPage({
   useEffect(() => {
     setDriveSettingsState(appSyncSettings.driveSettings || getDriveSettings());
   }, [appSyncSettings.driveSettings]);
+
+  useEffect(() => {
+    setAccessUsers(appSyncSettings.accessUsers);
+  }, [appSyncSettings.accessUsers]);
 
   useEffect(() => {
     if (visibilityTargetEmail === "__default__") return;
@@ -351,6 +355,12 @@ export function SettingsPage({
         return;
       }
 
+      const sharedSettings = remoteResult.envelope?.payload
+        ? normalizeAppSyncSettings(remoteResult.envelope.payload)
+        : nextAppSyncSettings;
+      setAccessUsers(sharedSettings.accessUsers);
+      onAccessUsersChange(sharedSettings.accessUsers);
+      onAppSyncSettingsChange(sharedSettings);
       setMessage("Team access saved for everyone. Open teammates will update automatically, or after refresh.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not save team access.");

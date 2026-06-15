@@ -6,7 +6,7 @@ const MAIN_ADMIN_EMAIL = "stlprodz1101@gmail.com";
 
 export const DEFAULT_ACCESS_USERS: AccessUserPermission[] = [
   { email: "stlprodz1101@gmail.com", role: "admin", label: "Sebastien / Main Admin" },
-  { email: "sebastianac1101@gmail.com", role: "editor", label: "Sebastien backup" }
+  { email: "sebastianac1101@gmail.com", role: "freelancer", label: "Sebastien backup" }
 ];
 
 export const APPROVED_USERS = DEFAULT_ACCESS_USERS.map((user) => user.email);
@@ -228,10 +228,7 @@ function normalizeAccessUsers(users: unknown[]): AccessUserPermission[] {
     .map((user) => sanitizeAccessUser(user))
     .filter((user): user is AccessUserPermission => Boolean(user))
     .forEach((user) => {
-      const existing = byEmail.get(user.email);
-      if (!existing || ROLE_ORDER[user.role] >= ROLE_ORDER[existing.role]) {
-        byEmail.set(user.email, user);
-      }
+      byEmail.set(user.email, user);
     });
 
   byEmail.set(MAIN_ADMIN_EMAIL, {
