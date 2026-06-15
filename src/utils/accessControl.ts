@@ -21,7 +21,14 @@ export const ACCESS_GOOGLE_OAUTH_CLIENT_ID = (
 export const GOOGLE_ACCOUNT_KEY = "tavernCookbookGoogleAccount";
 export const GOOGLE_CREDENTIAL_KEY = "tavernCookbookGoogleCredential";
 export const ACCESS_USERS_KEY = "tavernCookbookAccessUsers";
-const ROLE_ORDER: Record<AccessRole, number> = { viewer: 0, editor: 1, admin: 2 };
+const ROLE_ORDER: Record<AccessRole, number> = { viewer: 0, freelancer: 1, editor: 2, admin: 3 };
+
+export const ACCESS_ROLE_OPTIONS: Array<{ value: AccessRole; label: string }> = [
+  { value: "viewer", label: "Viewer" },
+  { value: "freelancer", label: "Freelancer" },
+  { value: "editor", label: "Editor" },
+  { value: "admin", label: "Admin" }
+];
 
 interface GoogleCredentialResponse {
   credential?: string;
@@ -69,7 +76,7 @@ export function saveAccessUsers(users: AccessUserPermission[]) {
 }
 
 export function roleCanEdit(role: AccessRole) {
-  return ROLE_ORDER[role] >= ROLE_ORDER.editor;
+  return ROLE_ORDER[role] >= ROLE_ORDER.freelancer;
 }
 
 export function roleCanAccessSettings(role: AccessRole) {
@@ -241,12 +248,17 @@ function sanitizeAccessUser(value: unknown): AccessUserPermission | null {
   const user = value as Partial<AccessUserPermission>;
   const email = normalizeEmail(user.email || "");
   if (!email) return null;
-  const role = user.role === "admin" || user.role === "editor" || user.role === "viewer" ? user.role : "viewer";
+  const role = normalizeAccessRole(user.role);
   return {
     email,
     role,
     label: typeof user.label === "string" ? user.label : ""
   };
+}
+
+export function normalizeAccessRole(value: unknown, fallback: AccessRole = "viewer"): AccessRole {
+  if (value === "admin" || value === "editor" || value === "freelancer" || value === "viewer") return value;
+  return fallback;
 }
 
 function normalizeEmail(value: string) {

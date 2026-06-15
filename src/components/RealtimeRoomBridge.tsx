@@ -380,6 +380,6 @@ function realtimeUserSummary(user: RealtimeLiveUser): RealtimeUserSummary {
 }
 
 function normalizeRole(role: string): RealtimeUserSummary["role"] {
-  if (role === "admin" || role === "editor" || role === "viewer") return role;
+  if (role === "admin" || role === "editor" || role === "freelancer" || role === "viewer") return role;
   return "viewer";
 }

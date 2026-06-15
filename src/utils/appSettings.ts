@@ -1,5 +1,5 @@
 import type { AccessUserPermission, ActiveView } from "../types";
-import { DEFAULT_ACCESS_USERS, loadAccessUsers, saveAccessUsers } from "./accessControl";
+import { DEFAULT_ACCESS_USERS, loadAccessUsers, normalizeAccessRole, saveAccessUsers } from "./accessControl";
 import {
   type DriveSettings,
   getDriveSettings,
@@ -9,6 +9,7 @@ import {
 
 export interface AppVisibilitySettings {
   hiddenForMembers: ActiveView[];
+  hiddenByMemberEmail: Record<string, ActiveView[]>;
 }
 
 export interface AppSyncSettings {
@@ -28,14 +29,43 @@ const hideableTabs: ActiveView[] = [
   "characters",
   "world",
   "bestiary",
+  "artVault",
+  "artDirection",
+  "roadmap",
   "marketing",
   "archive"
+];
+
+const freelancerLockedTabs: ActiveView[] = [
+  "storyJourney",
+  "story",
+  "quests",
+  "gameplay",
+  "food",
+  "characters",
+  "world",
+  "bestiary",
+  "artDirection",
+  "roadmap",
+  "marketing",
+  "archive",
+  "settings",
+  "search",
+  "timeline",
+  "secrets",
+  "recipes",
+  "ingredients",
+  "items",
+  "enemies",
+  "factions",
+  "spriteAnimator"
 ];
 
 export function createDefaultAppSyncSettings(): AppSyncSettings {
   return {
     visibility: {
-      hiddenForMembers: []
+      hiddenForMembers: [],
+      hiddenByMemberEmail: {}
     },
     accessUsers: loadAccessUsers(),
     driveSettings: getDriveSettings()
@@ -64,9 +94,8 @@ export function normalizeAppSyncSettings(value: unknown): AppSyncSettings {
   const visibility = source.visibility && typeof source.visibility === "object"
     ? source.visibility as Partial<AppVisibilitySettings>
     : {};
-  const hiddenForMembers = Array.isArray(visibility.hiddenForMembers)
-    ? visibility.hiddenForMembers.filter((id): id is ActiveView => hideableTabs.includes(id as ActiveView))
-    : [];
+  const hiddenForMembers = normalizeVisibilityTabs(visibility.hiddenForMembers);
+  const hiddenByMemberEmail = normalizeMemberVisibility(visibility.hiddenByMemberEmail);
   const accessUsers = Array.isArray(source.accessUsers) && source.accessUsers.length
     ? normalizeAccessUsers(source.accessUsers)
     : loadAccessUsers();
@@ -76,7 +105,8 @@ export function normalizeAppSyncSettings(value: unknown): AppSyncSettings {
 
   return {
     visibility: {
-      hiddenForMembers: [...new Set(hiddenForMembers)]
+      hiddenForMembers,
+      hiddenByMemberEmail
     },
     accessUsers,
     driveSettings
@@ -85,6 +115,18 @@ export function normalizeAppSyncSettings(value: unknown): AppSyncSettings {
 
 export function getHideableNavigationTabs() {
   return hideableTabs;
+}
+
+export function getFreelancerLockedTabs() {
+  return freelancerLockedTabs;
+}
+
+export function getHiddenTabsForAccessUser(settings: AppSyncSettings, email: string, role: AccessUserPermission["role"]): ActiveView[] {
+  if (role === "admin") return [];
+  if (role === "freelancer") return getFreelancerLockedTabs();
+  const normalizedEmail = normalizeEmail(email);
+  const customHidden = normalizedEmail ? settings.visibility.hiddenByMemberEmail[normalizedEmail] : undefined;
+  return customHidden || settings.visibility.hiddenForMembers;
 }
 
 function normalizeAccessUsers(users: unknown[]): AccessUserPermission[] {
@@ -96,7 +138,7 @@ function normalizeAccessUsers(users: unknown[]): AccessUserPermission[] {
     if (!email || !email.includes("@")) return;
     normalized.push({
       email,
-      role: candidate.role === "admin" || candidate.role === "editor" || candidate.role === "viewer" ? candidate.role : "viewer",
+      role: normalizeAccessRole(candidate.role),
       label: typeof candidate.label === "string" ? candidate.label : ""
     });
   });
@@ -107,4 +149,25 @@ function normalizeAccessUsers(users: unknown[]): AccessUserPermission[] {
   });
 
   return [...byEmail.values()];
+}
+
+function normalizeMemberVisibility(value: unknown): Record<string, ActiveView[]> {
+  if (!value || typeof value !== "object") return {};
+  const source = value as Record<string, unknown>;
+  return Object.entries(source).reduce<Record<string, ActiveView[]>>((result, [email, tabs]) => {
+    const normalizedEmail = normalizeEmail(email);
+    if (!normalizedEmail) return result;
+    result[normalizedEmail] = normalizeVisibilityTabs(tabs);
+    return result;
+  }, {});
+}
+
+function normalizeVisibilityTabs(value: unknown): ActiveView[] {
+  return Array.isArray(value)
+    ? [...new Set(value.filter((id): id is ActiveView => hideableTabs.includes(id as ActiveView)))]
+    : [];
+}
+
+function normalizeEmail(value: string) {
+  return String(value || "").trim().toLowerCase();
 }

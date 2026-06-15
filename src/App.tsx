@@ -83,7 +83,7 @@ import {
   saveAccessUsers,
   saveGoogleAccount
 } from "./utils/accessControl";
-import { loadAppSyncSettings, normalizeAppSyncSettings, saveAppSyncSettings } from "./utils/appSettings";
+import { getHiddenTabsForAccessUser, loadAppSyncSettings, normalizeAppSyncSettings, saveAppSyncSettings } from "./utils/appSettings";
 import {
   databaseSyncHash,
   fetchCloudHealth,
@@ -471,8 +471,10 @@ export default function App() {
   const restoredSessionScrollRef = useRef(false);
   const restoredSessionEntryRef = useRef(Boolean(selectedEntry));
   const currentRole = currentUser?.role || "viewer";
+  const freelancerMode = currentRole === "freelancer";
   const canEdit = roleCanEdit(currentRole);
   const canAccessSettings = roleCanAccessSettings(currentRole);
+  const canUseTavernScribe = !freelancerMode && canEdit;
   const canWriteTeamDatabase = LIVE_TEAM_SYNC && canEdit;
   const realtimeActive = Boolean(currentUser && !hostedViewer && realtimeReady);
   const teamDataReady = publishedReady;
@@ -581,8 +583,10 @@ export default function App() {
     }
   }, [currentUser, hostedViewer, realtimeStatus]);
   const hiddenViewIds = useMemo(
-    () => canAccessSettings ? [] : expandHiddenViewIds(appSyncSettings.visibility.hiddenForMembers),
-    [appSyncSettings.visibility.hiddenForMembers, canAccessSettings]
+    () => canAccessSettings || !currentUser
+      ? []
+      : expandHiddenViewIds(getHiddenTabsForAccessUser(appSyncSettings, currentUser.email, currentRole)),
+    [appSyncSettings, canAccessSettings, currentRole, currentUser?.email]
   );
   const isViewLocked = useCallback((view: ActiveView) => {
     if (canAccessSettings) return false;
@@ -610,6 +614,16 @@ export default function App() {
   const visibleEntries = useMemo(
     () => database.entries.filter((entry) => !entryViewIsLocked(entry)),
     [database.entries, entryViewIsLocked]
+  );
+  const dashboardDatabase = useMemo(
+    () => canAccessSettings
+      ? database
+      : {
+          ...database,
+          entries: visibleEntries,
+          bestiary: isViewLocked("bestiary") ? [] : database.bestiary
+        },
+    [canAccessSettings, database, isViewLocked, visibleEntries]
   );
   const storyReferencesLocked = isViewLocked("story");
   const visibleStoryReferences = storyReferencesLocked ? [] : database.storyReferences;
@@ -1988,6 +2002,7 @@ export default function App() {
 
   const submitSearch = () => {
     if (!searchQuery.trim()) return;
+    if (!ensureViewAccess("search", "Search")) return;
     setCommittedSearch(searchQuery.trim());
     setReferenceQuery("");
     setSelectedEntry(null);
@@ -2146,6 +2161,10 @@ export default function App() {
   };
 
   const openFavorites = () => {
+    if (freelancerMode) {
+      showLockedViewNotice("dashboard", "Favorites");
+      return;
+    }
     setDetailReturnTarget(null);
     setSelectedEntry(null);
     setSelectedReferenceKeyword("");
@@ -2156,6 +2175,10 @@ export default function App() {
   };
 
   const openQuestDashboard = () => {
+    if (freelancerMode) {
+      showLockedViewNotice("quests", "Personal Quest Dashboard");
+      return;
+    }
     setDetailReturnTarget(null);
     setSelectedEntry(null);
     setSelectedReferenceKeyword("");
@@ -2741,8 +2764,8 @@ export default function App() {
           storageWarning={storageWarning}
           currentUser={currentUser}
           onOpenProfile={openProfile}
-          onOpenTavernScribe={() => setTavernScribeOpen(true)}
-          onOpenQuestDashboard={openQuestDashboard}
+          onOpenTavernScribe={canUseTavernScribe ? () => setTavernScribeOpen(true) : undefined}
+          onOpenQuestDashboard={freelancerMode ? undefined : openQuestDashboard}
           onOpenPushChanges={LIVE_TEAM_SYNC ? undefined : openPushReview}
           onForceLiveSync={forceSaveTeamDatabase}
           questCount={currentQuestCount}
@@ -2776,15 +2799,15 @@ export default function App() {
             onThemeChange={setTheme}
             onSearchQueryChange={setSearchQuery}
             onSubmitSearch={submitSearch}
-            onCreateEntry={createEntry}
+            onCreateEntry={!freelancerMode ? createEntry : undefined}
             onOpenArtVaultDashboard={!readOnly ? openArtVaultDashboard : undefined}
-            onOpenFavorites={openFavorites}
+            onOpenFavorites={!freelancerMode ? openFavorites : undefined}
             onOpenMobileNav={() => setMobileNavOpen(true)}
             readOnly={readOnly}
             favoritesCount={favorites.length}
             favoritesOpen={favoritesOpen}
             assignMode={assignMode}
-            onToggleAssignMode={!readOnly ? () => setAssignMode((value) => !value) : undefined}
+            onToggleAssignMode={!readOnly && !freelancerMode ? () => setAssignMode((value) => !value) : undefined}
           />
 
           {profileOpen ? (
@@ -2863,7 +2886,12 @@ export default function App() {
           ) : (
             <>
               {activeView === "dashboard" && (
-                <Dashboard database={database} onNavigate={navigate} onOpenEntry={openEntry} hiddenViewIds={hiddenViewIds} />
+                <Dashboard
+                  database={dashboardDatabase}
+                  onNavigate={navigate}
+                  onOpenEntry={openEntry}
+                  hiddenViewIds={freelancerMode ? [] : hiddenViewIds}
+                />
               )}
 
               {activeView === "spriteAnimator" && (
@@ -3043,7 +3071,7 @@ export default function App() {
           </AssignmentProvider>
         </main>
 
-        {!readOnly && (
+        {canUseTavernScribe && (
           <AssistantPanel
             database={database}
             onDatabaseChange={updateDatabase}
@@ -3964,4 +3992,3 @@ function scrollToRoadmapItem(itemId: string) {
   element.classList.add("assignment-open-flash");
   window.setTimeout(() => element.classList.remove("assignment-open-flash"), 1800);
 }
-

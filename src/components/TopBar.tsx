@@ -16,7 +16,7 @@ interface TopBarProps {
   onThemeChange: (theme: ThemeMode) => void;
   onSearchQueryChange: (query: string) => void;
   onSubmitSearch: () => void;
-  onCreateEntry: () => void;
+  onCreateEntry?: () => void;
   onOpenArtVaultDashboard?: () => void;
   onOpenFavorites?: () => void;
   onOpenMobileNav: () => void;
@@ -117,14 +117,16 @@ export function TopBar({
               </i>
             </button>
           )}
-          <button
-            className="button-frame inline-flex items-center gap-2 rounded px-3 py-2 text-sm"
-            onClick={onCreateEntry}
-            title="New entry"
-          >
-            <Icon name="Plus" className="h-4 w-4" />
-            <span className="hidden sm:inline">New Entry</span>
-          </button>
+          {onCreateEntry && (
+            <button
+              className="button-frame inline-flex items-center gap-2 rounded px-3 py-2 text-sm"
+              onClick={onCreateEntry}
+              title="New entry"
+            >
+              <Icon name="Plus" className="h-4 w-4" />
+              <span className="hidden sm:inline">New Entry</span>
+            </button>
+          )}
           {onToggleAssignMode && (
             <button
               className={`button-frame top-assign-mode-button ${assignMode ? "active" : ""}`}

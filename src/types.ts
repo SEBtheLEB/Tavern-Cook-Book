@@ -762,7 +762,7 @@ export interface LoreDatabase {
   };
 }
 
-export type AccessRole = "admin" | "editor" | "viewer";
+export type AccessRole = "admin" | "editor" | "freelancer" | "viewer";
 
 export interface AccessUserPermission {
   email: string;

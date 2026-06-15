@@ -259,6 +259,7 @@ export function getTeamMemberForGoogleUser(user: GoogleAccountUser, members = ge
 export function permissionFromAccessRole(role: AccessRole): AssignmentPermission {
   if (role === "admin") return "owner";
   if (role === "editor") return "editor";
+  if (role === "freelancer") return "editor";
   return "viewer";
 }
 
@@ -415,6 +416,7 @@ function normalizePermission(value: unknown): AssignmentPermission {
 function roleLabel(role: AccessRole) {
   if (role === "admin") return "Producer";
   if (role === "editor") return "Editor";
+  if (role === "freelancer") return "Freelancer";
   return "Viewer";
 }
 

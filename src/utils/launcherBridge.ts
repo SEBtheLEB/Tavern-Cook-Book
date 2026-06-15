@@ -111,6 +111,7 @@ function roleFromLauncher(role: string | undefined, permissions: string[] | unde
   const normalizedRole = String(role || "").toLowerCase();
   const normalizedPermissions = (permissions || []).map((permission) => permission.toLowerCase());
   if (normalizedRole.includes("admin") || normalizedPermissions.includes("admin")) return "admin";
+  if (normalizedRole.includes("freelancer") || normalizedPermissions.includes("freelancer")) return "freelancer";
   if (
     normalizedRole.includes("editor") ||
     normalizedRole.includes("writer") ||

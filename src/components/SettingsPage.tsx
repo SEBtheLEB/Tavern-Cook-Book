@@ -17,7 +17,7 @@ import {
 } from "../utils/driveSettings";
 import { saveRemoteAppSettings } from "../utils/cloudSync";
 import { estimateStorageBytes, formatBytes, migrateDatabase, sanitizeDatabaseForPersistence } from "../utils/storage";
-import { loadAccessUsers, saveAccessUsers } from "../utils/accessControl";
+import { ACCESS_ROLE_OPTIONS, loadAccessUsers, saveAccessUsers } from "../utils/accessControl";
 import { openGoogleDriveFolderPicker } from "../utils/googlePicker";
 import { isSupportedImage, readImageFileForStorage } from "../utils/media";
 import { createShareableHtml } from "../utils/shareExport";
@@ -61,9 +61,23 @@ export function SettingsPage({
   const [accessUsers, setAccessUsers] = useState<AccessUserPermission[]>(() => loadAccessUsers());
   const [newAccessEmail, setNewAccessEmail] = useState("");
   const [newAccessRole, setNewAccessRole] = useState<AccessRole>("viewer");
+  const [visibilityTargetEmail, setVisibilityTargetEmail] = useState("__default__");
   const storageBytes = estimateStorageBytes(database);
   const driveConfigured = isDriveConfigured(driveSettings);
   const hideableNavigation = mainNavigation.filter((item) => getHideableNavigationTabs().includes(item.id));
+  const visibilityMembers = accessUsers.filter((user) => user.role !== "admin");
+  const selectedVisibilityEmail = visibilityTargetEmail === "__default__" ? "" : visibilityTargetEmail;
+  const selectedVisibilityUser = selectedVisibilityEmail
+    ? accessUsers.find((user) => user.email === selectedVisibilityEmail) || null
+    : null;
+  const selectedCustomHidden = selectedVisibilityEmail
+    ? appSyncSettings.visibility.hiddenByMemberEmail[selectedVisibilityEmail]
+    : undefined;
+  const selectedHiddenTabs = selectedVisibilityUser?.role === "freelancer"
+    ? getHideableNavigationTabs().filter((viewId) => viewId !== "artVault")
+    : selectedCustomHidden || appSyncSettings.visibility.hiddenForMembers;
+  const selectedHasCustomVisibility = Boolean(selectedVisibilityEmail && selectedCustomHidden);
+  const selectedFreelancerVisibility = selectedVisibilityUser?.role === "freelancer";
 
   useEffect(() => {
     fetch("/api/health")
@@ -81,6 +95,12 @@ export function SettingsPage({
   useEffect(() => {
     setDriveSettingsState(appSyncSettings.driveSettings || getDriveSettings());
   }, [appSyncSettings.driveSettings]);
+
+  useEffect(() => {
+    if (visibilityTargetEmail === "__default__") return;
+    if (accessUsers.some((user) => user.email === visibilityTargetEmail)) return;
+    setVisibilityTargetEmail("__default__");
+  }, [accessUsers, visibilityTargetEmail]);
 
   const exportJson = () => {
     const blob = new Blob([JSON.stringify(sanitizeDatabaseForPersistence(database), null, 2)], { type: "application/json" });
@@ -327,15 +347,42 @@ export function SettingsPage({
   };
 
   const toggleHiddenMemberTab = (viewId: ActiveView) => {
-    const hidden = new Set(appSyncSettings.visibility.hiddenForMembers);
+    if (selectedFreelancerVisibility) {
+      setMessage("Freelancer visibility is fixed to Dashboard and Art Vault / Art Binder. Change the role if this person needs other tabs.");
+      return;
+    }
+    const currentHidden = selectedVisibilityEmail
+      ? selectedCustomHidden || appSyncSettings.visibility.hiddenForMembers
+      : appSyncSettings.visibility.hiddenForMembers;
+    const hidden = new Set(currentHidden);
     if (hidden.has(viewId)) hidden.delete(viewId);
     else hidden.add(viewId);
+    const hiddenByMemberEmail = { ...appSyncSettings.visibility.hiddenByMemberEmail };
+    if (selectedVisibilityEmail) {
+      hiddenByMemberEmail[selectedVisibilityEmail] = [...hidden];
+    }
     onAppSyncSettingsChange({
       ...appSyncSettings,
       visibility: {
-        hiddenForMembers: [...hidden]
+        ...appSyncSettings.visibility,
+        hiddenForMembers: selectedVisibilityEmail ? appSyncSettings.visibility.hiddenForMembers : [...hidden],
+        hiddenByMemberEmail
       }
     });
+  };
+
+  const resetSelectedMemberVisibility = () => {
+    if (!selectedVisibilityEmail) return;
+    const hiddenByMemberEmail = { ...appSyncSettings.visibility.hiddenByMemberEmail };
+    delete hiddenByMemberEmail[selectedVisibilityEmail];
+    onAppSyncSettingsChange({
+      ...appSyncSettings,
+      visibility: {
+        ...appSyncSettings.visibility,
+        hiddenByMemberEmail
+      }
+    });
+    setMessage("This member now uses the default member tab visibility.");
   };
 
   return (
@@ -408,26 +455,61 @@ export function SettingsPage({
           <div>
             <h3 className="font-display text-2xl">Member Tab Visibility</h3>
             <p className="mt-1 text-sm" style={{ color: "var(--muted-ink)" }}>
-              Hidden tabs stay available to admins.
+              Choose the default member visibility or pick one teammate for custom hidden tabs. Hidden tabs stay available to admins.
             </p>
           </div>
           <span className="rounded border px-3 py-1 text-sm" style={{ borderColor: "var(--card-border)", background: "var(--field-bg)" }}>
-            {appSyncSettings.visibility.hiddenForMembers.length} hidden
+            {selectedHiddenTabs.length} hidden
           </span>
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,320px)_auto_1fr] md:items-end">
+          <label className="grid gap-2 text-sm font-semibold" style={{ color: "var(--muted-ink)" }}>
+            Visibility target
+            <CustomSelect
+              value={visibilityTargetEmail}
+              onChange={setVisibilityTargetEmail}
+              ariaLabel="Visibility target"
+              options={[
+                { value: "__default__", label: "Default for members" },
+                ...visibilityMembers.map((user) => ({
+                  value: user.email,
+                  label: `${user.label || user.email} (${user.role})`
+                }))
+              ]}
+            />
+          </label>
+          <button
+            type="button"
+            className="tab-frame rounded px-3 py-2"
+            disabled={!selectedVisibilityEmail || !selectedHasCustomVisibility}
+            onClick={resetSelectedMemberVisibility}
+          >
+            Use Default
+          </button>
+          <p className="text-sm" style={{ color: "var(--muted-ink)" }}>
+            {selectedFreelancerVisibility
+              ? "Freelancer is fixed to Dashboard plus Art Vault / Art Binder access only."
+              : selectedVisibilityEmail
+                ? selectedHasCustomVisibility
+                  ? "This teammate has custom visibility."
+                  : "This teammate is currently using the default member visibility."
+                : "These switches are the fallback for non-admin members without custom visibility."}
+          </p>
         </div>
         <div className="settings-visibility-grid mt-4">
           {hideableNavigation.map((item) => {
-            const hidden = appSyncSettings.visibility.hiddenForMembers.includes(item.id);
+            const hidden = selectedHiddenTabs.includes(item.id);
             return (
               <label key={item.id} className={`settings-visibility-row ${hidden ? "is-hidden" : ""}`}>
                 <input
                   type="checkbox"
                   checked={!hidden}
+                  disabled={selectedFreelancerVisibility}
                   onChange={() => toggleHiddenMemberTab(item.id)}
                 />
                 <span>
                   <strong>{item.label}</strong>
-                  <em>{hidden ? "Hidden from members" : "Visible to members"}</em>
+                  <em>{hidden ? "Hidden from target" : "Visible to target"}</em>
                 </span>
               </label>
             );
@@ -465,11 +547,7 @@ export function SettingsPage({
                     disabled={lockedAdmin}
                     onChange={(value) => updateAccessUser(user.email, { role: value as AccessRole })}
                     ariaLabel="Team member permission"
-                    options={[
-                      { value: "viewer", label: "Viewer" },
-                      { value: "editor", label: "Editor" },
-                      { value: "admin", label: "Admin" }
-                    ]}
+                    options={ACCESS_ROLE_OPTIONS}
                   />
                   <input
                     value={user.label || ""}
@@ -496,11 +574,7 @@ export function SettingsPage({
               value={newAccessRole}
               onChange={(value) => setNewAccessRole(value as AccessRole)}
               ariaLabel="New permission"
-              options={[
-                { value: "viewer", label: "Viewer" },
-                { value: "editor", label: "Editor" },
-                { value: "admin", label: "Admin" }
-              ]}
+              options={ACCESS_ROLE_OPTIONS}
             />
             <button className="tab-frame rounded px-4 py-2" onClick={addAccessUser}>
               Add Gmail
