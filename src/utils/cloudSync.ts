@@ -26,8 +26,10 @@ export interface CloudSyncResponse<T> {
 export interface CloudSyncHealth {
   ok: boolean;
   configured: boolean;
+  provider?: "supabase" | "github" | "none";
   repo?: string;
   branch?: string;
+  table?: string;
   error?: string;
 }
 
@@ -45,8 +47,10 @@ export async function fetchCloudHealth(): Promise<CloudSyncHealth> {
     return {
       ok: Boolean(payload.ok),
       configured: Boolean(payload.configured),
+      provider: payload.provider === "supabase" || payload.provider === "github" || payload.provider === "none" ? payload.provider : undefined,
       repo: typeof payload.repo === "string" ? payload.repo : "",
       branch: typeof payload.branch === "string" ? payload.branch : "",
+      table: typeof payload.table === "string" ? payload.table : "",
       error: payload.error
     };
   } catch {

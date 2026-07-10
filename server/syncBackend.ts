@@ -1,6 +1,7 @@
 import type { IncomingHttpHeaders } from "node:http";
 
 type SyncScope = "published" | "user" | "settings" | "health";
+type SyncProvider = "supabase" | "github" | "none";
 
 interface SyncEnvelope<T = unknown> {
   updatedAt: string;
@@ -26,19 +27,39 @@ interface GitHubContentFile {
   sha?: string;
 }
 
+interface SyncReadResult {
+  data: unknown;
+  version: string;
+}
+
+interface SyncWriteResult {
+  skipped: boolean;
+  version: string;
+}
+
+interface SupabaseSyncRow {
+  updated_at?: string;
+  updated_by?: string;
+  payload?: unknown;
+}
+
 const DEFAULT_REPO = "SEBtheLEB/Tavern-Cook-Book";
 const DEFAULT_BRANCH = "tavern-sync";
+const DEFAULT_SUPABASE_TABLE = "tavern_sync_documents";
 const SYNC_ROOT = "sync/tavern-cook-book";
 const GOOGLE_TOKENINFO_URL = "https://oauth2.googleapis.com/tokeninfo";
 const MAIN_ADMIN_EMAIL = "stlprodz1101@gmail.com";
 const STL_WORKSHOP_GOOGLE_OAUTH_CLIENT_ID = "55508806253-p292f7oom6s1do0f9er1unfhi0mjjaen.apps.googleusercontent.com";
 
 export function getSyncHealth() {
+  const provider = syncProvider();
   return {
-    ok: Boolean(syncToken()),
-    configured: Boolean(syncToken()),
-    repo: syncRepo(),
-    branch: syncBranch()
+    ok: provider !== "none",
+    configured: provider !== "none",
+    provider,
+    repo: provider === "github" ? syncRepo() : undefined,
+    branch: provider === "github" ? syncBranch() : undefined,
+    table: provider === "supabase" ? supabaseTable() : undefined
   };
 }
 
@@ -55,16 +76,17 @@ export async function handleSyncRequest(request: SyncRequest): Promise<SyncResul
   }
 
   const auth = await verifyGoogleCredential(request.headers);
-  if (!auth.ok && scope !== "published") {
+  const allowPublicPublishedRead = scope === "published" && request.method === "GET";
+  if (!auth.ok && !allowPublicPublishedRead) {
     return json(auth.status, { error: auth.error });
   }
   const signedInEmail = auth.ok
     ? auth.email
     : normalizeEmail(url.searchParams.get("email") || readBodyEmail(request.body) || "team-member@stlproductionz.local");
 
-  if (!syncToken()) {
+  if (syncProvider() === "none") {
     return json(503, {
-      error: "Cloud sync is not configured. Set TAVERN_SYNC_GITHUB_TOKEN in Vercel.",
+      error: "Cloud sync is not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in Vercel, or keep TAVERN_SYNC_GITHUB_TOKEN as the fallback.",
       configured: false
     });
   }
@@ -90,13 +112,13 @@ async function handleGet(scope: SyncScope, url: URL, signedInEmail: string): Pro
     return json(403, { error: "You can only read your own draft sync file." });
   }
 
-  const path = syncPath(scope, email);
-  const file = await readGitHubJson(path);
+  const file = await readSyncJson(scope, email);
   return json(200, {
     ok: true,
     configured: true,
     envelope: file?.data || null,
-    sha: file?.sha || ""
+    provider: syncProvider(),
+    sha: file?.version || ""
   });
 }
 
@@ -113,19 +135,19 @@ async function handlePost(scope: SyncScope, body: unknown, signedInEmail: string
     return json(403, { error: "You can only save your own draft sync file." });
   }
 
-  const path = syncPath(scope, requestedEmail);
   const envelope: SyncEnvelope = {
     updatedAt: new Date().toISOString(),
     updatedBy: signedInEmail,
     payload
   };
-  const result = await writeGitHubJson(path, envelope, commitMessage(scope, signedInEmail));
+  const result = await writeSyncJson(scope, requestedEmail, envelope, commitMessage(scope, signedInEmail));
   return json(200, {
     ok: true,
     configured: true,
     envelope,
+    provider: syncProvider(),
     skipped: result.skipped,
-    sha: result.sha
+    sha: result.version
   });
 }
 
@@ -163,6 +185,120 @@ function bearerToken(headers: IncomingHttpHeaders) {
   const value = Array.isArray(raw) ? raw[0] : raw || "";
   const match = value.match(/^Bearer\s+(.+)$/i);
   return match?.[1]?.trim() || "";
+}
+
+async function readSyncJson(scope: SyncScope, email: string): Promise<SyncReadResult | null> {
+  if (isSupabaseConfigured()) {
+    const key = syncDocumentKey(scope, email);
+    const supabaseFile = await readSupabaseJson(scope, key);
+    if (supabaseFile) return supabaseFile;
+
+    const githubFile = syncToken() ? await readGitHubJson(syncPath(scope, email)) : null;
+    if (githubFile?.data) {
+      await migrateGitHubEnvelopeToSupabase(scope, key, githubFile.data);
+      return { data: githubFile.data, version: githubFile.sha };
+    }
+    return null;
+  }
+
+  if (syncToken()) {
+    const githubFile = await readGitHubJson(syncPath(scope, email));
+    return githubFile ? { data: githubFile.data, version: githubFile.sha } : null;
+  }
+  return null;
+}
+
+async function writeSyncJson(scope: SyncScope, email: string, envelope: SyncEnvelope, message: string): Promise<SyncWriteResult> {
+  if (isSupabaseConfigured()) {
+    return writeSupabaseJson(scope, syncDocumentKey(scope, email), envelope);
+  }
+  const result = await writeGitHubJson(syncPath(scope, email), envelope, message);
+  return { skipped: result.skipped, version: result.sha };
+}
+
+async function migrateGitHubEnvelopeToSupabase(scope: SyncScope, key: string, value: unknown) {
+  if (!value || typeof value !== "object") return;
+  const envelope = value as Partial<SyncEnvelope>;
+  await writeSupabaseJson(scope, key, {
+    updatedAt: typeof envelope.updatedAt === "string" ? envelope.updatedAt : new Date().toISOString(),
+    updatedBy: typeof envelope.updatedBy === "string" ? envelope.updatedBy : "github-migration",
+    payload: envelope.payload && typeof envelope.payload === "object" ? envelope.payload : {}
+  });
+}
+
+async function readSupabaseJson(scope: SyncScope, key: string): Promise<SyncReadResult | null> {
+  const params = new URLSearchParams({
+    scope: `eq.${scope}`,
+    document_key: `eq.${key}`,
+    select: "updated_at,updated_by,payload",
+    limit: "1"
+  });
+  const response = await fetch(`${supabaseRestBaseUrl()}/${encodeURIComponent(supabaseTable())}?${params.toString()}`, {
+    headers: supabaseHeaders()
+  });
+
+  if (!response.ok) throw new Error(await supabaseError(response, "Could not read Supabase sync document."));
+  const rows = await response.json() as SupabaseSyncRow[];
+  const row = rows[0];
+  if (!row) return null;
+
+  return {
+    data: supabaseRowToEnvelope(row),
+    version: row.updated_at || ""
+  };
+}
+
+async function writeSupabaseJson(scope: SyncScope, key: string, envelope: SyncEnvelope): Promise<SyncWriteResult> {
+  const response = await fetch(`${supabaseRestBaseUrl()}/${encodeURIComponent(supabaseTable())}?on_conflict=scope,document_key`, {
+    method: "POST",
+    headers: {
+      ...supabaseHeaders(),
+      "Content-Type": "application/json",
+      Prefer: "resolution=merge-duplicates,return=representation"
+    },
+    body: JSON.stringify([{
+      scope,
+      document_key: key,
+      updated_at: envelope.updatedAt,
+      updated_by: envelope.updatedBy,
+      payload: envelope.payload
+    }])
+  });
+
+  if (!response.ok) throw new Error(await supabaseError(response, "Could not write Supabase sync document."));
+  const rows = await response.json() as SupabaseSyncRow[];
+  return {
+    skipped: false,
+    version: rows[0]?.updated_at || envelope.updatedAt
+  };
+}
+
+function supabaseRowToEnvelope(row: SupabaseSyncRow): SyncEnvelope {
+  return {
+    updatedAt: typeof row.updated_at === "string" ? row.updated_at : "",
+    updatedBy: typeof row.updated_by === "string" ? row.updated_by : "",
+    payload: row.payload && typeof row.payload === "object" ? row.payload : {}
+  };
+}
+
+function supabaseHeaders() {
+  const key = supabaseServiceRoleKey();
+  return {
+    apikey: key,
+    Authorization: `Bearer ${key}`,
+    Accept: "application/json"
+  };
+}
+
+async function supabaseError(response: Response, fallback: string) {
+  try {
+    const payload = await response.json() as { message?: string; details?: string; hint?: string; code?: string };
+    return [fallback, payload.message, payload.details, payload.hint, payload.code ? `(${payload.code})` : ""]
+      .filter(Boolean)
+      .join(" ");
+  } catch {
+    return fallback;
+  }
 }
 
 async function readGitHubJson(path: string): Promise<{ data: unknown; sha: string } | null> {
@@ -294,6 +430,11 @@ function syncPath(scope: SyncScope, email: string) {
   return `${SYNC_ROOT}/users/${safeEmailFileName(email)}.json`;
 }
 
+function syncDocumentKey(scope: SyncScope, email: string) {
+  if (scope === "published" || scope === "settings") return "team";
+  return normalizeEmail(email);
+}
+
 function safeEmailFileName(email: string) {
   return Buffer.from(normalizeEmail(email), "utf8")
     .toString("base64")
@@ -338,6 +479,32 @@ function syncRepo() {
 
 function syncBranch() {
   return (process.env.TAVERN_SYNC_GITHUB_BRANCH || DEFAULT_BRANCH).trim();
+}
+
+function syncProvider(): SyncProvider {
+  if (isSupabaseConfigured()) return "supabase";
+  if (syncToken()) return "github";
+  return "none";
+}
+
+function isSupabaseConfigured() {
+  return Boolean(supabaseUrl() && supabaseServiceRoleKey());
+}
+
+function supabaseUrl() {
+  return (process.env.TAVERN_SUPABASE_URL || process.env.SUPABASE_URL || "").trim().replace(/\/+$/g, "");
+}
+
+function supabaseRestBaseUrl() {
+  return `${supabaseUrl()}/rest/v1`;
+}
+
+function supabaseServiceRoleKey() {
+  return (process.env.TAVERN_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+}
+
+function supabaseTable() {
+  return (process.env.TAVERN_SUPABASE_SYNC_TABLE || DEFAULT_SUPABASE_TABLE).trim();
 }
 
 function googleOAuthClientIds() {

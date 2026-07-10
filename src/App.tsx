@@ -536,8 +536,8 @@ export default function App() {
             setCloudSync((current) => ({
               ...current,
               message: result.error
-                ? `Live editing is working, but the GitHub backup failed: ${result.error}`
-                : "Live editing is working, but the GitHub backup failed.",
+                ? `Live editing is working, but the cloud backup failed: ${result.error}`
+                : "Live editing is working, but the cloud backup failed.",
               configured: result.configured
             }));
             return;
@@ -563,8 +563,8 @@ export default function App() {
           setCloudSync((current) => ({
             ...current,
             message: error instanceof Error
-              ? `Live editing is working, but the GitHub backup failed: ${error.message}`
-              : "Live editing is working, but the GitHub backup failed.",
+              ? `Live editing is working, but the cloud backup failed: ${error.message}`
+              : "Live editing is working, but the cloud backup failed.",
             configured: true
           }));
         });
@@ -1125,7 +1125,7 @@ export default function App() {
       if (!health.configured) {
         setCloudSync({
           phase: "offline",
-          message: health.error || "Cloud sync needs TAVERN_SYNC_GITHUB_TOKEN in Vercel.",
+          message: health.error || "Cloud sync needs Supabase credentials in Vercel.",
           lastSavedAt: "",
           configured: false
         });
@@ -1797,7 +1797,7 @@ export default function App() {
     setPushMessage(
       cloudSync.configured
         ? ""
-        : "Cloud sync is not configured yet. Add TAVERN_SYNC_GITHUB_TOKEN in Vercel before pushing globally."
+        : "Cloud sync is not configured yet. Add SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in Vercel before pushing globally."
     );
     setPushReviewOpen(true);
   };
