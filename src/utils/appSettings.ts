@@ -31,6 +31,7 @@ const hideableTabs: ActiveView[] = [
   "bestiary",
   "artVault",
   "artDirection",
+  "developmentBoard",
   "roadmap",
   "marketing",
   "archive"
@@ -46,6 +47,7 @@ const freelancerLockedTabs: ActiveView[] = [
   "world",
   "bestiary",
   "artDirection",
+  "developmentBoard",
   "roadmap",
   "marketing",
   "archive",

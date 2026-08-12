@@ -1,4 +1,5 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy } from "react";
 import type {
   ActiveView,
   AssistantChangedTarget,
@@ -124,6 +125,10 @@ import {
   saveUserProfiles,
   syncTeamMembersWithAccessUsers
 } from "./utils/assignments";
+
+const DevelopmentBoardPage = lazy(() =>
+  import("./components/DevelopmentBoardPage").then((module) => ({ default: module.DevelopmentBoardPage }))
+);
 
 const extraViews: ViewConfig[] = [
   {
@@ -2576,6 +2581,30 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  const openDevelopmentBoardLinkedEntity = (type: string, id: string, category: string) => {
+    if (type === "entry") {
+      const entry = databaseRef.current.entries.find((candidate) => candidate.id === id);
+      if (entry) openEntry(entry);
+      return;
+    }
+    if (type === "creature") {
+      const creature = (databaseRef.current.bestiary || []).find((candidate) => candidate.id === id);
+      if (creature) openBestiaryCreature(creature);
+      return;
+    }
+    if (type === "world" && isWorldBuildingCategoryId(category)) {
+      openWorldBuildingEntry(category, id);
+      return;
+    }
+    if (type === "story-reference") {
+      openStorySource(id);
+      return;
+    }
+    if (type === "roadmap-item") {
+      navigate("roadmap");
+    }
+  };
+
   const openScribeChangedTarget = (target: AssistantChangedTarget) => {
     if (target.kind === "entry" && target.entryId) {
       const entry = database.entries.find((candidate) => candidate.id === target.entryId);
@@ -3109,6 +3138,19 @@ export default function App() {
                 />
               )}
 
+              {activeView === "developmentBoard" && (
+                <Suspense fallback={<div className="p-8 text-sm text-[var(--muted-ink)]">Opening the Development Board...</div>}>
+                  <DevelopmentBoardPage
+                    database={database}
+                    readOnly={readOnly}
+                    currentUser={currentUser}
+                    teamMembers={teamMembers}
+                    onDatabaseChange={updateDatabase}
+                    onOpenLinkedEntity={openDevelopmentBoardLinkedEntity}
+                  />
+                </Suspense>
+              )}
+
               {activeView === "roadmap" && (
                 <RoadmapPage
                   database={database}
@@ -3175,7 +3217,7 @@ export default function App() {
                 />
               )}
 
-              {!["dashboard", "storyJourney", "story", "spriteAnimator", "search", "timeline", "secrets", "settings", "bestiary", "world", "food", "ingredients", "recipes", "artVault", "artDirection", "roadmap"].includes(activeView) && (
+              {!["dashboard", "storyJourney", "story", "spriteAnimator", "search", "timeline", "secrets", "settings", "bestiary", "world", "food", "ingredients", "recipes", "artVault", "artDirection", "developmentBoard", "roadmap"].includes(activeView) && (
                 <HubPage
                   view={activeConfig}
                   entries={viewEntries}

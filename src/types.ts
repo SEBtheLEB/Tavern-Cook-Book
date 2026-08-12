@@ -45,6 +45,7 @@ export type ActiveView =
   | "bestiary"
   | "artVault"
   | "artDirection"
+  | "developmentBoard"
   | "roadmap"
   | "marketing"
   | "archive"
@@ -726,6 +727,92 @@ export interface RoadmapData {
   updatedAt: string;
 }
 
+export type DevelopmentBoardNodeStatus =
+  | "not-started"
+  | "in-progress"
+  | "review"
+  | "complete"
+  | "production-locked";
+
+export type DevelopmentBoardLinkedEntityType =
+  | "entry"
+  | "creature"
+  | "world"
+  | "story-reference"
+  | "roadmap-item"
+  | string;
+
+export interface DevelopmentBoardAttachment {
+  id: string;
+  title: string;
+  url: string;
+  kind: "image" | "link" | "document" | "file" | string;
+  createdAt: string;
+}
+
+export interface DevelopmentBoardNode {
+  id: string;
+  title: string;
+  type: string;
+  description: string;
+  status: DevelopmentBoardNodeStatus;
+  ownerId: string;
+  ownerName: string;
+  position: { x: number; y: number };
+  width: number;
+  height: number;
+  groupId: string;
+  linkedEntityType: DevelopmentBoardLinkedEntityType | "";
+  linkedEntityId: string;
+  linkedEntityCategory: string;
+  tags: string[];
+  notes: string;
+  attachments: DevelopmentBoardAttachment[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DevelopmentBoardConnection {
+  id: string;
+  sourceNodeId: string;
+  targetNodeId: string;
+  relationshipType: string;
+  label: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DevelopmentBoardGroup {
+  id: string;
+  title: string;
+  description: string;
+  position: { x: number; y: number };
+  width: number;
+  height: number;
+  color: string;
+  collapsed: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DevelopmentBoardViewport {
+  x: number;
+  y: number;
+  zoom: number;
+}
+
+export interface DevelopmentBoardData {
+  id: string;
+  title: string;
+  description: string;
+  seedVersion: number;
+  nodes: DevelopmentBoardNode[];
+  connections: DevelopmentBoardConnection[];
+  groups: DevelopmentBoardGroup[];
+  viewport: DevelopmentBoardViewport;
+  updatedAt: string;
+}
+
 export interface LoreBackup {
   id: string;
   label: string;
@@ -738,6 +825,7 @@ export interface LoreBackup {
   glossaryTerms?: GlossaryTerm[];
   artDirection?: ArtDirectionBoard;
   roadmap?: RoadmapData;
+  developmentBoard?: DevelopmentBoardData;
 }
 
 export interface LoreDatabase {
@@ -750,6 +838,7 @@ export interface LoreDatabase {
   glossaryTerms: GlossaryTerm[];
   artDirection: ArtDirectionBoard;
   roadmap: RoadmapData;
+  developmentBoard?: DevelopmentBoardData;
   assignments: AssignmentRecord[];
   teamMembers: TeamMember[];
   userProfiles: UserProfile[];

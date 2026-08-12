@@ -6,6 +6,7 @@ import { createStarterGlossaryTerms, createStarterStoryReferences } from "../uti
 import { defaultQuestCategories, defaultTeamMembers } from "../utils/assignments";
 import { createStarterArtDirectionBoard } from "../utils/artDirection";
 import { createStarterRoadmapData } from "../utils/roadmap";
+import { createInitialDevelopmentBoard } from "../utils/developmentBoard";
 
 const stamp = "2026-05-07T00:00:00.000Z";
 
@@ -3627,22 +3628,29 @@ const starterBestiaryCategoryVaults: BestiaryCategoryArtVault[] = Array.from(
   new Set(starterBestiary.map((creature) => creature.category).filter(Boolean))
 ).map((category) => createBestiaryCategoryArtVaultRecord(category, starterBestiary));
 
-export const createStarterDatabase = (): LoreDatabase => ({
-  schemaVersion: 7,
-  entries: starterEntries.map((item) => JSON.parse(JSON.stringify(item)) as LoreEntry),
-  bestiary: starterBestiary.map((item) => JSON.parse(JSON.stringify(item)) as BestiaryCreature),
-  bestiaryCategoryVaults: starterBestiaryCategoryVaults.map((item) => JSON.parse(JSON.stringify(item)) as BestiaryCategoryArtVault),
-  worldBuilding: createStarterWorldBuilding(starterEntries, starterBestiary),
-  storyReferences: createStarterStoryReferences(),
-  glossaryTerms: createStarterGlossaryTerms(),
-  artDirection: createStarterArtDirectionBoard(),
-  roadmap: createStarterRoadmapData(),
-  assignments: [],
-  teamMembers: defaultTeamMembers.map((item) => JSON.parse(JSON.stringify(item))),
-  userProfiles: [],
-  questCategories: defaultQuestCategories.map((item) => JSON.parse(JSON.stringify(item))),
-  backups: [],
-  branding: {
-    studioName: "STL Productionz"
-  }
-});
+export const createStarterDatabase = (): LoreDatabase => {
+  const entries = starterEntries.map((item) => JSON.parse(JSON.stringify(item)) as LoreEntry);
+  const bestiary = starterBestiary.map((item) => JSON.parse(JSON.stringify(item)) as BestiaryCreature);
+  const worldBuilding = createStarterWorldBuilding(entries, bestiary);
+  const storyReferences = createStarterStoryReferences();
+  return {
+    schemaVersion: 8,
+    entries,
+    bestiary,
+    bestiaryCategoryVaults: starterBestiaryCategoryVaults.map((item) => JSON.parse(JSON.stringify(item)) as BestiaryCategoryArtVault),
+    worldBuilding,
+    storyReferences,
+    glossaryTerms: createStarterGlossaryTerms(),
+    artDirection: createStarterArtDirectionBoard(),
+    roadmap: createStarterRoadmapData(),
+    developmentBoard: createInitialDevelopmentBoard(entries, bestiary, worldBuilding, storyReferences),
+    assignments: [],
+    teamMembers: defaultTeamMembers.map((item) => JSON.parse(JSON.stringify(item))),
+    userProfiles: [],
+    questCategories: defaultQuestCategories.map((item) => JSON.parse(JSON.stringify(item))),
+    backups: [],
+    branding: {
+      studioName: "STL Productionz"
+    }
+  };
+};

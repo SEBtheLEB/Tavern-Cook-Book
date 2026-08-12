@@ -27,6 +27,11 @@ import {
   normalizeRoadmapData,
   sanitizeRoadmapForPersistence
 } from "./roadmap";
+import {
+  createInitialDevelopmentBoard,
+  normalizeDevelopmentBoardData,
+  sanitizeDevelopmentBoardForPersistence
+} from "./developmentBoard";
 import { normalizeAssignments, normalizeQuestCategories, normalizeTeamMembers, normalizeUserProfiles } from "./assignments";
 import { cloneDatabase, normalizeEntry, nowIso } from "./entries";
 import { normalizeImageFit } from "./imageFit";
@@ -46,7 +51,7 @@ export const DATABASE_KEY = "tavern-cook-book:data";
 export const THEME_KEY = "tavern-cook-book:theme";
 const LEGACY_MODE_KEY = "tavern-cook-book:mode";
 
-export const currentSchemaVersion = 7;
+export const currentSchemaVersion = 8;
 const loreExpansionSchemaVersion = 2;
 const magicalMealCanonSchemaVersion = 3;
 const storyReferenceSchemaVersion = 4;
@@ -278,6 +283,10 @@ export const migrateDatabase = (value: unknown): LoreDatabase => {
     roadmap = mergeWhiskerWoodsPlaytestSetup(roadmap);
   }
 
+  const developmentBoard = incoming.developmentBoard
+    ? normalizeDevelopmentBoardData(incoming.developmentBoard)
+    : createInitialDevelopmentBoard(entries, bestiary, worldBuilding, storyReferences);
+
   return {
     schemaVersion: currentSchemaVersion,
     entries,
@@ -288,6 +297,7 @@ export const migrateDatabase = (value: unknown): LoreDatabase => {
     glossaryTerms,
     artDirection,
     roadmap,
+    developmentBoard,
     assignments,
     teamMembers,
     userProfiles,
@@ -322,6 +332,9 @@ export const migrateDatabase = (value: unknown): LoreDatabase => {
               : undefined,
             roadmap: (backup as LoreBackup).roadmap
               ? normalizeRoadmapData((backup as LoreBackup).roadmap)
+              : undefined,
+            developmentBoard: (backup as LoreBackup).developmentBoard
+              ? normalizeDevelopmentBoardData((backup as LoreBackup).developmentBoard)
               : undefined
           }))
           .slice(0, 12)
@@ -587,7 +600,8 @@ export const createBackup = (database: LoreDatabase, label: string): LoreDatabas
     storyReferences: cloneDatabase(database).storyReferences || [],
     glossaryTerms: cloneDatabase(database).glossaryTerms || [],
     artDirection: cloneDatabase(database).artDirection || createStarterArtDirectionBoard(),
-    roadmap: cloneDatabase(database).roadmap || createStarterRoadmapData()
+    roadmap: cloneDatabase(database).roadmap || createStarterRoadmapData(),
+    developmentBoard: cloneDatabase(database).developmentBoard
   };
 
   next.backups = [backup, ...(next.backups || [])].slice(0, 12);
@@ -611,6 +625,7 @@ export const sanitizeDatabaseForPersistence = (database: LoreDatabase): LoreData
   glossaryTerms: normalizeGlossaryTerms(database.glossaryTerms),
   artDirection: sanitizeArtDirectionBoardForPersistence(database.artDirection),
   roadmap: sanitizeRoadmapForPersistence(database.roadmap),
+  developmentBoard: sanitizeDevelopmentBoardForPersistence(database.developmentBoard),
   assignments: normalizeAssignments(database.assignments || []),
   teamMembers: normalizeTeamMembers(database.teamMembers || []),
   userProfiles: normalizeUserProfiles(database.userProfiles || []),
@@ -653,6 +668,10 @@ export const sanitizeDatabaseForPersistence = (database: LoreDatabase): LoreData
 
     if (backup.roadmap) {
       sanitizedBackup.roadmap = sanitizeRoadmapForPersistence(backup.roadmap);
+    }
+
+    if (backup.developmentBoard) {
+      sanitizedBackup.developmentBoard = sanitizeDevelopmentBoardForPersistence(backup.developmentBoard);
     }
 
     return sanitizedBackup;

@@ -26,6 +26,7 @@
     "@tauri-apps/plugin-deep-link": "^2.4.9",
     "@tauri-apps/plugin-opener": "^2.5.4",
     "@vitejs/plugin-react": "^5.0.0",
+    "@xyflow/react": "^12.11.2",
     "concurrently": "^9.1.2",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
