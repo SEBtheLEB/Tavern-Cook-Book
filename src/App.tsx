@@ -2729,20 +2729,6 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const updateBrandingLogo = (logoImage: string) => {
-    if (forcedReadOnly) return;
-    const next = {
-      ...database,
-      branding: {
-        ...database.branding,
-        logoImage
-      }
-    };
-    setDatabase(next);
-    const result = saveDatabase(next);
-    setStorageWarning(result.ok ? "" : result.message || "The app could not save this change.");
-  };
-
   const signOut = () => {
     clearAppSessionUiState();
     clearGoogleAccount();
@@ -2871,11 +2857,7 @@ export default function App() {
   if (!currentUser || desktopBrowserAuthMode) {
     return (
       <div className={themeClassName}>
-        <AccessGate
-          onSignIn={setCurrentUser}
-          brandingLogoImage={database.branding.logoImage}
-          onBrandingLogoChange={!forcedReadOnly ? updateBrandingLogo : undefined}
-        />
+        <AccessGate onSignIn={setCurrentUser} />
       </div>
     );
   }

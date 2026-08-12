@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import stlWorkshopLogo from "../assets/stl-workshop-logo.png";
 import type { GoogleAccountUser } from "../types";
 import {
   clearGoogleAccount,
@@ -19,21 +20,14 @@ import {
   openDesktopSignInInSystemBrowser,
   redirectDesktopBrowserCredential
 } from "../utils/desktopShell";
-import { BrandImageEditor } from "./BrandImageEditor";
 import { DriveAwareImage } from "./DriveAwareImage";
 import { Icon } from "./Icon";
 
 interface AccessGateProps {
   onSignIn: (user: GoogleAccountUser) => void;
-  brandingLogoImage?: string;
-  onBrandingLogoChange?: (logoImage: string) => void;
 }
 
-export function AccessGate({
-  onSignIn,
-  brandingLogoImage = "",
-  onBrandingLogoChange
-}: AccessGateProps) {
+export function AccessGate({ onSignIn }: AccessGateProps) {
   const buttonRef = useRef<HTMLDivElement | null>(null);
   const desktopShell = isTauriDesktopShell();
   const desktopBrowserAuthMode = isDesktopBrowserAuthRequest();
@@ -142,12 +136,8 @@ export function AccessGate({
     return (
       <main className="access-gate">
         <section className="access-card access-denied-card">
-          <div className={`access-card-icon denied ${brandingLogoImage ? "has-image" : ""}`}>
-            {brandingLogoImage ? (
-              <DriveAwareImage src={brandingLogoImage} alt="STL Productionz" />
-            ) : (
-              <Icon name="ShieldAlert" className="h-8 w-8" />
-            )}
+          <div className="access-card-icon has-image">
+            <DriveAwareImage src={stlWorkshopLogo} alt="STL Productionz" />
           </div>
           <p className="access-eyebrow">Access Denied</p>
           <h1 className="font-display">STL Productionz</h1>
@@ -177,12 +167,8 @@ export function AccessGate({
   return (
     <main className="access-gate">
       <section className="access-card">
-        <div className={`access-card-icon ${brandingLogoImage ? "has-image" : ""}`}>
-          {brandingLogoImage ? (
-            <DriveAwareImage src={brandingLogoImage} alt="STL Productionz" />
-          ) : (
-            <Icon name="Sparkles" className="h-8 w-8" />
-          )}
+        <div className="access-card-icon has-image">
+          <DriveAwareImage src={stlWorkshopLogo} alt="STL Productionz" />
         </div>
         <p className="access-eyebrow">Team Cook Book</p>
         <h1 className="font-display">STL Productionz</h1>
@@ -250,13 +236,6 @@ export function AccessGate({
           <div ref={buttonRef} className="access-google-button" />
         )}
         {message && <span className="access-message">{message}</span>}
-        {onBrandingLogoChange && (
-          <BrandImageEditor
-            compact
-            logoImage={brandingLogoImage}
-            onLogoChange={onBrandingLogoChange}
-          />
-        )}
       </section>
     </main>
   );
