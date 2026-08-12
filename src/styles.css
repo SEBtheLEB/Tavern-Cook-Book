@@ -23144,6 +23144,7 @@ body > .picker-dialog-bg {
 .development-board-toolbar button,
 .development-board-filters button,
 .development-node-inspector button,
+.development-inspector-selection button,
 .development-create-dialog button {
   display: inline-flex;
   align-items: center;
@@ -23609,6 +23610,41 @@ body > .picker-dialog-bg {
   min-height: 720px;
 }
 
+.development-inspector-selection {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+  padding: 20px;
+}
+
+.development-inspector-selection > svg {
+  color: var(--gold);
+}
+
+.development-inspector-selection > p {
+  margin: 0;
+  color: var(--muted-ink);
+  line-height: 1.5;
+}
+
+.development-inspector-selection > p:first-of-type {
+  color: var(--gold);
+  font-size: 0.7rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.development-inspector-selection h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  line-height: 1.1;
+}
+
+.development-inspector-selection > button {
+  width: 100%;
+  margin-top: 4px;
+}
+
 .development-node-inspector {
   display: grid;
   gap: 15px;
@@ -23873,6 +23909,105 @@ body > .picker-dialog-bg {
   place-items: center;
   background: rgba(20, 13, 8, 0.68);
   padding: 20px;
+}
+
+.development-detail-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: grid;
+  place-items: center;
+  background: rgba(20, 13, 8, 0.72);
+  padding: 24px;
+}
+
+.development-detail-dialog {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  width: min(980px, 100%);
+  max-height: calc(100vh - 48px);
+  overflow: hidden;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: var(--modal-bg);
+  box-shadow: 0 34px 90px rgba(20, 11, 5, 0.56);
+}
+
+.development-detail-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid var(--card-border);
+  background: var(--panel-bg);
+  padding: 16px 18px;
+}
+
+.development-detail-dialog-header p,
+.development-detail-dialog-header h2 {
+  margin: 0;
+}
+
+.development-detail-dialog-header p {
+  color: var(--gold);
+  font-size: 0.7rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.development-detail-dialog-header h2 {
+  margin-top: 3px;
+  font-size: 1.35rem;
+}
+
+.development-detail-dialog-header button {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  place-items: center;
+  border: 1px solid var(--card-border);
+  border-radius: 6px;
+  background: var(--field-bg);
+  color: var(--app-ink);
+}
+
+.development-detail-dialog-content {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.development-detail-dialog-content .development-node-inspector {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 18px;
+  padding: 20px;
+}
+
+.development-detail-dialog-content .development-node-inspector > header,
+.development-detail-dialog-content .development-blocked-notice,
+.development-detail-dialog-content .development-inspector-fields,
+.development-detail-dialog-content .development-inspector-actions {
+  grid-column: 1 / -1;
+}
+
+.development-detail-dialog-content .development-inspector-section {
+  min-width: 0;
+}
+
+@media (max-width: 720px) {
+  .development-detail-overlay {
+    padding: 10px;
+  }
+
+  .development-detail-dialog {
+    max-height: calc(100vh - 20px);
+  }
+
+  .development-detail-dialog-content .development-node-inspector {
+    grid-template-columns: 1fr;
+    padding: 14px;
+  }
 }
 
 .development-create-dialog {

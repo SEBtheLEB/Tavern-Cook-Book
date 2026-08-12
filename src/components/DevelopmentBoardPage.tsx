@@ -116,6 +116,7 @@ function DevelopmentBoardWorkspace({ database, readOnly, currentUser, teamMember
   const [selectedNodeId, setSelectedNodeId] = useState("");
   const [selectedGroupId, setSelectedGroupId] = useState("");
   const [selectedEdgeId, setSelectedEdgeId] = useState("");
+  const [nodeDetailsOpen, setNodeDetailsOpen] = useState(false);
   const [creationMode, setCreationMode] = useState<CreationMode>(null);
   const [createTitle, setCreateTitle] = useState("");
   const [createType, setCreateType] = useState("Custom");
@@ -195,6 +196,19 @@ function DevelopmentBoardWorkspace({ database, readOnly, currentUser, teamMember
     if (geometryCommitTimerRef.current) window.clearTimeout(geometryCommitTimerRef.current);
     if (viewportCommitTimerRef.current) window.clearTimeout(viewportCommitTimerRef.current);
   }, []);
+
+  useEffect(() => {
+    if (!nodeDetailsOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setNodeDetailsOpen(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [nodeDetailsOpen]);
+
+  useEffect(() => {
+    if (nodeDetailsOpen && !selectedNode) setNodeDetailsOpen(false);
+  }, [nodeDetailsOpen, selectedNode]);
 
   const commitBoard = useCallback((nextValue: DevelopmentBoardData, options: { history?: boolean; message?: string } = {}) => {
     const previous = boardRef.current;
@@ -334,6 +348,7 @@ function DevelopmentBoardWorkspace({ database, readOnly, currentUser, teamMember
       connections: boardRef.current.connections.filter((connection) => !idSet.has(connection.sourceNodeId) && !idSet.has(connection.targetNodeId))
     };
     commitBoard(next, { message: ids.length === 1 ? "Node deleted." : `${ids.length} nodes deleted.` });
+    setNodeDetailsOpen(false);
     setSelectedNodeId("");
   }, [commitBoard, readOnly]);
 
@@ -454,6 +469,14 @@ function DevelopmentBoardWorkspace({ database, readOnly, currentUser, teamMember
     setSelectedNodeId(nodeId);
     setSelectedGroupId("");
     setSelectedEdgeId("");
+  };
+
+  const openNodeDetails = (nodeId: string) => {
+    if (!boardRef.current.nodes.some((node) => node.id === nodeId)) return;
+    setSelectedNodeId(nodeId);
+    setSelectedGroupId("");
+    setSelectedEdgeId("");
+    setNodeDetailsOpen(true);
   };
 
   const centerSelection = () => {
@@ -594,16 +617,15 @@ function DevelopmentBoardWorkspace({ database, readOnly, currentUser, teamMember
               setSelectedGroupId(group?.id || "");
               setSelectedEdgeId(edges[0]?.id || "");
             }}
+            onNodeClick={(_event, node) => {
+              if (node.type === "developmentNode") openNodeDetails(node.id);
+            }}
             onPaneClick={() => {
               setSelectedNodeId("");
               setSelectedGroupId("");
               setSelectedEdgeId("");
             }}
-            onNodeDoubleClick={(_event, node) => {
-              if (node.type !== "developmentNode") return;
-              const item = boardRef.current.nodes.find((candidate) => candidate.id === node.id);
-              if (item?.linkedEntityId) onOpenLinkedEntity(item.linkedEntityType, item.linkedEntityId, item.linkedEntityCategory);
-            }}
+            onNodeDoubleClick={(_event, node) => node.type === "developmentNode" && openNodeDetails(node.id)}
             defaultViewport={board.viewport}
             onMoveEnd={handleViewportEnd}
             nodesDraggable={!readOnly}
@@ -628,30 +650,14 @@ function DevelopmentBoardWorkspace({ database, readOnly, currentUser, teamMember
 
         <aside className="development-board-inspector">
           {selectedNode ? (
-            <NodeInspector
-              node={selectedNode}
-              board={board}
-              readOnly={readOnly}
-              canonical={selectedCanonical}
-              entityOptions={entityOptions}
-              teamMembers={teamMembers}
-              dependencyState={dependencyState}
-              related={selectedRelated}
-              dependencyCandidate={dependencyCandidate}
-              attachmentTitle={attachmentTitle}
-              attachmentUrl={attachmentUrl}
-              onDependencyCandidateChange={setDependencyCandidate}
-              onAttachmentTitleChange={setAttachmentTitle}
-              onAttachmentUrlChange={setAttachmentUrl}
-              onPatch={(patch) => patchNode(selectedNode.id, patch)}
-              onAddDependency={addDependency}
-              onRemoveDependency={removeDependency}
-              onAddAttachment={addAttachment}
-              onOpenLinked={() => selectedNode.linkedEntityId && onOpenLinkedEntity(selectedNode.linkedEntityType, selectedNode.linkedEntityId, selectedNode.linkedEntityCategory)}
-              onJump={jumpToNode}
-              onDuplicate={duplicateSelectedNode}
-              onDelete={() => deleteNodes([selectedNode.id])}
-            />
+            <div className="development-inspector-selection">
+              <Icon name={developmentBoardIconName(selectedNode.type)} className="h-9 w-9" />
+              <p>Selected Box</p>
+              <h2 className="font-display">{selectedNode.title}</h2>
+              <span className={`development-status-badge status-${developmentBoardDisplayStatus(board, selectedNode).toLowerCase().replace(/[^a-z]+/g, "-")}`}>{developmentBoardDisplayStatus(board, selectedNode)}</span>
+              <p>{selectedNode.description || "No description has been added yet."}</p>
+              <button type="button" onClick={() => setNodeDetailsOpen(true)}><Icon name="PanelRightOpen" />Open Information</button>
+            </div>
           ) : selectedGroup ? (
             <GroupInspector group={selectedGroup} readOnly={readOnly} itemCount={board.nodes.filter((node) => node.groupId === selectedGroup.id).length} onPatch={(patch) => patchGroup(selectedGroup.id, patch)} onDelete={() => deleteGroups([selectedGroup.id])} />
           ) : selectedConnection ? (
@@ -665,6 +671,43 @@ function DevelopmentBoardWorkspace({ database, readOnly, currentUser, teamMember
           )}
         </aside>
       </div>
+
+      {nodeDetailsOpen && selectedNode && (
+        <div className="development-detail-overlay" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setNodeDetailsOpen(false)}>
+          <section className="development-detail-dialog" role="dialog" aria-modal="true" aria-label={`${selectedNode.title} information`}>
+            <header className="development-detail-dialog-header">
+              <div><p>Development Board Box</p><h2 className="font-display">Information & Planning</h2></div>
+              <button type="button" onClick={() => setNodeDetailsOpen(false)} title="Close information"><Icon name="X" /></button>
+            </header>
+            <div className="development-detail-dialog-content">
+              <NodeInspector
+                node={selectedNode}
+                board={board}
+                readOnly={readOnly}
+                canonical={selectedCanonical}
+                entityOptions={entityOptions}
+                teamMembers={teamMembers}
+                dependencyState={dependencyState}
+                related={selectedRelated}
+                dependencyCandidate={dependencyCandidate}
+                attachmentTitle={attachmentTitle}
+                attachmentUrl={attachmentUrl}
+                onDependencyCandidateChange={setDependencyCandidate}
+                onAttachmentTitleChange={setAttachmentTitle}
+                onAttachmentUrlChange={setAttachmentUrl}
+                onPatch={(patch) => patchNode(selectedNode.id, patch)}
+                onAddDependency={addDependency}
+                onRemoveDependency={removeDependency}
+                onAddAttachment={addAttachment}
+                onOpenLinked={() => selectedNode.linkedEntityId && onOpenLinkedEntity(selectedNode.linkedEntityType, selectedNode.linkedEntityId, selectedNode.linkedEntityCategory)}
+                onJump={jumpToNode}
+                onDuplicate={duplicateSelectedNode}
+                onDelete={() => deleteNodes([selectedNode.id])}
+              />
+            </div>
+          </section>
+        </div>
+      )}
 
       {creationMode && (
         <div className="development-create-overlay" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && closeCreation()}>
