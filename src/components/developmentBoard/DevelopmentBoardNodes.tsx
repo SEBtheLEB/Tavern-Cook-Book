@@ -1,4 +1,5 @@
 import { Handle, NodeResizer, Position, type Node, type NodeProps } from "@xyflow/react";
+import { memo } from "react";
 import type { DevelopmentBoardGroup, DevelopmentBoardNode } from "../../types";
 import { Icon } from "../Icon";
 
@@ -22,7 +23,7 @@ export type DevelopmentNodeFlowNode = Node<DevelopmentNodeFlowData, "development
 export type DevelopmentGroupFlowNode = Node<DevelopmentGroupFlowData, "developmentGroup">;
 export type DevelopmentFlowNode = DevelopmentNodeFlowNode | DevelopmentGroupFlowNode;
 
-export function DevelopmentBoardNodeCard({ data, selected }: NodeProps<DevelopmentNodeFlowNode>) {
+export const DevelopmentBoardNodeCard = memo(function DevelopmentBoardNodeCard({ data, selected }: NodeProps<DevelopmentNodeFlowNode>) {
   const { item, displayStatus, waitingOn, ownerLabel, iconName, linkedTitle, readOnly } = data;
   const statusClass = displayStatus.toLowerCase().replace(/[^a-z]+/g, "-");
   return (
@@ -58,9 +59,18 @@ export function DevelopmentBoardNodeCard({ data, selected }: NodeProps<Developme
       <Handle type="source" position={Position.Right} className="development-node-handle" isConnectable={!readOnly} />
     </article>
   );
-}
+}, (previous, next) => (
+  previous.selected === next.selected
+  && previous.data.item === next.data.item
+  && previous.data.displayStatus === next.data.displayStatus
+  && previous.data.ownerLabel === next.data.ownerLabel
+  && previous.data.iconName === next.data.iconName
+  && previous.data.linkedTitle === next.data.linkedTitle
+  && previous.data.readOnly === next.data.readOnly
+  && previous.data.waitingOn.join("\u0000") === next.data.waitingOn.join("\u0000")
+));
 
-export function DevelopmentBoardGroupFrame({ data, selected }: NodeProps<DevelopmentGroupFlowNode>) {
+export const DevelopmentBoardGroupFrame = memo(function DevelopmentBoardGroupFrame({ data, selected }: NodeProps<DevelopmentGroupFlowNode>) {
   const { group, itemCount, readOnly } = data;
   return (
     <section className={`development-group-frame ${selected ? "selected" : ""} ${group.collapsed ? "collapsed" : ""}`} style={{ "--group-color": group.color } as React.CSSProperties}>
@@ -83,4 +93,9 @@ export function DevelopmentBoardGroupFrame({ data, selected }: NodeProps<Develop
       </header>
     </section>
   );
-}
+}, (previous, next) => (
+  previous.selected === next.selected
+  && previous.data.group === next.data.group
+  && previous.data.itemCount === next.data.itemCount
+  && previous.data.readOnly === next.data.readOnly
+));

@@ -23354,6 +23354,17 @@ body > .picker-dialog-bg {
   min-height: 720px;
 }
 
+.development-board-canvas .react-flow__pane {
+  cursor: default !important;
+}
+
+.development-board-canvas .react-flow__pane.dragging,
+.development-board-canvas.middle-panning,
+.development-board-canvas.middle-panning * {
+  cursor: grabbing !important;
+  user-select: none;
+}
+
 .development-board-canvas .react-flow__background {
   color: color-mix(in srgb, var(--muted-ink) 28%, transparent);
 }
@@ -23389,6 +23400,14 @@ body > .picker-dialog-bg {
   padding: 0;
 }
 
+.development-board-canvas .react-flow__node-developmentNode {
+  cursor: pointer;
+}
+
+.development-board-canvas .react-flow__node-developmentNode.dragging {
+  cursor: grabbing;
+}
+
 .development-node-card {
   position: relative;
   display: flex;
@@ -23400,8 +23419,21 @@ body > .picker-dialog-bg {
   border-left: 5px solid #8f775d;
   border-radius: 8px;
   background: var(--card-bg);
-  box-shadow: 0 12px 24px rgba(43, 27, 15, 0.19);
+  box-shadow: 0 5px 13px rgba(43, 27, 15, 0.17);
   color: var(--app-ink);
+  transition: border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
+}
+
+.development-board-canvas .react-flow__node-developmentNode:hover .development-node-card {
+  border-color: color-mix(in srgb, var(--gold) 68%, var(--card-border));
+  box-shadow: 0 8px 18px rgba(43, 27, 15, 0.22);
+  transform: translateY(-2px);
+}
+
+.development-board-canvas .react-flow__node-developmentNode.dragging .development-node-card,
+.development-board-canvas.middle-panning .development-node-card {
+  transform: none;
+  transition: none;
 }
 
 .development-node-card.selected {

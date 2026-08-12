@@ -78,6 +78,12 @@ interface EntityOption {
   summary: string;
 }
 
+interface BoardUiState {
+  filters: BoardFilters;
+  connectionType: string;
+  viewport?: DevelopmentBoardViewport;
+}
+
 type DevelopmentFlowEdge = Edge<{ relationshipType: string }>;
 type CreationMode = "node" | "group" | "template" | null;
 
@@ -137,7 +143,8 @@ function DevelopmentBoardWorkspace({ database, readOnly, currentUser, teamMember
   const pastRef = useRef<DevelopmentBoardData[]>([]);
   const futureRef = useRef<DevelopmentBoardData[]>([]);
   const geometryCommitTimerRef = useRef<number | null>(null);
-  const viewportCommitTimerRef = useRef<number | null>(null);
+  const viewportRef = useRef(initialUi.viewport || board.viewport);
+  const canvasRef = useRef<HTMLDivElement | null>(null);
 
   const entityOptions = useMemo(() => buildEntityOptions(database), [database.entries, database.bestiary, database.worldBuilding, database.storyReferences, database.roadmap]);
   const selectedNode = board.nodes.find((node) => node.id === selectedNodeId) || null;
@@ -189,12 +196,21 @@ function DevelopmentBoardWorkspace({ database, readOnly, currentUser, teamMember
   }, [board, refreshFlow]);
 
   useEffect(() => {
-    saveBoardUiState({ filters, connectionType });
+    saveBoardUiState({ filters, connectionType, viewport: viewportRef.current });
   }, [filters, connectionType]);
 
   useEffect(() => () => {
     if (geometryCommitTimerRef.current) window.clearTimeout(geometryCommitTimerRef.current);
-    if (viewportCommitTimerRef.current) window.clearTimeout(viewportCommitTimerRef.current);
+  }, []);
+
+  useEffect(() => {
+    const endMiddlePan = () => canvasRef.current?.classList.remove("middle-panning");
+    window.addEventListener("mouseup", endMiddlePan);
+    window.addEventListener("blur", endMiddlePan);
+    return () => {
+      window.removeEventListener("mouseup", endMiddlePan);
+      window.removeEventListener("blur", endMiddlePan);
+    };
   }, []);
 
   useEffect(() => {
@@ -212,6 +228,7 @@ function DevelopmentBoardWorkspace({ database, readOnly, currentUser, teamMember
 
   const commitBoard = useCallback((nextValue: DevelopmentBoardData, options: { history?: boolean; message?: string } = {}) => {
     const previous = boardRef.current;
+    if (nextValue === previous) return;
     const next = normalizeDevelopmentBoardData({ ...nextValue, updatedAt: new Date().toISOString() });
     if (options.history !== false && JSON.stringify(previous) !== JSON.stringify(next)) {
       pastRef.current = [...pastRef.current.slice(-49), cloneBoard(previous)];
@@ -249,15 +266,20 @@ function DevelopmentBoardWorkspace({ database, readOnly, currentUser, teamMember
 
   const boardFromFlowGeometry = useCallback((nodes: DevelopmentFlowNode[]) => {
     const current = boardRef.current;
+    let changed = false;
     const flowById = new Map(nodes.map((node) => [node.id, node] as const));
     const groups = current.groups.map((group) => {
       const flow = flowById.get(group.id);
       if (!flow) return group;
+      const width = flowDimension(flow, "width", group.width);
+      const height = flowDimension(flow, "height", group.height);
+      if (samePoint(group.position, flow.position) && group.width === width && group.height === height) return group;
+      changed = true;
       return {
         ...group,
         position: flow.position,
-        width: flowDimension(flow, "width", group.width),
-        height: flowDimension(flow, "height", group.height),
+        width,
+        height,
         updatedAt: new Date().toISOString()
       };
     });
@@ -266,17 +288,22 @@ function DevelopmentBoardWorkspace({ database, readOnly, currentUser, teamMember
       const flow = flowById.get(node.id);
       if (!flow) return node;
       const parent = node.groupId ? groupById.get(node.groupId) : null;
+      const position = parent
+        ? { x: parent.position.x + flow.position.x, y: parent.position.y + flow.position.y }
+        : flow.position;
+      const width = flowDimension(flow, "width", node.width);
+      const height = flowDimension(flow, "height", node.height);
+      if (samePoint(node.position, position) && node.width === width && node.height === height) return node;
+      changed = true;
       return {
         ...node,
-        position: parent
-          ? { x: parent.position.x + flow.position.x, y: parent.position.y + flow.position.y }
-          : flow.position,
-        width: flowDimension(flow, "width", node.width),
-        height: flowDimension(flow, "height", node.height),
+        position,
+        width,
+        height,
         updatedAt: new Date().toISOString()
       };
     });
-    return { ...current, groups, nodes: boardNodes };
+    return changed ? { ...current, groups, nodes: boardNodes } : current;
   }, []);
 
   const scheduleGeometryCommit = useCallback((nodes: DevelopmentFlowNode[]) => {
@@ -520,11 +547,9 @@ function DevelopmentBoardWorkspace({ database, readOnly, currentUser, teamMember
   };
 
   const handleViewportEnd = (_event: MouseEvent | TouchEvent | null, viewport: DevelopmentBoardViewport) => {
-    if (viewportCommitTimerRef.current) window.clearTimeout(viewportCommitTimerRef.current);
-    viewportCommitTimerRef.current = window.setTimeout(() => {
-      viewportCommitTimerRef.current = null;
-      commitBoard({ ...boardRef.current, viewport }, { history: false });
-    }, 360);
+    if (sameViewport(viewportRef.current, viewport)) return;
+    viewportRef.current = viewport;
+    saveBoardUiState({ filters, connectionType, viewport });
   };
 
   const myOwnerValue = useMemo(() => {
@@ -594,7 +619,17 @@ function DevelopmentBoardWorkspace({ database, readOnly, currentUser, teamMember
       {message && <div className="development-board-message">{message}</div>}
 
       <div className="development-board-layout">
-        <div className="development-board-canvas" aria-label="Tales Development Board canvas">
+        <div
+          ref={canvasRef}
+          className="development-board-canvas"
+          aria-label="Tales Development Board canvas"
+          onMouseDownCapture={(event) => {
+            if (event.button !== 1) return;
+            event.preventDefault();
+            canvasRef.current?.classList.add("middle-panning");
+          }}
+          onAuxClick={(event) => event.preventDefault()}
+        >
           <ReactFlow<DevelopmentFlowNode, DevelopmentFlowEdge>
             nodes={flowNodes}
             edges={flowEdges}
@@ -626,15 +661,21 @@ function DevelopmentBoardWorkspace({ database, readOnly, currentUser, teamMember
               setSelectedEdgeId("");
             }}
             onNodeDoubleClick={(_event, node) => node.type === "developmentNode" && openNodeDetails(node.id)}
-            defaultViewport={board.viewport}
+            defaultViewport={initialUi.viewport || board.viewport}
             onMoveEnd={handleViewportEnd}
             nodesDraggable={!readOnly}
             nodesConnectable={!readOnly}
             elementsSelectable
             multiSelectionKeyCode="Shift"
             deleteKeyCode={readOnly ? null : ["Backspace", "Delete"]}
-            panOnDrag={[0, 1, 2]}
+            panOnDrag={[1]}
+            panOnScroll={false}
+            preventScrolling
+            zoomOnDoubleClick={false}
             selectionOnDrag={false}
+            selectNodesOnDrag={false}
+            nodeDragThreshold={4}
+            paneClickDistance={4}
             minZoom={0.05}
             maxZoom={2.5}
             snapToGrid
@@ -890,8 +931,12 @@ function toFlowEdge(connection: DevelopmentBoardConnection, selected: boolean): 
     label: connection.label || relationshipLabel(connection.relationshipType),
     type: "smoothstep",
     selected,
-    animated: connection.relationshipType === "depends-on",
-    style: { stroke: color, strokeWidth: selected ? 3 : 2 },
+    animated: false,
+    style: {
+      stroke: color,
+      strokeWidth: selected ? 3 : 2,
+      strokeDasharray: connection.relationshipType === "depends-on" ? "8 6" : undefined
+    },
     labelStyle: { fill: "var(--app-ink)", fontWeight: 800, fontSize: 11 },
     labelBgStyle: { fill: "var(--card-bg)", fillOpacity: 0.94 },
     labelBgPadding: [6, 4],
@@ -1037,19 +1082,33 @@ function cloneBoard(board: DevelopmentBoardData) {
   return JSON.parse(JSON.stringify(board)) as DevelopmentBoardData;
 }
 
-function loadBoardUiState(): { filters: BoardFilters; connectionType: string } {
+function loadBoardUiState(): BoardUiState {
   try {
-    const parsed = JSON.parse(localStorage.getItem(UI_STATE_KEY) || "{}") as { filters?: Partial<BoardFilters>; connectionType?: string };
-    return { filters: { ...emptyFilters, ...(parsed.filters || {}) }, connectionType: parsed.connectionType || "depends-on" };
+    const parsed = JSON.parse(localStorage.getItem(UI_STATE_KEY) || "{}") as { filters?: Partial<BoardFilters>; connectionType?: string; viewport?: Partial<DevelopmentBoardViewport> };
+    const viewport = parsed.viewport
+      && Number.isFinite(parsed.viewport.x)
+      && Number.isFinite(parsed.viewport.y)
+      && Number.isFinite(parsed.viewport.zoom)
+      ? parsed.viewport as DevelopmentBoardViewport
+      : undefined;
+    return { filters: { ...emptyFilters, ...(parsed.filters || {}) }, connectionType: parsed.connectionType || "depends-on", viewport };
   } catch {
     return { filters: emptyFilters, connectionType: "depends-on" };
   }
 }
 
-function saveBoardUiState(value: { filters: BoardFilters; connectionType: string }) {
+function saveBoardUiState(value: BoardUiState) {
   try {
     localStorage.setItem(UI_STATE_KEY, JSON.stringify(value));
   } catch {
     // Board content still persists in the shared Cookbook database.
   }
+}
+
+function samePoint(left: { x: number; y: number }, right: { x: number; y: number }) {
+  return left.x === right.x && left.y === right.y;
+}
+
+function sameViewport(left: DevelopmentBoardViewport, right: DevelopmentBoardViewport) {
+  return left.x === right.x && left.y === right.y && left.zoom === right.zoom;
 }
