@@ -12,8 +12,9 @@ import type {
   WorldBuildingEntry
 } from "../types";
 
-const BOARD_SEED_VERSION = 1;
+const BOARD_SEED_VERSION = 2;
 const SEED_DATE = "2026-08-11T00:00:00.000Z";
+const CHARACTER_SPLIT_DATE = "2026-08-14T00:00:00.000Z";
 
 export const developmentBoardNodeTypes = [
   "Character",
@@ -169,8 +170,9 @@ export function createInitialDevelopmentBoard(
     seedGroup("group-tales", "Tales of the Tavern", "Active pre-production / paused production", 40, 40, 2100, 520, "#a66a2c"),
     seedGroup("group-tutorial", "Whisken Village / Tutorial", "Opening village, tutorial encounters, and early boss planning.", 40, 660, 2100, 1540, "#557b5e"),
     seedGroup("group-muramar", "Mur'amar", "Canonical character work and boss planning.", 2260, 40, 1320, 1080, "#7c5f91"),
-    seedGroup("group-cedar", "Cedar / Cedric", "Name clarification and related pre-production work.", 2260, 1240, 1320, 920, "#8b6b42"),
-    seedGroup("group-lyra", "Lyra", "Character and encounter planning without invented canon.", 3700, 40, 1320, 920, "#55718d"),
+    seedGroup("group-cedar", "Cedar", "Cedar character story, art, and boss fight planning.", 2260, 1240, 1400, 850, "#8b6b42"),
+    seedGroup("group-lyra", "Lyra", "Cedar's sidekick, with parallel story, art, and boss fight planning.", 2260, 2230, 1400, 850, "#55718d"),
+    seedGroup("group-cedric", "Cedric", "Cedric character story, art, and boss fight planning.", 3760, 40, 1400, 850, "#78614f"),
     seedGroup("group-ice-queen", "Ice Queen", "Act 1 boss pre-production.", 3700, 1080, 1320, 1140, "#5b7f99"),
     seedGroup("group-cook-battles", "Cook Battles", "Reusable character, dish, and battle development.", 5140, 40, 1700, 1460, "#a34f4f")
   ];
@@ -263,7 +265,7 @@ export function createInitialDevelopmentBoard(
   const boarLink = findLinkedEntity(["Mystical Boar", "Magical Boar Boss", "Boar"], entries, creatures, worldBuilding, storyReferences);
   addNode({ id: "node-mystical-boar", title: "Mystical Boar", type: "Boss", description: "Early magical ingredient hunt and boss encounter.", groupId: "group-tutorial", position: { x: 120, y: 1120 }, ...boarLink });
   addNode({ id: "node-boar-story", title: "Mystical Boar Story / Lore", type: "Lore", description: "Needs existing information or writing.", ownerId: "stlprodz1101-gmail-com", ownerName: "Sebastien", groupId: "group-tutorial", position: { x: 460, y: 1120 } });
-  addNode({ id: "node-boar-visual", title: "Mystical Boar Visual Design", type: "Visual Design", description: "Visual planning placeholder.", groupId: "group-tutorial", position: { x: 800, y: 1120 } });
+  addNode({ id: "node-boar-visual", title: "Mystical Boar Visual Design", type: "Visual Design", description: "The Mystical Boar visual design is complete.", status: "complete", groupId: "group-tutorial", position: { x: 800, y: 1120 } });
   addNode({ id: "node-boar-moves", title: "Mystical Boar Boss Moves", type: "Boss Moves", description: "Combat move set and behavior.", ownerId: "marvin-lead-developer", ownerName: "Marvin", groupId: "group-tutorial", position: { x: 1140, y: 1120 } });
   addNode({ id: "node-boar-encounter", title: "Mystical Boar Encounter Design", type: "Encounter", description: "Arena, pacing, ingredient reward, and encounter flow.", groupId: "group-tutorial", position: { x: 1480, y: 1120 } });
   addNode({ id: "node-boar-production", title: "Mystical Boar Full Implementation", type: "Production", description: "Future funded production task.", status: "production-locked", groupId: "group-tutorial", position: { x: 1480, y: 1460 } });
@@ -290,22 +292,33 @@ export function createInitialDevelopmentBoard(
   addConnection("node-muramar-palette", "node-muramar-production");
   addConnection("node-muramar-encounter", "node-muramar-production");
 
-  addNode({ id: "node-cedar-cedric-canon", title: "Canon Check: Cedar / Cedric", type: "Lore", description: "Confirm whether Cedar and Cedric are separate characters or a naming inconsistency.", status: "review", ownerId: "stlprodz1101-gmail-com", ownerName: "Sebastien", groupId: "group-cedar", position: { x: 2340, y: 1360 } });
-  addNode({ id: "node-cedar-moves", title: "Cedar Boss Moves", type: "Boss Moves", description: "Hold until the canonical identity and role are clear.", ownerId: "marvin-lead-developer", ownerName: "Marvin", groupId: "group-cedar", position: { x: 2700, y: 1360 } });
-  addNode({ id: "node-cedric-palette", title: "Cedric Final Color Palette", type: "Color Palette", description: "Hold until the canonical identity and design are clear.", ownerName: "Kari", groupId: "group-cedar", position: { x: 2340, y: 1700 } });
-  addNode({ id: "node-cedric-moves", title: "Cedric Boss Moves", type: "Boss Moves", description: "Hold until the canonical identity and role are clear.", ownerId: "marvin-lead-developer", ownerName: "Marvin", groupId: "group-cedar", position: { x: 2700, y: 1700 } });
-  addConnection("node-cedar-cedric-canon", "node-cedar-moves");
-  addConnection("node-cedar-cedric-canon", "node-cedric-palette");
-  addConnection("node-cedar-cedric-canon", "node-cedric-moves");
+  const cedarLink = findLinkedEntity(["Cedar"], entries, creatures, worldBuilding, storyReferences);
+  addNode({ id: "node-cedar", title: "Cedar", type: "Character", description: "Character source and pre-production planning.", groupId: "group-cedar", position: { x: 2340, y: 1360 }, ...cedarLink });
+  addNode({ id: "node-cedar-story", title: "Cedar Story / Lore", type: "Story", description: "Cedar's character story and lore documentation.", ownerId: "stlprodz1101-gmail-com", ownerName: "Sebastien", groupId: "group-cedar", position: { x: 2340, y: 1700 }, ...cedarLink });
+  addNode({ id: "node-cedar-art", title: "Cedar Art", type: "Visual Design", description: "Character art and visual development for Cedar.", ownerName: "Kari", groupId: "group-cedar", position: { x: 2690, y: 1700 } });
+  addNode({ id: "node-cedar-moves", title: "Cedar Boss Fight Moves", type: "Boss Moves", description: "Cedar's boss fight move set and combat identity.", ownerId: "marvin-lead-developer", ownerName: "Marvin", groupId: "group-cedar", position: { x: 3040, y: 1700 } });
+  addConnection("node-cedar", "node-cedar-story", "contains");
+  addConnection("node-cedar", "node-cedar-art", "contains");
+  addConnection("node-cedar", "node-cedar-moves", "contains");
+
+  const cedricLink = findLinkedEntity(["Cedric", "Cedrick"], entries, creatures, worldBuilding, storyReferences);
+  addNode({ id: "node-cedric", title: "Cedric", type: "Character", description: "Character source and pre-production planning.", groupId: "group-cedric", position: { x: 3840, y: 160 }, ...cedricLink });
+  addNode({ id: "node-cedric-story", title: "Cedric Story / Lore", type: "Story", description: "Cedric's character story and lore documentation.", ownerId: "stlprodz1101-gmail-com", ownerName: "Sebastien", groupId: "group-cedric", position: { x: 3840, y: 500 }, ...cedricLink });
+  addNode({ id: "node-cedric-art", title: "Cedric Art", type: "Visual Design", description: "Character art and visual development for Cedric.", ownerName: "Kari", groupId: "group-cedric", position: { x: 4190, y: 500 } });
+  addNode({ id: "node-cedric-moves", title: "Cedric Boss Fight Moves", type: "Boss Moves", description: "Cedric's boss fight move set and combat identity.", ownerId: "marvin-lead-developer", ownerName: "Marvin", groupId: "group-cedric", position: { x: 4540, y: 500 } });
+  addConnection("node-cedric", "node-cedric-story", "contains");
+  addConnection("node-cedric", "node-cedric-art", "contains");
+  addConnection("node-cedric", "node-cedric-moves", "contains");
 
   const lyraLink = findLinkedEntity(["Lyra"], entries, creatures, worldBuilding, storyReferences);
-  addNode({ id: "node-lyra", title: "Lyra", type: "Character", description: "Character source and pre-production planning.", groupId: "group-lyra", position: { x: 3780, y: 160 }, ...lyraLink });
-  addNode({ id: "node-lyra-story", title: "Lyra Story / Character Documentation", type: "Story", description: "Existing information needed. Do not invent missing canon.", ownerId: "stlprodz1101-gmail-com", ownerName: "Sebastien", groupId: "group-lyra", position: { x: 4140, y: 160 } });
-  addNode({ id: "node-lyra-visual", title: "Lyra Visual Design", type: "Visual Design", description: "Visual planning based on approved character direction.", groupId: "group-lyra", position: { x: 3780, y: 500 } });
-  addNode({ id: "node-lyra-moves", title: "Lyra Boss Moves", type: "Boss Moves", description: "Boss move set and combat identity.", ownerId: "marvin-lead-developer", ownerName: "Marvin", groupId: "group-lyra", position: { x: 4140, y: 500 } });
+  addNode({ id: "node-lyra", title: "Lyra", type: "Character", description: "Cedar's sidekick and her character pre-production source.", groupId: "group-lyra", position: { x: 2340, y: 2350 }, ...lyraLink });
+  addNode({ id: "node-lyra-story", title: "Lyra Story / Lore", type: "Story", description: "Lyra's character story and lore documentation.", ownerId: "stlprodz1101-gmail-com", ownerName: "Sebastien", groupId: "group-lyra", position: { x: 2340, y: 2690 }, ...lyraLink });
+  addNode({ id: "node-lyra-visual", title: "Lyra Art", type: "Visual Design", description: "Character art and visual development for Lyra.", ownerName: "Kari", groupId: "group-lyra", position: { x: 2690, y: 2690 } });
+  addNode({ id: "node-lyra-moves", title: "Lyra Boss Fight Moves", type: "Boss Moves", description: "Lyra's boss fight move set and combat identity.", ownerId: "marvin-lead-developer", ownerName: "Marvin", groupId: "group-lyra", position: { x: 3040, y: 2690 } });
   addConnection("node-lyra", "node-lyra-story", "contains");
-  addConnection("node-lyra-story", "node-lyra-visual");
-  addConnection("node-lyra-story", "node-lyra-moves");
+  addConnection("node-lyra", "node-lyra-visual", "contains");
+  addConnection("node-lyra", "node-lyra-moves", "contains");
+  addConnection("node-cedar", "node-lyra", "character-relationship", "Cedar's sidekick");
 
   const iceQueenLink = findLinkedEntity(["Ice Queen"], entries, creatures, worldBuilding, storyReferences);
   addNode({ id: "node-ice-queen", title: "Ice Queen", type: "Boss", description: "Act 1 ruler of the corrupted insect swarm.", groupId: "group-ice-queen", position: { x: 3780, y: 1200 }, ...iceQueenLink });
@@ -371,7 +384,7 @@ export function normalizeDevelopmentBoardData(
         .filter((connection): connection is DevelopmentBoardConnection => connection !== null)
         .filter((connection) => nodeIds.has(connection.sourceNodeId) && nodeIds.has(connection.targetNodeId))
     : [];
-  return {
+  const normalized = {
     id: stringValue(source.id, "tales-development-board"),
     title: stringValue(source.title, "Tales Development Board"),
     description: stringValue(source.description, "A visual map of Tales of the Tavern pre-production."),
@@ -381,6 +394,101 @@ export function normalizeDevelopmentBoardData(
     groups,
     viewport: normalizeViewport(source.viewport),
     updatedAt: stringValue(source.updatedAt, SEED_DATE)
+  };
+  return normalized.seedVersion < BOARD_SEED_VERSION
+    ? migrateCharacterBoardSeparation(normalized)
+    : normalized;
+}
+
+function migrateCharacterBoardSeparation(board: DevelopmentBoardData): DevelopmentBoardData {
+  const oldCanon = board.nodes.find((node) => node.id === "node-cedar-cedric-canon");
+  const oldCedricArt = board.nodes.find((node) => node.id === "node-cedric-palette");
+  const existingById = new Map(board.nodes.map((node) => [node.id, node] as const));
+  const replacementIds = new Set([
+    "node-cedar-cedric-canon",
+    "node-cedric-palette",
+    "node-cedar",
+    "node-cedar-story",
+    "node-cedar-art",
+    "node-cedar-moves",
+    "node-cedric",
+    "node-cedric-story",
+    "node-cedric-art",
+    "node-cedric-moves",
+    "node-lyra",
+    "node-lyra-story",
+    "node-lyra-visual",
+    "node-lyra-moves"
+  ]);
+
+  const migratedNode = (
+    input: Partial<DevelopmentBoardNode> & Pick<DevelopmentBoardNode, "id" | "title" | "type">,
+    legacy?: DevelopmentBoardNode
+  ) => {
+    const existing = existingById.get(input.id) || legacy;
+    return createDevelopmentBoardNode({
+      ...existing,
+      ...input,
+      notes: existing?.notes || "",
+      attachments: existing?.attachments || [],
+      createdAt: existing?.createdAt || CHARACTER_SPLIT_DATE,
+      updatedAt: CHARACTER_SPLIT_DATE
+    });
+  };
+
+  const characterNodes = [
+    migratedNode({ id: "node-cedar", title: "Cedar", type: "Character", description: "Character source and pre-production planning.", groupId: "group-cedar", position: { x: 2340, y: 1360 } }),
+    migratedNode({ id: "node-cedar-story", title: "Cedar Story / Lore", type: "Story", description: "Cedar's character story and lore documentation.", ownerId: "stlprodz1101-gmail-com", ownerName: "Sebastien", groupId: "group-cedar", position: { x: 2340, y: 1700 } }, oldCanon),
+    migratedNode({ id: "node-cedar-art", title: "Cedar Art", type: "Visual Design", description: "Character art and visual development for Cedar.", ownerName: "Kari", groupId: "group-cedar", position: { x: 2690, y: 1700 } }),
+    migratedNode({ id: "node-cedar-moves", title: "Cedar Boss Fight Moves", type: "Boss Moves", description: "Cedar's boss fight move set and combat identity.", ownerId: "marvin-lead-developer", ownerName: "Marvin", groupId: "group-cedar", position: { x: 3040, y: 1700 } }),
+    migratedNode({ id: "node-cedric", title: "Cedric", type: "Character", description: "Character source and pre-production planning.", groupId: "group-cedric", position: { x: 3840, y: 160 } }),
+    migratedNode({ id: "node-cedric-story", title: "Cedric Story / Lore", type: "Story", description: "Cedric's character story and lore documentation.", ownerId: "stlprodz1101-gmail-com", ownerName: "Sebastien", groupId: "group-cedric", position: { x: 3840, y: 500 } }),
+    migratedNode({ id: "node-cedric-art", title: "Cedric Art", type: "Visual Design", description: "Character art and visual development for Cedric.", ownerName: "Kari", groupId: "group-cedric", position: { x: 4190, y: 500 } }, oldCedricArt),
+    migratedNode({ id: "node-cedric-moves", title: "Cedric Boss Fight Moves", type: "Boss Moves", description: "Cedric's boss fight move set and combat identity.", ownerId: "marvin-lead-developer", ownerName: "Marvin", groupId: "group-cedric", position: { x: 4540, y: 500 } }),
+    migratedNode({ id: "node-lyra", title: "Lyra", type: "Character", description: "Cedar's sidekick and her character pre-production source.", groupId: "group-lyra", position: { x: 2340, y: 2350 } }),
+    migratedNode({ id: "node-lyra-story", title: "Lyra Story / Lore", type: "Story", description: "Lyra's character story and lore documentation.", ownerId: "stlprodz1101-gmail-com", ownerName: "Sebastien", groupId: "group-lyra", position: { x: 2340, y: 2690 } }),
+    migratedNode({ id: "node-lyra-visual", title: "Lyra Art", type: "Visual Design", description: "Character art and visual development for Lyra.", ownerName: "Kari", groupId: "group-lyra", position: { x: 2690, y: 2690 } }),
+    migratedNode({ id: "node-lyra-moves", title: "Lyra Boss Fight Moves", type: "Boss Moves", description: "Lyra's boss fight move set and combat identity.", ownerId: "marvin-lead-developer", ownerName: "Marvin", groupId: "group-lyra", position: { x: 3040, y: 2690 } })
+  ];
+
+  const groups = board.groups
+    .filter((group) => group.id !== "group-cedric")
+    .map((group) => {
+      if (group.id === "group-cedar") return createDevelopmentBoardGroup({ ...group, title: "Cedar", description: "Cedar character story, art, and boss fight planning.", position: { x: 2260, y: 1240 }, width: 1400, height: 850, updatedAt: CHARACTER_SPLIT_DATE });
+      if (group.id === "group-lyra") return createDevelopmentBoardGroup({ ...group, title: "Lyra", description: "Cedar's sidekick, with parallel story, art, and boss fight planning.", position: { x: 2260, y: 2230 }, width: 1400, height: 850, updatedAt: CHARACTER_SPLIT_DATE });
+      return group;
+    });
+  groups.push(createDevelopmentBoardGroup({ id: "group-cedric", title: "Cedric", description: "Cedric character story, art, and boss fight planning.", position: { x: 3760, y: 40 }, width: 1400, height: 850, color: "#78614f", createdAt: CHARACTER_SPLIT_DATE, updatedAt: CHARACTER_SPLIT_DATE }));
+
+  const nodes = board.nodes
+    .filter((node) => !replacementIds.has(node.id))
+    .map((node) => node.id === "node-boar-visual"
+      ? createDevelopmentBoardNode({ ...node, description: "The Mystical Boar visual design is complete.", status: "complete", updatedAt: CHARACTER_SPLIT_DATE })
+      : node)
+    .concat(characterNodes);
+  const nodeIds = new Set(nodes.map((node) => node.id));
+  const connections = board.connections.filter((connection) => (
+    nodeIds.has(connection.sourceNodeId)
+    && nodeIds.has(connection.targetNodeId)
+    && !(replacementIds.has(connection.sourceNodeId) && replacementIds.has(connection.targetNodeId))
+  ));
+  const addRelationship = (sourceNodeId: string, targetNodeId: string, relationshipType: string, label = "") => {
+    connections.push(createDevelopmentBoardConnection({ id: `connection-${sourceNodeId}-${targetNodeId}`, sourceNodeId, targetNodeId, relationshipType, label, createdAt: CHARACTER_SPLIT_DATE, updatedAt: CHARACTER_SPLIT_DATE }));
+  };
+  ["story", "art", "moves"].forEach((part) => addRelationship("node-cedar", `node-cedar-${part}`, "contains"));
+  ["story", "art", "moves"].forEach((part) => addRelationship("node-cedric", `node-cedric-${part}`, "contains"));
+  addRelationship("node-lyra", "node-lyra-story", "contains");
+  addRelationship("node-lyra", "node-lyra-visual", "contains");
+  addRelationship("node-lyra", "node-lyra-moves", "contains");
+  addRelationship("node-cedar", "node-lyra", "character-relationship", "Cedar's sidekick");
+
+  return {
+    ...board,
+    seedVersion: BOARD_SEED_VERSION,
+    nodes,
+    connections,
+    groups,
+    updatedAt: CHARACTER_SPLIT_DATE
   };
 }
 
