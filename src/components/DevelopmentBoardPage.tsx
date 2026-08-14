@@ -12,10 +12,11 @@ import {
   type Connection,
   type Edge,
   type EdgeChange,
+  type Node,
   type NodeChange,
   useReactFlow
 } from "@xyflow/react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   DevelopmentBoardConnection,
   DevelopmentBoardData,
@@ -92,6 +93,11 @@ const nodeTypes = {
   developmentNode: DevelopmentBoardNodeCard,
   developmentGroup: DevelopmentBoardGroupFrame
 };
+const BOARD_PAN_BUTTONS = [1];
+const BOARD_DELETE_KEYS = ["Backspace", "Delete"];
+const BOARD_SNAP_GRID: [number, number] = [20, 20];
+const BOARD_PRO_OPTIONS = { hideAttribution: true };
+const VISIBLE_ELEMENT_CULLING_THRESHOLD = 180;
 
 const emptyFilters: BoardFilters = {
   search: "",
@@ -102,13 +108,13 @@ const emptyFilters: BoardFilters = {
   incompleteOnly: false
 };
 
-export function DevelopmentBoardPage(props: DevelopmentBoardPageProps) {
+export const DevelopmentBoardPage = memo(function DevelopmentBoardPage(props: DevelopmentBoardPageProps) {
   return (
     <ReactFlowProvider>
       <DevelopmentBoardWorkspace {...props} />
     </ReactFlowProvider>
   );
-}
+});
 
 function DevelopmentBoardWorkspace({ database, readOnly, currentUser, teamMembers, onDatabaseChange, onOpenLinkedEntity }: DevelopmentBoardPageProps) {
   const reactFlow = useReactFlow<DevelopmentFlowNode, DevelopmentFlowEdge>();
@@ -136,6 +142,7 @@ function DevelopmentBoardWorkspace({ database, readOnly, currentUser, teamMember
   const [attachmentUrl, setAttachmentUrl] = useState("");
   const [dependencyCandidate, setDependencyCandidate] = useState("");
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
   const [message, setMessage] = useState("");
   const [historyVersion, setHistoryVersion] = useState(0);
   const boardRef = useRef(board);
@@ -143,6 +150,7 @@ function DevelopmentBoardWorkspace({ database, readOnly, currentUser, teamMember
   const pastRef = useRef<DevelopmentBoardData[]>([]);
   const futureRef = useRef<DevelopmentBoardData[]>([]);
   const geometryCommitTimerRef = useRef<number | null>(null);
+  const navigationEndFrameRef = useRef<number | null>(null);
   const viewportRef = useRef(initialUi.viewport || board.viewport);
   const canvasRef = useRef<HTMLDivElement | null>(null);
 
@@ -201,6 +209,7 @@ function DevelopmentBoardWorkspace({ database, readOnly, currentUser, teamMember
 
   useEffect(() => () => {
     if (geometryCommitTimerRef.current) window.clearTimeout(geometryCommitTimerRef.current);
+    if (navigationEndFrameRef.current) window.cancelAnimationFrame(navigationEndFrameRef.current);
   }, []);
 
   useEffect(() => {
@@ -546,11 +555,28 @@ function DevelopmentBoardWorkspace({ database, readOnly, currentUser, teamMember
     });
   };
 
-  const handleViewportEnd = (_event: MouseEvent | TouchEvent | null, viewport: DevelopmentBoardViewport) => {
-    if (sameViewport(viewportRef.current, viewport)) return;
-    viewportRef.current = viewport;
-    saveBoardUiState({ filters, connectionType, viewport });
-  };
+  const handleViewportStart = useCallback((event: MouseEvent | TouchEvent | null) => {
+    if (navigationEndFrameRef.current) {
+      window.cancelAnimationFrame(navigationEndFrameRef.current);
+      navigationEndFrameRef.current = null;
+    }
+    canvasRef.current?.classList.add("board-navigating");
+    const eventTarget = event?.target;
+    const movingFromMiniMap = eventTarget instanceof Element && Boolean(eventTarget.closest(".react-flow__minimap"));
+    setIsNavigating(!movingFromMiniMap);
+  }, []);
+
+  const handleViewportEnd = useCallback((_event: MouseEvent | TouchEvent | null, viewport: DevelopmentBoardViewport) => {
+    if (!sameViewport(viewportRef.current, viewport)) {
+      viewportRef.current = viewport;
+      saveBoardUiState({ filters, connectionType, viewport });
+    }
+    navigationEndFrameRef.current = window.requestAnimationFrame(() => {
+      navigationEndFrameRef.current = null;
+      canvasRef.current?.classList.remove("board-navigating");
+      setIsNavigating(false);
+    });
+  }, [connectionType, filters]);
 
   const myOwnerValue = useMemo(() => {
     if (!currentUser) return "";
@@ -662,13 +688,14 @@ function DevelopmentBoardWorkspace({ database, readOnly, currentUser, teamMember
             }}
             onNodeDoubleClick={(_event, node) => node.type === "developmentNode" && openNodeDetails(node.id)}
             defaultViewport={initialUi.viewport || board.viewport}
+            onMoveStart={handleViewportStart}
             onMoveEnd={handleViewportEnd}
             nodesDraggable={!readOnly}
             nodesConnectable={!readOnly}
             elementsSelectable
             multiSelectionKeyCode="Shift"
-            deleteKeyCode={readOnly ? null : ["Backspace", "Delete"]}
-            panOnDrag={[1]}
+            deleteKeyCode={readOnly ? null : BOARD_DELETE_KEYS}
+            panOnDrag={BOARD_PAN_BUTTONS}
             panOnScroll={false}
             preventScrolling
             zoomOnDoubleClick={false}
@@ -679,12 +706,14 @@ function DevelopmentBoardWorkspace({ database, readOnly, currentUser, teamMember
             minZoom={0.05}
             maxZoom={2.5}
             snapToGrid
-            snapGrid={[20, 20]}
-            onlyRenderVisibleElements
-            proOptions={{ hideAttribution: true }}
+            snapGrid={BOARD_SNAP_GRID}
+            onlyRenderVisibleElements={flowNodes.length >= VISIBLE_ELEMENT_CULLING_THRESHOLD}
+            elevateNodesOnSelect={false}
+            elevateEdgesOnSelect={false}
+            proOptions={BOARD_PRO_OPTIONS}
           >
             <Background variant={BackgroundVariant.Dots} gap={24} size={1.2} />
-            <MiniMap pannable zoomable nodeColor={(node) => node.type === "developmentGroup" ? String((node.data as DevelopmentGroupFlowNode["data"]).group.color) : minimapColor(String((node.data as DevelopmentNodeFlowNode["data"]).displayStatus))} />
+            {!isNavigating && <MiniMap pannable zoomable nodeColor={developmentBoardMinimapColor} />}
             <Controls showInteractive={false} />
           </ReactFlow>
         </div>
@@ -1066,6 +1095,12 @@ function minimapColor(status: string) {
   if (status === "REVIEW") return "#79568d";
   if (status === "PRODUCTION LOCKED") return "#4b4550";
   return "#90775c";
+}
+
+function developmentBoardMinimapColor(node: Node) {
+  return node.type === "developmentGroup"
+    ? String((node.data as DevelopmentGroupFlowNode["data"]).group.color)
+    : minimapColor(String((node.data as DevelopmentNodeFlowNode["data"]).displayStatus));
 }
 
 function statusLabel(status: DevelopmentBoardNodeStatus) {
