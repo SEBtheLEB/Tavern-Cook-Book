@@ -17,15 +17,6 @@ export const mainNavigation: ViewConfig[] = [
     icon: "BookOpen"
   },
   {
-    id: "story",
-    label: "Story",
-    description: "True history, reveals, arcs, secrets, cultures, and timeline work.",
-    tooltip:
-      "Track the true history, player-facing reveals, character arcs, and major story structure of Tales of the Tavern.",
-    category: "Story",
-    icon: "BookOpen"
-  },
-  {
     id: "quests",
     label: "Quests",
     description: "Main quests, side quests, tutorials, flows, rewards, and reveals.",
@@ -192,7 +183,7 @@ export const hubSections: Record<string, { title: string; view: ActiveView; desc
 
 export const dashboardBoxes: ViewConfig[] = [
   ...mainNavigation.filter((item) =>
-    ["storyJourney", "story", "characters", "world", "bestiary", "quests", "food", "gameplay", "artDirection", "developmentBoard", "roadmap", "marketing", "archive", "settings"].includes(
+    ["storyJourney", "characters", "world", "bestiary", "quests", "food", "gameplay", "artDirection", "developmentBoard", "roadmap", "marketing", "archive", "settings"].includes(
       item.id
     )
   ),

@@ -292,6 +292,7 @@ function clearAppSessionUiState() {
 
 function normalizeSessionActiveView(value: unknown): ActiveView {
   const candidate = String(value || "");
+  if (candidate === "story") return "storyJourney";
   return allViews.some((view) => view.id === candidate) ? candidate as ActiveView : "dashboard";
 }
 
@@ -3096,6 +3097,7 @@ export default function App() {
                     updatedAt: ""
                   }}
                   readOnly={readOnly}
+                  canEditStory={currentRole === "admin" && !readOnly}
                   onOpenEntry={openEntry}
                   onOpenCreature={openBestiaryCreature}
                   onOpenWorldEntry={openWorldBuildingEntry}
@@ -3108,7 +3110,7 @@ export default function App() {
                   database={database}
                   entries={visibleEntries}
                   worldBuilding={database.worldBuilding}
-                  readOnly={readOnly}
+                  readOnly={readOnly || currentRole !== "admin"}
                   onNavigate={navigate}
                   onOpenEntry={openEntry}
                   onOpenWorldEntry={openWorldBuildingEntry}

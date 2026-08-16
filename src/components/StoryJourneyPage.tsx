@@ -21,7 +21,7 @@ import { DriveAwareImage } from "./DriveAwareImage";
 import { DriveImageSourceControls } from "./DriveImageSourceControls";
 import { ImageManagerModal, type ImageManagerSlotDraft } from "./ImageManagerModal";
 import { Icon } from "./Icon";
-import { RichLoreText } from "./RichText";
+import { RichLoreText, RichTextEditor } from "./RichText";
 
 const STORY_JOURNEY_STATE_KEY = "tavernCookBookStoryJourneyState";
 const STORY_JOURNEY_CHAPTERS_KEY = "tavernCookBookStoryJourneyChapters";
@@ -34,6 +34,7 @@ interface StoryJourneyPageProps {
   storyReferences: StoryReference[];
   storyJourney: StoryJourneyData;
   readOnly?: boolean;
+  canEditStory?: boolean;
   onOpenEntry: (entry: LoreEntry) => void;
   onOpenCreature: (creature: BestiaryCreature) => void;
   onOpenWorldEntry: (category: WorldBuildingCategoryId, entryId: string) => void;
@@ -967,6 +968,7 @@ export function StoryJourneyPage({
   storyReferences,
   storyJourney,
   readOnly = false,
+  canEditStory = false,
   onOpenEntry,
   onOpenCreature,
   onOpenWorldEntry,
@@ -993,6 +995,7 @@ export function StoryJourneyPage({
   const [transitioning, setTransitioning] = useState(false);
   const [pageTurnKey, setPageTurnKey] = useState(0);
   const [storyEditMode, setStoryEditMode] = useState(false);
+  const [inlineChapterDraft, setInlineChapterDraft] = useState<StoryChapter | null>(null);
   const [imageManagerOpen, setImageManagerOpen] = useState(false);
   const [readingDepth, setReadingDepth] = useState<StoryReadingDepth>("standard");
   const [storySearch, setStorySearch] = useState("");
@@ -1030,7 +1033,6 @@ export function StoryJourneyPage({
     ? chapters.filter((chapter) => chapterContainsTerm(chapter, selectedLoreTerm))
     : [];
   const linkableTerms = useMemo(() => buildLinkableTerms(chapters), [chapters]);
-  const canEditStory = !readOnly;
   const pageImageUrl = currentPage?.imageUrl ? resolveImageSourceUrl(currentPage.imageUrl) : "";
   const coverImageUrl = selectedChapter.coverImageUrl ? resolveImageSourceUrl(selectedChapter.coverImageUrl) : "";
   const storyThreads = useMemo(() => Array.from(new Set(chapters.flatMap((chapter) => [
@@ -1048,7 +1050,7 @@ export function StoryJourneyPage({
       chapter.subtitle,
       chapter.shortDescription,
       ...chapter.relatedLore,
-      ...chapter.pages.flatMap((page) => [page.title, page.text, page.detailedText || "", ...page.relatedLore])
+      ...chapter.pages.flatMap((page) => [page.title, plainStoryText(page.text), plainStoryText(page.detailedText || ""), ...page.relatedLore])
     ].join(" ").toLowerCase().includes(normalizedStorySearch);
   }), [chapters, normalizedStorySearch, storyThread]);
   const readingGroups = useMemo(() => storyJourneyScopeOptions.map((scope) => ({
@@ -1099,8 +1101,8 @@ export function StoryJourneyPage({
   }, []);
 
   useEffect(() => {
+    if (!canEditStory) return;
     saveStoryChapters(chapters);
-    if (readOnly) return;
     const storyHash = JSON.stringify(chapters);
     if (storyHash === lastSharedStoryHashRef.current && storyJourney.chapters.length) return;
     lastSharedStoryHashRef.current = storyHash;
@@ -1110,7 +1112,7 @@ export function StoryJourneyPage({
       chapters,
       updatedAt: new Date().toISOString()
     });
-  }, [chapters, onStoryJourneyChange, readOnly, storyJourney.chapters.length, storyJourney.description, storyJourney.title]);
+  }, [canEditStory, chapters, onStoryJourneyChange, storyJourney.chapters.length, storyJourney.description, storyJourney.title]);
 
   useEffect(() => {
     if (!storyJourney.chapters.length) return;
@@ -1122,8 +1124,10 @@ export function StoryJourneyPage({
   }, [storyJourney.updatedAt]);
 
   useEffect(() => {
-    if (readOnly) setStoryEditMode(false);
-  }, [readOnly]);
+    if (canEditStory) return;
+    setStoryEditMode(false);
+    setInlineChapterDraft(null);
+  }, [canEditStory]);
 
   useEffect(() => {
     if (!scopeChapters.length) return;
@@ -1159,7 +1163,7 @@ export function StoryJourneyPage({
       setSelectedChapterId(nextChapters[0].id);
       setPageByChapter((current) => ({ ...current, [nextChapters[0].id]: current[nextChapters[0].id] || 0 }));
     }
-    setReaderOpen(false);
+    setReaderOpen(true);
     setSelectedLoreTerm("");
     setPageTurnKey((key) => key + 1);
   };
@@ -1171,9 +1175,11 @@ export function StoryJourneyPage({
       if (targetScope !== activeScope) setActiveScope(targetScope);
     }
     setSelectedChapterId(chapterId);
-    setReaderOpen(false);
+    setReaderOpen(true);
+    setSelectedLibraryItemId("");
     setSelectedLoreTerm("");
     setPageTurnKey((key) => key + 1);
+    window.setTimeout(() => scrollToStorySection(chapterId), 40);
   };
 
   const setPage = (nextIndex: number) => {
@@ -1277,9 +1283,13 @@ export function StoryJourneyPage({
     });
     setChapters((current) => [...current, chapter]);
     setSelectedChapterId(chapter.id);
+    setActiveReaderChapterId(chapter.id);
     setPageByChapter((current) => ({ ...current, [chapter.id]: 0 }));
-    setReaderOpen(false);
-    setStoryEditMode(true);
+    setReaderOpen(true);
+    setStoryEditMode(false);
+    setInlineChapterDraft(chapter);
+    setStoryToolsOpen(false);
+    window.setTimeout(() => scrollToStorySection(chapter.id), 60);
   };
 
   const deleteSelectedChapter = () => {
@@ -1290,7 +1300,7 @@ export function StoryJourneyPage({
     setChapters(nextChapters);
     const nextScopeChapters = chaptersForScope(nextChapters, activeScope);
     setSelectedChapterId(nextScopeChapters[Math.max(0, selectedIndex - 1)]?.id || nextScopeChapters[0]?.id || nextChapters[Math.max(0, selectedChapterOrderIndex - 1)]?.id || nextChapters[0].id);
-    setReaderOpen(false);
+    setReaderOpen(true);
   };
 
   const moveSelectedChapter = (direction: -1 | 1) => {
@@ -1358,12 +1368,57 @@ export function StoryJourneyPage({
 
   const editReaderChapter = (chapterId: string) => {
     const chapter = chapters.find((item) => item.id === chapterId);
-    if (!chapter) return;
+    if (!chapter || !canEditStory) return;
     setActiveScope(storyChapterScope(chapter));
     setSelectedChapterId(chapter.id);
     setPageByChapter((current) => ({ ...current, [chapter.id]: current[chapter.id] || 0 }));
-    setReaderOpen(false);
-    setStoryEditMode(true);
+    setSelectedLibraryItemId("");
+    setReaderOpen(true);
+    setStoryEditMode(false);
+    setInlineChapterDraft(structuredClone(chapter));
+    window.setTimeout(() => scrollToStorySection(chapter.id), 40);
+  };
+
+  const updateInlineChapterDraft = (patch: Partial<StoryChapter>) => {
+    setInlineChapterDraft((current) => current ? normalizeStoryChapter({ ...current, ...patch }, current.id) : current);
+  };
+
+  const updateInlinePageDraft = (pageId: string, patch: Partial<StoryPage>) => {
+    setInlineChapterDraft((current) => current ? normalizeStoryChapter({
+      ...current,
+      pages: current.pages.map((page) => page.id === pageId ? normalizeStoryPage({ ...page, ...patch }, page.id) : page)
+    }, current.id) : current);
+  };
+
+  const addInlinePageDraft = () => {
+    setInlineChapterDraft((current) => {
+      if (!current) return current;
+      const pageNumber = current.pages.length + 1;
+      const page = normalizeStoryPage({
+        id: `${current.id}-page-${Date.now()}`,
+        title: `Sequence ${pageNumber}`,
+        text: "Write this story sequence here.",
+        detailedText: "",
+        imageUrl: "",
+        imagePlaceholder: "",
+        caption: "",
+        relatedLore: []
+      }, `${current.id}-page-${pageNumber}`);
+      return normalizeStoryChapter({ ...current, pages: [...current.pages, page] }, current.id);
+    });
+  };
+
+  const deleteInlinePageDraft = (pageId: string) => {
+    setInlineChapterDraft((current) => {
+      if (!current || current.pages.length <= 1) return current;
+      return normalizeStoryChapter({ ...current, pages: current.pages.filter((page) => page.id !== pageId) }, current.id);
+    });
+  };
+
+  const saveInlineChapterDraft = () => {
+    if (!inlineChapterDraft || !canEditStory) return;
+    updateChapter(inlineChapterDraft.id, () => inlineChapterDraft);
+    setInlineChapterDraft(null);
   };
 
   const openStoryOverview = () => {
@@ -1775,71 +1830,25 @@ export function StoryJourneyPage({
                     <p>{scope.description}</p>
                   </header>
                   {groupChapters.map((chapter, chapterIndex) => (
-                    <article
+                    <StoryTreatmentChapter
                       key={chapter.id}
-                      id={`story-chapter-${chapter.id}`}
-                      data-story-reader-chapter={chapter.id}
-                      className="story-treatment-chapter"
-                    >
-                      <header className="story-treatment-chapter-heading">
-                        <div>
-                          <span>{scope.label} · Chapter {chapterIndex + 1}</span>
-                          <h2 className="font-display">{chapter.title}</h2>
-                          <p>{chapter.subtitle}</p>
-                        </div>
-                        <div className="story-treatment-chapter-actions">
-                          <em>{chapter.revealLevel}</em>
-                          {canEditStory && <button onClick={() => editReaderChapter(chapter.id)}><Icon name="Edit3" className="h-4 w-4" /> Edit</button>}
-                        </div>
-                      </header>
-
-                      <p className="story-treatment-lede">{chapter.overviewText || chapter.shortDescription}</p>
-
-                      {readingDepth !== "overview" && chapter.pages.map((page, pageIndex) => (
-                        <section key={page.id || page.title} id={`story-beat-${page.id}`} className="story-treatment-beat">
-                          <span>Sequence {pageIndex + 1}</span>
-                          <h3>{page.title}</h3>
-                          <div className="story-treatment-prose">
-                            {splitStoryParagraphs(page.text).map((paragraph, index) => (
-                              <p key={`${page.id}-paragraph-${index}`}>{renderLinkedStoryText(paragraph, setSelectedLoreTerm, linkableTerms)}</p>
-                            ))}
-                            {readingDepth === "detailed" && page.detailedText && splitStoryParagraphs(page.detailedText).map((paragraph, index) => (
-                              <p key={`${page.id}-detail-${index}`}>{renderLinkedStoryText(paragraph, setSelectedLoreTerm, linkableTerms)}</p>
-                            ))}
-                          </div>
-                          {buildBeatCallouts(chapter, page).map((callout) => (
-                            <aside key={callout.id} className={`story-treatment-callout ${callout.kind}`}>
-                              <strong>{callout.label}</strong>
-                              <span>{callout.text}</span>
-                            </aside>
-                          ))}
-                          {readingDepth === "detailed" && (
-                            <details className="story-treatment-sources">
-                              <summary>Context, sources, and story notes</summary>
-                              <div className="story-page-lore-links">
-                                {Array.from(new Set([...chapter.relatedLore, ...page.relatedLore])).map((term) => {
-                                  const source = resolveLorePreview(term, entries, bestiary);
-                                  return (
-                                    <button key={term} onClick={() => setSelectedLoreTerm(term)} title={`Source: ${source.type}`}>
-                                      <small>{source.type}</small>
-                                      {term}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                              {(page.developerNotes || chapter.developerNotes) && <p>{page.developerNotes || chapter.developerNotes}</p>}
-                            </details>
-                          )}
-                        </section>
-                      ))}
-
-                      {chapter.pages.length <= 1 && chapter.shortDescription.toLowerCase().includes("will") && (
-                        <aside className="story-treatment-gap">
-                          <Icon name="CircleAlert" className="h-5 w-5" />
-                          <div><strong>Canon gap</strong><span>This future section is still a direction, not a complete sequence of documented events.</span></div>
-                        </aside>
-                      )}
-                    </article>
+                      chapter={chapter}
+                      chapterIndex={chapterIndex}
+                      scopeLabel={scope.label}
+                      readingDepth={readingDepth}
+                      canEdit={canEditStory}
+                      draft={inlineChapterDraft?.id === chapter.id ? inlineChapterDraft : null}
+                      entries={entries}
+                      bestiary={bestiary}
+                      onLoreClick={setSelectedLoreTerm}
+                      onEdit={() => editReaderChapter(chapter.id)}
+                      onDraftChange={updateInlineChapterDraft}
+                      onPageChange={updateInlinePageDraft}
+                      onAddPage={addInlinePageDraft}
+                      onDeletePage={deleteInlinePageDraft}
+                      onSave={saveInlineChapterDraft}
+                      onCancel={() => setInlineChapterDraft(null)}
+                    />
                   ))}
                 </section>
               ))}
@@ -1893,8 +1902,8 @@ export function StoryJourneyPage({
               <span>{canonReviewItems.filter((item) => item.severity === "gap").length} missing story connections</span>
               <span>{canonReviewItems.filter((item) => item.severity === "conflict").length} naming or canon conflicts</span>
               {canEditStory && (
-                <button onClick={() => { setStoryToolsOpen(false); setSelectedLibraryItemId(""); setReaderOpen(false); setStoryEditMode(true); }}>
-                  <Icon name="Edit3" className="h-4 w-4" /> Manage Chapters
+                <button onClick={addChapter}>
+                  <Icon name="Plus" className="h-4 w-4" /> Add Chapter
                 </button>
               )}
             </div>
@@ -1952,6 +1961,198 @@ export function StoryJourneyPage({
         />
       )}
     </section>
+  );
+}
+
+function StoryTreatmentChapter({
+  chapter,
+  chapterIndex,
+  scopeLabel,
+  readingDepth,
+  canEdit,
+  draft,
+  entries,
+  bestiary,
+  onLoreClick,
+  onEdit,
+  onDraftChange,
+  onPageChange,
+  onAddPage,
+  onDeletePage,
+  onSave,
+  onCancel
+}: {
+  chapter: StoryChapter;
+  chapterIndex: number;
+  scopeLabel: string;
+  readingDepth: StoryReadingDepth;
+  canEdit: boolean;
+  draft: StoryChapter | null;
+  entries: LoreEntry[];
+  bestiary: BestiaryCreature[];
+  onLoreClick: (term: string) => void;
+  onEdit: () => void;
+  onDraftChange: (patch: Partial<StoryChapter>) => void;
+  onPageChange: (pageId: string, patch: Partial<StoryPage>) => void;
+  onAddPage: () => void;
+  onDeletePage: (pageId: string) => void;
+  onSave: () => void;
+  onCancel: () => void;
+}) {
+  const visibleChapter = draft || chapter;
+  const editing = Boolean(draft && canEdit);
+
+  return (
+    <article
+      id={`story-chapter-${chapter.id}`}
+      data-story-reader-chapter={chapter.id}
+      className={`story-treatment-chapter ${editing ? "inline-editing" : ""}`}
+    >
+      <header className="story-treatment-chapter-heading">
+        <div>
+          <span>{scopeLabel} · Chapter {chapterIndex + 1}</span>
+          {editing ? (
+            <>
+              <input
+                className="story-inline-title-input font-display"
+                value={visibleChapter.title}
+                onChange={(event) => onDraftChange({ title: event.target.value })}
+                aria-label="Chapter title"
+              />
+              <input
+                className="story-inline-subtitle-input"
+                value={visibleChapter.subtitle}
+                onChange={(event) => onDraftChange({ subtitle: event.target.value })}
+                placeholder="Chapter subtitle"
+                aria-label="Chapter subtitle"
+              />
+            </>
+          ) : (
+            <>
+              <h2 className="font-display">{visibleChapter.title}</h2>
+              <p>{visibleChapter.subtitle}</p>
+            </>
+          )}
+        </div>
+        <div className="story-treatment-chapter-actions">
+          <em>{visibleChapter.revealLevel}</em>
+          {editing ? (
+            <>
+              <button className="story-inline-save" onClick={onSave}><Icon name="Save" className="h-4 w-4" /> Save</button>
+              <button onClick={onCancel}><Icon name="X" className="h-4 w-4" /> Cancel</button>
+            </>
+          ) : canEdit ? (
+            <button onClick={onEdit}><Icon name="Edit3" className="h-4 w-4" /> Edit</button>
+          ) : null}
+        </div>
+      </header>
+
+      {editing ? (
+        <section className="story-inline-rich-field story-inline-overview-field">
+          <span>Chapter overview</span>
+          <RichTextEditor
+            value={visibleChapter.overviewText || visibleChapter.shortDescription}
+            placeholder="Write the chapter overview. Highlight text to format it."
+            onChange={(overviewText) => onDraftChange({ overviewText })}
+          />
+        </section>
+      ) : (
+        <div className="story-treatment-lede"><RichLoreText text={visibleChapter.overviewText || visibleChapter.shortDescription} /></div>
+      )}
+
+      {readingDepth !== "overview" && visibleChapter.pages.map((page, pageIndex) => (
+        <section key={page.id || page.title} id={`story-beat-${page.id || `${visibleChapter.id}-page-${pageIndex + 1}`}`} className={`story-treatment-beat ${editing ? "inline-editing" : ""}`}>
+          <div className="story-treatment-beat-heading">
+            <span>Sequence {pageIndex + 1}</span>
+            {editing && (
+              <button
+                type="button"
+                className="story-inline-delete"
+                onClick={() => onDeletePage(page.id || `${visibleChapter.id}-page-${pageIndex + 1}`)}
+                disabled={visibleChapter.pages.length <= 1}
+                title="Remove this sequence"
+              >
+                <Icon name="Trash2" className="h-4 w-4" /> Remove
+              </button>
+            )}
+          </div>
+          {editing ? (
+            <input
+              className="story-inline-beat-title"
+              value={page.title}
+              onChange={(event) => onPageChange(page.id || `${visibleChapter.id}-page-${pageIndex + 1}`, { title: event.target.value })}
+              aria-label={`Sequence ${pageIndex + 1} title`}
+            />
+          ) : (
+            <h3>{page.title}</h3>
+          )}
+
+          <div className={`story-treatment-prose ${editing ? "story-inline-rich-field" : ""}`}>
+            {editing ? (
+              <>
+                <span>Story text</span>
+                <RichTextEditor
+                  value={page.text}
+                  placeholder="Write this story sequence. Highlight text to format it."
+                  tall
+                  onChange={(text) => onPageChange(page.id || `${visibleChapter.id}-page-${pageIndex + 1}`, { text })}
+                />
+                <details className="story-inline-detailed-editor" open={readingDepth === "detailed"}>
+                  <summary>Detailed reading text</summary>
+                  <RichTextEditor
+                    value={page.detailedText || ""}
+                    placeholder="Add optional motivation, side-scene, or production context."
+                    onChange={(detailedText) => onPageChange(page.id || `${visibleChapter.id}-page-${pageIndex + 1}`, { detailedText })}
+                  />
+                </details>
+              </>
+            ) : (
+              <>
+                <RichLoreText text={page.text} />
+                {readingDepth === "detailed" && page.detailedText && <RichLoreText text={page.detailedText} />}
+              </>
+            )}
+          </div>
+
+          {!editing && buildBeatCallouts(visibleChapter, page).map((callout) => (
+            <aside key={callout.id} className={`story-treatment-callout ${callout.kind}`}>
+              <strong>{callout.label}</strong>
+              <span>{callout.text}</span>
+            </aside>
+          ))}
+          {!editing && readingDepth === "detailed" && (
+            <details className="story-treatment-sources">
+              <summary>Context, sources, and story notes</summary>
+              <div className="story-page-lore-links">
+                {Array.from(new Set([...visibleChapter.relatedLore, ...page.relatedLore])).map((term) => {
+                  const source = resolveLorePreview(term, entries, bestiary);
+                  return (
+                    <button key={term} onClick={() => onLoreClick(term)} title={`Source: ${source.type}`}>
+                      <small>{source.type}</small>
+                      {term}
+                    </button>
+                  );
+                })}
+              </div>
+              {(page.developerNotes || visibleChapter.developerNotes) && <p>{page.developerNotes || visibleChapter.developerNotes}</p>}
+            </details>
+          )}
+        </section>
+      ))}
+
+      {editing && readingDepth !== "overview" && (
+        <button type="button" className="story-inline-add-sequence" onClick={onAddPage}>
+          <Icon name="Plus" className="h-4 w-4" /> Add Sequence
+        </button>
+      )}
+
+      {!editing && visibleChapter.pages.length <= 1 && visibleChapter.shortDescription.toLowerCase().includes("will") && (
+        <aside className="story-treatment-gap">
+          <Icon name="CircleAlert" className="h-5 w-5" />
+          <div><strong>Canon gap</strong><span>This future section is still a direction, not a complete sequence of documented events.</span></div>
+        </aside>
+      )}
+    </article>
   );
 }
 

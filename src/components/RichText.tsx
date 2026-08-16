@@ -153,7 +153,15 @@ export function RichTextEditor({ value, placeholder, tall = false, onChange }: R
   };
 
   const handleMouseUp = (event: MouseEvent<HTMLDivElement>) => {
-    rememberSelection(event.button === 0);
+    if (event.button !== 0) return;
+    if (!rememberSelection(true)) {
+      setToolbarPosition(null);
+      return;
+    }
+    setToolbarPosition({
+      x: clamp(event.clientX, 170, window.innerWidth - 170),
+      y: clamp(event.clientY, 74, window.innerHeight - 24)
+    });
   };
 
   const handleKeyUp = () => {

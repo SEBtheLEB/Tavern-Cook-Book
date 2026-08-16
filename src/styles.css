@@ -17391,6 +17391,21 @@ button,
 }
 
 /* Story Journey focus workspace */
+.story-journey-page.reading {
+  display: block;
+  min-height: 100dvh;
+  gap: 0;
+  overflow: clip;
+  padding: 0;
+  background: color-mix(in srgb, var(--app-bg) 96%, var(--panel-bg));
+}
+
+.story-journey-page.reading > .story-treatment-shell {
+  width: 100%;
+  min-height: 100dvh;
+  margin: 0;
+}
+
 .story-sidebar-peek {
   position: fixed;
   top: 14px;
@@ -17642,10 +17657,12 @@ button,
 
 .story-treatment-layout {
   grid-template-columns: 252px minmax(0, 1fr);
+  min-height: calc(100dvh - 56px);
 }
 
 .story-treatment-navigator {
   top: 56px;
+  height: calc(100dvh - 56px);
   max-height: calc(100vh - 56px);
   padding: 14px 10px 30px;
 }
@@ -18000,6 +18017,167 @@ button,
 
 .story-treatment-prose p {
   margin-bottom: 1.05em;
+}
+
+.story-treatment-prose > .rich-lore-text,
+.story-treatment-lede > .rich-lore-text {
+  white-space: normal;
+}
+
+.story-treatment-prose > .rich-lore-text p {
+  margin: 0 0 1.05em;
+}
+
+.story-treatment-lede > .rich-lore-text p {
+  margin: 0;
+}
+
+.story-treatment-chapter.inline-editing {
+  border: 1px solid color-mix(in srgb, var(--gold) 42%, var(--panel-border));
+  border-radius: 8px;
+  padding: 18px;
+  background: color-mix(in srgb, var(--field-bg) 42%, transparent);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.16);
+}
+
+.story-inline-title-input,
+.story-inline-subtitle-input,
+.story-inline-beat-title {
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--gold) 38%, var(--panel-border));
+  border-radius: 0;
+  outline: 0;
+  color: var(--app-ink);
+  background: transparent;
+}
+
+.story-inline-title-input {
+  margin-top: 5px;
+  padding: 4px 2px 7px;
+  font-size: 2.25rem;
+  line-height: 1.08;
+}
+
+.story-inline-subtitle-input {
+  padding: 7px 2px;
+  color: var(--muted-ink);
+  font-size: 0.9rem;
+}
+
+.story-inline-beat-title {
+  margin: 5px 0 12px;
+  padding: 4px 1px 7px;
+  font-size: 1.68rem;
+  font-weight: 680;
+}
+
+.story-inline-title-input:focus,
+.story-inline-subtitle-input:focus,
+.story-inline-beat-title:focus {
+  border-bottom-color: var(--gold);
+  box-shadow: 0 2px 0 color-mix(in srgb, var(--gold) 24%, transparent);
+}
+
+.story-inline-rich-field {
+  display: grid;
+  gap: 7px;
+}
+
+.story-inline-rich-field > span,
+.story-inline-detailed-editor > summary {
+  color: color-mix(in srgb, var(--gold) 76%, var(--muted-ink));
+  font-size: 0.65rem;
+  font-weight: 720;
+  text-transform: uppercase;
+}
+
+.story-inline-overview-field {
+  max-width: 740px;
+  margin-bottom: 34px;
+}
+
+.story-inline-overview-field .rich-text-editable {
+  min-height: 104px;
+}
+
+.story-treatment-beat.inline-editing {
+  border-left: 2px solid color-mix(in srgb, var(--gold) 48%, var(--panel-border));
+  padding-left: 16px;
+}
+
+.story-treatment-beat-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.story-treatment-beat-heading > span {
+  color: color-mix(in srgb, var(--gold) 78%, var(--muted-ink));
+  font-size: 0.64rem;
+  font-weight: 720;
+  text-transform: uppercase;
+}
+
+.story-inline-rich-field .rich-text-editable {
+  border-color: color-mix(in srgb, var(--gold) 28%, var(--panel-border));
+  background: color-mix(in srgb, var(--panel-bg) 62%, var(--field-bg));
+  font-family: Georgia, Cambria, "Times New Roman", serif;
+  font-size: 1rem;
+  line-height: 1.72;
+}
+
+.story-inline-detailed-editor {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+  border-top: 1px solid color-mix(in srgb, var(--panel-border) 56%, transparent);
+  padding-top: 10px;
+}
+
+.story-inline-detailed-editor > summary {
+  cursor: pointer;
+}
+
+.story-inline-add-sequence,
+.story-inline-delete {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 6px;
+}
+
+.story-inline-add-sequence {
+  width: 100%;
+  justify-content: center;
+  border: 1px dashed color-mix(in srgb, var(--gold) 54%, var(--panel-border));
+  padding: 10px;
+  color: color-mix(in srgb, var(--gold) 84%, var(--app-ink));
+  background: color-mix(in srgb, var(--gold) 5%, transparent);
+}
+
+.story-inline-add-sequence:hover {
+  border-style: solid;
+  background: color-mix(in srgb, var(--gold) 10%, transparent);
+}
+
+.story-inline-delete {
+  border: 0;
+  padding: 4px 6px;
+  color: color-mix(in srgb, var(--danger-ink) 84%, var(--muted-ink));
+  background: transparent;
+  font-size: 0.7rem;
+}
+
+.story-inline-delete:disabled {
+  opacity: 0.38;
+}
+
+.story-treatment-chapter-actions .story-inline-save {
+  border-color: color-mix(in srgb, var(--gold) 72%, var(--panel-border));
+  color: color-mix(in srgb, var(--gold) 88%, var(--app-ink));
+  background: color-mix(in srgb, var(--gold) 12%, var(--field-bg));
 }
 
 .theme-dream .story-treatment-navigator {
