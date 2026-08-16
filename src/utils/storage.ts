@@ -53,12 +53,12 @@ export const DATABASE_KEY = "tavern-cook-book:data";
 export const THEME_KEY = "tavern-cook-book:theme";
 const LEGACY_MODE_KEY = "tavern-cook-book:mode";
 
-export const currentSchemaVersion = 11;
+export const currentSchemaVersion = 12;
 const loreExpansionSchemaVersion = 2;
 const magicalMealCanonSchemaVersion = 3;
 const storyReferenceSchemaVersion = 4;
 const whiskerWoodsPlaytestRoadmapSchemaVersion = 7;
-const masilCultLeaderSchemaVersion = 11;
+const masilCultLeaderSchemaVersion = 12;
 
 const masilCultLeaderEntryTitles = new Set(["Masil Cult Leader"]);
 

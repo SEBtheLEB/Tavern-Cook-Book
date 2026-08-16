@@ -14,13 +14,14 @@ import type {
   WorldBuildingEntry
 } from "../types";
 import { normalizeImageFit, resolveImageSourceUrl } from "../utils/imageFit";
-import { richTextToPlainText } from "../utils/richText";
+import { isRichText, plainTextToRichHtml, richTextToPlainText } from "../utils/richText";
 import { AdjustableImage } from "./AdjustableImage";
 import { CustomSelect } from "./CustomSelect";
 import { DriveAwareImage } from "./DriveAwareImage";
 import { DriveImageSourceControls } from "./DriveImageSourceControls";
 import { ImageManagerModal, type ImageManagerSlotDraft } from "./ImageManagerModal";
 import { Icon } from "./Icon";
+import { RichLoreText } from "./RichText";
 
 const STORY_JOURNEY_STATE_KEY = "tavernCookBookStoryJourneyState";
 const STORY_JOURNEY_CHAPTERS_KEY = "tavernCookBookStoryJourneyChapters";
@@ -1069,7 +1070,7 @@ export function StoryJourneyPage({
     if (!normalizedStorySearch) return librarySections;
     return librarySections.map((section) => ({
       ...section,
-      items: section.items.filter((item) => [item.title, item.summary, item.fullText, ...item.tags].join(" ").toLowerCase().includes(normalizedStorySearch))
+      items: section.items.filter((item) => [item.title, item.summary, plainStoryText(item.fullText), ...item.tags].join(" ").toLowerCase().includes(normalizedStorySearch))
     }));
   }, [librarySections, normalizedStorySearch]);
   const selectedLibraryReferences = useMemo(() => selectedLibraryItem
@@ -1688,9 +1689,7 @@ export function StoryJourneyPage({
                     <section className="story-library-prose">
                       <span>Story Reading Guide</span>
                       <h2>Key Story Context</h2>
-                      {splitStoryParagraphs(selectedLibraryItem.fullText || selectedLibraryItem.summary).map((paragraph, index) => (
-                        <p key={`${selectedLibraryItem.id}-paragraph-${index}`}>{renderLinkedStoryText(paragraph, setSelectedLoreTerm, linkableTerms)}</p>
-                      ))}
+                      <RichLoreText text={selectedLibraryItem.fullText || selectedLibraryItem.summary} />
                     </section>
                   )}
 
@@ -2743,12 +2742,13 @@ function compactStoryFacts(values: Array<[string, unknown]>) {
 function joinUniqueStoryText(values: unknown[]) {
   const seen = new Set<string>();
   return values.flatMap((value) => {
-    const text = plainStoryText(typeof value === "string" ? value : "");
+    const source = typeof value === "string" ? value : "";
+    const text = plainStoryText(source);
     const key = normalizeTerm(text);
     if (!text || seen.has(key)) return [];
     seen.add(key);
-    return [text];
-  }).join("\n\n");
+    return [isRichText(source) ? source : plainTextToRichHtml(source)];
+  }).join("");
 }
 
 function plainStoryText(value: string) {

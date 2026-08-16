@@ -2,86 +2,13 @@ import type { BestiaryCategoryArtVault, BestiaryCreature, LoreDatabase, LoreEntr
 import { normalizeEntry, slugify } from "../utils/entries";
 import { createBestiaryCategoryArtVaultRecord, normalizeBestiaryCreature } from "../utils/bestiary";
 import { createStarterWorldBuilding } from "../utils/worldBuilding";
-import { createStarterGlossaryTerms, createStarterStoryReferences } from "../utils/storyReferences";
+import { createStarterGlossaryTerms, createStarterStoryReferences, masilCultLeaderStoryHtml } from "../utils/storyReferences";
 import { defaultQuestCategories, defaultTeamMembers } from "../utils/assignments";
 import { createStarterArtDirectionBoard } from "../utils/artDirection";
 import { createStarterRoadmapData } from "../utils/roadmap";
 import { createInitialDevelopmentBoard } from "../utils/developmentBoard";
 
 const stamp = "2026-05-07T00:00:00.000Z";
-
-const masilCultLeaderLore = `# Masil Cult Leader
-
-### Role
-
-Founder and public prophet of the **Masil cult**, a false religion claiming to represent the true will of the Triad God.
-
-### Public Image
-
-To his followers, he is a chosen prophet who receives divine revelations from a beautiful angel in a sacred cave. His supernatural encounters give him enormous credibility and eventually political and military influence.
-
-### True Personality
-
-Ambitious, charismatic, manipulative, and increasingly arrogant.
-
-Unlike the angel, he has no grand supernatural goal. His desires are deeply human:
-
-* Fame and admiration
-* Wealth and luxury
-* Sexual pleasure
-* Political authority
-* A powerful army
-* Ultimately, becoming **king of the world**
-
-### The Angel
-
-The angel genuinely appears to him and gives him revelations.
-
-However, she is **not sent by the Triad God**. Her goal is much larger than his: she wants to corrupt the world, undermine the true Triad faith, and eventually present herself as the true representative—or replacement—of the Triad God.
-
-They are therefore **two deceivers using one another for different purposes**.
-
-### How Revelation Works
-
-Whenever the Masil people face a major crisis—war, defeat, political trouble, internal conflict—the leader retreats to the cave and seeks the angel.
-
-She appears and gives him verses or commandments addressing the situation.
-
-He then delivers these revelations to his followers as sacred scripture.
-
-### The Heart Prophecy
-
-To establish his credibility, the angel gives him a frightening revelation:
-
-**If he ever falsely attributes a revelation to her, she will destroy his heart.**
-
-He publicly teaches this verse, and it becomes one of the strongest arguments his followers use to defend him:
-
-*Why would he invent revelations if doing so would kill him?*
-
-### His Corruption
-
-At first, he faithfully repeats what the angel tells him.
-
-Eventually, however, he begins believing that **he understands the movement better than she does**.
-
-He starts by slightly altering revelations. Then he adds convenient teachings. Eventually he invents entire revelations to gain power, solve political problems, justify his desires, and advance his plans.
-
-The angel does not immediately realize what he is doing.
-
-### Death
-
-Eventually, she discovers his deception.
-
-She fulfills her original threat and **causes his heart to explode**, proving that he really had been delivering revelations she never gave him.
-
-The irony is that this does **not** prove the Masil religion was true.
-
-It proves that the Masil leader was telling **falsehoods about someone who was already teaching a greater falsehood**.
-
-### Character Theme
-
-**A false prophet serving a false angel—until he becomes arrogant enough to lie even to the liar.**`;
 
 type StarterInput = Partial<LoreEntry> & { title: string; category: string };
 
@@ -1953,7 +1880,7 @@ export const starterEntries: LoreEntry[] = [
       "A false prophet serving a false angel—until he becomes arrogant enough to lie even to the liar.",
     publicDescription:
       "To his followers, he is a chosen prophet who receives divine revelations from a beautiful angel in a sacred cave. His supernatural encounters give him enormous credibility and eventually political and military influence.",
-    internalLore: masilCultLeaderLore,
+    internalLore: masilCultLeaderStoryHtml,
     fields: {
       "Role": "Founder and public prophet of the Masil cult, a false religion claiming to represent the true will of the Triad God.",
       "Public Image":
@@ -1973,7 +1900,7 @@ export const starterEntries: LoreEntry[] = [
         "Eventually, she discovers his deception. She fulfills her original threat and causes his heart to explode, proving that he really had been delivering revelations she never gave him. The irony is that this does not prove the Masil religion was true. It proves that the Masil leader was telling falsehoods about someone who was already teaching a greater falsehood.",
       "Character Theme":
         "A false prophet serving a false angel—until he becomes arrogant enough to lie even to the liar.",
-      "Full Story": masilCultLeaderLore
+      "Full Story": masilCultLeaderStoryHtml
     },
     connections: {
       characters: ["The Angel"],

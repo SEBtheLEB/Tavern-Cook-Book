@@ -17867,9 +17867,50 @@ button,
 }
 
 .story-library-prose > p,
+.story-library-prose .rich-lore-text,
 .story-treatment-prose {
   font-size: 1rem;
   line-height: 1.72;
+}
+
+.story-library-prose .rich-lore-text {
+  display: block;
+  white-space: normal;
+}
+
+.story-library-prose .rich-lore-text h3 {
+  margin: 26px 0 9px;
+  border-top: 1px solid color-mix(in srgb, var(--gold) 34%, var(--panel-border));
+  padding-top: 17px;
+  color: color-mix(in srgb, var(--gold) 84%, var(--app-ink));
+  font-size: 1.22rem;
+  font-weight: 680;
+}
+
+.story-library-prose .rich-lore-text h3:first-child {
+  margin-top: 0;
+  border-top: 0;
+  padding-top: 0;
+}
+
+.story-library-prose .rich-lore-text p {
+  margin: 0 0 12px;
+}
+
+.story-library-prose .rich-lore-text ul,
+.story-library-prose .rich-lore-text ol {
+  display: grid;
+  gap: 5px;
+  margin: 4px 0 16px 22px;
+}
+
+.story-library-prose .rich-lore-text strong {
+  color: color-mix(in srgb, var(--app-ink) 90%, var(--gold));
+  font-weight: 760;
+}
+
+.story-library-prose .rich-lore-text em {
+  color: color-mix(in srgb, var(--app-ink) 82%, var(--gold));
 }
 
 .story-library-facts dl > div {
