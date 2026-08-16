@@ -3039,6 +3039,8 @@ export default function App() {
                 <StoryJourneyPage
                   entries={visibleEntries}
                   bestiary={database.bestiary || []}
+                  worldBuilding={database.worldBuilding}
+                  storyReferences={visibleStoryReferences}
                   storyJourney={database.storyJourney || {
                     title: "The Story of Tales of the Tavern",
                     description: "A chronological narrative treatment assembled from the Tavern Cookbook's existing canon.",
@@ -3048,6 +3050,7 @@ export default function App() {
                   readOnly={readOnly}
                   onOpenEntry={openEntry}
                   onOpenCreature={openBestiaryCreature}
+                  onOpenWorldEntry={openWorldBuildingEntry}
                   onStoryJourneyChange={updateStoryJourney}
                 />
               )}

@@ -3,11 +3,15 @@ import type {
   BestiaryCreature,
   ImageFitSettings,
   LoreEntry,
+  StoryReference,
   StoryJourneyChapterRecord,
   StoryJourneyCallout,
   StoryJourneyData,
   StoryJourneyPageRecord,
-  StoryJourneyScope
+  StoryJourneyScope,
+  WorldBuildingCategoryId,
+  WorldBuildingData,
+  WorldBuildingEntry
 } from "../types";
 import { normalizeImageFit, resolveImageSourceUrl } from "../utils/imageFit";
 import { richTextToPlainText } from "../utils/richText";
@@ -25,10 +29,13 @@ const storyExpansionChapterIds = new Set(["act-one-whisker-woods", "truth-of-tab
 interface StoryJourneyPageProps {
   entries: LoreEntry[];
   bestiary: BestiaryCreature[];
+  worldBuilding: WorldBuildingData;
+  storyReferences: StoryReference[];
   storyJourney: StoryJourneyData;
   readOnly?: boolean;
   onOpenEntry: (entry: LoreEntry) => void;
   onOpenCreature: (creature: BestiaryCreature) => void;
+  onOpenWorldEntry: (category: WorldBuildingCategoryId, entryId: string) => void;
   onStoryJourneyChange: (storyJourney: StoryJourneyData) => void;
 }
 
@@ -44,6 +51,30 @@ interface StoryJourneyState {
 
 type StoryScribeScope = "currentPage" | "wholeChapter";
 type StoryReadingDepth = "overview" | "standard" | "detailed";
+type StoryLibrarySectionId = "peoples" | "characters" | "places" | "factions" | "magic" | "creatures" | "quests" | "lore";
+
+interface StoryLibraryItem {
+  id: string;
+  title: string;
+  sectionId: StoryLibrarySectionId;
+  sourceType: "entry" | "world" | "creature";
+  eyebrow: string;
+  summary: string;
+  fullText: string;
+  tags: string[];
+  facts: Array<{ label: string; value: string }>;
+  linkedStoryReferenceIds: string[];
+  entry?: LoreEntry;
+  worldEntry?: WorldBuildingEntry;
+  creature?: BestiaryCreature;
+}
+
+interface StoryLibrarySection {
+  id: StoryLibrarySectionId;
+  label: string;
+  description: string;
+  items: StoryLibraryItem[];
+}
 
 interface StoryScribeChapterPatch {
   title?: string;
@@ -930,10 +961,13 @@ const linkableTerms = Array.from(
 export function StoryJourneyPage({
   entries,
   bestiary,
+  worldBuilding,
+  storyReferences,
   storyJourney,
   readOnly = false,
   onOpenEntry,
   onOpenCreature,
+  onOpenWorldEntry,
   onStoryJourneyChange
 }: StoryJourneyPageProps) {
   const initialStoryData = useMemo(() => {
@@ -952,7 +986,7 @@ export function StoryJourneyPage({
   const [activeScope, setActiveScope] = useState<StoryJourneyScope>(storedState.activeScope);
   const [pageByChapter, setPageByChapter] = useState(storedState.pageByChapter);
   const [completedChapterIds, setCompletedChapterIds] = useState<string[]>(storedState.completedChapterIds);
-  const [readerOpen, setReaderOpen] = useState(false);
+  const [readerOpen, setReaderOpen] = useState(true);
   const [selectedLoreTerm, setSelectedLoreTerm] = useState("");
   const [transitioning, setTransitioning] = useState(false);
   const [pageTurnKey, setPageTurnKey] = useState(0);
@@ -962,8 +996,20 @@ export function StoryJourneyPage({
   const [storySearch, setStorySearch] = useState("");
   const [storyThread, setStoryThread] = useState("all");
   const [activeReaderChapterId, setActiveReaderChapterId] = useState(storedState.selectedChapterId);
-  const [collapsedActs, setCollapsedActs] = useState<StoryJourneyScope[]>([]);
+  const [collapsedActs, setCollapsedActs] = useState<StoryJourneyScope[]>(["history", "act1", "act2", "act3"]);
+  const [chronologyCollapsed, setChronologyCollapsed] = useState(false);
   const [storyToolsOpen, setStoryToolsOpen] = useState(false);
+  const [selectedLibraryItemId, setSelectedLibraryItemId] = useState("");
+  const [collapsedLibrarySections, setCollapsedLibrarySections] = useState<StoryLibrarySectionId[]>([
+    "peoples",
+    "characters",
+    "places",
+    "factions",
+    "magic",
+    "creatures",
+    "quests",
+    "lore"
+  ]);
   const deferredStorySearch = useDeferredValue(storySearch);
 
   const scopeChapters = useMemo(() => chaptersForScope(chapters, activeScope), [activeScope, chapters]);
@@ -1008,6 +1054,27 @@ export function StoryJourneyPage({
   const activeReaderIndex = Math.max(0, readingChapters.findIndex((chapter) => chapter.id === activeReaderChapterId));
   const readingProgress = readingChapters.length ? ((activeReaderIndex + 1) / readingChapters.length) * 100 : 0;
   const canonReviewItems = useMemo(() => buildCanonReviewItems(chapters, entries), [chapters, entries]);
+  const librarySections = useMemo(
+    () => buildStoryLibrarySections(entries, bestiary, worldBuilding),
+    [bestiary, entries, worldBuilding]
+  );
+  const selectedLibraryItem = useMemo(
+    () => librarySections.flatMap((section) => section.items).find((item) => item.id === selectedLibraryItemId) || null,
+    [librarySections, selectedLibraryItemId]
+  );
+  const filteredLibrarySections = useMemo(() => {
+    if (!normalizedStorySearch) return librarySections;
+    return librarySections.map((section) => ({
+      ...section,
+      items: section.items.filter((item) => [item.title, item.summary, item.fullText, ...item.tags].join(" ").toLowerCase().includes(normalizedStorySearch))
+    }));
+  }, [librarySections, normalizedStorySearch]);
+  const selectedLibraryReferences = useMemo(() => selectedLibraryItem
+    ? storyReferences.filter((reference) => selectedLibraryItem.linkedStoryReferenceIds.includes(reference.id) || storyReferenceMentionsTitle(reference, selectedLibraryItem.title))
+    : [], [selectedLibraryItem, storyReferences]);
+  const selectedLibraryChapters = useMemo(() => selectedLibraryItem
+    ? chapters.filter((chapter) => chapterContainsTerm(chapter, selectedLibraryItem.title))
+    : [], [chapters, selectedLibraryItem]);
 
   useEffect(() => {
     saveStoryJourneyState({
@@ -1286,6 +1353,32 @@ export function StoryJourneyPage({
     setStoryEditMode(true);
   };
 
+  const openStoryOverview = () => {
+    setSelectedLibraryItemId("");
+    setStorySearch("");
+    setStoryThread("all");
+    window.requestAnimationFrame(() => document.querySelector(".story-treatment-titlepage")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  };
+
+  const openLibraryItem = (item: StoryLibraryItem) => {
+    setSelectedLibraryItemId(item.id);
+    setStorySearch("");
+    window.requestAnimationFrame(() => document.querySelector(".story-library-reader")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  };
+
+  const openLibrarySource = (item: StoryLibraryItem) => {
+    if (item.entry) onOpenEntry(item.entry);
+    if (item.creature) onOpenCreature(item.creature);
+    if (item.worldEntry) onOpenWorldEntry(item.worldEntry.category, item.worldEntry.id);
+  };
+
+  const openLibraryChronologyChapter = (chapterId: string) => {
+    setSelectedLibraryItemId("");
+    setStorySearch("");
+    setStoryThread("all");
+    window.setTimeout(() => scrollToStorySection(chapterId), 60);
+  };
+
   return (
     <section className={`story-journey-page ${readerOpen ? "reading" : ""} ${storyEditMode ? "story-edit-mode" : ""}`}>
       {!readerOpen ? (
@@ -1454,8 +1547,8 @@ export function StoryJourneyPage({
       ) : (
         <section className="story-treatment-shell">
           <header className="story-treatment-toolbar">
-            <button className="story-reader-exit" onClick={() => setReaderOpen(false)}>
-              <Icon name="ChevronLeft" className="h-4 w-4" />
+            <button className="story-reader-exit" onClick={openStoryOverview}>
+              <Icon name="BookOpen" className="h-4 w-4" />
               Story Overview
             </button>
             <div className="story-treatment-depth" aria-label="Reading depth">
@@ -1467,9 +1560,9 @@ export function StoryJourneyPage({
             </div>
             <label className="story-treatment-search">
               <Icon name="Search" className="h-4 w-4" />
-              <input value={storySearch} onChange={(event) => setStorySearch(event.target.value)} placeholder="Search the story" />
+              <input value={storySearch} onChange={(event) => setStorySearch(event.target.value)} placeholder={selectedLibraryItem ? "Search the world guide" : "Search the story"} />
             </label>
-            <select value={storyThread} onChange={(event) => setStoryThread(event.target.value)} aria-label="Story thread">
+            <select value={storyThread} onChange={(event) => setStoryThread(event.target.value)} aria-label="Story thread" disabled={Boolean(selectedLibraryItem)}>
               <option value="all">All story threads</option>
               {storyThreads.map((thread) => <option key={thread} value={thread}>{thread}</option>)}
             </select>
@@ -1479,40 +1572,149 @@ export function StoryJourneyPage({
             </button>
           </header>
 
-          <div className="story-treatment-progress" aria-label={`Reading progress ${Math.round(readingProgress)} percent`}>
-            <span style={{ width: `${readingProgress}%` }} />
+          <div className="story-treatment-progress" aria-label={selectedLibraryItem ? "World guide topic open" : `Reading progress ${Math.round(readingProgress)} percent`}>
+            <span style={{ width: `${selectedLibraryItem ? 100 : readingProgress}%` }} />
           </div>
 
           <div className="story-treatment-layout">
             <aside className="story-treatment-navigator">
               <div className="story-treatment-navigator-heading">
-                <p>Story Navigator</p>
-                <strong>{activeReaderIndex + 1} of {readingChapters.length} chapters</strong>
+                <p>Story &amp; World Navigator</p>
+                <strong>{selectedLibraryItem ? selectedLibraryItem.eyebrow : `${readingChapters.length ? activeReaderIndex + 1 : 0} of ${readingChapters.length} chapters`}</strong>
               </div>
-              {readingGroups.map(({ scope, chapters: groupChapters }) => {
-                const collapsed = collapsedActs.includes(scope.id);
+              <section className="story-navigator-collection chronology">
+                <button className="story-treatment-act-toggle story-navigator-collection-toggle" onClick={() => setChronologyCollapsed((current) => !current)}>
+                  <span><Icon name="Clock3" className="h-4 w-4" /> Chronological Story</span>
+                  <b>{chapters.length}</b>
+                  <Icon name={chronologyCollapsed ? "ChevronRight" : "ChevronDown"} className="h-4 w-4" />
+                </button>
+                {!chronologyCollapsed && readingGroups.map(({ scope, chapters: groupChapters }) => {
+                  const collapsed = collapsedActs.includes(scope.id);
+                  return (
+                    <div key={scope.id} className="story-navigator-act-group">
+                      <button className="story-treatment-act-toggle" onClick={() => setCollapsedActs((current) => current.includes(scope.id) ? current.filter((id) => id !== scope.id) : [...current, scope.id])}>
+                        <span>{scope.label}</span>
+                        <Icon name={collapsed ? "ChevronRight" : "ChevronDown"} className="h-4 w-4" />
+                      </button>
+                      {!collapsed && groupChapters.map((chapter) => (
+                        <div key={chapter.id} className={`story-treatment-nav-chapter ${!selectedLibraryItem && activeReaderChapterId === chapter.id ? "active" : ""}`}>
+                          <button onClick={() => { setSelectedLibraryItemId(""); window.setTimeout(() => scrollToStorySection(chapter.id), 40); }}>{chapter.title}</button>
+                          {readingDepth !== "overview" && chapter.pages.map((page) => (
+                            <button key={page.id || page.title} className="story-treatment-nav-beat" onClick={() => { setSelectedLibraryItemId(""); window.setTimeout(() => scrollToStorySection(chapter.id, page.id), 40); }}>
+                              {page.title}
+                            </button>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })}
+              </section>
+
+              <p className="story-navigator-divider">World Guide</p>
+              {filteredLibrarySections.map((section) => {
+                const collapsed = collapsedLibrarySections.includes(section.id) && !normalizedStorySearch;
                 return (
-                  <section key={scope.id}>
-                    <button className="story-treatment-act-toggle" onClick={() => setCollapsedActs((current) => current.includes(scope.id) ? current.filter((id) => id !== scope.id) : [...current, scope.id])}>
-                      <span>{scope.label}</span>
+                  <section key={section.id} className="story-navigator-collection">
+                    <button className="story-treatment-act-toggle story-navigator-collection-toggle" onClick={() => setCollapsedLibrarySections((current) => current.includes(section.id) ? current.filter((id) => id !== section.id) : [...current, section.id])}>
+                      <span>{section.label}</span>
+                      <b>{section.items.length}</b>
                       <Icon name={collapsed ? "ChevronRight" : "ChevronDown"} className="h-4 w-4" />
                     </button>
-                    {!collapsed && groupChapters.map((chapter) => (
-                      <div key={chapter.id} className={`story-treatment-nav-chapter ${activeReaderChapterId === chapter.id ? "active" : ""}`}>
-                        <button onClick={() => scrollToStorySection(chapter.id)}>{chapter.title}</button>
-                        {readingDepth !== "overview" && chapter.pages.map((page) => (
-                          <button key={page.id || page.title} className="story-treatment-nav-beat" onClick={() => scrollToStorySection(chapter.id, page.id)}>
-                            {page.title}
+                    {!collapsed && (
+                      <div className="story-library-nav-items">
+                        {section.items.length ? section.items.map((item) => (
+                          <button key={item.id} className={selectedLibraryItemId === item.id ? "active" : ""} onClick={() => openLibraryItem(item)}>
+                            <span>{item.title}</span>
+                            <small>{item.eyebrow}</small>
                           </button>
-                        ))}
+                        )) : <span className="story-library-no-results">No matches</span>}
                       </div>
-                    ))}
+                    )}
                   </section>
                 );
               })}
             </aside>
 
             <main className="story-treatment-reader">
+              {selectedLibraryItem ? (
+                <article className="story-library-reader">
+                  <header className="story-library-titlepage">
+                    <span>{selectedLibraryItem.eyebrow}</span>
+                    <h1 className="font-display">{selectedLibraryItem.title}</h1>
+                    <p>{selectedLibraryItem.summary || "This topic does not have a written summary yet."}</p>
+                    <div>
+                      {selectedLibraryItem.tags.slice(0, 8).map((tag) => <strong key={tag}>{tag}</strong>)}
+                    </div>
+                  </header>
+
+                  {readingDepth !== "overview" && (
+                    <section className="story-library-prose">
+                      <span>Cookbook Reading Guide</span>
+                      <h2>What the team should know</h2>
+                      {splitStoryParagraphs(selectedLibraryItem.fullText || selectedLibraryItem.summary).map((paragraph, index) => (
+                        <p key={`${selectedLibraryItem.id}-paragraph-${index}`}>{renderLinkedStoryText(paragraph, setSelectedLoreTerm, linkableTerms)}</p>
+                      ))}
+                    </section>
+                  )}
+
+                  {readingDepth === "detailed" && selectedLibraryItem.facts.length > 0 && (
+                    <section className="story-library-facts">
+                      <span>Reference Notes</span>
+                      <h2>Key details</h2>
+                      <dl>
+                        {selectedLibraryItem.facts.map((fact) => (
+                          <div key={`${fact.label}-${fact.value}`}>
+                            <dt>{fact.label}</dt>
+                            <dd>{fact.value}</dd>
+                          </div>
+                        ))}
+                      </dl>
+                    </section>
+                  )}
+
+                  {selectedLibraryChapters.length > 0 && (
+                    <section className="story-library-connections">
+                      <span>Chronology</span>
+                      <h2>Appears in the story</h2>
+                      <div>
+                        {selectedLibraryChapters.map((chapter) => (
+                          <button key={chapter.id} onClick={() => openLibraryChronologyChapter(chapter.id)}>
+                            <small>{chapter.era}</small>
+                            <strong>{chapter.title}</strong>
+                            <p>{chapter.shortDescription}</p>
+                          </button>
+                        ))}
+                      </div>
+                    </section>
+                  )}
+
+                  {selectedLibraryReferences.length > 0 && (
+                    <section className="story-library-connections">
+                      <span>Story Sources</span>
+                      <h2>Linked canon references</h2>
+                      <div>
+                        {selectedLibraryReferences.map((reference) => (
+                          <article key={reference.id}>
+                            <small>{reference.canonStatus} · {reference.spoilerLevel}</small>
+                            <strong>{reference.title}</strong>
+                            <p>{reference.shortSummary}</p>
+                          </article>
+                        ))}
+                      </div>
+                    </section>
+                  )}
+
+                  <footer className="story-library-footer">
+                    <p>This reading page is generated from the existing Cookbook record. Editing its source updates this guide.</p>
+                    <button className="button-frame" onClick={() => openLibrarySource(selectedLibraryItem)}>
+                      <Icon name="ExternalLink" className="h-4 w-4" />
+                      Open Full Source Module
+                    </button>
+                  </footer>
+                </article>
+              ) : (
+                <>
               <header className="story-treatment-titlepage">
                 <p>Tales of the Tavern · Development Narrative Treatment</p>
                 <h1 className="font-display">{storyJourney.title || "The Story of Tales of the Tavern"}</h1>
@@ -1606,6 +1808,8 @@ export function StoryJourneyPage({
                   ))}
                 </section>
               ))}
+                </>
+              )}
             </main>
           </div>
         </section>
@@ -1653,6 +1857,11 @@ export function StoryJourneyPage({
               <strong>{canonReviewItems.length} review items</strong>
               <span>{canonReviewItems.filter((item) => item.severity === "gap").length} missing story connections</span>
               <span>{canonReviewItems.filter((item) => item.severity === "conflict").length} naming or canon conflicts</span>
+              {canEditStory && (
+                <button onClick={() => { setStoryToolsOpen(false); setSelectedLibraryItemId(""); setReaderOpen(false); setStoryEditMode(true); }}>
+                  <Icon name="Edit3" className="h-4 w-4" /> Manage Chapters
+                </button>
+              )}
             </div>
             <div className="story-tools-list">
               {canonReviewItems.map((item) => (
@@ -2305,13 +2514,230 @@ function resolveLorePreview(term: string, entries: LoreEntry[], bestiary: Bestia
 
 function chapterContainsTerm(chapter: StoryChapter, term: string) {
   const normalized = normalizeTerm(term);
-  return normalizeTerm([
+  const haystack = normalizeTerm([
     chapter.title,
     chapter.subtitle,
     chapter.shortDescription,
     ...chapter.relatedLore,
     ...chapter.pages.flatMap((page) => [page.title, page.text, ...page.relatedLore])
-  ].join(" ")).includes(normalized);
+  ].join(" "));
+  return new RegExp(`\\b${escapeRegExp(normalized)}\\b`, "i").test(haystack);
+}
+
+const storyLibrarySectionDefinitions: Array<Omit<StoryLibrarySection, "items">> = [
+  { id: "peoples", label: "Peoples & Realms", description: "Cultures, kingdoms, peoples, and the traditions that distinguish them." },
+  { id: "characters", label: "Characters", description: "The people whose choices move the story." },
+  { id: "places", label: "Places", description: "Regions, settlements, landmarks, and important story spaces." },
+  { id: "factions", label: "Factions & Faiths", description: "Organizations, alliances, religions, and competing beliefs." },
+  { id: "magic", label: "Magic, Meals & Artifacts", description: "Food magic, recipes, ingredients, relics, and important objects." },
+  { id: "creatures", label: "Creatures & Threats", description: "Wildlife, enemies, bosses, and corrupted beings." },
+  { id: "quests", label: "Quests & Storylines", description: "Objectives and playable story threads." },
+  { id: "lore", label: "Lore & Mysteries", description: "Myths, secrets, rules, unresolved questions, and glossary concepts." }
+];
+
+function buildStoryLibrarySections(
+  entries: LoreEntry[],
+  bestiary: BestiaryCreature[],
+  worldBuilding: WorldBuildingData
+): StoryLibrarySection[] {
+  const items: StoryLibraryItem[] = [];
+
+  entries.forEach((entry) => {
+    if (normalizeTerm(entry.category) === "archive") return;
+    const sectionId = classifyLoreEntryForStoryLibrary(entry);
+    if (!sectionId) return;
+    const fullText = joinUniqueStoryText([
+      entry.summary,
+      entry.publicDescription,
+      entry.internalLore,
+      entry.wiki?.loreDescription || "",
+      entry.timeline?.trueTimeline || "",
+      entry.secret?.trueFact || ""
+    ]);
+    items.push({
+      id: `entry:${entry.id}`,
+      title: entry.title,
+      sectionId,
+      sourceType: "entry",
+      eyebrow: entry.type || entry.category || "Cookbook Entry",
+      summary: plainStoryText(entry.summary || entry.publicDescription || entry.internalLore),
+      fullText,
+      tags: Array.from(new Set([entry.category, entry.type, entry.status, ...entry.tags].filter(Boolean))),
+      facts: compactStoryFacts([
+        ["Category", entry.category],
+        ["Type", entry.type],
+        ["Status", entry.status],
+        ["Spoiler level", entry.spoilerLevel],
+        ["Timeline", entry.timeline?.playerTimeline || entry.timeline?.era || ""],
+        ["Player knowledge", entry.secret?.playerKnowledge || ""]
+      ]),
+      linkedStoryReferenceIds: entry.linkedStoryReferenceIds || [],
+      entry
+    });
+  });
+
+  Object.values(worldBuilding).flat().forEach((entry) => {
+    const sectionId = classifyWorldEntryForStoryLibrary(entry);
+    const fieldText = Object.values(entry.fields || {}).filter((value) => typeof value === "string");
+    items.push({
+      id: `world:${entry.category}:${entry.id}`,
+      title: entry.title,
+      sectionId,
+      sourceType: "world",
+      eyebrow: entry.type || storyWorldCategoryLabel(entry.category),
+      summary: plainStoryText(entry.summary),
+      fullText: joinUniqueStoryText([entry.summary, ...fieldText]),
+      tags: Array.from(new Set([storyWorldCategoryLabel(entry.category), entry.type, ...entry.tags].filter(Boolean))),
+      facts: compactStoryFacts([
+        ["World guide section", storyWorldCategoryLabel(entry.category)],
+        ["Type", entry.type],
+        ...Object.entries(entry.fields || {}).slice(0, 10)
+      ]),
+      linkedStoryReferenceIds: entry.linkedStoryReferenceIds || [],
+      worldEntry: entry
+    });
+  });
+
+  bestiary.forEach((creature) => {
+    items.push({
+      id: `creature:${creature.id}`,
+      title: creature.name,
+      sectionId: "creatures",
+      sourceType: "creature",
+      eyebrow: creature.type || creature.category || "Creature",
+      summary: plainStoryText(creature.overview || creature.description),
+      fullText: joinUniqueStoryText([
+        creature.overview,
+        creature.description,
+        creature.fieldNotes,
+        creature.lore?.origin,
+        creature.lore?.culturalMeaning,
+        creature.lore?.rumors,
+        creature.lore?.questConnections,
+        creature.lore?.hiddenNotes,
+        creature.lore?.fullStory || ""
+      ]),
+      tags: Array.from(new Set([creature.category, creature.type, creature.status, creature.threatLevel].filter(Boolean))),
+      facts: compactStoryFacts([
+        ["Category", creature.category],
+        ["Type", creature.type],
+        ["Threat", creature.threatLevel],
+        ["Rarity", creature.rarity],
+        ["Habitat", creature.habitat],
+        ["Behavior", creature.behavior],
+        ["Story purpose", creature.gameplayPurpose]
+      ]),
+      linkedStoryReferenceIds: creature.linkedStoryReferenceIds || [],
+      creature
+    });
+  });
+
+  return storyLibrarySectionDefinitions.map((definition) => ({
+    ...definition,
+    items: deduplicateStoryLibraryItems(items.filter((item) => item.sectionId === definition.id))
+  }));
+}
+
+function classifyLoreEntryForStoryLibrary(entry: LoreEntry): StoryLibrarySectionId | null {
+  const haystack = normalizeTerm([entry.title, entry.category, entry.type, ...entry.tags].join(" "));
+  const identity = normalizeTerm(`${entry.title} ${entry.type}`);
+  if (/cauldron|dragon knife|recipe book|magical meal|food essence|artifact/.test(identity)) return "magic";
+  if (haystack.includes("character") || normalizeTerm(entry.category) === "characters") return "characters";
+  if (/quest|storyline|tutorial|mission|objective/.test(haystack) || normalizeTerm(entry.category) === "quests") return "quests";
+  if (/culture|kingdom|people|race|whisken|human realm|faery realm|dwarven/.test(haystack)) return "peoples";
+  if (/faction|cult|faith|religion|tablekeeper|saint/.test(haystack)) return "factions";
+  if (/meal|recipe|food|ingredient|magic|artifact|item|cauldron|knife|essence|pantry/.test(haystack) || ["food", "inventory", "items"].includes(normalizeTerm(entry.category))) return "magic";
+  if (/location|village|woods|island|lake|pond|camp|tavern|ovenhold|mountain|meadow|hollow|glade/.test(haystack) || normalizeTerm(entry.category) === "world") return "places";
+  if (/enemy|creature|boss|wildlife|bestiary/.test(haystack)) return "creatures";
+  if (["story", "secrets", "lore", "glossary"].includes(normalizeTerm(entry.category))) return "lore";
+  return null;
+}
+
+function classifyWorldEntryForStoryLibrary(entry: WorldBuildingEntry): StoryLibrarySectionId {
+  if (entry.category === "cultures") return "peoples";
+  if (entry.category === "characterLinks") return "characters";
+  if (entry.category === "locations") return "places";
+  if (entry.category === "factions") return "factions";
+  if (["magicSystems", "foodAndRecipes", "items"].includes(entry.category)) return "magic";
+  if (entry.category === "creatureLinks") return "creatures";
+  if (entry.category === "quests") return "quests";
+  return "lore";
+}
+
+function storyWorldCategoryLabel(category: WorldBuildingCategoryId) {
+  const labels: Partial<Record<WorldBuildingCategoryId, string>> = {
+    locations: "Places",
+    cultures: "Peoples & Realms",
+    factions: "Factions & Faiths",
+    timeline: "Timeline",
+    magicSystems: "Magic Systems",
+    foodAndRecipes: "Food & Recipes",
+    creatureLinks: "Creatures",
+    characterLinks: "Characters",
+    myths: "Myths",
+    items: "Artifacts & Items",
+    quests: "Quests",
+    rules: "World Rules",
+    mysteries: "Mysteries",
+    glossary: "Glossary"
+  };
+  return labels[category] || category;
+}
+
+function deduplicateStoryLibraryItems(items: StoryLibraryItem[]) {
+  const byTitle = new Map<string, StoryLibraryItem>();
+  items.forEach((item) => {
+    const key = normalizeTerm(item.title);
+    const current = byTitle.get(key);
+    if (!current || item.fullText.length > current.fullText.length) byTitle.set(key, item);
+  });
+  return Array.from(byTitle.values()).sort((left, right) => left.title.localeCompare(right.title));
+}
+
+function compactStoryFacts(values: Array<[string, unknown]>) {
+  const seen = new Set<string>();
+  return values.flatMap(([label, raw]) => {
+    const value = plainStoryText(typeof raw === "string" ? raw : String(raw || ""));
+    if (!value || seen.has(`${label}:${value}`)) return [];
+    seen.add(`${label}:${value}`);
+    return [{ label: humanizeStoryLabel(label), value }];
+  });
+}
+
+function joinUniqueStoryText(values: unknown[]) {
+  const seen = new Set<string>();
+  return values.flatMap((value) => {
+    const text = plainStoryText(typeof value === "string" ? value : "");
+    const key = normalizeTerm(text);
+    if (!text || seen.has(key)) return [];
+    seen.add(key);
+    return [text];
+  }).join("\n\n");
+}
+
+function plainStoryText(value: string) {
+  return richTextToPlainText(String(value || "")).trim();
+}
+
+function humanizeStoryLabel(value: string) {
+  return value.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/^./, (letter) => letter.toUpperCase());
+}
+
+function storyReferenceMentionsTitle(reference: StoryReference, title: string) {
+  const target = normalizeTerm(title);
+  const haystack = normalizeTerm([
+    reference.title,
+    reference.shortSummary,
+    ...reference.relatedCharacters,
+    ...reference.relatedLocations,
+    ...reference.relatedQuests,
+    ...reference.relatedFactions,
+    ...reference.relatedItems,
+    ...reference.relatedRecipes,
+    ...reference.relatedTimelineEvents,
+    ...reference.tags
+  ].join(" "));
+  return new RegExp(`\\b${escapeRegExp(target)}\\b`, "i").test(haystack);
 }
 
 function splitStoryParagraphs(value: string) {
