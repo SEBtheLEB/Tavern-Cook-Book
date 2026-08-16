@@ -995,6 +995,8 @@ export function StoryJourneyPage({
   const [imageManagerOpen, setImageManagerOpen] = useState(false);
   const [readingDepth, setReadingDepth] = useState<StoryReadingDepth>("standard");
   const [storySearch, setStorySearch] = useState("");
+  const [storySearchOpen, setStorySearchOpen] = useState(false);
+  const storySearchInputRef = useRef<HTMLInputElement>(null);
   const [storyThread, setStoryThread] = useState("all");
   const [activeReaderChapterId, setActiveReaderChapterId] = useState(storedState.selectedChapterId);
   const [collapsedActs, setCollapsedActs] = useState<StoryJourneyScope[]>(["history", "act1", "act2", "act3"]);
@@ -1085,6 +1087,15 @@ export function StoryJourneyPage({
       completedChapterIds
     });
   }, [activeScope, selectedChapterId, pageByChapter, completedChapterIds]);
+
+  useEffect(() => {
+    const openStorySearch = () => {
+      setStorySearchOpen(true);
+      window.setTimeout(() => storySearchInputRef.current?.focus(), 0);
+    };
+    window.addEventListener("tavern:story-search", openStorySearch);
+    return () => window.removeEventListener("tavern:story-search", openStorySearch);
+  }, []);
 
   useEffect(() => {
     saveStoryChapters(chapters);
@@ -1559,10 +1570,34 @@ export function StoryJourneyPage({
                 </button>
               ))}
             </div>
-            <label className="story-treatment-search">
-              <Icon name="Search" className="h-4 w-4" />
-              <input value={storySearch} onChange={(event) => setStorySearch(event.target.value)} placeholder={selectedLibraryItem ? "Search the world guide" : "Search the story"} />
-            </label>
+            {storySearchOpen && (
+              <label className="story-treatment-search">
+                <Icon name="Search" className="h-4 w-4" />
+                <input
+                  ref={storySearchInputRef}
+                  value={storySearch}
+                  onChange={(event) => setStorySearch(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") {
+                      setStorySearch("");
+                      setStorySearchOpen(false);
+                    }
+                  }}
+                  placeholder={selectedLibraryItem ? "Search the world guide" : "Search the story"}
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStorySearch("");
+                    setStorySearchOpen(false);
+                  }}
+                  title="Close search"
+                  aria-label="Close search"
+                >
+                  <Icon name="X" className="h-4 w-4" />
+                </button>
+              </label>
+            )}
             <select value={storyThread} onChange={(event) => setStoryThread(event.target.value)} aria-label="Story thread" disabled={Boolean(selectedLibraryItem)}>
               <option value="all">All story threads</option>
               {storyThreads.map((thread) => <option key={thread} value={thread}>{thread}</option>)}

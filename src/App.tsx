@@ -65,6 +65,7 @@ import { SettingsPage } from "./components/SettingsPage";
 import { Sidebar } from "./components/Sidebar";
 import { StoryPage } from "./components/StoryPage";
 import { StoryJourneyPage } from "./components/StoryJourneyPage";
+import { StoryFocusMenu } from "./components/StoryFocusMenu";
 import { SpriteSheetAnimatorPage } from "./components/SpriteSheetAnimatorPage";
 import { SyncPublishModal } from "./components/SyncPublishModal";
 import { TimelineView } from "./components/TimelineView";
@@ -452,7 +453,12 @@ export default function App() {
   const [realtimeStatus, setRealtimeStatus] = useState("initial");
   const [realtimeReady, setRealtimeReady] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [storySidebarOpen, setStorySidebarOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  useEffect(() => {
+    setStorySidebarOpen(false);
+  }, [activeView]);
   const [storageWarning, setStorageWarning] = useState("");
   const databaseRef = useRef(database);
   const realtimeBaseDatabaseRef = useRef(database);
@@ -2217,6 +2223,7 @@ export default function App() {
     setFavoritesOpen(false);
     setQuestDashboardOpen(false);
     setProfileOpen(false);
+    if (view === "storyJourney") setStorySidebarOpen(false);
     if (view !== "bestiary") setSelectedBestiaryCreatureId("");
     if (view !== "world") setWorldBuildingFocus(null);
     setActiveView(view);
@@ -2856,6 +2863,7 @@ export default function App() {
   }, [ensureViewAccess]);
   const themeClassName = theme === "dream" ? "theme-dream" : "theme-light";
   const desktopBrowserAuthMode = isDesktopBrowserAuthRequest();
+  const storyFocusMode = activeView === "storyJourney";
 
   if (!currentUser || desktopBrowserAuthMode) {
     return (
@@ -2886,33 +2894,56 @@ export default function App() {
         onStatusChange={setRealtimeStatus}
       />
       <div className="app-shell flex min-h-screen">
-        <Sidebar
-          database={database}
-          activeView={activeView}
-          collapsed={sidebarCollapsed}
-          mobileOpen={mobileNavOpen}
-          onNavigate={navigate}
-          onToggleCollapsed={() => setSidebarCollapsed((value) => !value)}
-          onCloseMobile={() => setMobileNavOpen(false)}
-          readOnly={readOnly}
-          storageWarning={storageWarning}
-          currentUser={currentUser}
-          onOpenProfile={openProfile}
-          onOpenTavernScribe={canUseTavernScribe ? () => setTavernScribeOpen(true) : undefined}
-          onOpenQuestDashboard={freelancerMode ? undefined : openQuestDashboard}
-          onOpenPushChanges={LIVE_TEAM_SYNC ? undefined : openPushReview}
-          onForceLiveSync={forceSaveTeamDatabase}
-          questCount={currentQuestCount}
-          pendingPublishCount={pendingPublishCount}
-          canAccessSettings={canAccessSettings}
-          hiddenViewIds={hiddenViewIds}
-          syncLabel={cloudSync.message}
-          syncName="Live Sync"
-          syncActionTitle="Click to save this cookbook for everyone now"
-          syncWorking={cloudSync.phase === "publishing" || cloudSync.phase === "saving" || cloudSync.phase === "loading"}
-          liveUsers={realtimeUsers}
-          liveStatus={realtimeStatus}
-        />
+        {storyFocusMode && !storySidebarOpen && (
+          <button
+            className="story-sidebar-peek"
+            onClick={() => {
+              setStorySidebarOpen(true);
+              if (window.innerWidth < 1024) setMobileNavOpen(true);
+            }}
+            title="Open Cook Book navigation"
+            aria-label="Open Cook Book navigation"
+          >
+            <Icon name="ChefHat" className="h-5 w-5" />
+          </button>
+        )}
+        {storyFocusMode && storySidebarOpen && (
+          <button className="story-sidebar-backdrop" onClick={() => setStorySidebarOpen(false)} aria-label="Close Cook Book navigation" />
+        )}
+        {(!storyFocusMode || storySidebarOpen) && (
+          <div className={storyFocusMode ? "story-focus-sidebar" : ""}>
+            <Sidebar
+              database={database}
+              activeView={activeView}
+              collapsed={storyFocusMode ? false : sidebarCollapsed}
+              mobileOpen={mobileNavOpen}
+              onNavigate={navigate}
+              onToggleCollapsed={() => storyFocusMode ? setStorySidebarOpen(false) : setSidebarCollapsed((value) => !value)}
+              onCloseMobile={() => {
+                setMobileNavOpen(false);
+                if (storyFocusMode) setStorySidebarOpen(false);
+              }}
+              readOnly={readOnly}
+              storageWarning={storageWarning}
+              currentUser={currentUser}
+              onOpenProfile={openProfile}
+              onOpenTavernScribe={canUseTavernScribe ? () => setTavernScribeOpen(true) : undefined}
+              onOpenQuestDashboard={freelancerMode ? undefined : openQuestDashboard}
+              onOpenPushChanges={LIVE_TEAM_SYNC ? undefined : openPushReview}
+              onForceLiveSync={forceSaveTeamDatabase}
+              questCount={currentQuestCount}
+              pendingPublishCount={pendingPublishCount}
+              canAccessSettings={canAccessSettings}
+              hiddenViewIds={hiddenViewIds}
+              syncLabel={cloudSync.message}
+              syncName="Live Sync"
+              syncActionTitle="Click to save this cookbook for everyone now"
+              syncWorking={cloudSync.phase === "publishing" || cloudSync.phase === "saving" || cloudSync.phase === "loading"}
+              liveUsers={realtimeUsers}
+              liveStatus={realtimeStatus}
+            />
+          </div>
+        )}
 
         <main className="min-w-0 flex-1">
           <AssignmentProvider
@@ -2926,23 +2957,40 @@ export default function App() {
             onOpenQuestDashboard={freelancerMode ? undefined : openQuestDashboard}
           >
           <div className={assignMode ? "assign-mode" : ""}>
-          <TopBar
-            theme={theme}
-            searchQuery={searchQuery}
-            artVaultProgress={!readOnly ? artVaultProgress : undefined}
-            onThemeChange={setTheme}
-            onSearchQueryChange={setSearchQuery}
-            onSubmitSearch={submitSearch}
-            onCreateEntry={!freelancerMode ? createEntry : undefined}
-            onOpenArtVaultDashboard={!readOnly ? openArtVaultDashboard : undefined}
-            onOpenFavorites={!freelancerMode ? openFavorites : undefined}
-            onOpenMobileNav={() => setMobileNavOpen(true)}
-            readOnly={readOnly}
-            favoritesCount={favorites.length}
-            favoritesOpen={favoritesOpen}
-            assignMode={assignMode}
-            onToggleAssignMode={!readOnly && !freelancerMode ? () => setAssignMode((value) => !value) : undefined}
-          />
+          {storyFocusMode ? (
+            <StoryFocusMenu
+              theme={theme}
+              activeView={activeView}
+              hiddenViewIds={hiddenViewIds}
+              readOnly={readOnly}
+              canAccessSettings={canAccessSettings}
+              favoritesCount={favorites.length}
+              favoritesOpen={favoritesOpen}
+              assignMode={assignMode}
+              onThemeChange={setTheme}
+              onNavigate={navigate}
+              onOpenFavorites={!freelancerMode ? openFavorites : undefined}
+              onToggleAssignMode={!readOnly && !freelancerMode ? () => setAssignMode((value) => !value) : undefined}
+            />
+          ) : (
+            <TopBar
+              theme={theme}
+              searchQuery={searchQuery}
+              artVaultProgress={!readOnly ? artVaultProgress : undefined}
+              onThemeChange={setTheme}
+              onSearchQueryChange={setSearchQuery}
+              onSubmitSearch={submitSearch}
+              onCreateEntry={!freelancerMode ? createEntry : undefined}
+              onOpenArtVaultDashboard={!readOnly ? openArtVaultDashboard : undefined}
+              onOpenFavorites={!freelancerMode ? openFavorites : undefined}
+              onOpenMobileNav={() => setMobileNavOpen(true)}
+              readOnly={readOnly}
+              favoritesCount={favorites.length}
+              favoritesOpen={favoritesOpen}
+              assignMode={assignMode}
+              onToggleAssignMode={!readOnly && !freelancerMode ? () => setAssignMode((value) => !value) : undefined}
+            />
+          )}
 
           {profileOpen ? (
             <ProfilePage
