@@ -9,7 +9,7 @@ import type {
 import { migrateDatabase, sanitizeDatabaseForPersistence } from "./storage";
 
 export type PublishChangeAction = "added" | "updated" | "removed";
-export type PublishChangeKind = "entry" | "creature" | "worldEntry" | "bestiaryCategoryVault" | "branding";
+export type PublishChangeKind = "entry" | "creature" | "worldEntry" | "bestiaryCategoryVault" | "storyJourney" | "branding";
 
 export interface PublishChange {
   id: string;
@@ -34,6 +34,7 @@ export function buildPublishChanges(currentDatabase: LoreDatabase, publishedData
     ...diffCreatures(current.bestiary || [], published.bestiary || []),
     ...diffWorldEntries(current.worldBuilding, published.worldBuilding),
     ...diffBestiaryCategoryVaults(current.bestiaryCategoryVaults || [], published.bestiaryCategoryVaults || []),
+    ...diffStoryJourney(current, published),
     ...diffBranding(current, published)
   ].sort((left, right) => left.moduleLabel.localeCompare(right.moduleLabel) || left.title.localeCompare(right.title));
 }
@@ -91,6 +92,10 @@ export function applySelectedPublishChanges(
 
     if (change.kind === "branding") {
       next.branding = current.branding;
+    }
+
+    if (change.kind === "storyJourney") {
+      next.storyJourney = current.storyJourney;
     }
   });
 
@@ -159,6 +164,19 @@ function diffBranding(current: LoreDatabase, published: LoreDatabase): PublishCh
   }];
 }
 
+function diffStoryJourney(current: LoreDatabase, published: LoreDatabase): PublishChange[] {
+  if (stableString(current.storyJourney) === stableString(published.storyJourney)) return [];
+  return [{
+    id: "storyJourney:reader:updated",
+    kind: "storyJourney",
+    action: published.storyJourney?.chapters?.length ? "updated" : "added",
+    title: "Story Reader narrative treatment",
+    moduleLabel: "Story Journey",
+    summary: `${current.storyJourney?.chapters?.length || 0} chronological chapters`,
+    defaultSelected: true
+  }];
+}
+
 function diffById<T extends { id: string }>(
   current: T[],
   published: T[],
@@ -197,7 +215,7 @@ function toChange(
     details.entryId ||
     details.creatureId ||
     details.vaultId ||
-    (details.worldCategory && details.worldEntryId ? `${details.worldCategory}:${details.worldEntryId}` : "studio");
+    (details.worldCategory && details.worldEntryId ? `${details.worldCategory}:${details.worldEntryId}` : kind === "storyJourney" ? "reader" : "studio");
   return {
     ...details,
     id: `${kind}:${targetId}:${action}`,

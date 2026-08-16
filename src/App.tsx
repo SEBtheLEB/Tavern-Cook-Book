@@ -2392,6 +2392,9 @@ export default function App() {
     if (readOnly) return;
     setDatabase((current) => ({ ...current, worldBuilding }));
   };
+  const updateStoryJourney = useCallback((storyJourney: NonNullable<LoreDatabase["storyJourney"]>) => {
+    setDatabase((current) => ({ ...current, storyJourney }));
+  }, [setDatabase]);
 
   const createLinkedStoryReference = (input: StoryReferenceDraftInput): StoryReference => {
     const reference = createStoryReference(input, databaseRef.current.storyReferences.map((item) => item.id));
@@ -3036,9 +3039,16 @@ export default function App() {
                 <StoryJourneyPage
                   entries={visibleEntries}
                   bestiary={database.bestiary || []}
+                  storyJourney={database.storyJourney || {
+                    title: "The Story of Tales of the Tavern",
+                    description: "A chronological narrative treatment assembled from the Tavern Cookbook's existing canon.",
+                    chapters: [],
+                    updatedAt: ""
+                  }}
                   readOnly={readOnly}
                   onOpenEntry={openEntry}
                   onOpenCreature={openBestiaryCreature}
+                  onStoryJourneyChange={updateStoryJourney}
                 />
               )}
 
@@ -3386,13 +3396,20 @@ function mergeDraftOntoPublished(
     privateCount += merged.privateCount;
   });
 
+  const storyJourney = draft.storyJourney && (
+    !published.storyJourney ||
+    isSyncDateAfter(draft.storyJourney.updatedAt, published.storyJourney.updatedAt) ||
+    !sameValue(draft.storyJourney, published.storyJourney)
+  ) ? draft.storyJourney : published.storyJourney;
+
   return {
     database: migrateDatabase({
       ...published,
       entries: entries.items,
       bestiary: bestiary.items,
       bestiaryCategoryVaults: bestiaryCategoryVaults.items,
-      worldBuilding
+      worldBuilding,
+      storyJourney
     }),
     privateCount
   };
@@ -3446,6 +3463,14 @@ function mergeIncomingTeamDatabase(
     conflicts.push(...merged.conflicts);
   });
 
+  const teamStoryChanged = !sameValue(next.storyJourney, previous.storyJourney);
+  const localStoryChanged = !sameValue(local.storyJourney, previous.storyJourney);
+  let storyJourney = local.storyJourney;
+  if (teamStoryChanged && (!localStoryChanged || isSyncDateAfter(next.storyJourney?.updatedAt, local.storyJourney?.updatedAt))) {
+    storyJourney = next.storyJourney;
+    if (!sameValue(local.storyJourney, next.storyJourney)) appliedCount += 1;
+  }
+
   const brandingChangedByTeam = !sameValue(next.branding, previous.branding);
   const brandingChangedLocally = !sameValue(local.branding, previous.branding);
   const branding = brandingChangedByTeam && !brandingChangedLocally ? next.branding : local.branding;
@@ -3466,6 +3491,7 @@ function mergeIncomingTeamDatabase(
     bestiary: bestiary.items,
     bestiaryCategoryVaults: bestiaryCategoryVaults.items,
     worldBuilding,
+    storyJourney,
     branding
   });
 

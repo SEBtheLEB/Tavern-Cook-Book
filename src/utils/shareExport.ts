@@ -92,6 +92,7 @@ export const createShareableHtml = (database: LoreDatabase) => {
     bestiary: (database.bestiary || []).map(publicCreature),
     worldBuilding: database.worldBuilding,
     storyReferences: database.storyReferences,
+    storyJourney: database.storyJourney,
     glossaryTerms: database.glossaryTerms,
     views: sharedViews,
     dashboardBoxes: dashboardBoxes

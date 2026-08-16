@@ -813,6 +813,82 @@ export interface DevelopmentBoardData {
   updatedAt: string;
 }
 
+export type StoryJourneyScope = "history" | "act1" | "act2" | "act3";
+
+export type StoryJourneyRevealLevel =
+  | "Ancient History"
+  | "Pre-Game"
+  | "Player-Facing"
+  | "Hidden Truth"
+  | "Minor Spoiler"
+  | "Major Spoiler";
+
+export type StoryJourneySourceType =
+  | "entry"
+  | "creature"
+  | "worldBuilding"
+  | "storyReference"
+  | "developmentBoard";
+
+export interface StoryJourneySourceRecord {
+  type: StoryJourneySourceType;
+  id: string;
+  label: string;
+  category?: string;
+}
+
+export interface StoryJourneyCallout {
+  id: string;
+  kind: "character" | "location" | "revelation" | "playerKnowledge" | "consequence" | "canonGap";
+  label: string;
+  text: string;
+}
+
+export interface StoryJourneyPageRecord {
+  id?: string;
+  title: string;
+  text: string;
+  detailedText?: string;
+  imageUrl?: string;
+  imageFit?: ImageFitSettings;
+  imagePlaceholder?: string;
+  caption?: string;
+  relatedLore: string[];
+  threads?: string[];
+  callouts?: StoryJourneyCallout[];
+  sourceRecords?: StoryJourneySourceRecord[];
+  developerNotes?: string;
+}
+
+export interface StoryJourneyChapterRecord {
+  id: string;
+  title: string;
+  subtitle: string;
+  timelineStartLabel: string;
+  timelineEndLabel: string;
+  timelineStartPercent: number;
+  timelineEndPercent: number;
+  era: string;
+  scope?: StoryJourneyScope;
+  revealLevel: StoryJourneyRevealLevel;
+  shortDescription: string;
+  overviewText?: string;
+  coverImageUrl?: string;
+  coverImageFit?: ImageFitSettings;
+  relatedLore: string[];
+  threads?: string[];
+  sourceRecords?: StoryJourneySourceRecord[];
+  developerNotes?: string;
+  pages: StoryJourneyPageRecord[];
+}
+
+export interface StoryJourneyData {
+  title: string;
+  description: string;
+  chapters: StoryJourneyChapterRecord[];
+  updatedAt: string;
+}
+
 export interface LoreBackup {
   id: string;
   label: string;
@@ -826,6 +902,7 @@ export interface LoreBackup {
   artDirection?: ArtDirectionBoard;
   roadmap?: RoadmapData;
   developmentBoard?: DevelopmentBoardData;
+  storyJourney?: StoryJourneyData;
 }
 
 export interface LoreDatabase {
@@ -839,6 +916,7 @@ export interface LoreDatabase {
   artDirection: ArtDirectionBoard;
   roadmap: RoadmapData;
   developmentBoard?: DevelopmentBoardData;
+  storyJourney?: StoryJourneyData;
   assignments: AssignmentRecord[];
   teamMembers: TeamMember[];
   userProfiles: UserProfile[];

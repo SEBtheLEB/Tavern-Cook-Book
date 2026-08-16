@@ -3634,7 +3634,7 @@ export const createStarterDatabase = (): LoreDatabase => {
   const worldBuilding = createStarterWorldBuilding(entries, bestiary);
   const storyReferences = createStarterStoryReferences();
   return {
-    schemaVersion: 8,
+    schemaVersion: 9,
     entries,
     bestiary,
     bestiaryCategoryVaults: starterBestiaryCategoryVaults.map((item) => JSON.parse(JSON.stringify(item)) as BestiaryCategoryArtVault),
@@ -3644,6 +3644,12 @@ export const createStarterDatabase = (): LoreDatabase => {
     artDirection: createStarterArtDirectionBoard(),
     roadmap: createStarterRoadmapData(),
     developmentBoard: createInitialDevelopmentBoard(entries, bestiary, worldBuilding, storyReferences),
+    storyJourney: {
+      title: "The Story of Tales of the Tavern",
+      description: "A chronological narrative treatment assembled from the Tavern Cookbook's existing canon.",
+      chapters: [],
+      updatedAt: "2026-08-16T00:00:00.000Z"
+    },
     assignments: [],
     teamMembers: defaultTeamMembers.map((item) => JSON.parse(JSON.stringify(item))),
     userProfiles: [],

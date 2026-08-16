@@ -1,5 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
-import type { BestiaryCreature, ImageFitSettings, LoreEntry } from "../types";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import type {
+  BestiaryCreature,
+  ImageFitSettings,
+  LoreEntry,
+  StoryJourneyChapterRecord,
+  StoryJourneyCallout,
+  StoryJourneyData,
+  StoryJourneyPageRecord,
+  StoryJourneyScope
+} from "../types";
 import { normalizeImageFit, resolveImageSourceUrl } from "../utils/imageFit";
 import { richTextToPlainText } from "../utils/richText";
 import { AdjustableImage } from "./AdjustableImage";
@@ -16,38 +25,15 @@ const storyExpansionChapterIds = new Set(["act-one-whisker-woods", "truth-of-tab
 interface StoryJourneyPageProps {
   entries: LoreEntry[];
   bestiary: BestiaryCreature[];
+  storyJourney: StoryJourneyData;
   readOnly?: boolean;
   onOpenEntry: (entry: LoreEntry) => void;
   onOpenCreature: (creature: BestiaryCreature) => void;
+  onStoryJourneyChange: (storyJourney: StoryJourneyData) => void;
 }
 
-interface StoryChapter {
-  id: string;
-  title: string;
-  subtitle: string;
-  timelineStartLabel: string;
-  timelineEndLabel: string;
-  timelineStartPercent: number;
-  timelineEndPercent: number;
-  era: string;
-  revealLevel: "Ancient History" | "Pre-Game" | "Player-Facing" | "Hidden Truth" | "Minor Spoiler" | "Major Spoiler";
-  shortDescription: string;
-  coverImageUrl?: string;
-  coverImageFit?: ImageFitSettings;
-  relatedLore: string[];
-  pages: StoryPage[];
-}
-
-interface StoryPage {
-  id?: string;
-  title: string;
-  text: string;
-  imageUrl?: string;
-  imageFit?: ImageFitSettings;
-  imagePlaceholder?: string;
-  caption?: string;
-  relatedLore: string[];
-}
+type StoryChapter = StoryJourneyChapterRecord;
+type StoryPage = StoryJourneyPageRecord;
 
 interface StoryJourneyState {
   selectedChapterId: string;
@@ -56,8 +42,8 @@ interface StoryJourneyState {
   completedChapterIds: string[];
 }
 
-type StoryJourneyScope = "history" | "act1" | "act2" | "act3";
 type StoryScribeScope = "currentPage" | "wholeChapter";
+type StoryReadingDepth = "overview" | "standard" | "detailed";
 
 interface StoryScribeChapterPatch {
   title?: string;
@@ -941,14 +927,25 @@ const linkableTerms = Array.from(
   ])
 ).sort((left, right) => right.length - left.length);
 
-export function StoryJourneyPage({ entries, bestiary, readOnly = false, onOpenEntry, onOpenCreature }: StoryJourneyPageProps) {
+export function StoryJourneyPage({
+  entries,
+  bestiary,
+  storyJourney,
+  readOnly = false,
+  onOpenEntry,
+  onOpenCreature,
+  onStoryJourneyChange
+}: StoryJourneyPageProps) {
   const initialStoryData = useMemo(() => {
-    const chapters = loadStoryChapters();
+    const chapters = storyJourney.chapters.length
+      ? mergeStoryExpansionChapters(storyJourney.chapters)
+      : loadStoryChapters();
     return {
       chapters,
       storedState: loadStoryJourneyState(chapters)
     };
   }, []);
+  const lastSharedStoryHashRef = useRef("");
   const [chapters, setChapters] = useState<StoryChapter[]>(initialStoryData.chapters);
   const storedState = initialStoryData.storedState;
   const [selectedChapterId, setSelectedChapterId] = useState(storedState.selectedChapterId);
@@ -961,6 +958,13 @@ export function StoryJourneyPage({ entries, bestiary, readOnly = false, onOpenEn
   const [pageTurnKey, setPageTurnKey] = useState(0);
   const [storyEditMode, setStoryEditMode] = useState(false);
   const [imageManagerOpen, setImageManagerOpen] = useState(false);
+  const [readingDepth, setReadingDepth] = useState<StoryReadingDepth>("standard");
+  const [storySearch, setStorySearch] = useState("");
+  const [storyThread, setStoryThread] = useState("all");
+  const [activeReaderChapterId, setActiveReaderChapterId] = useState(storedState.selectedChapterId);
+  const [collapsedActs, setCollapsedActs] = useState<StoryJourneyScope[]>([]);
+  const [storyToolsOpen, setStoryToolsOpen] = useState(false);
+  const deferredStorySearch = useDeferredValue(storySearch);
 
   const scopeChapters = useMemo(() => chaptersForScope(chapters, activeScope), [activeScope, chapters]);
   const selectedIndex = Math.max(0, scopeChapters.findIndex((chapter) => chapter.id === selectedChapterId));
@@ -979,6 +983,31 @@ export function StoryJourneyPage({ entries, bestiary, readOnly = false, onOpenEn
   const canEditStory = !readOnly;
   const pageImageUrl = currentPage?.imageUrl ? resolveImageSourceUrl(currentPage.imageUrl) : "";
   const coverImageUrl = selectedChapter.coverImageUrl ? resolveImageSourceUrl(selectedChapter.coverImageUrl) : "";
+  const storyThreads = useMemo(() => Array.from(new Set(chapters.flatMap((chapter) => [
+    ...(chapter.threads || []),
+    ...chapter.relatedLore,
+    ...chapter.pages.flatMap((page) => [...(page.threads || []), ...page.relatedLore])
+  ]))).filter(Boolean).sort((left, right) => left.localeCompare(right)), [chapters]);
+  const normalizedStorySearch = deferredStorySearch.trim().toLowerCase();
+  const readingChapters = useMemo(() => chapters.filter((chapter) => {
+    const matchesThread = storyThread === "all" || chapterContainsTerm(chapter, storyThread);
+    if (!matchesThread) return false;
+    if (!normalizedStorySearch) return true;
+    return [
+      chapter.title,
+      chapter.subtitle,
+      chapter.shortDescription,
+      ...chapter.relatedLore,
+      ...chapter.pages.flatMap((page) => [page.title, page.text, page.detailedText || "", ...page.relatedLore])
+    ].join(" ").toLowerCase().includes(normalizedStorySearch);
+  }), [chapters, normalizedStorySearch, storyThread]);
+  const readingGroups = useMemo(() => storyJourneyScopeOptions.map((scope) => ({
+    scope,
+    chapters: readingChapters.filter((chapter) => storyChapterScope(chapter) === scope.id)
+  })).filter((group) => group.chapters.length), [readingChapters]);
+  const activeReaderIndex = Math.max(0, readingChapters.findIndex((chapter) => chapter.id === activeReaderChapterId));
+  const readingProgress = readingChapters.length ? ((activeReaderIndex + 1) / readingChapters.length) * 100 : 0;
+  const canonReviewItems = useMemo(() => buildCanonReviewItems(chapters, entries), [chapters, entries]);
 
   useEffect(() => {
     saveStoryJourneyState({
@@ -991,7 +1020,26 @@ export function StoryJourneyPage({ entries, bestiary, readOnly = false, onOpenEn
 
   useEffect(() => {
     saveStoryChapters(chapters);
-  }, [chapters]);
+    if (readOnly) return;
+    const storyHash = JSON.stringify(chapters);
+    if (storyHash === lastSharedStoryHashRef.current && storyJourney.chapters.length) return;
+    lastSharedStoryHashRef.current = storyHash;
+    onStoryJourneyChange({
+      title: storyJourney.title || "The Story of Tales of the Tavern",
+      description: storyJourney.description || "A chronological narrative treatment assembled from the Tavern Cookbook's existing canon.",
+      chapters,
+      updatedAt: new Date().toISOString()
+    });
+  }, [chapters, onStoryJourneyChange, readOnly, storyJourney.chapters.length, storyJourney.description, storyJourney.title]);
+
+  useEffect(() => {
+    if (!storyJourney.chapters.length) return;
+    const incomingHash = JSON.stringify(storyJourney.chapters);
+    const currentHash = JSON.stringify(chapters);
+    if (incomingHash === currentHash || incomingHash === lastSharedStoryHashRef.current) return;
+    lastSharedStoryHashRef.current = incomingHash;
+    setChapters(mergeStoryExpansionChapters(storyJourney.chapters));
+  }, [storyJourney.updatedAt]);
 
   useEffect(() => {
     if (readOnly) setStoryEditMode(false);
@@ -1003,6 +1051,26 @@ export function StoryJourneyPage({ entries, bestiary, readOnly = false, onOpenEn
       setSelectedChapterId(scopeChapters[0].id);
     }
   }, [scopeChapters, selectedChapterId]);
+
+  useEffect(() => {
+    if (!readerOpen) return;
+    const chapterNodes = Array.from(document.querySelectorAll<HTMLElement>("[data-story-reader-chapter]"));
+    if (!chapterNodes.length) return;
+    const observer = new IntersectionObserver((observed) => {
+      const visible = observed
+        .filter((item) => item.isIntersecting)
+        .sort((left, right) => Math.abs(left.boundingClientRect.top - 150) - Math.abs(right.boundingClientRect.top - 150));
+      const chapterId = visible[0]?.target.getAttribute("data-story-reader-chapter");
+      if (chapterId) setActiveReaderChapterId(chapterId);
+    }, { rootMargin: "-120px 0px -58% 0px", threshold: [0, 0.08, 0.3] });
+    chapterNodes.forEach((node) => observer.observe(node));
+    return () => observer.disconnect();
+  }, [readerOpen, readingDepth, normalizedStorySearch, storyThread]);
+
+  useEffect(() => {
+    if (!readingChapters.length || readingChapters.some((chapter) => chapter.id === activeReaderChapterId)) return;
+    setActiveReaderChapterId(readingChapters[0].id);
+  }, [activeReaderChapterId, readingChapters]);
 
   const changeStoryScope = (scope: StoryJourneyScope) => {
     const nextChapters = chaptersForScope(chapters, scope);
@@ -1110,6 +1178,7 @@ export function StoryJourneyPage({ entries, bestiary, readOnly = false, onOpenEn
       timelineStartPercent: template.timelineStartPercent,
       timelineEndPercent: template.timelineEndPercent,
       era: template.era,
+      scope: activeScope,
       revealLevel: "Player-Facing",
       shortDescription: template.shortDescription,
       coverImageUrl: "",
@@ -1197,6 +1266,24 @@ export function StoryJourneyPage({ entries, bestiary, readOnly = false, onOpenEn
   const openLoreThread = () => {
     if (!storyThreadChapters.length) return;
     selectChapter(storyThreadChapters[0].id);
+  };
+
+  const scrollToStorySection = (chapterId: string, pageId?: string) => {
+    setActiveReaderChapterId(chapterId);
+    window.requestAnimationFrame(() => {
+      document.getElementById(pageId ? `story-beat-${pageId}` : `story-chapter-${chapterId}`)
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  };
+
+  const editReaderChapter = (chapterId: string) => {
+    const chapter = chapters.find((item) => item.id === chapterId);
+    if (!chapter) return;
+    setActiveScope(storyChapterScope(chapter));
+    setSelectedChapterId(chapter.id);
+    setPageByChapter((current) => ({ ...current, [chapter.id]: current[chapter.id] || 0 }));
+    setReaderOpen(false);
+    setStoryEditMode(true);
   };
 
   return (
@@ -1365,121 +1452,162 @@ export function StoryJourneyPage({ entries, bestiary, readOnly = false, onOpenEn
           )}
         </>
       ) : (
-        <section className={`story-reader-shell ${transitioning ? "transitioning" : ""}`}>
-          <header className="story-reader-header">
+        <section className="story-treatment-shell">
+          <header className="story-treatment-toolbar">
             <button className="story-reader-exit" onClick={() => setReaderOpen(false)}>
-              <Icon name="ChevronDown" className="h-4 w-4 rotate-90" />
-              Exit Chapter
+              <Icon name="ChevronLeft" className="h-4 w-4" />
+              Story Overview
             </button>
-            <div>
-              <p>{selectedChapter.era} / {selectedChapter.revealLevel}</p>
-              <h1 className="font-display">{selectedChapter.title}</h1>
-            </div>
-            <span>Page {currentPageIndex + 1} of {selectedChapter.pages.length}</span>
-          </header>
-
-          <StoryTimeline chapter={selectedChapter} compact />
-
-          <article key={`${selectedChapter.id}-${currentPageIndex}-${pageTurnKey}`} className="story-book-page">
-            <div className="story-page-art">
-              <div>
-                {pageImageUrl ? (
-                  storyEditMode ? (
-                    <AdjustableImage
-                      src={pageImageUrl}
-                      label={`${currentPage.title} page art`}
-                      imageFit={currentPage.imageFit}
-                      aspectRatio="4 / 3"
-                      canAdjust
-                      className="story-page-image-adjustable"
-                      imageClassName="story-page-image"
-                      overlayLabel="Adjust Page Art"
-                      onSave={savePageImageAdjustment}
-                    />
-                  ) : (
-                    <DriveAwareImage className="story-page-image" src={pageImageUrl} alt="" />
-                  )
-                ) : (
-                  <>
-                    <Icon name="Image" className="h-10 w-10" />
-                    <strong>{currentPage.imagePlaceholder || "Story image placeholder"}</strong>
-                  </>
-                )}
-              </div>
-              {currentPage.caption && <p>{currentPage.caption}</p>}
-            </div>
-            <div className="story-page-copy">
-              <span>{selectedChapter.timelineStartLabel} - {selectedChapter.timelineEndLabel}</span>
-              <h2 className="font-display">{currentPage.title}</h2>
-              <p>{renderLinkedStoryText(currentPage.text, setSelectedLoreTerm, linkableTerms)}</p>
-              <div className="story-page-lore-links">
-                {currentPage.relatedLore.map((term) => (
-                  <button key={term} onClick={() => setSelectedLoreTerm(term)}>{term}</button>
-                ))}
-              </div>
-            </div>
-          </article>
-          {storyEditMode && (
-            <StoryPageEditor
-              page={currentPage}
-              pageIndex={currentPageIndex}
-              pageCount={selectedChapter.pages.length}
-              onChange={updateCurrentPage}
-              onAddPage={addPage}
-              onDeletePage={deleteCurrentPage}
-              onSelectPage={setPage}
-            />
-          )}
-          {storyEditMode && (
-            <StoryMiniScribe
-              chapter={selectedChapter}
-              currentPageIndex={currentPageIndex}
-              readOnly={readOnly}
-              onApply={applyStoryScribeDraft}
-            />
-          )}
-
-          <footer className="story-reader-controls">
-            <button onClick={() => setPage(currentPageIndex - 1)} disabled={currentPageIndex <= 0}>
-              Previous Page
-            </button>
-            <div className="story-page-dots">
-              {selectedChapter.pages.map((page, index) => (
-                <button
-                  key={page.id || page.title}
-                  className={index === currentPageIndex ? "active" : ""}
-                  onClick={() => setPage(index)}
-                  title={page.title}
-                />
+            <div className="story-treatment-depth" aria-label="Reading depth">
+              {(["overview", "standard", "detailed"] as StoryReadingDepth[]).map((depth) => (
+                <button key={depth} className={readingDepth === depth ? "active" : ""} onClick={() => setReadingDepth(depth)}>
+                  {depth[0].toUpperCase() + depth.slice(1)}
+                </button>
               ))}
             </div>
-            {currentPageIndex < selectedChapter.pages.length - 1 ? (
-              <button className="button-frame" onClick={() => setPage(currentPageIndex + 1)}>
-                Next Page
-              </button>
-            ) : selectedIndex < scopeChapters.length - 1 ? (
-              <button className="button-frame story-proceed-button" onClick={proceedToNextChapter}>
-                Proceed to Next Chapter
-              </button>
-            ) : (
-              <button className="button-frame" onClick={() => setReaderOpen(false)}>
-                Return to Story Journey
-              </button>
-            )}
-            {canEditStory && (
-              <>
-                {storyEditMode && (
-                  <button onClick={() => setImageManagerOpen(true)}>
-                    <Icon name="Image" className="h-4 w-4" />
-                    Images
-                  </button>
-                )}
-                <button onClick={() => setStoryEditMode((current) => !current)}>
-                  {storyEditMode ? "Done Editing" : "Edit Chapter"}
-                </button>
-              </>
-            )}
-          </footer>
+            <label className="story-treatment-search">
+              <Icon name="Search" className="h-4 w-4" />
+              <input value={storySearch} onChange={(event) => setStorySearch(event.target.value)} placeholder="Search the story" />
+            </label>
+            <select value={storyThread} onChange={(event) => setStoryThread(event.target.value)} aria-label="Story thread">
+              <option value="all">All story threads</option>
+              {storyThreads.map((thread) => <option key={thread} value={thread}>{thread}</option>)}
+            </select>
+            <button className="button-frame" onClick={() => setStoryToolsOpen(true)}>
+              <Icon name="ListChecks" className="h-4 w-4" />
+              Story Tools
+            </button>
+          </header>
+
+          <div className="story-treatment-progress" aria-label={`Reading progress ${Math.round(readingProgress)} percent`}>
+            <span style={{ width: `${readingProgress}%` }} />
+          </div>
+
+          <div className="story-treatment-layout">
+            <aside className="story-treatment-navigator">
+              <div className="story-treatment-navigator-heading">
+                <p>Story Navigator</p>
+                <strong>{activeReaderIndex + 1} of {readingChapters.length} chapters</strong>
+              </div>
+              {readingGroups.map(({ scope, chapters: groupChapters }) => {
+                const collapsed = collapsedActs.includes(scope.id);
+                return (
+                  <section key={scope.id}>
+                    <button className="story-treatment-act-toggle" onClick={() => setCollapsedActs((current) => current.includes(scope.id) ? current.filter((id) => id !== scope.id) : [...current, scope.id])}>
+                      <span>{scope.label}</span>
+                      <Icon name={collapsed ? "ChevronRight" : "ChevronDown"} className="h-4 w-4" />
+                    </button>
+                    {!collapsed && groupChapters.map((chapter) => (
+                      <div key={chapter.id} className={`story-treatment-nav-chapter ${activeReaderChapterId === chapter.id ? "active" : ""}`}>
+                        <button onClick={() => scrollToStorySection(chapter.id)}>{chapter.title}</button>
+                        {readingDepth !== "overview" && chapter.pages.map((page) => (
+                          <button key={page.id || page.title} className="story-treatment-nav-beat" onClick={() => scrollToStorySection(chapter.id, page.id)}>
+                            {page.title}
+                          </button>
+                        ))}
+                      </div>
+                    ))}
+                  </section>
+                );
+              })}
+            </aside>
+
+            <main className="story-treatment-reader">
+              <header className="story-treatment-titlepage">
+                <p>Tales of the Tavern · Development Narrative Treatment</p>
+                <h1 className="font-display">{storyJourney.title || "The Story of Tales of the Tavern"}</h1>
+                <span>{storyJourney.description}</span>
+                <div>
+                  <strong>{readingChapters.length} chapters</strong>
+                  <strong>{readingChapters.reduce((total, chapter) => total + chapter.pages.length, 0)} story beats</strong>
+                  <strong>{readingDepth} reading depth</strong>
+                </div>
+              </header>
+
+              {!readingChapters.length ? (
+                <section className="story-treatment-empty">
+                  <Icon name="Search" className="h-8 w-8" />
+                  <h2>No story sections match.</h2>
+                  <p>Clear the search or choose another story thread.</p>
+                </section>
+              ) : readingGroups.map(({ scope, chapters: groupChapters }) => (
+                <section key={scope.id} className="story-treatment-act">
+                  <header>
+                    <span>{scope.eyebrow}</span>
+                    <h2 className="font-display">{scope.label}</h2>
+                    <p>{scope.description}</p>
+                  </header>
+                  {groupChapters.map((chapter, chapterIndex) => (
+                    <article
+                      key={chapter.id}
+                      id={`story-chapter-${chapter.id}`}
+                      data-story-reader-chapter={chapter.id}
+                      className="story-treatment-chapter"
+                    >
+                      <header className="story-treatment-chapter-heading">
+                        <div>
+                          <span>{scope.label} · Chapter {chapterIndex + 1}</span>
+                          <h2 className="font-display">{chapter.title}</h2>
+                          <p>{chapter.subtitle}</p>
+                        </div>
+                        <div className="story-treatment-chapter-actions">
+                          <em>{chapter.revealLevel}</em>
+                          {canEditStory && <button onClick={() => editReaderChapter(chapter.id)}><Icon name="Edit3" className="h-4 w-4" /> Edit</button>}
+                        </div>
+                      </header>
+
+                      <p className="story-treatment-lede">{chapter.overviewText || chapter.shortDescription}</p>
+
+                      {readingDepth !== "overview" && chapter.pages.map((page, pageIndex) => (
+                        <section key={page.id || page.title} id={`story-beat-${page.id}`} className="story-treatment-beat">
+                          <span>Sequence {pageIndex + 1}</span>
+                          <h3>{page.title}</h3>
+                          <div className="story-treatment-prose">
+                            {splitStoryParagraphs(page.text).map((paragraph, index) => (
+                              <p key={`${page.id}-paragraph-${index}`}>{renderLinkedStoryText(paragraph, setSelectedLoreTerm, linkableTerms)}</p>
+                            ))}
+                            {readingDepth === "detailed" && page.detailedText && splitStoryParagraphs(page.detailedText).map((paragraph, index) => (
+                              <p key={`${page.id}-detail-${index}`}>{renderLinkedStoryText(paragraph, setSelectedLoreTerm, linkableTerms)}</p>
+                            ))}
+                          </div>
+                          {buildBeatCallouts(chapter, page).map((callout) => (
+                            <aside key={callout.id} className={`story-treatment-callout ${callout.kind}`}>
+                              <strong>{callout.label}</strong>
+                              <span>{callout.text}</span>
+                            </aside>
+                          ))}
+                          {readingDepth === "detailed" && (
+                            <details className="story-treatment-sources">
+                              <summary>Context, sources, and developer notes</summary>
+                              <div className="story-page-lore-links">
+                                {Array.from(new Set([...chapter.relatedLore, ...page.relatedLore])).map((term) => {
+                                  const source = resolveLorePreview(term, entries, bestiary);
+                                  return (
+                                    <button key={term} onClick={() => setSelectedLoreTerm(term)} title={`Source: ${source.type}`}>
+                                      <small>{source.type}</small>
+                                      {term}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                              {(page.developerNotes || chapter.developerNotes) && <p>{page.developerNotes || chapter.developerNotes}</p>}
+                            </details>
+                          )}
+                        </section>
+                      ))}
+
+                      {chapter.pages.length <= 1 && chapter.shortDescription.toLowerCase().includes("will") && (
+                        <aside className="story-treatment-gap">
+                          <Icon name="CircleAlert" className="h-5 w-5" />
+                          <div><strong>Canon gap</strong><span>This future section is still a direction, not a complete sequence of documented events.</span></div>
+                        </aside>
+                      )}
+                    </article>
+                  ))}
+                </section>
+              ))}
+            </main>
+          </div>
         </section>
       )}
 
@@ -1509,6 +1637,35 @@ export function StoryJourneyPage({ entries, bestiary, readOnly = false, onOpenEn
             </section>
           )}
         </aside>
+      )}
+      {storyToolsOpen && (
+        <div className="story-tools-backdrop" role="presentation" onMouseDown={() => setStoryToolsOpen(false)}>
+          <section className="story-tools-panel" role="dialog" aria-modal="true" aria-label="Story tools" onMouseDown={(event) => event.stopPropagation()}>
+            <header>
+              <div>
+                <p>Story Tools</p>
+                <h2 className="font-display">Canon Review</h2>
+                <span>Questions and contradictions found across the current Cookbook. These are kept out of the clean reader until canon is confirmed.</span>
+              </div>
+              <button onClick={() => setStoryToolsOpen(false)} aria-label="Close story tools">×</button>
+            </header>
+            <div className="story-tools-summary">
+              <strong>{canonReviewItems.length} review items</strong>
+              <span>{canonReviewItems.filter((item) => item.severity === "gap").length} missing story connections</span>
+              <span>{canonReviewItems.filter((item) => item.severity === "conflict").length} naming or canon conflicts</span>
+            </div>
+            <div className="story-tools-list">
+              {canonReviewItems.map((item) => (
+                <article key={item.id} className={item.severity}>
+                  <span>{item.label}</span>
+                  <h3>{item.title}</h3>
+                  <p>{item.description}</p>
+                  {item.chapterId && <button onClick={() => { setStoryToolsOpen(false); scrollToStorySection(item.chapterId!); }}>Open in reader</button>}
+                </article>
+              ))}
+            </div>
+          </section>
+        </div>
       )}
       {imageManagerOpen && (
         <ImageManagerModal
@@ -1585,6 +1742,14 @@ function StoryChapterEditor({
       <div className="story-editor-grid">
         <StoryTextField label="Chapter title" value={chapter.title} onChange={(value) => onChange({ title: value })} />
         <StoryTextField label="Subtitle" value={chapter.subtitle} onChange={(value) => onChange({ subtitle: value })} />
+        <label>
+          <span>Act / story section</span>
+          <CustomSelect
+            value={chapter.scope || storyChapterScope(chapter)}
+            onChange={(value) => onChange({ scope: value as StoryJourneyScope })}
+            options={storyJourneyScopeOptions.map((option) => ({ value: option.id, label: option.label }))}
+          />
+        </label>
         <StoryTextField label="Era" value={chapter.era} onChange={(value) => onChange({ era: value })} />
         <label>
           <span>Reveal level</span>
@@ -1612,8 +1777,20 @@ function StoryChapterEditor({
           <textarea value={chapter.shortDescription} onChange={(event) => onChange({ shortDescription: event.target.value })} />
         </label>
         <label className="wide">
+          <span>Overview reading text</span>
+          <textarea value={chapter.overviewText || ""} onChange={(event) => onChange({ overviewText: event.target.value })} placeholder="Optional concise chapter treatment used in Overview mode." />
+        </label>
+        <label className="wide">
           <span>Related lore terms</span>
           <input value={chapter.relatedLore.join(", ")} onChange={(event) => onChange({ relatedLore: splitTerms(event.target.value) })} placeholder="Gwen, Tohm Kyatt, Whisker Woods..." />
+        </label>
+        <label className="wide">
+          <span>Story threads</span>
+          <input value={(chapter.threads || []).join(", ")} onChange={(event) => onChange({ threads: splitTerms(event.target.value) })} placeholder="Gwen, Main Quest, Food Magic, Lillia..." />
+        </label>
+        <label className="wide">
+          <span>Developer notes</span>
+          <textarea value={chapter.developerNotes || ""} onChange={(event) => onChange({ developerNotes: event.target.value })} placeholder="Canon questions, prerequisites, consequences, and production notes." />
         </label>
       </div>
     </section>
@@ -1663,6 +1840,10 @@ function StoryPageEditor({
           <textarea className="story-editor-textarea-large" value={page.text} onChange={(event) => onChange({ text: event.target.value })} />
         </label>
         <label className="wide">
+          <span>Detailed reading text</span>
+          <textarea className="story-editor-textarea-large" value={page.detailedText || ""} onChange={(event) => onChange({ detailedText: event.target.value })} placeholder="Optional side-scene, motivation, gameplay transition, or deeper production context shown only in Detailed mode." />
+        </label>
+        <label className="wide">
           <span>Page image</span>
           <DriveImageSourceControls
             value={page.imageUrl || ""}
@@ -1682,6 +1863,14 @@ function StoryPageEditor({
         <label className="wide">
           <span>Related lore terms</span>
           <input value={page.relatedLore.join(", ")} onChange={(event) => onChange({ relatedLore: splitTerms(event.target.value) })} placeholder="Gwen, Tohm Kyatt, Whisker Woods..." />
+        </label>
+        <label className="wide">
+          <span>Story threads</span>
+          <input value={(page.threads || []).join(", ")} onChange={(event) => onChange({ threads: splitTerms(event.target.value) })} placeholder="Gwen, Main Quest, Food Magic..." />
+        </label>
+        <label className="wide">
+          <span>Developer notes and source context</span>
+          <textarea value={page.developerNotes || ""} onChange={(event) => onChange({ developerNotes: event.target.value })} placeholder="Prerequisite events, consequences, canon questions, or source-record notes." />
         </label>
       </div>
     </section>
@@ -2125,6 +2314,132 @@ function chapterContainsTerm(chapter: StoryChapter, term: string) {
   ].join(" ")).includes(normalized);
 }
 
+function splitStoryParagraphs(value: string) {
+  return String(value || "")
+    .split(/\n\s*\n/)
+    .map((paragraph) => paragraph.replace(/\n/g, " ").trim())
+    .filter(Boolean);
+}
+
+function buildBeatCallouts(chapter: StoryChapter, page: StoryPage): StoryJourneyCallout[] {
+  const authored = page.callouts || [];
+  if (authored.length) return authored;
+  const title = page.title.toLowerCase();
+  if (title.includes("fire meal trance")) {
+    return [
+      {
+        id: `${page.id}-player-knowledge`,
+        kind: "playerKnowledge",
+        label: "Player knowledge",
+        text: "Gwen and the player see a young princess and a shadowy creature, but neither yet understands that the vision points toward Lillia and the Ice Queen."
+      },
+      {
+        id: `${page.id}-consequence`,
+        kind: "consequence",
+        label: "Story consequence",
+        text: "Gwen wakes with fire power, proving that her cooking can grant abilities and reveal memories connected to corrupted recipe magic."
+      }
+    ];
+  }
+  if (title.includes("prawnhusk")) {
+    return [{
+      id: `${page.id}-consequence`,
+      kind: "consequence",
+      label: "Story consequence",
+      text: "Saving Kap turns the gathering trip into an investigation and gives Gwen her first undeniable proof that the infestation is not natural."
+    }];
+  }
+  if (title.includes("second exodus")) {
+    return [{
+      id: `${page.id}-revelation`,
+      kind: "revelation",
+      label: "Developer knowledge",
+      text: "The surviving Whisken understand this as their first exodus because their ancestors deliberately erased the earlier Cat Cauldron disaster from communal memory."
+    }];
+  }
+  if (chapter.id === "final-confrontation") {
+    return [{
+      id: `${page.id}-gap`,
+      kind: "canonGap",
+      label: "Needs Story Information",
+      text: "The Cookbook establishes the thematic destination, but not yet the complete chain of scenes, choices, and consequences that reaches it."
+    }];
+  }
+  return [];
+}
+
+interface CanonReviewItem {
+  id: string;
+  severity: "gap" | "conflict" | "review";
+  label: string;
+  title: string;
+  description: string;
+  chapterId?: string;
+}
+
+function buildCanonReviewItems(chapters: StoryChapter[], entries: LoreEntry[]): CanonReviewItem[] {
+  const items: CanonReviewItem[] = [
+    {
+      id: "academy-homecoming-gap",
+      severity: "gap",
+      label: "Missing source records",
+      title: "Gwen's Academy education and homecoming",
+      description: "The requested Academy, two-year apprenticeship, final qualification dish, and homecoming sequence are not supported by current Cookbook records. They should be added only after the canon version is documented."
+    },
+    {
+      id: "juno-gap",
+      severity: "gap",
+      label: "Character introduction missing",
+      title: "Juno and the early sparring tutorial",
+      description: "Juno appears on the Development Board, but the current story, character, quest, and worldbuilding records do not explain who Juno is or how the sparring sequence fits the chronology."
+    },
+    {
+      id: "cedric-name-conflict",
+      severity: "conflict",
+      label: "Naming conflict",
+      title: "Cedric or Cedrick the Grunt",
+      description: "The Development Board uses Cedric, while the Act 1 treatment uses Cedrick the Grunt. Confirm one canonical spelling before changing linked records."
+    },
+    {
+      id: "brambrik-review",
+      severity: "review",
+      label: "Soft canon",
+      title: "Brambrik's Act 1 role",
+      description: "The current treatment explicitly marks Brambrik as soft canon and offers several possible roles. His identity and function should be confirmed before entering the clean chronology."
+    }
+  ];
+  if (entries.some((entry) => entry.title === "Old Version: Tohm Builds Trust with King Over Months") && entries.some((entry) => entry.title === "Newer Version: Tohm Wins Royal Food Contest")) {
+    items.push({
+      id: "tohm-royal-access-version",
+      severity: "conflict",
+      label: "Old and newer versions",
+      title: "How Tohm gains royal access",
+      description: "Both an old gradual-trust version and a newer royal food contest version remain in the Cookbook. The newer contest version is preferred, while the old record should remain archived rather than blended into it."
+    });
+  }
+  (["act2", "act3"] as StoryJourneyScope[]).forEach((scope) => {
+    if (chapters.some((chapter) => storyChapterScope(chapter) === scope)) return;
+    items.push({
+      id: `missing-${scope}`,
+      severity: "gap",
+      label: "Missing act treatment",
+      title: `${scope === "act2" ? "Act 2" : "Act 3"} has no documented chapters`,
+      description: "The Cookbook does not yet contain enough ordered scene information to assemble this act without inventing canon."
+    });
+  });
+  chapters.filter((chapter) => chapter.pages.length <= 1).forEach((chapter) => {
+    items.push({
+      id: `shallow-${chapter.id}`,
+      severity: "gap",
+      label: "Thin chapter",
+      title: chapter.title,
+      description: "This chapter has only one documented sequence and needs connective events before it can function as a complete production treatment.",
+      chapterId: chapter.id
+    });
+  });
+  return items;
+}
+
 function normalizeStoryJourneyScope(value: unknown): StoryJourneyScope {
   if (value === "history" || value === "act1" || value === "act2" || value === "act3") return value;
   return "history";
@@ -2136,6 +2451,7 @@ function chaptersForScope(chapters: StoryChapter[], scope: StoryJourneyScope) {
 }
 
 function storyChapterScope(chapter: StoryChapter): StoryJourneyScope {
+  if (chapter.scope) return normalizeStoryJourneyScope(chapter.scope);
   const haystack = normalizeTerm([
     chapter.id,
     chapter.title,
@@ -2274,7 +2590,7 @@ function mergeStoryExpansionChapters(chapters: StoryChapter[]): StoryChapter[] {
     .forEach((defaultChapter) => {
       const index = next.findIndex((chapter) => chapter.id === defaultChapter.id);
       if (index >= 0) {
-        next[index] = preserveStoryChapterImages(next[index], defaultChapter);
+        next[index] = normalizeStoryChapter(next[index], defaultChapter.id);
         return;
       }
 
@@ -2311,7 +2627,7 @@ function saveStoryChapters(chapters: StoryChapter[]) {
   try {
     localStorage.setItem(STORY_JOURNEY_CHAPTERS_KEY, JSON.stringify(chapters));
   } catch {
-    // Chapter authoring data is local-first; if browser storage is full, the page remains usable.
+    // The shared database remains authoritative if this optional local recovery cache is full.
   }
 }
 
@@ -2333,11 +2649,16 @@ function normalizeStoryChapter(value: Partial<StoryChapter>, fallbackId?: string
     timelineStartPercent: Math.min(startPercent, endPercent),
     timelineEndPercent: Math.max(startPercent, endPercent),
     era: editableString(value.era, "Draft"),
+    scope: value.scope ? normalizeStoryJourneyScope(value.scope) : undefined,
     revealLevel: normalizeRevealLevel(value.revealLevel),
     shortDescription: editableString(value.shortDescription, "Write the chapter preview here."),
+    overviewText: editableString(value.overviewText, "") || undefined,
     coverImageUrl: String(value.coverImageUrl || ""),
     coverImageFit: normalizeImageFit(value.coverImageFit),
     relatedLore: normalizeTermList(value.relatedLore),
+    threads: normalizeTermList(value.threads),
+    sourceRecords: Array.isArray(value.sourceRecords) ? value.sourceRecords : [],
+    developerNotes: editableString(value.developerNotes, "") || undefined,
     pages
   };
 }
@@ -2347,11 +2668,16 @@ function normalizeStoryPage(value: Partial<StoryPage>, fallbackId: string): Stor
     id: String(value.id || fallbackId),
     title: editableString(value.title, "Untitled Page"),
     text: editableString(value.text, "Write this story page here."),
+    detailedText: editableString(value.detailedText, "") || undefined,
     imageUrl: String(value.imageUrl || ""),
     imageFit: normalizeImageFit(value.imageFit),
     imagePlaceholder: editableString(value.imagePlaceholder, ""),
     caption: editableString(value.caption, ""),
-    relatedLore: normalizeTermList(value.relatedLore)
+    relatedLore: normalizeTermList(value.relatedLore),
+    threads: normalizeTermList(value.threads),
+    callouts: Array.isArray(value.callouts) ? value.callouts : [],
+    sourceRecords: Array.isArray(value.sourceRecords) ? value.sourceRecords : [],
+    developerNotes: editableString(value.developerNotes, "") || undefined
   };
 }
 
