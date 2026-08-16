@@ -1848,7 +1848,7 @@ export const starterEntries: LoreEntry[] = [
       "Possible Influence": "Leirbag is Notion-sourced and needs review before becoming hard canon."
     },
     connections: {
-      characters: ["Princess Lillia", "Tohm Kyatt", "Mur'amar"],
+      characters: ["Masil Cult Leader", "Princess Lillia", "Tohm Kyatt", "Mur'amar"],
       locations: ["Tabby Island", "Whisker Woods", "Lillia's Camp"],
       recipes: ["Dark Culinary Arts", "Magical Meals", "False Trader Spice"],
       quests: [],
@@ -1858,6 +1858,91 @@ export const starterEntries: LoreEntry[] = [
       gameplaySystems: ["Slime Flavor / Element System"],
       enemies: [],
       timelineEvents: ["Mas'eel Sense the Cat Cauldron", "Mas'eel Infiltrate Tabby Island", "Second Whisken Exodus"]
+    }
+  }),
+  entry({
+    id: "masil-cult-leader",
+    title: "Masil Cult Leader",
+    category: "Characters",
+    type: "Cult Founder / False Prophet",
+    status: "Canon",
+    spoilerLevel: "Secret Lore",
+    tags: [
+      "Masil Cult",
+      "Mas'eel Cult",
+      "false prophet",
+      "Triad God",
+      "dark angel",
+      "religious deception",
+      "antagonist"
+    ],
+    summary:
+      "The founder and public prophet of the Masil cult, a charismatic false prophet who receives real revelations from a false angel before becoming arrogant enough to lie even to her.",
+    publicDescription:
+      "To his followers, the Masil Cult Leader is a chosen prophet of the Triad God. He retreats to a sacred cave during times of crisis and returns with revelations delivered by a beautiful angel, giving him immense religious credibility and eventually political and military power.",
+    internalLore:
+      "The Masil Cult Leader is the founder and public prophet of a false religion that claims to represent the true will of the Triad God. The angel he describes genuinely appears to him and gives him revelations, but she is not sent by the Triad God. Her goal is to corrupt the world, undermine the true Triadic faith, and eventually present herself as the true representative or replacement of the Triad God. The prophet and angel are therefore two deceivers using one another for different purposes.\n\nThe leader is ambitious, charismatic, manipulative, and increasingly arrogant. Unlike the angel, he has no grand supernatural objective. His desires are human: fame, admiration, wealth, luxury, sexual pleasure, political authority, a powerful army, and ultimately becoming king of the world. Whenever the Masil people face war, defeat, political trouble, or internal conflict, he retreats to the cave. The angel appears and gives him verses or commandments addressing the crisis, which he then delivers to his followers as sacred scripture.\n\nTo establish his credibility, the angel gives him a frightening prophecy: if he ever falsely attributes a revelation to her, she will destroy his heart. He publicly teaches this warning, and his followers use it as proof of his trustworthiness. At first he faithfully repeats what the angel tells him. Later, he begins to believe that he understands the movement better than she does. He slightly alters revelations, adds convenient teachings, and eventually invents entire revelations to gain power, solve political problems, justify his desires, and advance his plans. The angel does not immediately realize what he is doing.\n\nWhen she finally discovers his deception, she fulfills her threat and causes his heart to explode. His death proves that he had invented revelations she never gave him, but it does not prove the Masil religion was true. It proves that the Masil leader was telling falsehoods about someone who was already teaching a greater falsehood.",
+    fields: {
+      "Role": "Founder and public prophet of the Masil cult, a false religion claiming to represent the true will of the Triad God.",
+      "Public Image":
+        "A chosen prophet who receives divine revelations from a beautiful angel in a sacred cave. These encounters give him enormous credibility and eventually political and military influence.",
+      "True Personality": "Ambitious, charismatic, manipulative, and increasingly arrogant.",
+      "Human Desires":
+        "Fame and admiration; wealth and luxury; sexual pleasure; political authority; a powerful army; and ultimately becoming king of the world.",
+      "The Angel":
+        "She genuinely appears and gives him revelations, but she is not sent by the Triad God. She wants to corrupt the world, undermine true Triadic faith, and present herself as the Triad God's representative or replacement.",
+      "Revelation Method":
+        "During war, defeat, political trouble, or internal conflict, he retreats to the sacred cave. The angel gives him verses or commandments for the crisis, and he presents them to his followers as scripture.",
+      "Heart Prophecy":
+        "If he ever falsely attributes a revelation to the angel, she will destroy his heart. He teaches this publicly, making the threat one of his followers' strongest arguments for trusting him.",
+      "Corruption Arc":
+        "He begins by repeating the angel faithfully, then alters revelations, adds convenient teachings, and finally invents entire revelations for power, politics, pleasure, and personal ambition.",
+      "Death":
+        "After discovering his deception, the angel causes his heart to explode. This proves that he lied about her revelations, not that either deceiver represented the Triad God.",
+      "Character Theme":
+        "A false prophet serving a false angel, until he becomes arrogant enough to lie even to the liar.",
+      "Canon Naming Note":
+        "This character uses the new Masil spelling. He is linked to the existing Mas'eel Cult record until the project confirms whether Masil replaces Mas'eel or names a distinct branch."
+    },
+    connections: {
+      characters: ["Leirbag", "Mur'amar", "Princess Lillia", "The Tablemaker"],
+      locations: ["Sacred Cave", "Tabby Island"],
+      recipes: [],
+      quests: [],
+      items: [],
+      factions: ["Masil Cult", "Mas'eel Cult", "Triadic Faith"],
+      secrets: [
+        "The angel is not sent by the Triad God",
+        "The Masil Cult Leader invents revelations",
+        "The angel destroys the Masil Cult Leader's heart"
+      ],
+      gameplaySystems: [],
+      enemies: [],
+      timelineEvents: [
+        "The Masil Cult Is Founded",
+        "The Heart Prophecy Is Revealed",
+        "The Masil Cult Leader Begins Inventing Revelations",
+        "The Angel Destroys the Masil Cult Leader's Heart"
+      ]
+    },
+    linkedStoryReferenceIds: ["story_masil_false_prophet"],
+    notes: {
+      art: "Design should support both his beautiful public-prophet image and the private arrogance beneath it.",
+      gameplay: "Potential antagonist, political power broker, scripture source, or late-story reveal character.",
+      production: "Keep his human ambitions distinct from the angel's supernatural plan.",
+      marketing: "Public-facing material should not reveal the angel's true nature or his invented revelations unless spoilers are allowed.",
+      unresolved: "Confirm whether Masil replaces the established Mas'eel spelling or identifies a specific movement or branch. Confirm whether the angel is Leirbag."
+    },
+    secret: {
+      trueFact:
+        "The prophet receives real supernatural revelations from a false angel, then secretly invents additional revelations until she discovers him and destroys his heart.",
+      knownBy: ["Masil Cult Leader", "The Angel"],
+      suspectedBy: [],
+      unknownTo: ["Masil followers", "The public"],
+      playerKnowledge:
+        "Internal team spoiler. The player should distinguish the prophet's public credibility from the later truth that both he and the angel are deceivers.",
+      relatedQuests: [],
+      relatedDialogue: []
     }
   }),
   entry({
@@ -3634,7 +3719,7 @@ export const createStarterDatabase = (): LoreDatabase => {
   const worldBuilding = createStarterWorldBuilding(entries, bestiary);
   const storyReferences = createStarterStoryReferences();
   return {
-    schemaVersion: 9,
+    schemaVersion: 10,
     entries,
     bestiary,
     bestiaryCategoryVaults: starterBestiaryCategoryVaults.map((item) => JSON.parse(JSON.stringify(item)) as BestiaryCategoryArtVault),

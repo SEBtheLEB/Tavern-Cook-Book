@@ -899,6 +899,7 @@ const fallbackLore: Record<string, { type: string; description: string }> = {
   Whisken: { type: "Culture", description: "Cat-like people tied to Tohm Kyatt, Tabby Island, and Whisker Woods lore." },
   "Whisken People": { type: "Culture", description: "Cat-like people tied to Tabby Island, Whisker Woods, the Tablemaker faith, and two exodus events." },
   "Mas'eel Cult": { type: "Faction", description: "A cult that corrupts the Triadic faith into FEAST and hunts the Cat Cauldron and magical recipes." },
+  "Masil Cult Leader": { type: "Character / False Prophet", description: "The cult's charismatic founder, caught between his own worldly ambition and the false angel whose revelations give him power." },
   "Mas'eel False Traders": { type: "Faction Operation", description: "Mas'eel agents who entered Tabby Island as traders, brought new foods, and hid their takeover behind hospitality." },
   "False Trader Spice": { type: "Ingredient", description: "A suspicious spice blend connected to Mas'eel infiltration and corrupted food culture." },
   "Lel Kai's Rescue Fleet": { type: "Story Event", description: "The rescue boats Lel Kai sent at Tohm's request during the second Whisken exodus." },
@@ -2832,6 +2833,13 @@ function buildCanonReviewItems(chapters: StoryChapter[], entries: LoreEntry[]): 
       label: "Soft canon",
       title: "Brambrik's Act 1 role",
       description: "The current treatment explicitly marks Brambrik as soft canon and offers several possible roles. His identity and function should be confirmed before entering the clean chronology."
+    },
+    {
+      id: "masil-maseel-name-conflict",
+      severity: "conflict",
+      label: "Naming review",
+      title: "Masil Cult or Mas'eel Cult",
+      description: "The new cult leader record uses Masil, while the established faction and older lore use Mas'eel. The records are safely linked, but the project should confirm whether Masil replaces Mas'eel or names a distinct branch."
     }
   ];
   if (entries.some((entry) => entry.title === "Old Version: Tohm Builds Trust with King Over Months") && entries.some((entry) => entry.title === "Newer Version: Tohm Wins Royal Food Contest")) {

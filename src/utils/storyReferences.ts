@@ -255,6 +255,14 @@ export function createStarterStoryReferences(): StoryReference[] {
       relatedFactions: ["Mas'eel Cult"],
       relatedStoryBeats: ["Act 1", "Opening Corruption"],
       tags: ["Act 1", "Corruption", "Whisker Woods"]
+    }),
+    ref("story_masil_false_prophet", "The Masil False Prophet and the Angel", "The Masil cult's founder receives real revelations from a false angel, then becomes arrogant enough to invent revelations until she destroys his heart.", "The Masil Cult Leader publicly claims to speak for the Triad God, and a beautiful angel genuinely appears to him in a sacred cave during moments of crisis. She is not sent by the Triad God: she seeks to corrupt the world, undermine true Triadic faith, and eventually present herself as the divine representative or replacement. At first, the leader repeats her revelations faithfully. The angel warns that she will destroy his heart if he ever falsely attributes a revelation to her, and he publicly uses that prophecy to strengthen his credibility. As his movement gains power, he begins altering and inventing revelations for wealth, pleasure, political authority, military strength, and his ambition to become king of the world. When the angel discovers the deception, she causes his heart to explode. His death proves only that he lied about a liar; it does not validate the cult's religion.", "Canon", "Secret Lore", {
+      relatedCharacters: ["Masil Cult Leader", "Leirbag", "Mur'amar"],
+      relatedLocations: ["Sacred Cave"],
+      relatedFactions: ["Masil Cult", "Mas'eel Cult", "Triadic Faith"],
+      relatedTimelineEvents: ["The Masil Cult Is Founded", "The Heart Prophecy Is Revealed", "The Angel Destroys the Masil Cult Leader's Heart"],
+      relatedLoreReveals: ["The angel is not sent by the Triad God", "The prophet invents revelations"],
+      tags: ["Masil", "Mas'eel", "False Prophet", "Dark Angel", "Triadic Faith", "Heart Prophecy"]
     })
   ];
 }
@@ -272,6 +280,8 @@ export function createStarterGlossaryTerms(): GlossaryTerm[] {
     term("term_recipe_pages", "Recipe Pages", ["Torn recipe pages"], "Pages torn from Tohm's recipe book and recovered through the game's progression.", "story_recipe_pages_scattered", "Player Knowledge"),
     term("term_faery_realm", "Faery Realm", ["Fairy Realm"], "Realm connected to Lillia's desire, Lel Kai, and faery refusal lore.", "story_faery_refusal", "Team Spoiler"),
     term("term_whisker_woods", "Whisker Woods", [], "Act 1 forest region and survivor home for Whisken Village.", "story_act1_corruption_spread", "Player Knowledge"),
+    term("term_masil_cult", "Mas'eel Cult", ["Masil Cult", "Mas'eel", "Masil"], "A false religious movement led publicly by the Masil Cult Leader and connected to a deceiving angel rather than the Triad God.", "story_masil_false_prophet", "Secret Lore"),
+    term("term_masil_cult_leader", "Masil Cult Leader", ["Masil Prophet", "Mas'eel Cult Leader", "False Prophet"], "Founder and public prophet of the cult whose real angelic revelations conceal two separate layers of deception.", "story_masil_false_prophet", "Secret Lore"),
     term("term_datka_dagda", "Datka / Dagda", ["Datka", "Dagda"], "Unresolved naming term for an older mythic figure from Tohm's childhood cauldron tale.", "", "Team Spoiler")
   ];
   return terms.map((item) => normalizeGlossaryTerm(item));
