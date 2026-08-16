@@ -28,7 +28,7 @@ export type StoryReferenceCanonStatus =
 export type StoryReferenceSpoilerLevel =
   | "Public Lore"
   | "Player Knowledge"
-  | "Team Spoiler"
+  | "Hidden Lore"
   | "Secret Lore";
 
 export type ActiveView =

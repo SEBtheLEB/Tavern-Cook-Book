@@ -5,6 +5,7 @@ import type {
   LoreBackup,
   LoreDatabase,
   LoreEntry,
+  StoryReference,
   ThemeMode,
   WorldBuildingCategoryId,
   WorldBuildingData,
@@ -52,12 +53,12 @@ export const DATABASE_KEY = "tavern-cook-book:data";
 export const THEME_KEY = "tavern-cook-book:theme";
 const LEGACY_MODE_KEY = "tavern-cook-book:mode";
 
-export const currentSchemaVersion = 10;
+export const currentSchemaVersion = 11;
 const loreExpansionSchemaVersion = 2;
 const magicalMealCanonSchemaVersion = 3;
 const storyReferenceSchemaVersion = 4;
 const whiskerWoodsPlaytestRoadmapSchemaVersion = 7;
-const masilCultLeaderSchemaVersion = 10;
+const masilCultLeaderSchemaVersion = 11;
 
 const masilCultLeaderEntryTitles = new Set(["Masil Cult Leader"]);
 
@@ -291,6 +292,7 @@ export const migrateDatabase = (value: unknown): LoreDatabase => {
   if (needsMasilCultLeader) {
     entries = mergeMasilCultLeaderEntries(entries, starter.entries);
     storyReferences = mergeStoryReferences(storyReferences, createStarterStoryReferences());
+    storyReferences = replaceMasilCultLeaderStoryReference(storyReferences, createStarterStoryReferences());
     glossaryTerms = mergeGlossaryTerms(glossaryTerms, createStarterGlossaryTerms());
   }
 
@@ -385,10 +387,14 @@ const mergeMasilCultLeaderEntries = (currentEntries: LoreEntry[], starterEntries
   starterEntries
     .filter((starterEntry) => masilCultLeaderEntryTitles.has(starterEntry.title))
     .forEach((starterEntry) => {
-      const exists = next.some((currentEntry) =>
+      const index = next.findIndex((currentEntry) =>
         normalizeEntryTitle(currentEntry.title) === normalizeEntryTitle(starterEntry.title)
       );
-      if (!exists) next.push(cloneJson(starterEntry));
+      if (index < 0) {
+        next.push(cloneJson(starterEntry));
+        return;
+      }
+      next[index] = preserveEntryUserAssets(next[index], starterEntry);
     });
 
   const cultIndex = next.findIndex((currentEntry) => normalizeEntryTitle(currentEntry.title) === "mas'eel cult");
@@ -404,6 +410,22 @@ const mergeMasilCultLeaderEntries = (currentEntries: LoreEntry[], starterEntries
   }
 
   return next.map((currentEntry) => normalizeEntry(currentEntry));
+};
+
+const replaceMasilCultLeaderStoryReference = (
+  currentReferences: StoryReference[],
+  starterReferences: StoryReference[]
+) => {
+  const starterReference = starterReferences.find((reference) => reference.id === "story_masil_false_prophet");
+  if (!starterReference) return currentReferences;
+  const next = currentReferences.map((reference) => reference.id === starterReference.id
+    ? {
+        ...cloneJson(starterReference),
+        createdAt: reference.createdAt || starterReference.createdAt,
+        versions: reference.versions || starterReference.versions
+      }
+    : reference);
+  return normalizeStoryReferences(next);
 };
 
 const mergeMagicalMealCanonEntries = (currentEntries: LoreEntry[], starterEntries: LoreEntry[]) => {

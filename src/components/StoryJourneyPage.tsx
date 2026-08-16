@@ -1094,7 +1094,7 @@ export function StoryJourneyPage({
     lastSharedStoryHashRef.current = storyHash;
     onStoryJourneyChange({
       title: storyJourney.title || "The Story of Tales of the Tavern",
-      description: storyJourney.description || "A chronological narrative treatment assembled from the Tavern Cookbook's existing canon.",
+      description: storyJourney.description || "The complete story of Tales of the Tavern in chronological order.",
       chapters,
       updatedAt: new Date().toISOString()
     });
@@ -1651,8 +1651,8 @@ export function StoryJourneyPage({
 
                   {readingDepth !== "overview" && (
                     <section className="story-library-prose">
-                      <span>Cookbook Reading Guide</span>
-                      <h2>What the team should know</h2>
+                      <span>Story Reading Guide</span>
+                      <h2>Key Story Context</h2>
                       {splitStoryParagraphs(selectedLibraryItem.fullText || selectedLibraryItem.summary).map((paragraph, index) => (
                         <p key={`${selectedLibraryItem.id}-paragraph-${index}`}>{renderLinkedStoryText(paragraph, setSelectedLoreTerm, linkableTerms)}</p>
                       ))}
@@ -1717,7 +1717,7 @@ export function StoryJourneyPage({
               ) : (
                 <>
               <header className="story-treatment-titlepage">
-                <p>Tales of the Tavern · Development Narrative Treatment</p>
+                <p>Tales of the Tavern · Story Reader</p>
                 <h1 className="font-display">{storyJourney.title || "The Story of Tales of the Tavern"}</h1>
                 <span>{storyJourney.description}</span>
                 <div>
@@ -1781,7 +1781,7 @@ export function StoryJourneyPage({
                           ))}
                           {readingDepth === "detailed" && (
                             <details className="story-treatment-sources">
-                              <summary>Context, sources, and developer notes</summary>
+                              <summary>Context, sources, and story notes</summary>
                               <div className="story-page-lore-links">
                                 {Array.from(new Set([...chapter.relatedLore, ...page.relatedLore])).map((term) => {
                                   const source = resolveLorePreview(term, entries, bestiary);
@@ -1999,8 +1999,8 @@ function StoryChapterEditor({
           <input value={(chapter.threads || []).join(", ")} onChange={(event) => onChange({ threads: splitTerms(event.target.value) })} placeholder="Gwen, Main Quest, Food Magic, Lillia..." />
         </label>
         <label className="wide">
-          <span>Developer notes</span>
-          <textarea value={chapter.developerNotes || ""} onChange={(event) => onChange({ developerNotes: event.target.value })} placeholder="Canon questions, prerequisites, consequences, and production notes." />
+          <span>Story notes</span>
+          <textarea value={chapter.developerNotes || ""} onChange={(event) => onChange({ developerNotes: event.target.value })} placeholder="Canon questions, prerequisites, consequences, and writing notes." />
         </label>
       </div>
     </section>
@@ -2051,7 +2051,7 @@ function StoryPageEditor({
         </label>
         <label className="wide">
           <span>Detailed reading text</span>
-          <textarea className="story-editor-textarea-large" value={page.detailedText || ""} onChange={(event) => onChange({ detailedText: event.target.value })} placeholder="Optional side-scene, motivation, gameplay transition, or deeper production context shown only in Detailed mode." />
+          <textarea className="story-editor-textarea-large" value={page.detailedText || ""} onChange={(event) => onChange({ detailedText: event.target.value })} placeholder="Optional side-scene, motivation, gameplay transition, or deeper story context shown only in Detailed mode." />
         </label>
         <label className="wide">
           <span>Page image</span>
@@ -2079,7 +2079,7 @@ function StoryPageEditor({
           <input value={(page.threads || []).join(", ")} onChange={(event) => onChange({ threads: splitTerms(event.target.value) })} placeholder="Gwen, Main Quest, Food Magic..." />
         </label>
         <label className="wide">
-          <span>Developer notes and source context</span>
+          <span>Story notes and source context</span>
           <textarea value={page.developerNotes || ""} onChange={(event) => onChange({ developerNotes: event.target.value })} placeholder="Prerequisite events, consequences, canon questions, or source-record notes." />
         </label>
       </div>
@@ -2780,7 +2780,7 @@ function buildBeatCallouts(chapter: StoryChapter, page: StoryPage): StoryJourney
     return [{
       id: `${page.id}-revelation`,
       kind: "revelation",
-      label: "Developer knowledge",
+      label: "Hidden context",
       text: "The surviving Whisken understand this as their first exodus because their ancestors deliberately erased the earlier Cat Cauldron disaster from communal memory."
     }];
   }
@@ -2867,7 +2867,7 @@ function buildCanonReviewItems(chapters: StoryChapter[], entries: LoreEntry[]): 
       severity: "gap",
       label: "Thin chapter",
       title: chapter.title,
-      description: "This chapter has only one documented sequence and needs connective events before it can function as a complete production treatment.",
+      description: "This chapter has only one documented sequence and needs connective events before it can read as a complete part of the story.",
       chapterId: chapter.id
     });
   });

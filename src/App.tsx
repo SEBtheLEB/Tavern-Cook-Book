@@ -3043,7 +3043,7 @@ export default function App() {
                   storyReferences={visibleStoryReferences}
                   storyJourney={database.storyJourney || {
                     title: "The Story of Tales of the Tavern",
-                    description: "A chronological narrative treatment assembled from the Tavern Cookbook's existing canon.",
+                    description: "The complete story of Tales of the Tavern in chronological order.",
                     chapters: [],
                     updatedAt: ""
                   }}

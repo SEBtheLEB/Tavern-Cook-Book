@@ -24,9 +24,80 @@ export const storyReferenceCanonOptions: StoryReferenceCanonStatus[] = [
 export const storyReferenceSpoilerOptions: StoryReferenceSpoilerLevel[] = [
   "Public Lore",
   "Player Knowledge",
-  "Team Spoiler",
+  "Hidden Lore",
   "Secret Lore"
 ];
+
+const masilCultLeaderStoryText = `### Role
+
+Founder and public prophet of the **Masil cult**, a false religion claiming to represent the true will of the Triad God.
+
+### Public Image
+
+To his followers, he is a chosen prophet who receives divine revelations from a beautiful angel in a sacred cave. His supernatural encounters give him enormous credibility and eventually political and military influence.
+
+### True Personality
+
+Ambitious, charismatic, manipulative, and increasingly arrogant.
+
+Unlike the angel, he has no grand supernatural goal. His desires are deeply human:
+
+* Fame and admiration
+* Wealth and luxury
+* Sexual pleasure
+* Political authority
+* A powerful army
+* Ultimately, becoming **king of the world**
+
+### The Angel
+
+The angel genuinely appears to him and gives him revelations.
+
+However, she is **not sent by the Triad God**. Her goal is much larger than his: she wants to corrupt the world, undermine the true Triad faith, and eventually present herself as the true representative—or replacement—of the Triad God.
+
+They are therefore **two deceivers using one another for different purposes**.
+
+### How Revelation Works
+
+Whenever the Masil people face a major crisis—war, defeat, political trouble, internal conflict—the leader retreats to the cave and seeks the angel.
+
+She appears and gives him verses or commandments addressing the situation.
+
+He then delivers these revelations to his followers as sacred scripture.
+
+### The Heart Prophecy
+
+To establish his credibility, the angel gives him a frightening revelation:
+
+**If he ever falsely attributes a revelation to her, she will destroy his heart.**
+
+He publicly teaches this verse, and it becomes one of the strongest arguments his followers use to defend him:
+
+*Why would he invent revelations if doing so would kill him?*
+
+### His Corruption
+
+At first, he faithfully repeats what the angel tells him.
+
+Eventually, however, he begins believing that **he understands the movement better than she does**.
+
+He starts by slightly altering revelations. Then he adds convenient teachings. Eventually he invents entire revelations to gain power, solve political problems, justify his desires, and advance his plans.
+
+The angel does not immediately realize what he is doing.
+
+### Death
+
+Eventually, she discovers his deception.
+
+She fulfills her original threat and **causes his heart to explode**, proving that he really had been delivering revelations she never gave him.
+
+The irony is that this does **not** prove the Masil religion was true.
+
+It proves that the Masil leader was telling **falsehoods about someone who was already teaching a greater falsehood**.
+
+### Character Theme
+
+**A false prophet serving a false angel—until he becomes arrogant enough to lie even to the liar.**`;
 
 export interface StoryReferenceBacklink {
   id: string;
@@ -189,7 +260,7 @@ export function mergeGlossaryTerms(current: GlossaryTerm[], starter: GlossaryTer
 
 export function createStarterStoryReferences(): StoryReference[] {
   return [
-    ref("story_whisken_people_role", "Role of the Whisken People", "The Whisken people originally lived on Tabby Island, fled after Cat Cauldron disasters, and preserve Tablemaker faith through culture, saints, food, and exile.", "The Whisken people created the Cat Cauldron in ancient history while searching for ways to improve food and reach the knowledge of what is untasted. The cauldron caused Tabby Island to decay, forcing the first exodus. They buried it, erased it from history, and forgot it. Later, after Tohm reactivated the cauldron and fled, the island decayed again while the Mas'eel infiltrated as traders and persecuted Triadic faith. The surviving Whisken reached Whisker Woods and Whisken Village.", "Canon", "Team Spoiler", {
+    ref("story_whisken_people_role", "Role of the Whisken People", "The Whisken people originally lived on Tabby Island, fled after Cat Cauldron disasters, and preserve Tablemaker faith through culture, saints, food, and exile.", "The Whisken people created the Cat Cauldron in ancient history while searching for ways to improve food and reach the knowledge of what is untasted. The cauldron caused Tabby Island to decay, forcing the first exodus. They buried it, erased it from history, and forgot it. Later, after Tohm reactivated the cauldron and fled, the island decayed again while the Mas'eel infiltrated as traders and persecuted Triadic faith. The surviving Whisken reached Whisker Woods and Whisken Village.", "Canon", "Hidden Lore", {
       relatedCharacters: ["Tohm Kyatt", "Gwen", "Lel Kai", "Kap"],
       relatedLocations: ["Tabby Island", "Whisker Woods", "Whisken Village"],
       relatedFactions: ["Whisken People", "Mas'eel Cult"],
@@ -204,14 +275,14 @@ export function createStarterStoryReferences(): StoryReference[] {
       relatedTimelineEvents: ["Tohm Awakens the Cat Cauldron", "Mas'eel Sense the Cat Cauldron"],
       tags: ["Tohm", "Cat Cauldron", "Secret", "Disaster"]
     }),
-    ref("story_lillia_recipe_pages", "Lillia Tears Out the Recipe Pages", "After receiving dark magic, Princess Lillia tears pages from Tohm's recipe book, scattering dangerous culinary knowledge into the game's quest structure.", "Lillia eats Tohm's Dark Magical Meal and receives dark magic. In the aftermath, she tears pages from Tohm's recipe book. Those pages become central to Gwen's journey, boss rewards, unlock structure, and the later reveal that Tohm's meal was dark rather than a true Magical Meal.", "Canon", "Team Spoiler", {
+    ref("story_lillia_recipe_pages", "Lillia Tears Out the Recipe Pages", "After receiving dark magic, Princess Lillia tears pages from Tohm's recipe book, scattering dangerous culinary knowledge into the game's quest structure.", "Lillia eats Tohm's Dark Magical Meal and receives dark magic. In the aftermath, she tears pages from Tohm's recipe book. Those pages become central to Gwen's journey, boss rewards, unlock structure, and the later reveal that Tohm's meal was dark rather than a true Magical Meal.", "Canon", "Hidden Lore", {
       relatedCharacters: ["Princess Lillia", "Tohm Kyatt", "Gwen"],
       relatedItems: ["Tohm's Recipe Book", "Recipe Pages"],
       relatedQuests: ["Recover Recipe Pages"],
       relatedTimelineEvents: ["Lillia Consumes the Dark Magical Meal", "Lillia Tears Out Recipe Pages"],
       tags: ["Recipe Pages", "Lillia", "Dark Culinary Arts"]
     }),
-    ref("story_dragon_knife_origin", "Dragon Knife Origin", "The Dragon Knife is a major artifact connected to the royal family's search for magic, the dwarven conflict, and Lillia's transformation thread.", "The Dragon Knife belongs to the chain of events where the royal family seeks magic for Princess Lillia. The king's conflict with dwarves and Tohm's access to the knife help set up the conditions around the Dark Magical Meal and Lillia's eventual power.", "Soft Canon", "Team Spoiler", {
+    ref("story_dragon_knife_origin", "Dragon Knife Origin", "The Dragon Knife is a major artifact connected to the royal family's search for magic, the dwarven conflict, and Lillia's transformation thread.", "The Dragon Knife belongs to the chain of events where the royal family seeks magic for Princess Lillia. The king's conflict with dwarves and Tohm's access to the knife help set up the conditions around the Dark Magical Meal and Lillia's eventual power.", "Soft Canon", "Hidden Lore", {
       relatedCharacters: ["Princess Lillia", "Tohm Kyatt"],
       relatedLocations: ["Human Kingdom", "Dwarven Mountains"],
       relatedItems: ["Dragon Knife"],
@@ -230,14 +301,14 @@ export function createStarterStoryReferences(): StoryReference[] {
       relatedTimelineEvents: ["Gwen Cooks the First True Magical Meal", "Gwen Wakes in the Snowstorm"],
       tags: ["Gwen", "Fire Meal", "Tablekeeper", "Opening"]
     }),
-    ref("story_cat_cauldron", "Cat Cauldron", "The Cat Cauldron holds culinary knowledge from around the world but cannot teach true Magical Meals.", "The ancient Whisken created the Cat Cauldron in search of food knowledge. It caused Tabby Island's decay, was buried and forgotten, and was later found by Tohm. It knows chef secrets and culinary abilities from around the world, but it cannot answer Tohm's real question: how to make a true Magical Meal. Important canon rule: Tohm never drinks from the cauldron.", "Canon", "Team Spoiler", {
+    ref("story_cat_cauldron", "Cat Cauldron", "The Cat Cauldron holds culinary knowledge from around the world but cannot teach true Magical Meals.", "The ancient Whisken created the Cat Cauldron in search of food knowledge. It caused Tabby Island's decay, was buried and forgotten, and was later found by Tohm. It knows chef secrets and culinary abilities from around the world, but it cannot answer Tohm's real question: how to make a true Magical Meal. Important canon rule: Tohm never drinks from the cauldron.", "Canon", "Hidden Lore", {
       relatedCharacters: ["Tohm Kyatt", "The Cat Cauldron"],
       relatedLocations: ["Tabby Island"],
       relatedItems: ["Cat Cauldron"],
       relatedTimelineEvents: ["Ancient Cat Cauldron Disaster", "Cat Cauldron Cannot Teach Magical Meals"],
       tags: ["Cat Cauldron", "Whisken", "Artifact"]
     }),
-    ref("story_faery_refusal", "Faery Refusal", "The faeries' refusal to help Lillia become a faery pushes the royal family toward desperate magical solutions.", "Princess Lillia wants to become a faery. The faery side of the world refuses to grant that desire, which helps push the royal family toward other sources of magic and dangerous artifacts. This thread connects Lillia's obsession, the Dragon Knife, and later Dark Culinary Arts.", "Soft Canon", "Team Spoiler", {
+    ref("story_faery_refusal", "Faery Refusal", "The faeries' refusal to help Lillia become a faery pushes the royal family toward desperate magical solutions.", "Princess Lillia wants to become a faery. The faery side of the world refuses to grant that desire, which helps push the royal family toward other sources of magic and dangerous artifacts. This thread connects Lillia's obsession, the Dragon Knife, and later Dark Culinary Arts.", "Soft Canon", "Hidden Lore", {
       relatedCharacters: ["Princess Lillia", "Lel Kai"],
       relatedLocations: ["Faery Realm", "Human Kingdom"],
       relatedFactions: ["Faeries", "Royal Family"],
@@ -256,8 +327,8 @@ export function createStarterStoryReferences(): StoryReference[] {
       relatedStoryBeats: ["Act 1", "Opening Corruption"],
       tags: ["Act 1", "Corruption", "Whisker Woods"]
     }),
-    ref("story_masil_false_prophet", "The Masil False Prophet and the Angel", "The Masil cult's founder receives real revelations from a false angel, then becomes arrogant enough to invent revelations until she destroys his heart.", "The Masil Cult Leader publicly claims to speak for the Triad God, and a beautiful angel genuinely appears to him in a sacred cave during moments of crisis. She is not sent by the Triad God: she seeks to corrupt the world, undermine true Triadic faith, and eventually present herself as the divine representative or replacement. At first, the leader repeats her revelations faithfully. The angel warns that she will destroy his heart if he ever falsely attributes a revelation to her, and he publicly uses that prophecy to strengthen his credibility. As his movement gains power, he begins altering and inventing revelations for wealth, pleasure, political authority, military strength, and his ambition to become king of the world. When the angel discovers the deception, she causes his heart to explode. His death proves only that he lied about a liar; it does not validate the cult's religion.", "Canon", "Secret Lore", {
-      relatedCharacters: ["Masil Cult Leader", "Leirbag", "Mur'amar"],
+    ref("story_masil_false_prophet", "Masil Cult Leader", "A false prophet serving a false angel—until he becomes arrogant enough to lie even to the liar.", masilCultLeaderStoryText, "Canon", "Secret Lore", {
+      relatedCharacters: ["Masil Cult Leader", "The Angel"],
       relatedLocations: ["Sacred Cave"],
       relatedFactions: ["Masil Cult", "Mas'eel Cult", "Triadic Faith"],
       relatedTimelineEvents: ["The Masil Cult Is Founded", "The Heart Prophecy Is Revealed", "The Angel Destroys the Masil Cult Leader's Heart"],
@@ -269,20 +340,20 @@ export function createStarterStoryReferences(): StoryReference[] {
 
 export function createStarterGlossaryTerms(): GlossaryTerm[] {
   const terms: Array<Partial<GlossaryTerm>> = [
-    term("term_whisken_people", "Whisken People", ["Wiscan", "Wiscans", "Whisken race"], "Catlike people originally tied to Tabby Island, later Whisker Woods and Tablemaker tradition.", "story_whisken_people_role", "Team Spoiler"),
-    term("term_tabby_island", "Tabby Island", [], "Original Whisken home and the site of Cat Cauldron decay, Mas'eel infiltration, and exile history.", "story_tohm_tabby_island_disaster", "Team Spoiler"),
-    term("term_cat_cauldron", "Cat Cauldron", ["The Cat Cauldron"], "Sentient culinary artifact that holds chef knowledge but cannot teach true Magical Meals.", "story_cat_cauldron", "Team Spoiler"),
-    term("term_dragon_knife", "Dragon Knife", [], "Major artifact tied to the royal family's desperate search for magic.", "story_dragon_knife_origin", "Team Spoiler"),
+    term("term_whisken_people", "Whisken People", ["Wiscan", "Wiscans", "Whisken race"], "Catlike people originally tied to Tabby Island, later Whisker Woods and Tablemaker tradition.", "story_whisken_people_role", "Hidden Lore"),
+    term("term_tabby_island", "Tabby Island", [], "Original Whisken home and the site of Cat Cauldron decay, Mas'eel infiltration, and exile history.", "story_tohm_tabby_island_disaster", "Hidden Lore"),
+    term("term_cat_cauldron", "Cat Cauldron", ["The Cat Cauldron"], "Sentient culinary artifact that holds chef knowledge but cannot teach true Magical Meals.", "story_cat_cauldron", "Hidden Lore"),
+    term("term_dragon_knife", "Dragon Knife", [], "Major artifact tied to the royal family's desperate search for magic.", "story_dragon_knife_origin", "Hidden Lore"),
     term("term_dark_culinary_arts", "Dark Culinary Arts", ["Dark Magical Meals", "Dark food magic"], "Corrupted food magic born apart from the Tablemaker's gift.", "story_dark_culinary_arts", "Secret Lore"),
-    term("term_lillia", "Princess Lillia", ["Lillia"], "Human princess obsessed with becoming a faery and tied to the dark meal incident.", "story_lillia_recipe_pages", "Team Spoiler"),
+    term("term_lillia", "Princess Lillia", ["Lillia"], "Human princess obsessed with becoming a faery and tied to the dark meal incident.", "story_lillia_recipe_pages", "Hidden Lore"),
     term("term_tohm_kyatt", "Tohm Kyatt", ["Tohm"], "Whisken chef whose obsession with an impossible flavor drives much of the hidden backstory.", "story_tohm_tabby_island_disaster", "Secret Lore"),
     term("term_gwen", "Gwen", [], "Human fighter and devoted Tablekeeper who creates the first true Magical Meal of the game.", "story_gwen_fire_meal_discovery", "Secret Lore"),
     term("term_recipe_pages", "Recipe Pages", ["Torn recipe pages"], "Pages torn from Tohm's recipe book and recovered through the game's progression.", "story_recipe_pages_scattered", "Player Knowledge"),
-    term("term_faery_realm", "Faery Realm", ["Fairy Realm"], "Realm connected to Lillia's desire, Lel Kai, and faery refusal lore.", "story_faery_refusal", "Team Spoiler"),
+    term("term_faery_realm", "Faery Realm", ["Fairy Realm"], "Realm connected to Lillia's desire, Lel Kai, and faery refusal lore.", "story_faery_refusal", "Hidden Lore"),
     term("term_whisker_woods", "Whisker Woods", [], "Act 1 forest region and survivor home for Whisken Village.", "story_act1_corruption_spread", "Player Knowledge"),
     term("term_masil_cult", "Mas'eel Cult", ["Masil Cult", "Mas'eel", "Masil"], "A false religious movement led publicly by the Masil Cult Leader and connected to a deceiving angel rather than the Triad God.", "story_masil_false_prophet", "Secret Lore"),
     term("term_masil_cult_leader", "Masil Cult Leader", ["Masil Prophet", "Mas'eel Cult Leader", "False Prophet"], "Founder and public prophet of the cult whose real angelic revelations conceal two separate layers of deception.", "story_masil_false_prophet", "Secret Lore"),
-    term("term_datka_dagda", "Datka / Dagda", ["Datka", "Dagda"], "Unresolved naming term for an older mythic figure from Tohm's childhood cauldron tale.", "", "Team Spoiler")
+    term("term_datka_dagda", "Datka / Dagda", ["Datka", "Dagda"], "Unresolved naming term for an older mythic figure from Tohm's childhood cauldron tale.", "", "Hidden Lore")
   ];
   return terms.map((item) => normalizeGlossaryTerm(item));
 }
@@ -400,7 +471,7 @@ export function buildStoryConsistencyResults(database: LoreDatabase): StoryConsi
         storyReferenceId: reference.id
       });
     }
-    if (isPublicTarget(backlink) && /team spoiler|secret lore/i.test(reference.spoilerLevel)) {
+    if (isPublicTarget(backlink) && /team spoiler|hidden lore|secret lore/i.test(reference.spoilerLevel)) {
       results.push({
         id: `spoiler:${backlink.id}`,
         kind: "spoilerRisk",
@@ -528,7 +599,7 @@ function normalizeStoryReferenceVersions(value: unknown): StoryReferenceVersion[
       previousShortSummary: text(item.previousShortSummary),
       previousFullDescription: text(item.previousFullDescription),
       previousCanonStatus: text(item.previousCanonStatus) || "Idea",
-      previousSpoilerLevel: text(item.previousSpoilerLevel) || "Team Spoiler",
+      previousSpoilerLevel: normalizeStorySpoilerLevel(item.previousSpoilerLevel),
       notes: text(item.notes)
     }));
 }
@@ -635,7 +706,8 @@ function normalizeCanonStatus(value: unknown): StoryReferenceCanonStatus | strin
 
 function normalizeStorySpoilerLevel(value: unknown): StoryReferenceSpoilerLevel | string {
   const raw = text(value);
-  return storyReferenceSpoilerOptions.includes(raw as StoryReferenceSpoilerLevel) ? raw : "Team Spoiler";
+  if (raw === "Team Spoiler") return "Hidden Lore";
+  return storyReferenceSpoilerOptions.includes(raw as StoryReferenceSpoilerLevel) ? raw : "Hidden Lore";
 }
 
 function normalizeStringArray(value: unknown): string[] {

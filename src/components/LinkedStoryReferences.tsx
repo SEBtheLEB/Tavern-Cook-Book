@@ -226,7 +226,7 @@ function StoryReferencePicker({
     shortSummary: "",
     fullDescription: "",
     canonStatus: "Canon",
-    spoilerLevel: "Team Spoiler",
+    spoilerLevel: "Hidden Lore",
     actChapter: ""
   });
 
@@ -257,7 +257,7 @@ function StoryReferencePicker({
       shortSummary: "",
       fullDescription: "",
       canonStatus: "Canon",
-      spoilerLevel: "Team Spoiler",
+      spoilerLevel: "Hidden Lore",
       actChapter: ""
     });
     setCreateOpen(false);
@@ -304,7 +304,7 @@ function StoryReferencePicker({
                 <select value={String(createDraft.canonStatus || "Canon")} onChange={(event) => setCreateDraft((current) => ({ ...current, canonStatus: event.target.value }))}>
                   {storyReferenceCanonOptions.map((option) => <option key={option} value={option}>{option}</option>)}
                 </select>
-                <select value={String(createDraft.spoilerLevel || "Team Spoiler")} onChange={(event) => setCreateDraft((current) => ({ ...current, spoilerLevel: event.target.value }))}>
+                <select value={String(createDraft.spoilerLevel || "Hidden Lore")} onChange={(event) => setCreateDraft((current) => ({ ...current, spoilerLevel: event.target.value }))}>
                   {storyReferenceSpoilerOptions.map((option) => <option key={option} value={option}>{option}</option>)}
                 </select>
                 <input value={createDraft.actChapter || ""} placeholder="Act / chapter" onChange={(event) => setCreateDraft((current) => ({ ...current, actChapter: event.target.value }))} />

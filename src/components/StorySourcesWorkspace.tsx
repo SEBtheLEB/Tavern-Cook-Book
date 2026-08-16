@@ -99,7 +99,7 @@ export function StorySourcesWorkspace({
       shortSummary: "",
       fullDescription: "",
       canonStatus: "Idea",
-      spoilerLevel: "Team Spoiler"
+      spoilerLevel: "Hidden Lore"
     }, storyReferences.map((reference) => reference.id));
     setDraft(created);
     setSelectedId(created.id);
@@ -602,7 +602,7 @@ function createBlankGlossaryDraft(): GlossaryTerm {
     shortDefinition: "",
     linkedStoryReferenceId: "",
     relatedEntryIds: [],
-    spoilerLevel: "Team Spoiler",
+    spoilerLevel: "Hidden Lore",
     createdAt: now,
     updatedAt: now
   };

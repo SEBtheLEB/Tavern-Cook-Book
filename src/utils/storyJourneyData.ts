@@ -115,11 +115,16 @@ export const normalizeStoryJourneyChapter = (
   return chapter;
 };
 
-export const normalizeStoryJourneyData = (value: Partial<StoryJourneyData> | undefined): StoryJourneyData => ({
-  title: String(value?.title || "The Story of Tales of the Tavern"),
-  description: String(value?.description || "A chronological narrative treatment assembled from the Tavern Cookbook's existing canon."),
-  chapters: Array.isArray(value?.chapters)
-    ? value.chapters.map((chapter, index) => normalizeStoryJourneyChapter(chapter, `story-chapter-${index + 1}`))
-    : [],
-  updatedAt: String(value?.updatedAt || new Date().toISOString())
-});
+export const normalizeStoryJourneyData = (value: Partial<StoryJourneyData> | undefined): StoryJourneyData => {
+  const description = String(value?.description || "The complete story of Tales of the Tavern in chronological order.");
+  return {
+    title: String(value?.title || "The Story of Tales of the Tavern"),
+    description: /chronological narrative treatment assembled from the tavern cookbook's existing canon/i.test(description)
+      ? "The complete story of Tales of the Tavern in chronological order."
+      : description,
+    chapters: Array.isArray(value?.chapters)
+      ? value.chapters.map((chapter, index) => normalizeStoryJourneyChapter(chapter, `story-chapter-${index + 1}`))
+      : [],
+    updatedAt: String(value?.updatedAt || new Date().toISOString())
+  };
+};
