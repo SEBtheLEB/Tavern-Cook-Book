@@ -4,6 +4,7 @@ const SPEECHIFY_API_BASE = "https://api.speechify.ai/v1";
 const GOOGLE_TOKENINFO_URL = "https://oauth2.googleapis.com/tokeninfo";
 const STL_WORKSHOP_GOOGLE_OAUTH_CLIENT_ID = "55508806253-p292f7oom6s1do0f9er1unfhi0mjjaen.apps.googleusercontent.com";
 const DEFAULT_MODEL = "simba-3.0";
+const DEFAULT_VOICE_ID = "john-rhys-davies";
 const MAX_TEXT_LENGTH = 12_000;
 const MAX_REQUESTS_PER_MINUTE = 12;
 const speechifyRateLimits = new Map<string, number[]>();
@@ -26,7 +27,7 @@ export function getSpeechifyHealth() {
   return {
     ok: true,
     configured: Boolean(process.env.SPEECHIFY_API_KEY),
-    defaultVoiceId: process.env.SPEECHIFY_VOICE_ID || "",
+    defaultVoiceId: process.env.SPEECHIFY_VOICE_ID || DEFAULT_VOICE_ID,
     model: process.env.SPEECHIFY_MODEL || DEFAULT_MODEL
   };
 }
@@ -56,6 +57,7 @@ export async function listSpeechifyVoices(headers: IncomingHttpHeaders) {
       const url = new URL(`${SPEECHIFY_API_BASE}/voices`);
       url.searchParams.set("limit", "200");
       url.searchParams.set("model", model);
+      url.searchParams.set("locale", "en");
       if (cursor) url.searchParams.set("cursor", cursor);
 
       const upstream = await fetch(url, {
@@ -83,7 +85,7 @@ export async function listSpeechifyVoices(headers: IncomingHttpHeaders) {
       status: 200,
       body: {
         ...getSpeechifyHealth(),
-        voices: normalizeVoices({ voices })
+        voices: normalizeVoices({ voices }).filter((voice) => /^en(?:[-_]|$)/i.test(voice.language))
       }
     };
   } catch (error) {

@@ -3258,7 +3258,7 @@ function storyPageNarrationText(page: StoryPage, depth: StoryReadingDepth) {
 
 function loadSpeechifyVoicePreference() {
   try {
-    return localStorage.getItem("tavernCookBookSpeechifyVoice") || "";
+    return localStorage.getItem("tavernCookBookSpeechifyVoice:v2") || "";
   } catch {
     return "";
   }
@@ -3266,7 +3266,7 @@ function loadSpeechifyVoicePreference() {
 
 function saveSpeechifyVoicePreference(voiceId: string) {
   try {
-    localStorage.setItem("tavernCookBookSpeechifyVoice", voiceId);
+    localStorage.setItem("tavernCookBookSpeechifyVoice:v2", voiceId);
   } catch {
     // Voice selection is optional preference data.
   }
