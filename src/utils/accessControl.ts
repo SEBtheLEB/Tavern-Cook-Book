@@ -124,16 +124,16 @@ export function loadGoogleAccount(): GoogleAccountUser | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<GoogleAccountUser>;
     const email = typeof parsed.email === "string" ? parsed.email.trim().toLowerCase() : "";
-    const access = getGoogleUserAccess(email);
-    if (!email || !access) {
+    if (!email) {
       clearGoogleAccount();
       return null;
     }
+    const access = getGoogleUserAccess(email);
     return {
       name: typeof parsed.name === "string" && parsed.name.trim() ? parsed.name.trim() : email,
       email,
       picture: typeof parsed.picture === "string" ? parsed.picture : "",
-      role: access.role
+      role: access?.role || normalizeAccessRole(parsed.role)
     };
   } catch {
     clearGoogleAccount();

@@ -1156,18 +1156,7 @@ export default function App() {
 
       let effectiveCurrentUser = currentUser;
       let effectiveCanEdit = canEdit;
-      if (!settingsResult.ok && isAccessRefreshAuthError(settingsResult.error)) {
-        clearGoogleAccount();
-        setCurrentUser(null);
-        setPublishedReady(false);
-        setCloudSync({
-          phase: "needsAuth",
-          message: "Sign in again so the cookbook can refresh your current team access.",
-          lastSavedAt: "",
-          configured: settingsResult.configured
-        });
-        return;
-      }
+      const settingsAuthPaused = !settingsResult.ok && isAccessRefreshAuthError(settingsResult.error);
       if (settingsResult.ok && settingsResult.envelope?.payload) {
         const remoteSettings = normalizeAppSyncSettings(settingsResult.envelope.payload);
         remoteSettingsLoadedRef.current = true;
@@ -1256,8 +1245,16 @@ export default function App() {
           : publishedEnvelope?.updatedAt || ""
         : latestSyncDate(publishedEnvelope?.updatedAt || "", draftEnvelope?.updatedAt || "");
       setCloudSync({
-        phase: shouldRestorePendingTeamChange ? "saving" : publishedEnvelope || draftEnvelope ? "saved" : "idle",
-        message: teamWriter
+        phase: settingsAuthPaused
+          ? "needsAuth"
+          : shouldRestorePendingTeamChange
+            ? "saving"
+            : publishedEnvelope || draftEnvelope
+              ? "saved"
+              : "idle",
+        message: settingsAuthPaused
+          ? "Your cookbook session is still active. Google verification is temporarily paused, so protected cloud saves will resume after Google reconnects."
+          : teamWriter
           ? shouldRestorePendingTeamChange
             ? "Restored this teammate's unsaved edit and is saving it for everyone..."
             : publishedEnvelope
@@ -2791,12 +2788,11 @@ export default function App() {
       if (cancelled) return;
       if (!settingsResult.ok) {
         if (isAccessRefreshAuthError(settingsResult.error)) {
-          clearGoogleAccount();
-          setCurrentUser(null);
-          setLockedAccessNotice({
-            title: "Sign in again",
-            message: "Your Google session expired before the cookbook could verify your current role. Sign in again to reload your latest team access."
-          });
+          setCloudSync((current) => ({
+            ...current,
+            phase: "needsAuth",
+            message: "Your cookbook session is still active. Google verification is temporarily paused; your account remains signed in."
+          }));
         }
         return;
       }
@@ -2868,7 +2864,7 @@ export default function App() {
   const desktopBrowserAuthMode = isDesktopBrowserAuthRequest();
   const storyFocusMode = activeView === "storyJourney";
 
-  if (!currentUser || desktopBrowserAuthMode || (!hostedViewer && !googleCredentialReady)) {
+  if (!currentUser || desktopBrowserAuthMode) {
     return (
       <div className={themeClassName}>
         <AccessGate onSignIn={setCurrentUser} />
