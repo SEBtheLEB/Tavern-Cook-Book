@@ -6070,7 +6070,16 @@ function mergeStoryExpansionChapters(chapters: StoryChapter[]): StoryChapter[] {
     .forEach((defaultChapter) => {
       const index = next.findIndex((chapter) => chapter.id === defaultChapter.id);
       if (index >= 0) {
-        next[index] = normalizeStoryChapter(next[index], defaultChapter.id);
+        const existingChapter = next[index];
+        next[index] = normalizeStoryChapter(GENERAL_HISTORY_CHAPTER_IDS.has(existingChapter.id)
+          ? {
+              ...existingChapter,
+              pages: existingChapter.pages.map((page) => ({
+                ...page,
+                text: page.text.replace(/<p>\s*---\s*<\/p>/gi, "").trim()
+              }))
+            }
+          : existingChapter, defaultChapter.id);
         return;
       }
 
