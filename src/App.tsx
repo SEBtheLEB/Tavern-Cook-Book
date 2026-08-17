@@ -239,7 +239,7 @@ const APP_SESSION_UI_KEY = "tavern-cook-book:session-ui-state";
 const LIVE_TEAM_SYNC = true;
 const REALTIME_DATABASE_SYNC = false;
 const LIVE_SYNC_AUTOSAVE_DELAY_MS = 250;
-const LIVE_SYNC_POLL_MS = 1200;
+const LIVE_SYNC_POLL_MS = 5000;
 const LIVE_BACKUP_SAVE_DELAY_MS = 12_000;
 const PENDING_TEAM_CHANGE_MAX_AGE_MS = 12 * 60 * 60 * 1000;
 

@@ -108,6 +108,7 @@ export function AssistantPanel({
   const [dragging, setDragging] = useState(false);
   const scribeWindowRef = useRef<HTMLElement | null>(null);
   const commandInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const changeReportRef = useRef<HTMLElement | null>(null);
   const dragRef = useRef<{ offsetX: number; offsetY: number } | null>(null);
 
   const isOpen = open ?? internalOpen;
@@ -161,6 +162,14 @@ export function AssistantPanel({
       window.removeEventListener("pointerup", handlePointerUp);
     };
   }, [dragging]);
+
+  useEffect(() => {
+    if (!changeReport.length) return;
+    const frame = window.requestAnimationFrame(() => {
+      changeReportRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [changeReport]);
 
   const beginDrag = (event: ReactPointerEvent<HTMLElement>) => {
     if (event.button !== 0) return;
@@ -221,23 +230,41 @@ export function AssistantPanel({
       return;
     }
     setLoading(true);
-    setMessage("");
+    setMessage("Tavern Scribe is reading the Cook Book and preparing the changes...");
     setLastSummary("");
     setChangeReport([]);
     setPreviewReport([]);
     try {
       const result = await callAssistant(database, command, mode, memoryRules);
-      setPatch(result);
       const indexes = result.changes.map((_, index) => index);
-      setSelected(indexes);
-      previewPatch(result, indexes);
       if (!result.changes.length) {
+        setPatch(null);
+        setSelected([]);
         setChangeReport([]);
         setMessage(result.summary || "Tavern Scribe did not find any changes to apply.");
         return;
       }
-      setLastSummary(result.summary);
-      setMessage(`Plan ready with ${result.changes.length} proposed ${result.changes.length === 1 ? "change" : "changes"}. Review the preview, then apply.`);
+
+      if (result.plan?.needsClarification) {
+        setPatch(result);
+        setSelected(indexes);
+        previewPatch(result, indexes);
+        setLastSummary(result.summary);
+        setMessage(
+          result.plan.clarificationQuestion
+            ? `Tavern Scribe needs one answer before applying: ${result.plan.clarificationQuestion}`
+            : "Tavern Scribe needs clarification before applying these changes. Review the preview below."
+        );
+        return;
+      }
+
+      setManualOpen(false);
+      applyPatchWithReport(
+        result,
+        indexes,
+        true,
+        `Scribed and saved ${result.changes.length} ${result.changes.length === 1 ? "change" : "changes"}. Review the changed modules below or undo the update if needed.${result.warnings?.length ? ` ${result.warnings.length} ${result.warnings.length === 1 ? "warning needs" : "warnings need"} review.` : ""}`
+      );
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Assistant call failed.";
       setMessage(`${errorMessage} You can use Manual ChatGPT Mode below to copy/paste without API billing.`);
@@ -545,10 +572,15 @@ export function AssistantPanel({
                   </div>
                 )}
               </div>
-              <button className="button-frame tavern-scribe-it-button" onClick={run} disabled={loading}>
+              <button className="button-frame tavern-scribe-it-button" onClick={run} disabled={loading || !command.trim()}>
                 <Icon name="Sparkles" className="h-4 w-4" />
                 {loading ? "Scribing..." : "Scribe It"}
               </button>
+              {loading ? (
+                <p className="tavern-scribe-inline-status" role="status" aria-live="polite">
+                  Reading connected entries and preparing a safe update. Keep this window open.
+                </p>
+              ) : null}
             </section>
 
             <details
@@ -697,7 +729,7 @@ export function AssistantPanel({
             ) : null}
 
             {changeReport.length ? (
-              <section className="tavern-scribe-change-report" aria-label="Scribe changed modules">
+              <section ref={changeReportRef} className="tavern-scribe-change-report" aria-label="Scribe changed modules">
                 <div className="tavern-scribe-change-report-head">
                   <div>
                     <span>Changed Modules</span>

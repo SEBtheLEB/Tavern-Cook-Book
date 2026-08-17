@@ -250,6 +250,14 @@ export async function handleAssistantRequest(body: AssistantBackendRequest): Pro
     };
   }
 
+  const startedAt = Date.now();
+  console.info("[assistant] request started", {
+    mode: typeof mode === "string" ? mode : "patch",
+    entries: database.entries.length,
+    bestiary: Array.isArray(database.bestiary) ? database.bestiary.length : 0,
+    model: getAssistantModel()
+  });
+
   try {
     const permanentMemory = normalizeMemoryRules(memoryRules);
     const loreContext = buildAssistantLoreContext(database, command, permanentMemory);
@@ -527,6 +535,10 @@ ${scribeTargetHelperGuidance}`
 
     const payload = await apiResponse.json();
     if (!apiResponse.ok) {
+      console.error("[assistant] OpenAI request failed", {
+        status: apiResponse.status,
+        durationMs: Date.now() - startedAt
+      });
       return {
         status: apiResponse.status,
         body: { error: payload?.error?.message || "OpenAI API request failed." }
@@ -538,8 +550,17 @@ ${scribeTargetHelperGuidance}`
       return { status: 502, body: { error: "Assistant returned no JSON text." } };
     }
 
-    return { status: 200, body: { patch: JSON.parse(outputText) } };
+    const patch = JSON.parse(outputText) as { changes?: unknown[] };
+    console.info("[assistant] request completed", {
+      changes: Array.isArray(patch.changes) ? patch.changes.length : 0,
+      durationMs: Date.now() - startedAt
+    });
+    return { status: 200, body: { patch } };
   } catch (error) {
+    console.error("[assistant] request crashed", {
+      error: error instanceof Error ? error.message : "Assistant backend failed.",
+      durationMs: Date.now() - startedAt
+    });
     return {
       status: 500,
       body: { error: error instanceof Error ? error.message : "Assistant backend failed." }

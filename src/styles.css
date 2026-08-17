@@ -674,6 +674,15 @@ textarea {
   font-weight: 900;
 }
 
+.tavern-scribe-inline-status {
+  margin: 0;
+  border-left: 3px solid var(--accent);
+  padding: 8px 10px;
+  color: var(--muted-ink);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
 .tavern-scribe-target-helper {
   position: relative;
 }
