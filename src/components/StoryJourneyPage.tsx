@@ -5089,26 +5089,26 @@ function storyNarrationBlockMeta(block: HTMLElement, blockIndex: number) {
   const chapter = block.closest<HTMLElement>("[data-story-reader-chapter]");
   if (chapter) {
     const chapterId = chapter.dataset.storyReaderChapter || `chapter-${blockIndex + 1}`;
-    const chapterTitle = chapter.querySelector<HTMLElement>(".story-treatment-chapter-heading h2")?.innerText.trim()
+    const chapterTitle = chapter.querySelector<HTMLElement>(".story-treatment-chapter-heading h2")?.textContent?.trim()
       || `Chapter ${blockIndex + 1}`;
     const beat = block.closest<HTMLElement>(".story-treatment-beat");
-    const sectionTitle = beat?.querySelector<HTMLElement>("h3")?.innerText.trim()
+    const sectionTitle = beat?.querySelector<HTMLElement>("h3")?.textContent?.trim()
       || (block.closest(".story-treatment-chapter-heading") ? "Chapter Introduction" : chapterTitle);
     return { chapterId, chapterTitle, sectionTitle };
   }
 
   const libraryReader = block.closest<HTMLElement>(".story-library-reader");
   if (libraryReader) {
-    const title = libraryReader.querySelector<HTMLElement>("h1")?.innerText.trim() || "World Guide";
-    const sectionTitle = block.querySelector<HTMLElement>("h2")?.innerText.trim()
-      || block.querySelector<HTMLElement>("strong")?.innerText.trim()
+    const title = libraryReader.querySelector<HTMLElement>("h1")?.textContent?.trim() || "World Guide";
+    const sectionTitle = block.querySelector<HTMLElement>("h2")?.textContent?.trim()
+      || block.querySelector<HTMLElement>("strong")?.textContent?.trim()
       || title;
     return { chapterId: `library-${normalizeTerm(title) || "entry"}`, chapterTitle: title, sectionTitle };
   }
 
   const act = block.closest<HTMLElement>(".story-treatment-act");
   if (act) {
-    const title = act.querySelector<HTMLElement>(":scope > header h2")?.innerText.trim() || "Story Section";
+    const title = act.querySelector<HTMLElement>(":scope > header h2")?.textContent?.trim() || "Story Section";
     return { chapterId: `act-${normalizeTerm(title) || blockIndex}`, chapterTitle: title, sectionTitle: "Act Introduction" };
   }
 
@@ -5117,7 +5117,7 @@ function storyNarrationBlockMeta(block: HTMLElement, blockIndex: number) {
 }
 
 function rootNarrationTitle(block: HTMLElement) {
-  return block.closest<HTMLElement>(".story-treatment-reader")?.querySelector<HTMLElement>("h1")?.innerText.trim() || "";
+  return block.closest<HTMLElement>(".story-treatment-reader")?.querySelector<HTMLElement>("h1")?.textContent?.trim() || "";
 }
 
 function nearestCharacterLocation(
