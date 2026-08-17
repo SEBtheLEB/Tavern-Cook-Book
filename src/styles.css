@@ -17196,6 +17196,25 @@ button,
   margin-bottom: 24px;
 }
 
+.story-treatment-chapter-heading.standard-reading {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
+/* Keep the existing narration DOM stable while removing repeated overview copy from Standard view. */
+.story-standard-hidden-overview {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  margin: -1px !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  clip: rect(0 0 0 0) !important;
+  clip-path: inset(50%) !important;
+  white-space: nowrap !important;
+}
+
 .story-treatment-chapter-heading > div:first-child {
   display: grid;
   gap: 8px;

@@ -3588,8 +3588,12 @@ function StoryTreatmentChapter({
       data-story-reader-chapter={chapter.id}
       className={`story-treatment-chapter ${editing ? "inline-editing" : ""}`}
     >
-      <header className="story-treatment-chapter-heading">
-        <div data-story-narration-block={!editing ? "true" : undefined}>
+      <header className={`story-treatment-chapter-heading ${readingDepth === "standard" && !editing ? "standard-reading" : ""}`}>
+        <div
+          className={readingDepth === "standard" && !editing ? "story-standard-hidden-overview" : ""}
+          data-story-narration-block={!editing ? "true" : undefined}
+          aria-hidden={readingDepth === "standard" && !editing ? "true" : undefined}
+        >
           <span>{scopeLabel} · Chapter {chapterIndex + 1}</span>
           {editing ? (
             <>
@@ -3615,7 +3619,7 @@ function StoryTreatmentChapter({
           )}
         </div>
         <div className="story-treatment-chapter-actions">
-          <em>{visibleChapter.revealLevel}</em>
+          {readingDepth !== "standard" && <em>{visibleChapter.revealLevel}</em>}
           {!editing && (
             <button
               className={narrationLabel === visibleChapter.title && narrationStatus !== "idle" ? "story-listen-active" : ""}
@@ -3659,7 +3663,13 @@ function StoryTreatmentChapter({
           />
         </section>
       ) : (
-        <div className="story-treatment-lede" data-story-narration-block><RichLoreText text={visibleChapter.overviewText || visibleChapter.shortDescription} /></div>
+        <div
+          className={`story-treatment-lede ${readingDepth === "standard" ? "story-standard-hidden-overview" : ""}`}
+          data-story-narration-block
+          aria-hidden={readingDepth === "standard" ? "true" : undefined}
+        >
+          <RichLoreText text={visibleChapter.overviewText || visibleChapter.shortDescription} />
+        </div>
       )}
 
       {readingDepth !== "overview" && visibleChapter.pages.map((page, pageIndex) => (
