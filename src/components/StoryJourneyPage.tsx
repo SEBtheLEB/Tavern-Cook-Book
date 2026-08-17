@@ -3129,7 +3129,7 @@ export function StoryJourneyPage({
             >
               <main
                 ref={storyTreatmentReaderRef}
-                className={`story-treatment-reader ${speechifyReadAllMode ? "narration-following" : ""}`}
+                className={`story-treatment-reader depth-${readingDepth} ${speechifyReadAllMode ? "narration-following" : ""}`}
                 onClickCapture={handleStoryNarrationWordClick}
               >
               {selectedLibraryItem ? (

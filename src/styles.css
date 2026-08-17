@@ -18953,6 +18953,108 @@ button,
   margin: 0;
 }
 
+/* Standard is the primary long-form reading view: keep its hierarchy book-like and calm. */
+.story-treatment-reader.depth-standard .story-treatment-chapter {
+  position: relative;
+  max-width: 1080px;
+  border-bottom-color: color-mix(in srgb, var(--gold) 22%, var(--panel-border));
+  margin-bottom: 66px;
+  padding-bottom: 62px;
+}
+
+.story-treatment-reader.depth-standard .story-treatment-chapter-heading.standard-reading {
+  min-height: 32px;
+  margin-bottom: 8px;
+}
+
+.story-treatment-reader.depth-standard .story-treatment-chapter-actions {
+  gap: 6px;
+}
+
+.story-treatment-reader.depth-standard .story-treatment-chapter-actions button {
+  border-color: color-mix(in srgb, var(--gold) 28%, var(--panel-border));
+  padding: 5px 8px;
+  color: color-mix(in srgb, var(--app-ink) 76%, var(--muted-ink));
+  background: color-mix(in srgb, var(--field-bg) 48%, transparent);
+  font-size: 0.7rem;
+}
+
+.story-treatment-reader.depth-standard .story-treatment-chapter-actions button:hover {
+  border-color: color-mix(in srgb, var(--gold) 58%, var(--panel-border));
+  color: color-mix(in srgb, var(--app-ink) 90%, var(--gold));
+  background: color-mix(in srgb, var(--gold) 8%, var(--field-bg));
+}
+
+.story-treatment-reader.depth-standard .story-treatment-beat {
+  max-width: 980px;
+  margin-bottom: 46px;
+}
+
+.story-treatment-reader.depth-standard .story-treatment-beat-heading {
+  min-height: 23px;
+  border-bottom: 1px solid color-mix(in srgb, var(--gold) 18%, transparent);
+  margin-bottom: 10px;
+  padding-bottom: 7px;
+}
+
+.story-treatment-reader.depth-standard .story-treatment-beat-heading > span {
+  color: color-mix(in srgb, var(--gold) 82%, var(--muted-ink));
+  font-size: 0.68rem;
+  font-weight: 760;
+}
+
+.story-treatment-reader.depth-standard .story-treatment-beat h3 {
+  position: relative;
+  max-width: 900px;
+  margin: 0 0 24px;
+  padding: 0 0 17px;
+  color: color-mix(in srgb, var(--app-ink) 84%, var(--gold));
+  font-size: 2.45rem;
+  font-weight: 650;
+  line-height: 1.12;
+}
+
+.story-treatment-reader.depth-standard .story-treatment-beat h3::after {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 72px;
+  height: 2px;
+  background: color-mix(in srgb, var(--gold) 68%, transparent);
+  content: "";
+}
+
+.story-treatment-reader.depth-standard .story-treatment-prose {
+  max-width: 900px;
+  color: color-mix(in srgb, var(--app-ink) 90%, var(--muted-ink));
+  font-size: 1.08rem;
+  line-height: 1.82;
+}
+
+.story-treatment-reader.depth-standard .story-treatment-prose > .rich-lore-text p {
+  margin-bottom: 1.3em;
+}
+
+.story-treatment-reader.depth-standard .story-treatment-callout,
+.story-treatment-reader.depth-standard .story-treatment-gap {
+  max-width: 860px;
+  margin: 27px 0;
+  padding: 13px 16px;
+}
+
+.theme-dream .story-treatment-reader.depth-standard .story-treatment-beat h3 {
+  color: #f2dfb9;
+}
+
+.theme-dream .story-treatment-reader.depth-standard .story-treatment-prose {
+  color: #d7d9df;
+}
+
+.theme-dream .story-treatment-reader.depth-standard .story-treatment-prose strong,
+.theme-dream .story-treatment-reader.depth-standard .story-treatment-prose .lore-keyword-link {
+  color: #f0d39b;
+}
+
 .story-treatment-chapter.inline-editing {
   border: 1px solid color-mix(in srgb, var(--gold) 42%, var(--panel-border));
   border-radius: 8px;
@@ -19256,6 +19358,20 @@ button,
 
   .story-treatment-chapter-heading {
     display: grid;
+  }
+
+  .story-treatment-reader.depth-standard .story-treatment-chapter {
+    margin-bottom: 48px;
+    padding-bottom: 44px;
+  }
+
+  .story-treatment-reader.depth-standard .story-treatment-beat h3 {
+    font-size: 1.85rem;
+  }
+
+  .story-treatment-reader.depth-standard .story-treatment-prose {
+    font-size: 1rem;
+    line-height: 1.72;
   }
 }
 
