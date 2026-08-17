@@ -5,11 +5,43 @@ import { handleDriveListRequest } from "./driveListBackend.ts";
 import { getSyncHealth, handleSyncRequest } from "./syncBackend.ts";
 import { getStoryScribeHealth, handleStoryScribeRequest } from "./storyScribeBackend.ts";
 import { getSpeechifyHealth, handleSpeechifyPost, listSpeechifyVoices } from "./speechifyBackend.ts";
+import { clearSessionCookie, createSessionCookie, isSessionConfigured, readSession, verifyGoogleIdToken } from "./authSession.ts";
 
 const app = express();
 const port = Number(process.env.PORT || 5174);
 
 app.use(express.json({ limit: "25mb" }));
+
+app.get("/api/session", (request, response) => {
+  if (!isSessionConfigured()) {
+    response.status(503).json({ ok: false, error: "Secure Cookbook sessions are not configured." });
+    return;
+  }
+  const session = readSession(request.headers);
+  if (!session) {
+    response.status(401).json({ ok: false, error: "Secure Cookbook session is unavailable." });
+    return;
+  }
+  response.setHeader("Set-Cookie", createSessionCookie(session.email));
+  response.json({ ok: true, email: session.email });
+});
+
+app.post("/api/session", async (request, response) => {
+  const authorization = String(request.headers.authorization || "");
+  const credential = authorization.match(/^Bearer\s+(.+)$/i)?.[1]?.trim() || "";
+  const identity = await verifyGoogleIdToken(credential);
+  if (!identity.ok) {
+    response.status(identity.status).json({ ok: false, error: identity.error });
+    return;
+  }
+  response.setHeader("Set-Cookie", createSessionCookie(identity.email));
+  response.json({ ok: true, email: identity.email });
+});
+
+app.delete("/api/session", (_request, response) => {
+  response.setHeader("Set-Cookie", clearSessionCookie());
+  response.json({ ok: true });
+});
 
 app.get("/api/health", (_request, response) => {
   response.json(getAssistantHealth());

@@ -168,19 +168,12 @@ async function cloudRequest<T>(
   options: { email?: string; payload?: unknown } = {}
 ): Promise<CloudSyncResponse<T>> {
   const credential = loadGoogleCredential();
-  if (!credential && (method === "POST" || scope !== "published")) {
-    return {
-      ok: false,
-      configured: false,
-      envelope: null,
-      error: "Google sign-in expired. Reconnect Google to save this change for the team."
-    };
-  }
 
   const params = new URLSearchParams({ scope });
   if (options.email) params.set("email", options.email);
   const response = await fetch(`/api/sync?${params.toString()}`, {
     method,
+    credentials: "same-origin",
     cache: "no-store",
     headers: {
       ...(credential ? { Authorization: `Bearer ${credential}` } : {}),

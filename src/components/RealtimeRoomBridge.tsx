@@ -107,14 +107,11 @@ export function RealtimeRoomBridge({
       key={`${currentUser.email}:${currentUser.role}`}
       authEndpoint={async (room) => {
         const credential = loadGoogleCredential();
-        if (!credential) {
-          throw new Error("Google sign-in is required for realtime collaboration.");
-        }
-
         const response = await fetch("/api/liveblocks-auth", {
           method: "POST",
+          credentials: "same-origin",
           headers: {
-            Authorization: `Bearer ${credential}`,
+            ...(credential ? { Authorization: `Bearer ${credential}` } : {}),
             "Content-Type": "application/json"
           },
           body: JSON.stringify({

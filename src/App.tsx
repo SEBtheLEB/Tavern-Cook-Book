@@ -45,6 +45,7 @@ import { ArtDirectionPage } from "./components/ArtDirectionPage";
 import { ArtVaultDashboard } from "./components/ArtVaultDashboard";
 import type { ArtBinderInitialFilter, ArtBinderKind, ArtBinderSessionState } from "./components/ArtBinderPage";
 import { AccessGate } from "./components/AccessGate";
+import { GoogleSessionGuard } from "./components/GoogleSessionGuard";
 import { AssistantPanel } from "./components/AssistantPanel";
 import { BestiaryPage } from "./components/BestiaryPage";
 import { CharacterDetailPage } from "./components/CharacterDetailPage";
@@ -77,6 +78,7 @@ import { buildLoreKeywords, LoreKeywordProvider } from "./components/LoreKeyword
 import { buildArtVaultDashboardStats } from "./utils/artVaultDashboard";
 import {
   clearGoogleAccount,
+  decodeGoogleCredential,
   disableGoogleAutoSelect,
   getGoogleUserAccess,
   loadGoogleCredential,
@@ -84,8 +86,10 @@ import {
   roleCanAccessSettings,
   roleCanEdit,
   saveAccessUsers,
-  saveGoogleAccount
+  saveGoogleAccount,
+  saveGoogleCredential
 } from "./utils/accessControl";
+import { createAppSession, endAppSession, fetchAppSession } from "./utils/appSession";
 import { getHiddenTabsForAccessUser, loadAppSyncSettings, normalizeAppSyncSettings, saveAppSyncSettings } from "./utils/appSettings";
 import {
   databaseSyncHash,
@@ -389,6 +393,10 @@ export default function App() {
   }
   const initialSessionUi = initialSessionUiRef.current;
   const [currentUser, setCurrentUser] = useState<GoogleAccountUser | null>(() => loadGoogleAccount());
+  const [appSessionStatus, setAppSessionStatus] = useState<"checking" | "ready" | "needsAuth" | "signedOut">(
+    currentUser ? "checking" : "signedOut"
+  );
+  const [appSessionRevision, setAppSessionRevision] = useState(0);
   const initialLocalDatabaseRef = useRef<LoreDatabase | null>(null);
   if (!initialLocalDatabaseRef.current) {
     initialLocalDatabaseRef.current = hostedViewer ? createStarterDatabase() : loadDatabase();
@@ -485,16 +493,16 @@ export default function App() {
   const sessionUiStateRef = useRef<AppSessionUiState | null>(null);
   const restoredSessionScrollRef = useRef(false);
   const restoredSessionEntryRef = useRef(Boolean(selectedEntry));
-  const googleCredentialReady = Boolean(loadGoogleCredential());
+  const appSessionReady = appSessionStatus === "ready";
   const currentRole = currentUser?.role || "viewer";
   const freelancerMode = currentRole === "freelancer";
   const canEdit = roleCanEdit(currentRole);
   const canAccessSettings = roleCanAccessSettings(currentRole);
   const canUseTavernScribe = !freelancerMode && canEdit;
   const canWriteTeamDatabase = LIVE_TEAM_SYNC && canEdit;
-  const realtimeActive = Boolean(currentUser && !hostedViewer && realtimeReady);
+  const realtimeActive = Boolean(currentUser && !hostedViewer && appSessionReady && realtimeReady);
   const teamDataReady = publishedReady;
-  const readOnly = forcedReadOnly || !canEdit || Boolean(currentUser && !hostedViewer && !teamDataReady);
+  const readOnly = forcedReadOnly || !canEdit || Boolean(currentUser && !hostedViewer && (!teamDataReady || !appSessionReady));
   const setDatabase = useCallback((
     nextValue: LoreDatabase | ((current: LoreDatabase) => LoreDatabase),
     options: { source?: "local" | "remote" } = {}
@@ -516,6 +524,80 @@ export default function App() {
   useEffect(() => {
     databaseRef.current = database;
   }, [database]);
+
+  useEffect(() => {
+    if (!currentUser || hostedViewer) {
+      setAppSessionStatus(currentUser ? "ready" : "signedOut");
+      return;
+    }
+
+    let cancelled = false;
+    setAppSessionStatus("checking");
+
+    const restoreSession = async () => {
+      const existing = await fetchAppSession();
+      if (cancelled) return;
+      if (existing.ok && existing.email === currentUser.email.trim().toLowerCase()) {
+        setAppSessionStatus("ready");
+        return;
+      }
+
+      const credential = loadGoogleCredential();
+      if (!credential) {
+        setAppSessionStatus("needsAuth");
+        return;
+      }
+
+      const created = await createAppSession(credential);
+      if (cancelled) return;
+      if (created.ok && created.email === currentUser.email.trim().toLowerCase()) {
+        setAppSessionStatus("ready");
+        setAppSessionRevision((value) => value + 1);
+        return;
+      }
+      setAppSessionStatus("needsAuth");
+    };
+
+    void restoreSession();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser?.email, hostedViewer]);
+
+  const reconnectGoogleSession = useCallback(async (credential: string) => {
+    if (!currentUser) throw new Error("Open your Cookbook account before reconnecting Google.");
+    const credentialUser = decodeGoogleCredential(credential);
+    if (credentialUser.email !== currentUser.email.trim().toLowerCase()) {
+      throw new Error(`Reconnect with ${currentUser.email}, or sign out first to use another account.`);
+    }
+
+    saveGoogleCredential(credential);
+    const session = await createAppSession(credential);
+    if (!session.ok || session.email !== credentialUser.email) {
+      throw new Error(session.error || "The secure Cookbook session could not be created.");
+    }
+
+    const refreshedUser = {
+      ...currentUser,
+      name: credentialUser.name || currentUser.name,
+      picture: credentialUser.picture || currentUser.picture
+    };
+    saveGoogleAccount(refreshedUser);
+    setCurrentUser(refreshedUser);
+    setAppSessionStatus("ready");
+    setAppSessionRevision((value) => value + 1);
+    setCloudSync((current) => ({
+      ...current,
+      phase: "loading",
+      message: "Google reconnected. Restoring secure team sync..."
+    }));
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (currentUser && cloudSync.phase === "needsAuth") {
+      setAppSessionStatus("needsAuth");
+    }
+  }, [cloudSync.phase, currentUser?.email]);
 
   useEffect(() => {
     return () => {
@@ -686,7 +768,7 @@ export default function App() {
 
   useEffect(() => {
     if (!publishedReady) return;
-    if (!currentUser || readOnly || hostedViewer || !googleCredentialReady || remoteLoadRef.current || realtimeRemoteLoadRef.current) return;
+    if (!currentUser || readOnly || hostedViewer || !appSessionReady || remoteLoadRef.current || realtimeRemoteLoadRef.current) return;
     const pendingDatabase = databaseRef.current;
     const nextHash = databaseSyncHash(pendingDatabase);
     if (nextHash === lastDraftHashRef.current && nextHash !== pendingTeamChangeHashRef.current) return;
@@ -712,7 +794,7 @@ export default function App() {
         .then((result) => {
           if (!result.ok || !result.envelope) {
             setCloudSync({
-              phase: result.error?.includes("sign-in token") ? "needsAuth" : "offline",
+              phase: isAccessRefreshAuthError(result.error) ? "needsAuth" : "offline",
               message: result.error || "Live sync failed. Local browser save is still active.",
               lastSavedAt: "",
               configured: result.configured
@@ -753,7 +835,7 @@ export default function App() {
     }, LIVE_SYNC_AUTOSAVE_DELAY_MS);
 
     return () => window.clearTimeout(timer);
-  }, [database, teamSaveSignal, currentUser?.email, readOnly, hostedViewer, publishedReady, realtimeActive, googleCredentialReady]);
+  }, [database, teamSaveSignal, currentUser?.email, readOnly, hostedViewer, publishedReady, realtimeActive, appSessionReady]);
 
   useEffect(() => {
     if (!LIVE_TEAM_SYNC) return;
@@ -1116,7 +1198,7 @@ export default function App() {
   }, [hostedViewer]);
 
   useEffect(() => {
-    if (!currentUser || hostedViewer) return;
+    if (!currentUser || hostedViewer || !appSessionReady) return;
     return listenForLauncherProgressRequests(() => buildWorkshopProgress(database, currentUser));
   }, [currentUser, database, hostedViewer]);
 
@@ -1173,6 +1255,7 @@ export default function App() {
             setCurrentUser(effectiveCurrentUser);
           }
         } else {
+          void endAppSession();
           clearGoogleAccount();
           setCurrentUser(null);
           setPublishedReady(false);
@@ -1279,7 +1362,7 @@ export default function App() {
           .then((saveResult) => {
             if (!saveResult.ok || !saveResult.envelope?.payload.database) {
               setCloudSync({
-                phase: saveResult.error?.includes("sign-in token") ? "needsAuth" : "offline",
+                phase: isAccessRefreshAuthError(saveResult.error) ? "needsAuth" : "offline",
                 message: saveResult.error || "Restored the local edit, but team save failed. Try the Live Sync button before refreshing.",
                 lastSavedAt: pendingTeamChange.updatedAt,
                 configured: saveResult.configured
@@ -1347,7 +1430,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [currentUser?.email, currentUser?.role, hostedViewer, explicitRemovalSet]);
+  }, [currentUser?.email, currentUser?.role, hostedViewer, explicitRemovalSet, appSessionReady, appSessionRevision]);
 
   useEffect(() => {
     if (!readOnly || (!artVaultDashboardOpen && activeView !== "artVault")) return;
@@ -1758,7 +1841,7 @@ export default function App() {
       const result = await savePublishedDatabase(currentUser.email, databaseToSave);
       if (!result.ok || !result.envelope?.payload.database) {
         setCloudSync({
-          phase: result.error?.includes("sign-in token") ? "needsAuth" : "offline",
+          phase: isAccessRefreshAuthError(result.error) ? "needsAuth" : "offline",
           message: result.error || "Team save failed. Local browser save is still active.",
           lastSavedAt: cloudSync.lastSavedAt,
           configured: result.configured
@@ -2741,8 +2824,10 @@ export default function App() {
 
   const signOut = () => {
     clearAppSessionUiState();
+    void endAppSession();
     clearGoogleAccount();
     disableGoogleAutoSelect();
+    setAppSessionStatus("signedOut");
     setCurrentUser(null);
     setSelectedEntry(null);
     setSelectedReferenceKeyword("");
@@ -2780,7 +2865,7 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (!currentUser || hostedViewer || canAccessSettings) return;
+    if (!currentUser || hostedViewer || canAccessSettings || !appSessionReady) return;
     let cancelled = false;
 
     const refreshAccessFromSharedSettings = async () => {
@@ -2806,6 +2891,7 @@ export default function App() {
       const currentEmail = currentUser.email.trim().toLowerCase();
       const access = remoteSettings.accessUsers.find((user) => user.email === currentEmail);
       if (!access) {
+        void endAppSession();
         clearGoogleAccount();
         setCurrentUser(null);
         setLockedAccessNotice({
@@ -2838,7 +2924,7 @@ export default function App() {
       window.clearInterval(interval);
       window.removeEventListener("focus", handleFocus);
     };
-  }, [currentUser?.email, currentUser?.role, hostedViewer, canAccessSettings]);
+  }, [currentUser?.email, currentUser?.role, hostedViewer, canAccessSettings, appSessionReady]);
 
   useEffect(() => {
     const openSpriteAnimator = () => {
@@ -2877,6 +2963,7 @@ export default function App() {
       <LoreKeywordProvider keywords={loreKeywords} onKeywordClick={openKeywordReference}>
       <RealtimeCollaborationContext.Provider value={realtimeContextValue}>
       <RealtimeRoomBridge
+        key={`${currentUser.email}:${currentUser.role}:${appSessionRevision}`}
         currentUser={currentUser}
         database={database}
         canonicalDatabase={publishedReady ? publishedDatabase : database}
@@ -2884,13 +2971,18 @@ export default function App() {
         activeView={activeView}
         selectedEntry={selectedEntry}
         selectedBestiaryCreatureId={selectedBestiaryCreatureId}
-        enabled={Boolean(currentUser && !hostedViewer)}
+        enabled={Boolean(currentUser && !hostedViewer && appSessionReady)}
         onDatabaseFromRoom={handleRealtimeDatabase}
         onPublisherReady={handleRealtimePublisherReady}
         onResetterReady={handleRealtimeResetterReady}
         onPresenceUpdaterReady={handleRealtimePresenceUpdaterReady}
         onUsersChange={setRealtimeUsers}
-        onStatusChange={setRealtimeStatus}
+        onStatusChange={(status) => {
+          setRealtimeStatus(status);
+          if (/failed:.*(?:auth|session|google|credential)/i.test(status)) {
+            setAppSessionStatus("needsAuth");
+          }
+        }}
       />
       <div className="app-shell flex min-h-screen">
         {storyFocusMode && !storySidebarOpen && (
@@ -3332,6 +3424,12 @@ export default function App() {
           />
         )}
 
+        <GoogleSessionGuard
+          currentUser={currentUser}
+          open={!hostedViewer && appSessionStatus === "needsAuth"}
+          onCredential={reconnectGoogleSession}
+        />
+
         {selectedEntry && !selectedCharacterEntry && (
           <EntryModal
             entry={selectedEntry}
@@ -3412,7 +3510,7 @@ function isSyncDateAfter(left = "", right = "") {
 }
 
 function isAccessRefreshAuthError(error = "") {
-  return /google sign-in token|sign out and sign back in|token expired|could not be verified/i.test(error);
+  return /google sign-in|secure cookbook session|reconnect google|session (?:has )?expired|token expired|could not be verified/i.test(error);
 }
 
 function mergeDraftOntoPublished(

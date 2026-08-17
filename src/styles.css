@@ -12096,6 +12096,78 @@ button,
   padding: 0.75rem 1rem;
 }
 
+.google-session-guard {
+  position: fixed;
+  inset: 0;
+  z-index: 18000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: color-mix(in srgb, var(--app-bg) 68%, transparent);
+  backdrop-filter: blur(7px);
+}
+
+.google-session-guard > section {
+  display: grid;
+  width: min(100%, 430px);
+  justify-items: center;
+  gap: 16px;
+  border: 1px solid color-mix(in srgb, var(--gold) 48%, var(--panel-border));
+  border-radius: 8px;
+  padding: 24px;
+  color: var(--app-ink);
+  background: var(--modal-bg);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.42);
+  text-align: center;
+}
+
+.google-session-guard-icon {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--gold) 50%, var(--panel-border));
+  border-radius: 8px;
+  color: var(--gold);
+  background: color-mix(in srgb, var(--gold) 10%, var(--field-bg));
+}
+
+.google-session-guard p,
+.google-session-guard h2,
+.google-session-guard span {
+  margin: 0;
+}
+
+.google-session-guard p {
+  color: var(--gold);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.google-session-guard h2 {
+  margin-top: 4px;
+  font-size: 1.85rem;
+}
+
+.google-session-guard span,
+.google-session-guard small {
+  color: var(--muted-ink);
+  line-height: 1.55;
+}
+
+.google-session-button {
+  display: flex;
+  min-height: 44px;
+  justify-content: center;
+}
+
+.google-session-button.working {
+  pointer-events: none;
+  opacity: 0.68;
+}
+
 .brand-image-editor {
   margin-top: 1rem;
   border: 1px solid color-mix(in srgb, var(--card-border) 82%, transparent);

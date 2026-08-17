@@ -13,6 +13,7 @@ import {
   saveAccessUsers
 } from "../utils/accessControl";
 import { fetchRemoteAppSettings } from "../utils/cloudSync";
+import { createAppSession } from "../utils/appSession";
 import {
   isDesktopBrowserAuthRequest,
   isTauriDesktopShell,
@@ -48,6 +49,10 @@ export function AccessGate({ onSignIn }: AccessGateProps) {
   const completeCredentialSignIn = async (credential: string) => {
     const user = decodeGoogleCredential(credential);
     saveGoogleCredential(credential);
+    const secureSession = await createAppSession(credential);
+    if (!secureSession.ok || secureSession.email !== user.email) {
+      throw new Error(secureSession.error || "The secure Cookbook session could not be created.");
+    }
     const remoteSettings = await fetchRemoteAppSettings();
     if (remoteSettings.ok && remoteSettings.envelope?.payload?.accessUsers) {
       saveAccessUsers(remoteSettings.envelope.payload.accessUsers);

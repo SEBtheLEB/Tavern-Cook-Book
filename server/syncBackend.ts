@@ -1,4 +1,5 @@
 import type { IncomingHttpHeaders } from "node:http";
+import { verifyRequestIdentity } from "./authSession.ts";
 
 type SyncScope = "published" | "user" | "settings" | "health";
 type SyncProvider = "supabase" | "github" | "none";
@@ -47,9 +48,7 @@ const DEFAULT_REPO = "SEBtheLEB/Tavern-Cook-Book";
 const DEFAULT_BRANCH = "tavern-sync";
 const DEFAULT_SUPABASE_TABLE = "tavern_sync_documents";
 const SYNC_ROOT = "sync/tavern-cook-book";
-const GOOGLE_TOKENINFO_URL = "https://oauth2.googleapis.com/tokeninfo";
 const MAIN_ADMIN_EMAIL = "stlprodz1101@gmail.com";
-const STL_WORKSHOP_GOOGLE_OAUTH_CLIENT_ID = "55508806253-p292f7oom6s1do0f9er1unfhi0mjjaen.apps.googleusercontent.com";
 
 export function getSyncHealth() {
   const provider = syncProvider();
@@ -155,36 +154,7 @@ export async function verifyGoogleCredential(headers: IncomingHttpHeaders): Prom
   | { ok: true; email: string }
   | { ok: false; status: number; error: string }
 > {
-  const credential = bearerToken(headers);
-  if (!credential) {
-    return { ok: false, status: 401, error: "Google sign-in token is missing. Sign out and sign back in." };
-  }
-
-  const response = await fetch(`${GOOGLE_TOKENINFO_URL}?id_token=${encodeURIComponent(credential)}`);
-  if (!response.ok) {
-    return { ok: false, status: 401, error: "Google sign-in token could not be verified." };
-  }
-
-  const payload = await response.json() as Record<string, unknown>;
-  const email = normalizeEmail(String(payload.email || ""));
-  const emailVerified = payload.email_verified === true || payload.email_verified === "true";
-  if (!email || !emailVerified) {
-    return { ok: false, status: 401, error: "Google account email is not verified." };
-  }
-
-  const expectedClientIds = googleOAuthClientIds();
-  if (expectedClientIds.length && !expectedClientIds.includes(String(payload.aud || ""))) {
-    return { ok: false, status: 401, error: "Google sign-in token was issued for a different OAuth client." };
-  }
-
-  return { ok: true, email };
-}
-
-function bearerToken(headers: IncomingHttpHeaders) {
-  const raw = headers.authorization || headers.Authorization;
-  const value = Array.isArray(raw) ? raw[0] : raw || "";
-  const match = value.match(/^Bearer\s+(.+)$/i);
-  return match?.[1]?.trim() || "";
+  return verifyRequestIdentity(headers);
 }
 
 async function readSyncJson(scope: SyncScope, email: string): Promise<SyncReadResult | null> {
@@ -512,16 +482,6 @@ function supabaseServiceRoleKey() {
 
 function supabaseTable() {
   return (process.env.TAVERN_SUPABASE_SYNC_TABLE || DEFAULT_SUPABASE_TABLE).trim();
-}
-
-function googleOAuthClientIds() {
-  return unique([
-    process.env.TAVERN_GOOGLE_OAUTH_CLIENT_ID ||
-    process.env.VITE_ACCESS_GOOGLE_OAUTH_CLIENT_ID ||
-    process.env.VITE_GOOGLE_OAUTH_CLIENT_ID ||
-    "",
-    process.env.STL_WORKSHOP_GOOGLE_OAUTH_CLIENT_ID || STL_WORKSHOP_GOOGLE_OAUTH_CLIENT_ID
-  ].flatMap((value) => value.split(","))).map((value) => value.trim()).filter(Boolean);
 }
 
 function unique(values: string[]) {

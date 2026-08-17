@@ -1,9 +1,8 @@
 import type { IncomingHttpHeaders } from "node:http";
 import { createHash } from "node:crypto";
+import { verifyRequestIdentity } from "./authSession.ts";
 
 const SPEECHIFY_API_BASE = "https://api.speechify.ai/v1";
-const GOOGLE_TOKENINFO_URL = "https://oauth2.googleapis.com/tokeninfo";
-const STL_WORKSHOP_GOOGLE_OAUTH_CLIENT_ID = "55508806253-p292f7oom6s1do0f9er1unfhi0mjjaen.apps.googleusercontent.com";
 const DEFAULT_MODEL = "simba-3.0";
 const DEFAULT_VOICE_ID = "john-rhys-davies";
 const MAX_TEXT_LENGTH = 12_000;
@@ -920,37 +919,5 @@ async function verifyGoogleCredential(headers: IncomingHttpHeaders): Promise<
   | { ok: true; email: string }
   | { ok: false; status: number; error: string }
 > {
-  const credential = bearerToken(headers);
-  if (!credential) return { ok: false, status: 401, error: "Google sign-in token is missing. Sign out and sign back in." };
-
-  const response = await fetch(`${GOOGLE_TOKENINFO_URL}?id_token=${encodeURIComponent(credential)}`);
-  if (!response.ok) return { ok: false, status: 401, error: "Google sign-in token could not be verified." };
-
-  const payload = await response.json() as Record<string, unknown>;
-  const email = stringValue(payload.email).toLowerCase();
-  const emailVerified = payload.email_verified === true || payload.email_verified === "true";
-  if (!email || !emailVerified) return { ok: false, status: 401, error: "Google account email is not verified." };
-
-  const expectedClientIds = googleOAuthClientIds();
-  if (expectedClientIds.length && !expectedClientIds.includes(stringValue(payload.aud))) {
-    return { ok: false, status: 401, error: "Google sign-in token was issued for a different OAuth client." };
-  }
-  return { ok: true, email };
-}
-
-function bearerToken(headers: IncomingHttpHeaders) {
-  const raw = headers.authorization || headers.Authorization;
-  const value = Array.isArray(raw) ? raw[0] : raw || "";
-  return value.match(/^Bearer\s+(.+)$/i)?.[1]?.trim() || "";
-}
-
-function googleOAuthClientIds() {
-  const values = [
-    process.env.TAVERN_GOOGLE_OAUTH_CLIENT_ID
-      || process.env.VITE_ACCESS_GOOGLE_OAUTH_CLIENT_ID
-      || process.env.VITE_GOOGLE_OAUTH_CLIENT_ID
-      || "",
-    process.env.STL_WORKSHOP_GOOGLE_OAUTH_CLIENT_ID || STL_WORKSHOP_GOOGLE_OAUTH_CLIENT_ID
-  ].flatMap((value) => value.split(",")).map((value) => value.trim()).filter(Boolean);
-  return [...new Set(values)];
+  return verifyRequestIdentity(headers);
 }
