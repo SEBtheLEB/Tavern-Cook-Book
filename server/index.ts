@@ -4,7 +4,7 @@ import { getAssistantHealth, handleAssistantRequest } from "./assistantBackend.t
 import { handleDriveListRequest } from "./driveListBackend.ts";
 import { getSyncHealth, handleSyncRequest } from "./syncBackend.ts";
 import { getStoryScribeHealth, handleStoryScribeRequest } from "./storyScribeBackend.ts";
-import { getSpeechifyHealth, listSpeechifyVoices, synthesizeSpeechifyAudio } from "./speechifyBackend.ts";
+import { getSpeechifyHealth, handleSpeechifyPost, listSpeechifyVoices } from "./speechifyBackend.ts";
 
 const app = express();
 const port = Number(process.env.PORT || 5174);
@@ -39,7 +39,7 @@ app.get("/api/speechify", async (request, response) => {
 });
 
 app.post("/api/speechify", async (request, response) => {
-  const result = await synthesizeSpeechifyAudio(request.headers, request.body || {});
+  const result = await handleSpeechifyPost(request.headers, request.body || {});
   response.status(result.status).type(result.contentType).send(result.body);
 });
 

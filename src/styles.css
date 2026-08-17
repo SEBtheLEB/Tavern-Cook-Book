@@ -17805,6 +17805,88 @@ button,
   font-size: 0.68rem;
 }
 
+.story-speechify-recording {
+  display: grid;
+  gap: 8px;
+  border: 1px solid color-mix(in srgb, var(--gold) 26%, var(--panel-border));
+  border-radius: 6px;
+  padding: 10px;
+  background: color-mix(in srgb, var(--field-bg) 86%, transparent);
+}
+
+.story-speechify-recording > div:first-child {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.story-speechify-recording > div:first-child > svg {
+  color: var(--gold);
+}
+
+.story-speechify-recording.ready > div:first-child > svg {
+  color: #67c587;
+}
+
+.story-speechify-recording.error > div:first-child > svg {
+  color: var(--danger-ink);
+}
+
+.story-speechify-recording > div:first-child > div {
+  display: grid;
+  gap: 1px;
+}
+
+.story-speechify-recording span,
+.story-speechify-recording p {
+  color: var(--muted-ink);
+  font-size: 0.68rem;
+}
+
+.story-speechify-recording strong {
+  font-size: 0.78rem;
+}
+
+.story-speechify-recording p {
+  margin: 0;
+  line-height: 1.4;
+}
+
+.story-speechify-recording > button {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid color-mix(in srgb, var(--gold) 42%, var(--panel-border));
+  border-radius: 6px;
+  color: var(--app-ink);
+  background: color-mix(in srgb, var(--gold) 9%, var(--field-bg));
+  font-size: 0.74rem;
+  font-weight: 680;
+}
+
+.story-speechify-recording > button:hover:not(:disabled) {
+  border-color: var(--gold);
+  background: color-mix(in srgb, var(--gold) 15%, var(--field-bg));
+}
+
+.story-speechify-recording-progress {
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--panel-border) 74%, transparent);
+}
+
+.story-speechify-recording-progress > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--gold);
+  transition: width 180ms ease;
+}
+
 .story-speechify-actions {
   display: grid;
   grid-template-columns: 1fr auto;

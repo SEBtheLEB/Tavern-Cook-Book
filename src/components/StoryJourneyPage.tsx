@@ -18,11 +18,12 @@ import { normalizeImageFit, resolveImageSourceUrl } from "../utils/imageFit";
 import { isRichText, plainTextToRichHtml, richTextToPlainText } from "../utils/richText";
 import {
   createSpeechifyAudio,
-  createSpeechifyTimedAudio,
+  fetchSpeechifyRecordingStatus,
   fetchSpeechifyVoices,
+  loadSpeechifyRecordedAudio,
+  recordSpeechifyTimedAudio,
   splitSpeechifyText,
   type SpeechifySpeechMark,
-  type SpeechifyTimedAudio,
   type SpeechifyVoice
 } from "../utils/speechify";
 import { AdjustableImage } from "./AdjustableImage";
@@ -102,6 +103,14 @@ interface StoryNarrationChunk {
   inputStart: number;
   inputEnd: number;
   words: StoryNarrationWordTarget[];
+}
+
+interface StoryNarrationRecordingState {
+  phase: "idle" | "checking" | "recording" | "ready" | "partial" | "error";
+  total: number;
+  recorded: number;
+  current: number;
+  message: string;
 }
 
 interface StoryScribeChapterPatch {
@@ -1054,6 +1063,13 @@ export function StoryJourneyPage({
   const [speechifyNowPlaying, setSpeechifyNowPlaying] = useState("");
   const [speechifyChunkProgress, setSpeechifyChunkProgress] = useState({ current: 0, total: 0 });
   const [speechifyReadAllMode, setSpeechifyReadAllMode] = useState(false);
+  const [speechifyRecordingState, setSpeechifyRecordingState] = useState<StoryNarrationRecordingState>({
+    phase: "idle",
+    total: 0,
+    recorded: 0,
+    current: 0,
+    message: ""
+  });
   const [selectedLibraryItemId, setSelectedLibraryItemId] = useState("");
   const [collapsedLibrarySections, setCollapsedLibrarySections] = useState<StoryLibrarySectionId[]>([
     "peoples",
@@ -1216,6 +1232,25 @@ export function StoryJourneyPage({
     void loadSpeechifyVoiceOptions(controller.signal);
     return () => controller.abort();
   }, [speechifyPanelOpen, speechifyVoices.length]);
+
+  useEffect(() => {
+    if (!speechifyPanelOpen || !speechifyVoices.length || !speechifyVoiceId) return;
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => void refreshSpeechifyRecordingStatus(controller.signal), 80);
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [
+    speechifyPanelOpen,
+    speechifyVoiceId,
+    speechifyVoices.length,
+    readingDepth,
+    storyThread,
+    selectedLibraryItemId,
+    normalizedStorySearch,
+    chapters
+  ]);
 
   useEffect(() => {
     if (speechifyModeRef.current === "page") stopSpeechifyNarration();
@@ -1579,6 +1614,115 @@ export function StoryJourneyPage({
       || (voiceId === "john-rhys-davies" ? "en-GB" : "en-US");
   }
 
+  function visibleStoryNarrationChunks() {
+    const root = storyTreatmentReaderRef.current;
+    return root ? buildStoryNarrationChunks(root) : [];
+  }
+
+  async function resolveSpeechifyVoiceId(signal?: AbortSignal) {
+    return speechifyVoices.some((voice) => voice.id === speechifyVoiceId)
+      ? speechifyVoiceId
+      : loadSpeechifyVoiceOptions(signal);
+  }
+
+  async function refreshSpeechifyRecordingStatus(signal?: AbortSignal) {
+    const chunks = visibleStoryNarrationChunks();
+    if (!chunks.length) {
+      setSpeechifyRecordingState({ phase: "idle", total: 0, recorded: 0, current: 0, message: "No readable story sections are visible." });
+      return;
+    }
+    setSpeechifyRecordingState((current) => ({ ...current, phase: "checking", total: chunks.length, message: "Checking the shared recording..." }));
+    try {
+      const voiceId = await resolveSpeechifyVoiceId(signal);
+      if (!voiceId || signal?.aborted) return;
+      const status = await fetchSpeechifyRecordingStatus(
+        chunks.map((chunk) => chunk.text),
+        voiceId,
+        speechifyLanguageForVoice(voiceId),
+        signal
+      );
+      const complete = status.recordedCount === status.total;
+      setSpeechifyRecordingState({
+        phase: complete ? "ready" : "partial",
+        total: status.total,
+        recorded: status.recordedCount,
+        current: 0,
+        message: complete
+          ? "This page is recorded and ready for the team."
+          : `${status.missingIndexes.length} new or edited ${status.missingIndexes.length === 1 ? "section needs" : "sections need"} recording.`
+      });
+    } catch (error) {
+      if (signal?.aborted) return;
+      setSpeechifyRecordingState({
+        phase: "error",
+        total: chunks.length,
+        recorded: 0,
+        current: 0,
+        message: error instanceof Error ? error.message : "The shared recording could not be checked."
+      });
+    }
+  }
+
+  async function recordOrUpdateSpeechifyPage() {
+    const chunks = visibleStoryNarrationChunks();
+    if (!chunks.length) {
+      setSpeechifyRecordingState({ phase: "error", total: 0, recorded: 0, current: 0, message: "There is no readable story text to record." });
+      return;
+    }
+
+    stopSpeechifyNarration();
+    const controller = new AbortController();
+    speechifyAbortRef.current = controller;
+    setSpeechifyStatus("connecting");
+    setSpeechifyError("");
+    setSpeechifyPanelOpen(true);
+    setSpeechifyRecordingState({ phase: "checking", total: chunks.length, recorded: 0, current: 0, message: "Finding new and edited story sections..." });
+
+    try {
+      const voiceId = await resolveSpeechifyVoiceId(controller.signal);
+      if (!voiceId || controller.signal.aborted) return;
+      const language = speechifyLanguageForVoice(voiceId);
+      const status = await fetchSpeechifyRecordingStatus(chunks.map((chunk) => chunk.text), voiceId, language, controller.signal);
+      if (!status.missingIndexes.length) {
+        setSpeechifyRecordingState({ phase: "ready", total: status.total, recorded: status.total, current: 0, message: "This page recording is already up to date." });
+        setSpeechifyStatus("idle");
+        return;
+      }
+
+      let recorded = status.recordedCount;
+      for (let position = 0; position < status.missingIndexes.length; position += 1) {
+        const chunkIndex = status.missingIndexes[position];
+        const chunk = chunks[chunkIndex];
+        if (!chunk || controller.signal.aborted) return;
+        setSpeechifyRecordingState({
+          phase: "recording",
+          total: status.total,
+          recorded,
+          current: position + 1,
+          message: `Recording changed section ${position + 1} of ${status.missingIndexes.length}...`
+        });
+        const timed = await recordSpeechifyTimedAudio(chunk.text, voiceId, language, controller.signal);
+        URL.revokeObjectURL(timed.audioUrl);
+        recorded += 1;
+      }
+
+      setSpeechifyRecordingState({
+        phase: "ready",
+        total: status.total,
+        recorded: status.total,
+        current: status.missingIndexes.length,
+        message: `Shared recording updated. ${status.missingIndexes.length} ${status.missingIndexes.length === 1 ? "section was" : "sections were"} newly recorded.`
+      });
+      setSpeechifyStatus("idle");
+    } catch (error) {
+      if (controller.signal.aborted) return;
+      const message = error instanceof Error ? error.message : "The page recording could not be updated.";
+      setSpeechifyRecordingState((current) => ({ ...current, phase: "error", message }));
+      setSpeechifyError(message);
+      setSpeechifyStatus("error");
+    }
+  }
+
   function beginSpeechifyWordTracking(
     audio: HTMLAudioElement,
     marks: SpeechifySpeechMark[],
@@ -1700,12 +1844,9 @@ export function StoryJourneyPage({
     const startChunkIndex = Math.max(0, chunks.findIndex((chunk) => inputOffset < chunk.inputEnd));
     setSpeechifyChunkProgress({ current: startChunkIndex + 1, total: chunks.length });
     if (inputOffset <= 0) root?.scrollIntoView({ behavior: "smooth", block: "start" });
-    let prefetched: Promise<{ timed?: SpeechifyTimedAudio; error?: unknown }> | null = null;
 
     try {
-      const voiceId = speechifyVoices.some((voice) => voice.id === speechifyVoiceId)
-        ? speechifyVoiceId
-        : await loadSpeechifyVoiceOptions(controller.signal);
+      const voiceId = await resolveSpeechifyVoiceId(controller.signal);
       if (!voiceId || session !== speechifySessionRef.current) return;
       const language = speechifyLanguageForVoice(voiceId);
 
@@ -1713,23 +1854,10 @@ export function StoryJourneyPage({
         if (session !== speechifySessionRef.current) return;
         const chunk = chunks[index];
         setSpeechifyChunkProgress({ current: index + 1, total: chunks.length });
-        const prepared = prefetched
-          ? await prefetched
-          : { timed: await createSpeechifyTimedAudio(chunk.text, voiceId, language, controller.signal) };
-        prefetched = null;
-        if (prepared.error) throw prepared.error;
-        const timed = prepared.timed;
-        if (!timed) throw new Error("Speechify did not prepare the next synchronized story section.");
+        const timed = await loadSpeechifyRecordedAudio(chunk.text, voiceId, language, controller.signal);
         if (session !== speechifySessionRef.current) {
           URL.revokeObjectURL(timed.audioUrl);
           return;
-        }
-
-        const nextChunk = chunks[index + 1];
-        if (nextChunk) {
-          prefetched = createSpeechifyTimedAudio(nextChunk.text, voiceId, language, controller.signal)
-            .then((nextTimed) => ({ timed: nextTimed }))
-            .catch((error) => ({ error }));
         }
 
         releaseSpeechifyMedia();
@@ -1781,12 +1909,6 @@ export function StoryJourneyPage({
       setSpeechifyError(error instanceof Error ? error.message : "Synchronized Speechify narration failed.");
       setSpeechifyStatus("error");
       setSpeechifyPanelOpen(true);
-    } finally {
-      if (prefetched) {
-        void prefetched.then((prepared) => {
-          if (prepared.timed) URL.revokeObjectURL(prepared.timed.audioUrl);
-        });
-      }
     }
   }
 
@@ -2107,6 +2229,43 @@ export function StoryJourneyPage({
                     </select>
                   </label>
 
+                  <div className={`story-speechify-recording ${speechifyRecordingState.phase}`}>
+                    <div>
+                      <Icon
+                        name={speechifyRecordingState.phase === "ready" ? "CircleCheck" : speechifyRecordingState.phase === "error" ? "CircleAlert" : "UploadCloud"}
+                        className="h-4 w-4"
+                      />
+                      <div>
+                        <span>Shared Recording</span>
+                        <strong>
+                          {speechifyRecordingState.phase === "checking"
+                            ? "Checking page"
+                            : speechifyRecordingState.phase === "recording"
+                              ? `Recording ${speechifyRecordingState.current}`
+                              : speechifyRecordingState.total
+                                ? `${speechifyRecordingState.recorded} of ${speechifyRecordingState.total} sections ready`
+                                : "Not checked yet"}
+                        </strong>
+                      </div>
+                    </div>
+                    {speechifyRecordingState.total > 0 && (
+                      <div className="story-speechify-recording-progress" aria-label={`${speechifyRecordingState.recorded} of ${speechifyRecordingState.total} narration sections recorded`}>
+                        <span style={{ width: `${Math.round((speechifyRecordingState.recorded / speechifyRecordingState.total) * 100)}%` }} />
+                      </div>
+                    )}
+                    {speechifyRecordingState.message && <p>{speechifyRecordingState.message}</p>}
+                    {canEditStory && (
+                      <button
+                        type="button"
+                        onClick={() => void recordOrUpdateSpeechifyPage()}
+                        disabled={speechifyRecordingState.phase === "checking" || speechifyRecordingState.phase === "recording"}
+                      >
+                        <Icon name="RefreshCw" className="h-4 w-4" />
+                        {speechifyRecordingState.phase === "ready" ? "Check for Updates" : "Record / Update Page"}
+                      </button>
+                    )}
+                  </div>
+
                   <div className="story-speechify-actions">
                     <button type="button" onClick={toggleSpeechifyNarration} disabled={speechifyStatus === "connecting" || (!activeReaderChapter && !selectedLibraryItem)}>
                       <Icon name={speechifyStatus === "playing" ? "Pause" : "Play"} className="h-4 w-4" />
@@ -2125,7 +2284,9 @@ export function StoryJourneyPage({
                     </div>
                   )}
                   <small className="story-speechify-footnote">
-                    {speechifyReadAllMode ? "Click any word in the story to continue narration from that point." : "Narration uses the private Speechify API connection configured for this app."}
+                    {speechifyReadAllMode
+                      ? "Click any word in the story to continue narration from that point. Playback uses the shared recording."
+                      : "Play All uses the shared recording, so team playback does not spend Speechify credits."}
                   </small>
                 </section>
               )}
@@ -3514,6 +3675,7 @@ const STORY_NARRATION_HIGHLIGHT = "story-speechify-current-word";
 function buildStoryNarrationChunks(root: HTMLElement, maxLength = 3_500): StoryNarrationChunk[] {
   type CharacterLocation = { node: Text; offset: number } | null;
   const locations: CharacterLocation[] = [];
+  const blockRanges: Array<{ start: number; end: number }> = [];
   let input = "";
   const blocks = Array.from(root.querySelectorAll<HTMLElement>("[data-story-narration-block]"))
     .filter((block) => !block.parentElement?.closest("[data-story-narration-block]") && block.getClientRects().length > 0);
@@ -3531,6 +3693,7 @@ function buildStoryNarrationChunks(root: HTMLElement, maxLength = 3_500): StoryN
 
   blocks.forEach((block, blockIndex) => {
     if (blockIndex > 0) appendSeparator();
+    const blockStart = input.length;
     const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT, {
       acceptNode(node) {
         const textNode = node as Text;
@@ -3558,6 +3721,11 @@ function buildStoryNarrationChunks(root: HTMLElement, maxLength = 3_500): StoryN
       }
       current = walker.nextNode() as Text | null;
     }
+    while (input.length > blockStart && /\s$/.test(input)) {
+      input = input.slice(0, -1);
+      locations.pop();
+    }
+    if (input.length > blockStart) blockRanges.push({ start: blockStart, end: input.length });
   });
 
   input = input.trim();
@@ -3583,7 +3751,9 @@ function buildStoryNarrationChunks(root: HTMLElement, maxLength = 3_500): StoryN
     });
   }
 
-  return splitStoryNarrationRanges(input, maxLength).map(({ start, end }) => ({
+  const ranges = blockRanges.flatMap((block) => splitStoryNarrationRanges(input.slice(block.start, block.end), maxLength)
+    .map(({ start, end }) => ({ start: block.start + start, end: block.start + end })));
+  return ranges.map(({ start, end }) => ({
     text: input.slice(start, end),
     inputStart: start,
     inputEnd: end,

@@ -1,4 +1,5 @@
 import type { IncomingHttpHeaders } from "node:http";
+import { createHash } from "node:crypto";
 
 const SPEECHIFY_API_BASE = "https://api.speechify.ai/v1";
 const GOOGLE_TOKENINFO_URL = "https://oauth2.googleapis.com/tokeninfo";
@@ -6,11 +7,21 @@ const STL_WORKSHOP_GOOGLE_OAUTH_CLIENT_ID = "55508806253-p292f7oom6s1do0f9er1unf
 const DEFAULT_MODEL = "simba-3.0";
 const DEFAULT_VOICE_ID = "john-rhys-davies";
 const MAX_TEXT_LENGTH = 12_000;
-const MAX_REQUESTS_PER_MINUTE = 12;
+const MAX_REQUESTS_PER_MINUTE = 60;
+const MAIN_ADMIN_EMAIL = "stlprodz1101@gmail.com";
+const NARRATION_BUCKET = "tavern-narration";
+const NARRATION_CACHE_VERSION = "story-reader-v1";
+const DEFAULT_SYNC_REPO = "SEBtheLEB/Tavern-Cook-Book";
+const DEFAULT_SYNC_BRANCH = "tavern-sync";
+const NARRATION_GITHUB_ROOT = "sync/tavern-cook-book/narration";
 const speechifyRateLimits = new Map<string, number[]>();
+let speechifyGenerationQueue: Promise<void> = Promise.resolve();
+let narrationBucketReady: Promise<void> | null = null;
 
 interface SpeechifyRequest {
+  action?: unknown;
   text?: unknown;
+  texts?: unknown;
   voiceId?: unknown;
   language?: unknown;
   withTimestamps?: unknown;
@@ -22,6 +33,35 @@ interface SpeechifyWordMark {
   start_time: number;
   end_time: number;
   value: string;
+}
+
+interface StoredSpeechifyRecording {
+  schemaVersion: 1;
+  recordingId: string;
+  voiceId: string;
+  language: string;
+  model: string;
+  contentType: string;
+  durationMs: number;
+  speechMarks: SpeechifyWordMark[];
+  createdAt: string;
+  createdBy: string;
+}
+
+interface GeneratedSpeechifyAudio {
+  audio: Buffer;
+  contentType: string;
+  speechMarks: SpeechifyWordMark[];
+  durationMs: number;
+}
+
+class SpeechifyUpstreamError extends Error {
+  readonly status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
 }
 
 export interface SpeechifyVoice {
@@ -36,6 +76,8 @@ export function getSpeechifyHealth() {
   return {
     ok: true,
     configured: Boolean(process.env.SPEECHIFY_API_KEY),
+    recordingStorageConfigured: narrationStorageConfigured(),
+    recordingStorageProvider: narrationStorageProvider(),
     defaultVoiceId: process.env.SPEECHIFY_VOICE_ID || DEFAULT_VOICE_ID,
     model: process.env.SPEECHIFY_MODEL || DEFAULT_MODEL
   };
@@ -105,6 +147,14 @@ export async function listSpeechifyVoices(headers: IncomingHttpHeaders) {
   }
 }
 
+export async function handleSpeechifyPost(headers: IncomingHttpHeaders, body: SpeechifyRequest) {
+  const action = stringValue(body.action);
+  if (action === "recording-status") return speechifyRecordingStatus(headers, body);
+  if (action === "load-recording") return loadSpeechifyRecording(headers, body);
+  if (action === "record") return recordSpeechifyAudio(headers, body);
+  return synthesizeSpeechifyAudio(headers, body);
+}
+
 export async function synthesizeSpeechifyAudio(headers: IncomingHttpHeaders, body: SpeechifyRequest) {
   const auth = await verifyGoogleCredential(headers);
   if (!auth.ok) return jsonAudioError(auth.status, auth.error);
@@ -130,10 +180,163 @@ export async function synthesizeSpeechifyAudio(headers: IncomingHttpHeaders, bod
   if (text.length > MAX_TEXT_LENGTH) return jsonAudioError(413, `Speechify text chunks must be ${MAX_TEXT_LENGTH.toLocaleString()} characters or fewer.`);
 
   try {
+    const generated = await enqueueSpeechifyGeneration(() => generateSpeechifyAudio(apiKey, text, voiceId, language, withTimestamps));
+    if (withTimestamps) {
+      return {
+        status: 200,
+        contentType: "application/json",
+        body: recordingJsonBody(generated)
+      };
+    }
+
+    return {
+      status: 200,
+      contentType: generated.contentType,
+      body: generated.audio
+    };
+  } catch (error) {
+    return speechifyRequestError(error, "Speechify narration failed.");
+  }
+}
+
+async function speechifyRecordingStatus(headers: IncomingHttpHeaders, body: SpeechifyRequest) {
+  const auth = await verifyGoogleCredential(headers);
+  if (!auth.ok) return jsonAudioError(auth.status, auth.error);
+  if (!narrationStorageConfigured()) return narrationStorageError();
+
+  const texts = Array.isArray(body.texts)
+    ? body.texts.filter((value): value is string => typeof value === "string" && Boolean(value.trim())).slice(0, 500)
+    : [];
+  const voiceId = stringValue(body.voiceId);
+  const language = stringValue(body.language) || "en-US";
+  if (!texts.length || !voiceId) return jsonAudioError(400, "Narration status needs story sections and a voice.");
+  if (texts.some((text) => text.length > MAX_TEXT_LENGTH)) return jsonAudioError(413, "A narration section is too long to record.");
+
+  try {
+    const ids = texts.map((text) => speechifyRecordingId(text, voiceId, language));
+    const recorded = narrationStorageProvider() === "github"
+      ? listGitHubNarrationIds().then((savedIds) => ids.map((id) => savedIds.has(id)))
+      : Promise.all(ids.map((id) => speechifyRecordingExists(id)));
+    const recordedSections = await recorded;
+    return jsonAudio(200, {
+      ok: true,
+      total: ids.length,
+      recordedCount: recordedSections.filter(Boolean).length,
+      missingIndexes: recordedSections.flatMap((exists, index) => exists ? [] : [index])
+    });
+  } catch (error) {
+    return jsonAudioError(502, error instanceof Error ? error.message : "Narration recording status could not be checked.");
+  }
+}
+
+async function loadSpeechifyRecording(headers: IncomingHttpHeaders, body: SpeechifyRequest) {
+  const auth = await verifyGoogleCredential(headers);
+  if (!auth.ok) return jsonAudioError(auth.status, auth.error);
+  if (!narrationStorageConfigured()) return narrationStorageError();
+
+  const input = readSpeechifyInput(body);
+  if (!input.ok) return jsonAudioError(input.status, input.error);
+  try {
+    const recording = await readSpeechifyRecording(speechifyRecordingId(input.text, input.voiceId, input.language));
+    if (!recording) {
+      return jsonAudio(404, {
+        error: "This story section has not been recorded yet. An admin can use Record / Update Page to prepare it.",
+        missing: true
+      });
+    }
+    return {
+      status: 200,
+      contentType: "application/json",
+      body: recordingJsonBody(recording.audio, recording.manifest)
+    };
+  } catch (error) {
+    return jsonAudioError(502, error instanceof Error ? error.message : "The saved narration could not be loaded.");
+  }
+}
+
+async function recordSpeechifyAudio(headers: IncomingHttpHeaders, body: SpeechifyRequest) {
+  const auth = await verifyGoogleCredential(headers);
+  if (!auth.ok) return jsonAudioError(auth.status, auth.error);
+  if (!speechifyRecordingAdminEmails().includes(auth.email)) {
+    return jsonAudioError(403, "Only a Tavern Cook Book admin can create shared narration recordings.");
+  }
+  if (!narrationStorageConfigured()) return narrationStorageError();
+
+  const apiKey = process.env.SPEECHIFY_API_KEY;
+  if (!apiKey) return jsonAudioError(503, "Speechify is not connected yet. Add SPEECHIFY_API_KEY to Vercel.");
+  const input = readSpeechifyInput(body);
+  if (!input.ok) return jsonAudioError(input.status, input.error);
+  const recordingId = speechifyRecordingId(input.text, input.voiceId, input.language);
+
+  try {
+    const existing = await readSpeechifyRecording(recordingId);
+    if (existing) {
+      return {
+        status: 200,
+        contentType: "application/json",
+        body: recordingJsonBody(existing.audio, existing.manifest, true)
+      };
+    }
+    if (!consumeSpeechifyRequest(auth.email)) {
+      return jsonAudioError(429, "Speechify is receiving too many requests from this account. Wait a moment and try again.");
+    }
+
+    const generated = await enqueueSpeechifyGeneration(() => generateSpeechifyAudio(
+      apiKey,
+      input.text,
+      input.voiceId,
+      input.language,
+      true
+    ));
+    const manifest: StoredSpeechifyRecording = {
+      schemaVersion: 1,
+      recordingId,
+      voiceId: input.voiceId,
+      language: input.language,
+      model: process.env.SPEECHIFY_MODEL || DEFAULT_MODEL,
+      contentType: generated.contentType,
+      durationMs: generated.durationMs,
+      speechMarks: generated.speechMarks,
+      createdAt: new Date().toISOString(),
+      createdBy: auth.email
+    };
+    await writeSpeechifyRecording(recordingId, generated.audio, manifest);
+    return {
+      status: 200,
+      contentType: "application/json",
+      body: recordingJsonBody(generated, manifest, false)
+    };
+  } catch (error) {
+    return speechifyRequestError(error, "The shared narration recording could not be created.");
+  }
+}
+
+function readSpeechifyInput(body: SpeechifyRequest):
+  | { ok: true; text: string; voiceId: string; language: string }
+  | { ok: false; status: number; error: string } {
+  const text = stringValue(body.text);
+  const voiceId = stringValue(body.voiceId);
+  const language = stringValue(body.language) || "en-US";
+  if (!text) return { ok: false, status: 400, error: "No story text was provided for narration." };
+  if (!voiceId) return { ok: false, status: 400, error: "Choose a Speechify voice before preparing narration." };
+  if (text.length > MAX_TEXT_LENGTH) {
+    return { ok: false, status: 413, error: `Speechify text chunks must be ${MAX_TEXT_LENGTH.toLocaleString()} characters or fewer.` };
+  }
+  return { ok: true, text, voiceId, language };
+}
+
+async function generateSpeechifyAudio(
+  apiKey: string,
+  text: string,
+  voiceId: string,
+  language: string,
+  withTimestamps: boolean
+): Promise<GeneratedSpeechifyAudio> {
+  for (let attempt = 0; attempt < 4; attempt += 1) {
     const upstream = await fetch(`${SPEECHIFY_API_BASE}/audio/${withTimestamps ? "stream/with-timestamps" : "stream"}`, {
       method: "POST",
       headers: {
-        Accept: "audio/mpeg",
+        Accept: withTimestamps ? "text/event-stream" : "audio/mpeg",
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json"
       },
@@ -141,37 +344,94 @@ export async function synthesizeSpeechifyAudio(headers: IncomingHttpHeaders, bod
         input: text,
         voice_id: voiceId,
         language,
-        model: process.env.SPEECHIFY_MODEL || DEFAULT_MODEL
+        model: process.env.SPEECHIFY_MODEL || DEFAULT_MODEL,
+        output_format: "mp3_24000_64"
       })
     });
 
     if (!upstream.ok) {
       const payload = await readUpstreamPayload(upstream);
-      return jsonAudioError(upstream.status, speechifyError(payload, upstream.status));
+      const message = speechifyError(payload, upstream.status);
+      if (upstream.status === 429 && isConcurrencyLimitError(payload, message) && attempt < 3) {
+        const retrySeconds = Math.max(1, Math.min(5, Number(upstream.headers.get("retry-after")) || attempt + 1));
+        await wait(retrySeconds * 1_000);
+        continue;
+      }
+      throw new SpeechifyUpstreamError(upstream.status, message);
     }
 
     if (withTimestamps) {
       const timestamped = parseSpeechifyTimestampStream(await upstream.text());
       return {
-        status: 200,
-        contentType: "application/json",
-        body: Buffer.from(JSON.stringify({
-          audioBase64: timestamped.audio.toString("base64"),
-          contentType: upstream.headers.get("speechify-audio-content-type") || "audio/mpeg",
-          speechMarks: timestamped.speechMarks,
-          durationMs: timestamped.durationMs
-        }))
+        audio: timestamped.audio,
+        contentType: upstream.headers.get("speechify-audio-content-type")
+          || upstream.headers.get("x-speechify-audio-content-type")
+          || "audio/mpeg",
+        speechMarks: timestamped.speechMarks,
+        durationMs: timestamped.durationMs
       };
     }
 
     return {
-      status: 200,
+      audio: Buffer.from(await upstream.arrayBuffer()),
       contentType: upstream.headers.get("content-type") || "audio/mpeg",
-      body: Buffer.from(await upstream.arrayBuffer())
+      speechMarks: [],
+      durationMs: 0
     };
-  } catch (error) {
-    return jsonAudioError(502, error instanceof Error ? error.message : "Speechify narration failed.");
   }
+  throw new SpeechifyUpstreamError(429, "Speechify is still busy. Wait a moment, then continue recording.");
+}
+
+function enqueueSpeechifyGeneration<T>(task: () => Promise<T>) {
+  const run = speechifyGenerationQueue.catch(() => undefined).then(task);
+  speechifyGenerationQueue = run.then(() => undefined, () => undefined);
+  return run;
+}
+
+function isConcurrencyLimitError(payload: unknown, message: string) {
+  const record = payload && typeof payload === "object" ? payload as Record<string, unknown> : {};
+  const error = record.error && typeof record.error === "object" ? record.error as Record<string, unknown> : {};
+  return stringValue(error.code) === "concurrency_limited" || /concurrenc|simultaneous requests/i.test(message);
+}
+
+function wait(milliseconds: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
+}
+
+function speechifyRequestError(error: unknown, fallback: string) {
+  if (error instanceof SpeechifyUpstreamError) return jsonAudioError(error.status, error.message);
+  return jsonAudioError(502, error instanceof Error ? error.message : fallback);
+}
+
+function recordingJsonBody(
+  audio: GeneratedSpeechifyAudio | Buffer,
+  manifest?: StoredSpeechifyRecording,
+  cached?: boolean
+) {
+  const generated = Buffer.isBuffer(audio) ? null : audio;
+  const audioBuffer = Buffer.isBuffer(audio) ? audio : audio.audio;
+  return Buffer.from(JSON.stringify({
+    ok: true,
+    cached: Boolean(cached),
+    recordingId: manifest?.recordingId || "",
+    audioBase64: audioBuffer.toString("base64"),
+    contentType: manifest?.contentType || generated?.contentType || "audio/mpeg",
+    speechMarks: manifest?.speechMarks || generated?.speechMarks || [],
+    durationMs: manifest?.durationMs || generated?.durationMs || 0,
+    createdAt: manifest?.createdAt || ""
+  }));
+}
+
+function jsonAudio(status: number, body: unknown) {
+  return {
+    status,
+    contentType: "application/json",
+    body: Buffer.from(JSON.stringify(body))
+  };
+}
+
+function narrationStorageError() {
+  return jsonAudioError(503, "Shared narration storage is not configured. Connect Supabase or the Cookbook's GitHub sync storage first.");
 }
 
 export function parseSpeechifyTimestampStream(stream: string) {
@@ -225,6 +485,305 @@ function normalizeSpeechMark(value: unknown): SpeechifyWordMark | null {
     value: stringValue(mark.value)
   };
   return normalized.value ? normalized : null;
+}
+
+function speechifyRecordingId(text: string, voiceId: string, language: string) {
+  return createHash("sha256")
+    .update([
+      NARRATION_CACHE_VERSION,
+      process.env.SPEECHIFY_MODEL || DEFAULT_MODEL,
+      voiceId,
+      language,
+      text
+    ].join("\0"))
+    .digest("hex");
+}
+
+async function speechifyRecordingExists(recordingId: string) {
+  if (narrationStorageProvider() === "github") {
+    return githubNarrationObjectExists(`${recordingId}.json`);
+  }
+  await ensureNarrationBucket();
+  const response = await fetch(supabaseStorageObjectUrl(`${recordingId}.json`), {
+    headers: supabaseStorageHeaders()
+  });
+  if (response.status === 404) return false;
+  if (!response.ok) throw new Error(await supabaseStorageError(response, "Could not check saved narration."));
+  return true;
+}
+
+async function readSpeechifyRecording(recordingId: string): Promise<{
+  audio: Buffer;
+  manifest: StoredSpeechifyRecording;
+} | null> {
+  if (narrationStorageProvider() === "github") {
+    const stored = await readGitHubNarrationObject(`${recordingId}.json`);
+    if (!stored) return null;
+    const payload = JSON.parse(stored.body.toString("utf8")) as {
+      manifest?: StoredSpeechifyRecording;
+      audioBase64?: string;
+    };
+    if (!payload.manifest || !payload.audioBase64) throw new Error("The saved GitHub narration file is incomplete.");
+    return {
+      audio: Buffer.from(payload.audioBase64, "base64"),
+      manifest: payload.manifest
+    };
+  }
+  await ensureNarrationBucket();
+  const manifestResponse = await fetch(supabaseStorageObjectUrl(`${recordingId}.json`), {
+    headers: supabaseStorageHeaders()
+  });
+  if (manifestResponse.status === 404) return null;
+  if (!manifestResponse.ok) throw new Error(await supabaseStorageError(manifestResponse, "Could not load the narration timing file."));
+  const manifest = await manifestResponse.json() as StoredSpeechifyRecording;
+
+  const audioResponse = await fetch(supabaseStorageObjectUrl(`${recordingId}.mp3`), {
+    headers: supabaseStorageHeaders()
+  });
+  if (!audioResponse.ok) throw new Error(await supabaseStorageError(audioResponse, "Could not load the saved narration audio."));
+  return {
+    audio: Buffer.from(await audioResponse.arrayBuffer()),
+    manifest
+  };
+}
+
+async function writeSpeechifyRecording(
+  recordingId: string,
+  audio: Buffer,
+  manifest: StoredSpeechifyRecording
+) {
+  if (narrationStorageProvider() === "github") {
+    await writeGitHubNarrationObject(`${recordingId}.json`, Buffer.from(JSON.stringify({
+      manifest,
+      audioBase64: audio.toString("base64")
+    })));
+    return;
+  }
+  await ensureNarrationBucket();
+  await uploadSupabaseStorageObject(`${recordingId}.mp3`, audio, manifest.contentType || "audio/mpeg");
+  await uploadSupabaseStorageObject(`${recordingId}.json`, Buffer.from(JSON.stringify(manifest)), "application/json");
+}
+
+async function uploadSupabaseStorageObject(path: string, body: Buffer, contentType: string) {
+  const response = await fetch(supabaseStorageUploadUrl(path), {
+    method: "POST",
+    headers: {
+      ...supabaseStorageHeaders(),
+      "Content-Type": contentType,
+      "x-upsert": "true",
+      "Cache-Control": "3600"
+    },
+    body: Uint8Array.from(body)
+  });
+  if (!response.ok) throw new Error(await supabaseStorageError(response, `Could not save narration file ${path}.`));
+}
+
+async function ensureNarrationBucket() {
+  if (!supabaseStorageConfigured()) throw new Error("Shared narration storage is not configured.");
+  if (!narrationBucketReady) {
+    narrationBucketReady = (async () => {
+      const existing = await fetch(`${supabaseUrl()}/storage/v1/bucket/${encodeURIComponent(NARRATION_BUCKET)}`, {
+        headers: supabaseStorageHeaders()
+      });
+      if (existing.ok) return;
+      if (existing.status !== 404) throw new Error(await supabaseStorageError(existing, "Could not check the narration storage bucket."));
+
+      const created = await fetch(`${supabaseUrl()}/storage/v1/bucket`, {
+        method: "POST",
+        headers: {
+          ...supabaseStorageHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          id: NARRATION_BUCKET,
+          name: NARRATION_BUCKET,
+          public: false,
+          file_size_limit: 25 * 1024 * 1024,
+          allowed_mime_types: ["audio/mpeg", "application/json"]
+        })
+      });
+      if (!created.ok && created.status !== 409) {
+        throw new Error(await supabaseStorageError(created, "Could not create the narration storage bucket."));
+      }
+    })().catch((error) => {
+      narrationBucketReady = null;
+      throw error;
+    });
+  }
+  return narrationBucketReady;
+}
+
+async function githubNarrationObjectExists(path: string) {
+  const response = await fetch(gitHubNarrationContentsUrl(path), { headers: gitHubNarrationHeaders() });
+  if (response.status === 404) return false;
+  if (!response.ok) throw new Error(await gitHubNarrationError(response, "Could not check saved narration in GitHub."));
+  return true;
+}
+
+async function listGitHubNarrationIds() {
+  const [owner, repo] = githubSyncRepo().split("/");
+  const encodedPath = NARRATION_GITHUB_ROOT.split("/").map((part) => encodeURIComponent(part)).join("/");
+  const response = await fetch(
+    `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${encodedPath}?ref=${encodeURIComponent(githubSyncBranch())}`,
+    { headers: gitHubNarrationHeaders() }
+  );
+  if (response.status === 404) return new Set<string>();
+  if (!response.ok) throw new Error(await gitHubNarrationError(response, "Could not list saved narration in GitHub."));
+  const files = await response.json() as Array<{ name?: string }>;
+  return new Set(files.flatMap((file) => typeof file.name === "string" && file.name.endsWith(".json")
+    ? [file.name.slice(0, -5)]
+    : []));
+}
+
+async function readGitHubNarrationObject(path: string): Promise<{ body: Buffer; sha: string } | null> {
+  const response = await fetch(gitHubNarrationContentsUrl(path), {
+    headers: gitHubNarrationHeaders()
+  });
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error(await gitHubNarrationError(response, "Could not load saved narration from GitHub."));
+  const file = await response.json() as { content?: string; encoding?: string; sha?: string };
+  let body: Buffer;
+  if (file.content) {
+    body = Buffer.from(file.content.replace(/\s/g, ""), file.encoding === "base64" ? "base64" : "utf8");
+  } else if (file.sha) {
+    const blobResponse = await fetch(gitHubNarrationBlobUrl(file.sha), { headers: gitHubNarrationHeaders() });
+    if (!blobResponse.ok) throw new Error(await gitHubNarrationError(blobResponse, "Could not load the large narration recording from GitHub."));
+    const blob = await blobResponse.json() as { content?: string; encoding?: string };
+    body = Buffer.from((blob.content || "").replace(/\s/g, ""), blob.encoding === "base64" ? "base64" : "utf8");
+  } else {
+    throw new Error("GitHub returned narration metadata without file content.");
+  }
+  return { body, sha: file.sha || "" };
+}
+
+async function writeGitHubNarrationObject(path: string, body: Buffer) {
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    const current = await readGitHubNarrationObject(path);
+    const response = await fetch(gitHubNarrationContentsUrl(path), {
+      method: "PUT",
+      headers: {
+        ...gitHubNarrationHeaders(),
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        message: `Record Story Journey narration ${path.slice(0, 12)}`,
+        content: body.toString("base64"),
+        branch: githubSyncBranch(),
+        sha: current?.sha || undefined
+      })
+    });
+    if (response.ok) return;
+    if (response.status === 409 && attempt < 3) {
+      await wait(150 * attempt);
+      continue;
+    }
+    throw new Error(await gitHubNarrationError(response, "Could not save the shared narration recording to GitHub."));
+  }
+}
+
+function gitHubNarrationContentsUrl(path: string) {
+  const [owner, repo] = githubSyncRepo().split("/");
+  const encodedPath = `${NARRATION_GITHUB_ROOT}/${path}`.split("/").map((part) => encodeURIComponent(part)).join("/");
+  return `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${encodedPath}?ref=${encodeURIComponent(githubSyncBranch())}`;
+}
+
+function gitHubNarrationBlobUrl(sha: string) {
+  const [owner, repo] = githubSyncRepo().split("/");
+  return `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/blobs/${encodeURIComponent(sha)}`;
+}
+
+function gitHubNarrationHeaders() {
+  return {
+    Accept: "application/vnd.github+json",
+    Authorization: `Bearer ${githubSyncToken()}`,
+    "User-Agent": "the-tavern-cook-book-narration",
+    "X-GitHub-Api-Version": "2022-11-28"
+  };
+}
+
+async function gitHubNarrationError(response: Response, fallback: string) {
+  const text = await response.text();
+  if (!text) return fallback;
+  try {
+    const payload = JSON.parse(text) as Record<string, unknown>;
+    return stringValue(payload.message) || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function supabaseStorageObjectUrl(path: string) {
+  return `${supabaseUrl()}/storage/v1/object/authenticated/${encodeURIComponent(NARRATION_BUCKET)}/${encodeStoragePath(path)}`;
+}
+
+function supabaseStorageUploadUrl(path: string) {
+  return `${supabaseUrl()}/storage/v1/object/${encodeURIComponent(NARRATION_BUCKET)}/${encodeStoragePath(path)}`;
+}
+
+function encodeStoragePath(path: string) {
+  return path.split("/").map((part) => encodeURIComponent(part)).join("/");
+}
+
+function supabaseStorageHeaders() {
+  const key = supabaseServiceRoleKey();
+  return {
+    apikey: key,
+    Authorization: `Bearer ${key}`,
+    Accept: "application/json"
+  };
+}
+
+async function supabaseStorageError(response: Response, fallback: string) {
+  const text = await response.text();
+  if (!text) return fallback;
+  try {
+    const payload = JSON.parse(text) as Record<string, unknown>;
+    return stringValue(payload.message || payload.error || payload.statusCode) || fallback;
+  } catch {
+    return `${fallback} ${text}`.trim();
+  }
+}
+
+function supabaseStorageConfigured() {
+  return Boolean(supabaseUrl() && supabaseServiceRoleKey());
+}
+
+function narrationStorageConfigured() {
+  return narrationStorageProvider() !== "none";
+}
+
+function narrationStorageProvider(): "supabase" | "github" | "none" {
+  if (supabaseStorageConfigured()) return "supabase";
+  if (githubSyncToken()) return "github";
+  return "none";
+}
+
+function supabaseUrl() {
+  return (process.env.TAVERN_SUPABASE_URL || process.env.SUPABASE_URL || "").trim().replace(/\/+$/g, "");
+}
+
+function supabaseServiceRoleKey() {
+  return (process.env.TAVERN_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+}
+
+function githubSyncToken() {
+  return (process.env.TAVERN_SYNC_GITHUB_TOKEN || process.env.GITHUB_TOKEN || "").trim();
+}
+
+function githubSyncRepo() {
+  return (process.env.TAVERN_SYNC_GITHUB_REPO || process.env.GITHUB_REPOSITORY || DEFAULT_SYNC_REPO).trim();
+}
+
+function githubSyncBranch() {
+  return (process.env.TAVERN_SYNC_GITHUB_BRANCH || DEFAULT_SYNC_BRANCH).trim();
+}
+
+function speechifyRecordingAdminEmails() {
+  const configured = (process.env.SPEECHIFY_RECORDING_ADMIN_EMAILS || "")
+    .split(",")
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean);
+  return [...new Set([MAIN_ADMIN_EMAIL, ...configured])];
 }
 
 function normalizeVoices(payload: unknown): SpeechifyVoice[] {

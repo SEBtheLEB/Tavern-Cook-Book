@@ -32,6 +32,12 @@ export interface SpeechifyTimedAudio {
   durationMs: number;
 }
 
+export interface SpeechifyRecordingStatus {
+  total: number;
+  recordedCount: number;
+  missingIndexes: number[];
+}
+
 export async function fetchSpeechifyVoices(signal?: AbortSignal): Promise<SpeechifyVoiceResponse> {
   const response = await fetch("/api/speechify", { headers: authHeaders(), signal });
   const payload = await readJson(response);
@@ -72,7 +78,7 @@ export async function createSpeechifyAudio(
   return URL.createObjectURL(audio);
 }
 
-export async function createSpeechifyTimedAudio(
+export async function loadSpeechifyRecordedAudio(
   text: string,
   voiceId: string,
   language = "en-US",
@@ -87,14 +93,59 @@ export async function createSpeechifyTimedAudio(
   const response = await fetch("/api/speechify", {
     method: "POST",
     headers: { ...authHeaders(), "Content-Type": "application/json" },
-    body: JSON.stringify({ text, voiceId, language, withTimestamps: true }),
+    body: JSON.stringify({ action: "load-recording", text, voiceId, language }),
     signal
   });
   const payload = await readJson(response);
-  if (!response.ok) throw new Error(errorMessage(payload, "Speechify could not prepare synchronized narration."));
+  if (!response.ok) throw new Error(errorMessage(payload, "The saved Story Journey narration could not be loaded."));
 
+  return cacheTimedAudio(cacheKey, payload);
+}
+
+export async function recordSpeechifyTimedAudio(
+  text: string,
+  voiceId: string,
+  language = "en-US",
+  signal?: AbortSignal
+): Promise<SpeechifyTimedAudio> {
+  const cacheKey = `${voiceId}:${language}:${text}`;
+  const response = await fetch("/api/speechify", {
+    method: "POST",
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "record", text, voiceId, language }),
+    signal
+  });
+  const payload = await readJson(response);
+  if (!response.ok) throw new Error(errorMessage(payload, "Speechify could not record this Story Journey section."));
+  return cacheTimedAudio(cacheKey, payload);
+}
+
+export async function fetchSpeechifyRecordingStatus(
+  texts: string[],
+  voiceId: string,
+  language = "en-US",
+  signal?: AbortSignal
+): Promise<SpeechifyRecordingStatus> {
+  const response = await fetch("/api/speechify", {
+    method: "POST",
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "recording-status", texts, voiceId, language }),
+    signal
+  });
+  const payload = await readJson(response);
+  if (!response.ok) throw new Error(errorMessage(payload, "The shared narration recording could not be checked."));
+  return {
+    total: Number(payload.total) || texts.length,
+    recordedCount: Number(payload.recordedCount) || 0,
+    missingIndexes: Array.isArray(payload.missingIndexes)
+      ? payload.missingIndexes.map(Number).filter((value) => Number.isInteger(value) && value >= 0 && value < texts.length)
+      : []
+  };
+}
+
+function cacheTimedAudio(cacheKey: string, payload: Record<string, unknown>): SpeechifyTimedAudio {
   const audioBase64 = stringValue(payload.audioBase64);
-  if (!audioBase64) throw new Error("Speechify returned synchronized narration without audio.");
+  if (!audioBase64) throw new Error("The saved narration does not contain playable audio.");
   const audio = base64ToBlob(audioBase64, stringValue(payload.contentType) || "audio/mpeg");
   const speechMarks = Array.isArray(payload.speechMarks) ? payload.speechMarks.filter(isSpeechifySpeechMark) : [];
   const durationMs = Number(payload.durationMs) || 0;

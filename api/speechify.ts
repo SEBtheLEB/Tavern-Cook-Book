@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { getSpeechifyHealth, listSpeechifyVoices, synthesizeSpeechifyAudio } from "../server/speechifyBackend.js";
+import { getSpeechifyHealth, handleSpeechifyPost, listSpeechifyVoices } from "../server/speechifyBackend.js";
 
 export default async function handler(request: IncomingMessage, response: ServerResponse) {
   if (request.method === "GET") {
@@ -26,7 +26,7 @@ export default async function handler(request: IncomingMessage, response: Server
     return;
   }
 
-  const result = await synthesizeSpeechifyAudio(request.headers, body as Parameters<typeof synthesizeSpeechifyAudio>[1]);
+  const result = await handleSpeechifyPost(request.headers, body as Parameters<typeof handleSpeechifyPost>[1]);
   response.statusCode = result.status;
   response.setHeader("Content-Type", result.contentType);
   response.setHeader("Cache-Control", "private, no-store");
