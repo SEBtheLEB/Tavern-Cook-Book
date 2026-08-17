@@ -2849,10 +2849,20 @@ export function StoryJourneyPage({
                       </button>
                     )}
                     {speechifyRecordingState.phase !== "recording" && canEditStory && speechifyRecordingState.total > 0 && (
-                      <button type="button" onClick={() => void recordAllSpeechifySections()}>
-                        <Icon name="RefreshCw" className="h-4 w-4" />
-                        {speechifyRecordingState.recorded ? "Record Remaining" : "Create Fresh Recording"}
-                        {speechifyRecordingEstimateUsd > 0 ? ` · est. $${speechifyRecordingEstimateUsd.toFixed(2)}` : ""}
+                      <button
+                        type="button"
+                        onClick={() => void recordAllSpeechifySections()}
+                        disabled={speechifyRecordingState.phase === "ready" || speechifyRecordingState.phase === "checking"}
+                      >
+                        <Icon name={speechifyRecordingState.phase === "ready" ? "CircleCheck" : "RefreshCw"} className="h-4 w-4" />
+                        {speechifyRecordingState.phase === "ready"
+                          ? "Recording Complete"
+                          : speechifyRecordingState.recorded
+                            ? "Record Remaining"
+                            : "Create Fresh Recording"}
+                        {speechifyRecordingState.phase !== "ready" && speechifyRecordingEstimateUsd > 0
+                          ? ` - est. $${speechifyRecordingEstimateUsd.toFixed(2)}`
+                          : ""}
                       </button>
                     )}
                   </div>
