@@ -1,9 +1,9 @@
 import type { IncomingHttpHeaders } from "node:http";
 
-const SPEECHIFY_API_BASE = "https://api.sws.speechify.com/v1";
+const SPEECHIFY_API_BASE = "https://api.speechify.ai/v1";
 const GOOGLE_TOKENINFO_URL = "https://oauth2.googleapis.com/tokeninfo";
 const STL_WORKSHOP_GOOGLE_OAUTH_CLIENT_ID = "55508806253-p292f7oom6s1do0f9er1unfhi0mjjaen.apps.googleusercontent.com";
-const DEFAULT_MODEL = "simba-english";
+const DEFAULT_MODEL = "simba-3.0";
 const MAX_TEXT_LENGTH = 12_000;
 const MAX_REQUESTS_PER_MINUTE = 12;
 const speechifyRateLimits = new Map<string, number[]>();
@@ -46,19 +46,44 @@ export async function listSpeechifyVoices(headers: IncomingHttpHeaders) {
   }
 
   try {
-    const upstream = await fetch(`${SPEECHIFY_API_BASE}/voices`, {
-      headers: { Authorization: `Bearer ${apiKey}` }
-    });
-    const payload = await readUpstreamPayload(upstream);
-    if (!upstream.ok) {
-      return { status: upstream.status, body: { error: speechifyError(payload, upstream.status) } };
+    const model = process.env.SPEECHIFY_MODEL || DEFAULT_MODEL;
+    const voices: unknown[] = [];
+    let cursor = "";
+
+    // Speechify's catalogue is paginated. Fetch every compatible page so the
+    // reader is not limited to the first group of voices returned by the API.
+    for (let page = 0; page < 20; page += 1) {
+      const url = new URL(`${SPEECHIFY_API_BASE}/voices`);
+      url.searchParams.set("limit", "200");
+      url.searchParams.set("model", model);
+      if (cursor) url.searchParams.set("cursor", cursor);
+
+      const upstream = await fetch(url, {
+        headers: { Authorization: `Bearer ${apiKey}` }
+      });
+      const payload = await readUpstreamPayload(upstream);
+      if (!upstream.ok) {
+        return { status: upstream.status, body: { error: speechifyError(payload, upstream.status) } };
+      }
+
+      const record = payload && typeof payload === "object" ? payload as Record<string, unknown> : {};
+      const pageVoices = Array.isArray(record.voices)
+        ? record.voices
+        : Array.isArray(payload)
+          ? payload
+          : [];
+      voices.push(...pageVoices);
+
+      const nextCursor = stringValue(record.next_cursor);
+      if (record.has_more !== true || !nextCursor) break;
+      cursor = nextCursor;
     }
 
     return {
       status: 200,
       body: {
         ...getSpeechifyHealth(),
-        voices: normalizeVoices(payload)
+        voices: normalizeVoices({ voices })
       }
     };
   } catch (error) {
