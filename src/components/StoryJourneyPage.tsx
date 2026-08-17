@@ -1124,7 +1124,7 @@ export function StoryJourneyPage({
   const [selectedLoreTerm, setSelectedLoreTerm] = useState("");
   const [hoveredLoreTerm, setHoveredLoreTerm] = useState("");
   const [storyInspectorImageIndex, setStoryInspectorImageIndex] = useState(0);
-  const [storyInspectorCollapsed, setStoryInspectorCollapsed] = useState(false);
+  const [storyInspectorCollapsed, setStoryInspectorCollapsed] = useState(() => typeof window !== "undefined" && window.matchMedia("(max-width: 780px)").matches);
   const [storyInspectorEditSubject, setStoryInspectorEditSubject] = useState<StoryInspectorSubject | null>(null);
   const [transitioning, setTransitioning] = useState(false);
   const [pageTurnKey, setPageTurnKey] = useState(0);
