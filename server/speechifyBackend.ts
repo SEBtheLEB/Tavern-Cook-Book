@@ -214,15 +214,26 @@ async function speechifyRecordingStatus(headers: IncomingHttpHeaders, body: Spee
 
   try {
     const ids = texts.map((text) => speechifyRecordingId(text, voiceId, language));
-    const recorded = narrationStorageProvider() === "github"
-      ? listGitHubNarrationIds().then((savedIds) => ids.map((id) => savedIds.has(id)))
-      : Promise.all(ids.map((id) => speechifyRecordingExists(id)));
-    const recordedSections = await recorded;
+    const manifests = narrationStorageProvider() === "github"
+      ? listGitHubNarrationIds().then((savedIds) => ids.map((id) => savedIds.has(id) ? true : null))
+      : Promise.all(ids.map((id) => readSpeechifyRecordingManifest(id)));
+    const savedSections = await manifests;
+    const recordedSections = savedSections.map(Boolean);
     return jsonAudio(200, {
       ok: true,
       total: ids.length,
       recordedCount: recordedSections.filter(Boolean).length,
-      missingIndexes: recordedSections.flatMap((exists, index) => exists ? [] : [index])
+      missingIndexes: recordedSections.flatMap((exists, index) => exists ? [] : [index]),
+      sections: ids.map((recordingId, index) => {
+        const saved = savedSections[index];
+        return {
+          index,
+          recordingId,
+          exists: Boolean(saved),
+          durationMs: typeof saved === "object" && saved ? saved.durationMs : 0,
+          createdAt: typeof saved === "object" && saved ? saved.createdAt : ""
+        };
+      })
     });
   } catch (error) {
     return jsonAudioError(502, error instanceof Error ? error.message : "Narration recording status could not be checked.");
@@ -499,17 +510,20 @@ function speechifyRecordingId(text: string, voiceId: string, language: string) {
     .digest("hex");
 }
 
-async function speechifyRecordingExists(recordingId: string) {
+async function readSpeechifyRecordingManifest(recordingId: string): Promise<StoredSpeechifyRecording | null> {
   if (narrationStorageProvider() === "github") {
-    return githubNarrationObjectExists(`${recordingId}.json`);
+    const stored = await readGitHubNarrationObject(`${recordingId}.json`);
+    if (!stored) return null;
+    const payload = JSON.parse(stored.body.toString("utf8")) as { manifest?: StoredSpeechifyRecording };
+    return payload.manifest || null;
   }
   await ensureNarrationBucket();
   const response = await fetch(supabaseStorageObjectUrl(`${recordingId}.json`), {
     headers: supabaseStorageHeaders()
   });
-  if (response.status === 404) return false;
-  if (!response.ok) throw new Error(await supabaseStorageError(response, "Could not check saved narration."));
-  return true;
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error(await supabaseStorageError(response, "Could not load saved narration timing."));
+  return response.json() as Promise<StoredSpeechifyRecording>;
 }
 
 async function readSpeechifyRecording(recordingId: string): Promise<{
@@ -611,13 +625,6 @@ async function ensureNarrationBucket() {
     });
   }
   return narrationBucketReady;
-}
-
-async function githubNarrationObjectExists(path: string) {
-  const response = await fetch(gitHubNarrationContentsUrl(path), { headers: gitHubNarrationHeaders() });
-  if (response.status === 404) return false;
-  if (!response.ok) throw new Error(await gitHubNarrationError(response, "Could not check saved narration in GitHub."));
-  return true;
 }
 
 async function listGitHubNarrationIds() {

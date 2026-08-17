@@ -17842,7 +17842,9 @@ button,
   left: 0;
   z-index: 120;
   display: grid;
-  width: min(340px, calc(100vw - 28px));
+  width: min(410px, calc(100vw - 28px));
+  max-height: min(76vh, 720px);
+  overflow-y: auto;
   gap: 12px;
   border: 1px solid color-mix(in srgb, var(--gold) 46%, var(--panel-border));
   border-radius: 8px;
@@ -17871,6 +17873,7 @@ button,
 
 .story-speechify-panel > header span,
 .story-speechify-panel > label > span,
+.story-speechify-tab-panel > label > span,
 .story-speechify-now-playing span {
   color: color-mix(in srgb, var(--gold) 76%, var(--muted-ink));
   font-size: 0.64rem;
@@ -17899,12 +17902,14 @@ button,
   background: color-mix(in srgb, var(--gold) 10%, transparent);
 }
 
-.story-speechify-panel > label {
+.story-speechify-panel > label,
+.story-speechify-tab-panel > label {
   display: grid;
   gap: 5px;
 }
 
-.story-speechify-panel > label select {
+.story-speechify-panel > label select,
+.story-speechify-tab-panel > label select {
   width: 100%;
   min-height: 38px;
   border: 1px solid color-mix(in srgb, var(--gold) 28%, var(--panel-border));
@@ -17913,6 +17918,41 @@ button,
   color: var(--app-ink);
   background: var(--field-bg);
   font-size: 0.78rem;
+}
+
+.story-speechify-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  border: 1px solid color-mix(in srgb, var(--gold) 24%, var(--panel-border));
+  border-radius: 6px;
+  padding: 3px;
+  background: color-mix(in srgb, var(--field-bg) 88%, transparent);
+}
+
+.story-speechify-tabs button {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 4px;
+  color: var(--muted-ink);
+  background: transparent;
+  font-size: 0.72rem;
+  font-weight: 680;
+}
+
+.story-speechify-tabs button:hover,
+.story-speechify-tabs button.active {
+  color: var(--app-ink);
+  background: color-mix(in srgb, var(--gold) 12%, var(--panel-bg));
+}
+
+.story-speechify-tab-panel {
+  display: grid;
+  gap: 12px;
 }
 
 .story-speechify-now-playing {
@@ -18047,6 +18087,127 @@ button,
 .story-speechify-actions button:hover:not(:disabled) {
   border-color: var(--gold);
   background: color-mix(in srgb, var(--gold) 13%, var(--field-bg));
+}
+
+.story-speechify-player {
+  display: grid;
+  gap: 8px;
+  border: 1px solid color-mix(in srgb, var(--gold) 30%, var(--panel-border));
+  border-radius: 6px;
+  padding: 10px;
+  background: color-mix(in srgb, var(--gold) 5%, var(--field-bg));
+}
+
+.story-speechify-player-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.story-speechify-player-controls button {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--gold) 28%, var(--panel-border));
+  border-radius: 50%;
+  color: var(--app-ink);
+  background: var(--field-bg);
+}
+
+.story-speechify-player-controls button.primary {
+  width: 40px;
+  height: 40px;
+  border-color: color-mix(in srgb, var(--gold) 64%, var(--panel-border));
+  color: color-mix(in srgb, var(--gold) 86%, var(--app-ink));
+  background: color-mix(in srgb, var(--gold) 14%, var(--field-bg));
+}
+
+.story-speechify-timeline {
+  width: 100%;
+  accent-color: var(--gold);
+  cursor: pointer;
+}
+
+.story-speechify-time-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted-ink);
+  font-size: 0.66rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.story-speechify-time-row > div {
+  display: flex;
+  justify-content: center;
+  gap: 5px;
+}
+
+.story-speechify-time-row button {
+  border: 0;
+  padding: 2px 4px;
+  color: color-mix(in srgb, var(--gold) 76%, var(--muted-ink));
+  background: transparent;
+  font-size: 0.63rem;
+}
+
+.story-speechify-chapter-list {
+  display: grid;
+  max-height: 250px;
+  gap: 5px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.story-speechify-chapter-list > button {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  border: 1px solid color-mix(in srgb, var(--gold) 20%, var(--panel-border));
+  border-radius: 6px;
+  padding: 6px 8px;
+  color: var(--app-ink);
+  text-align: left;
+  background: color-mix(in srgb, var(--field-bg) 84%, transparent);
+}
+
+.story-speechify-chapter-list > button:hover:not(:disabled),
+.story-speechify-chapter-list > button.active {
+  border-color: color-mix(in srgb, var(--gold) 62%, var(--panel-border));
+  background: color-mix(in srgb, var(--gold) 10%, var(--field-bg));
+}
+
+.story-speechify-chapter-list > button:disabled {
+  opacity: 0.52;
+}
+
+.story-speechify-chapter-list > button > svg {
+  color: var(--gold);
+}
+
+.story-speechify-chapter-list > button > span {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+
+.story-speechify-chapter-list strong {
+  overflow: hidden;
+  font-size: 0.72rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.story-speechify-chapter-list small,
+.story-speechify-chapter-list time {
+  color: var(--muted-ink);
+  font-size: 0.62rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .story-speechify-error {

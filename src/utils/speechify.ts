@@ -36,6 +36,15 @@ export interface SpeechifyRecordingStatus {
   total: number;
   recordedCount: number;
   missingIndexes: number[];
+  sections: SpeechifyRecordingSectionStatus[];
+}
+
+export interface SpeechifyRecordingSectionStatus {
+  index: number;
+  recordingId: string;
+  exists: boolean;
+  durationMs: number;
+  createdAt: string;
 }
 
 export async function fetchSpeechifyVoices(signal?: AbortSignal): Promise<SpeechifyVoiceResponse> {
@@ -139,7 +148,28 @@ export async function fetchSpeechifyRecordingStatus(
     recordedCount: Number(payload.recordedCount) || 0,
     missingIndexes: Array.isArray(payload.missingIndexes)
       ? payload.missingIndexes.map(Number).filter((value) => Number.isInteger(value) && value >= 0 && value < texts.length)
-      : []
+      : [],
+    sections: Array.isArray(payload.sections)
+      ? payload.sections.flatMap((value) => {
+        if (!value || typeof value !== "object") return [];
+        const section = value as Record<string, unknown>;
+        const index = Number(section.index);
+        if (!Number.isInteger(index) || index < 0 || index >= texts.length) return [];
+        return [{
+          index,
+          recordingId: stringValue(section.recordingId),
+          exists: Boolean(section.exists),
+          durationMs: Math.max(0, Number(section.durationMs) || 0),
+          createdAt: stringValue(section.createdAt)
+        }];
+      })
+      : texts.map((_, index) => ({
+        index,
+        recordingId: "",
+        exists: !Array.isArray(payload.missingIndexes) || !payload.missingIndexes.includes(index),
+        durationMs: 0,
+        createdAt: ""
+      }))
   };
 }
 
