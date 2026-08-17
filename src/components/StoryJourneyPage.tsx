@@ -52,10 +52,18 @@ import {
   LEGACY_ACT_ONE_CHAPTER_ID,
   actOneStoryChapters
 } from "../data/actOneCanon";
+import {
+  GENERAL_HISTORY_CHAPTER_IDS,
+  GENERAL_HISTORY_OTHER_FAITHS_ID,
+  LEGACY_GENERAL_HISTORY_CHAPTER_IDS,
+  generalHistoryFaithTopics,
+  generalHistoryStoryChapters
+} from "../data/generalHistoryNarrative";
 
 const STORY_JOURNEY_STATE_KEY = "tavernCookBookStoryJourneyState";
 const STORY_JOURNEY_CHAPTERS_KEY = "tavernCookBookStoryJourneyChapters";
 const storyExpansionChapterIds = new Set([
+  ...GENERAL_HISTORY_CHAPTER_IDS,
   ...ACT_ONE_STORY_CHAPTER_IDS,
   "truth-of-tabby-island",
   "the-maseel-hunt"
@@ -1010,9 +1018,12 @@ const legacyDefaultStoryChapters: StoryChapter[] = [
   }
 ];
 
-const defaultStoryChapters: StoryChapter[] = legacyDefaultStoryChapters.flatMap((chapter) =>
-  chapter.id === LEGACY_ACT_ONE_CHAPTER_ID ? actOneStoryChapters : [chapter]
-);
+const defaultStoryChapters: StoryChapter[] = [
+  ...generalHistoryStoryChapters,
+  ...legacyDefaultStoryChapters
+    .filter((chapter) => !LEGACY_GENERAL_HISTORY_CHAPTER_IDS.has(chapter.id))
+    .flatMap((chapter) => chapter.id === LEGACY_ACT_ONE_CHAPTER_ID ? actOneStoryChapters : [chapter])
+];
 
 const fallbackLore: Record<string, { type: string; description: string }> = {
   Ovenhold: {
@@ -1728,6 +1739,13 @@ export function StoryJourneyPage({
     setSelectedLibraryItemId(item.id);
     setStorySearch("");
     window.requestAnimationFrame(() => document.querySelector(".story-library-reader")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  };
+
+  const openGeneralHistoryFaithTopic = (topicId: string) => {
+    const item = librarySections
+      .flatMap((section) => section.items)
+      .find((candidate) => candidate.id === topicId);
+    if (item) openLibraryItem(item);
   };
 
   const openLibrarySource = (item: StoryLibraryItem) => {
@@ -3199,11 +3217,15 @@ export function StoryJourneyPage({
                   )}
 
                   <footer className="story-library-footer">
-                    <p>This reading page is generated from the existing Cookbook record. Editing its source updates this guide.</p>
-                    <button className="button-frame" onClick={() => openLibrarySource(selectedLibraryItem)}>
-                      <Icon name="ExternalLink" className="h-4 w-4" />
-                      Open Full Source Module
-                    </button>
+                    <p>{selectedLibraryItem.id.startsWith("history-faith:")
+                      ? "This topic is linked to General Note on Other Faiths in the General History Timeline."
+                      : "This reading page is generated from the existing Cookbook record. Editing its source updates this guide."}</p>
+                    {(selectedLibraryItem.entry || selectedLibraryItem.worldEntry || selectedLibraryItem.creature) && (
+                      <button className="button-frame" onClick={() => openLibrarySource(selectedLibraryItem)}>
+                        <Icon name="ExternalLink" className="h-4 w-4" />
+                        Open Full Source Module
+                      </button>
+                    )}
                   </footer>
                 </article>
               ) : (
@@ -3254,6 +3276,7 @@ export function StoryJourneyPage({
                       onSave={saveInlineChapterDraft}
                       onCancel={() => setInlineChapterDraft(null)}
                       onSpeechifyChapter={() => void handleSpeechifyChapterNarration(chapter.id, chapter.title)}
+                      onOpenFaithTopic={openGeneralHistoryFaithTopic}
                       speechifyAction={speechifySectionAction.chapterId === chapter.id ? speechifySectionAction : null}
                       narrationLabel={speechifyNowPlaying}
                       narrationStatus={speechifyStatus}
@@ -3552,6 +3575,7 @@ function StoryTreatmentChapter({
   onSave,
   onCancel,
   onSpeechifyChapter,
+  onOpenFaithTopic,
   speechifyAction,
   narrationLabel,
   narrationStatus
@@ -3575,6 +3599,7 @@ function StoryTreatmentChapter({
   onSave: () => void;
   onCancel: () => void;
   onSpeechifyChapter: () => void;
+  onOpenFaithTopic: (topicId: string) => void;
   speechifyAction: StoryNarrationSectionAction | null;
   narrationLabel: string;
   narrationStatus: "idle" | "connecting" | "playing" | "paused" | "error";
@@ -3586,7 +3611,7 @@ function StoryTreatmentChapter({
     <article
       id={`story-chapter-${chapter.id}`}
       data-story-reader-chapter={chapter.id}
-      className={`story-treatment-chapter ${editing ? "inline-editing" : ""}`}
+      className={`story-treatment-chapter ${visibleChapter.id === GENERAL_HISTORY_OTHER_FAITHS_ID ? "story-history-faith-insight" : ""} ${editing ? "inline-editing" : ""}`}
     >
       <header className={`story-treatment-chapter-heading ${readingDepth === "standard" && !editing ? "standard-reading" : ""}`}>
         <div
@@ -3762,6 +3787,17 @@ function StoryTreatmentChapter({
           )}
         </section>
       ))}
+
+      {!editing && visibleChapter.id === GENERAL_HISTORY_OTHER_FAITHS_ID && (
+        <nav className="story-history-faith-directory" aria-label="General Note on Other Faiths">
+          {generalHistoryFaithTopics.map((topic) => (
+            <button key={topic.id} type="button" onClick={() => onOpenFaithTopic(topic.id)}>
+              <span>{topic.title}</span>
+              <Icon name="ChevronRight" className="h-4 w-4" />
+            </button>
+          ))}
+        </nav>
+      )}
 
       {editing && readingDepth !== "overview" && (
         <button type="button" className="story-inline-add-sequence" onClick={onAddPage}>
@@ -5114,6 +5150,21 @@ function buildStoryLibrarySections(
     });
   });
 
+  generalHistoryFaithTopics.forEach((topic) => {
+    items.push({
+      id: topic.id,
+      title: topic.title,
+      sectionId: "factions",
+      sourceType: "entry",
+      eyebrow: "General Note on Other Faiths",
+      summary: topic.summary,
+      fullText: topic.fullText,
+      tags: topic.tags,
+      facts: [],
+      linkedStoryReferenceIds: []
+    });
+  });
+
   return storyLibrarySectionDefinitions.map((definition) => ({
     ...definition,
     items: deduplicateStoryLibraryItems(items.filter((item) => item.sectionId === definition.id))
@@ -6010,7 +6061,10 @@ function loadStoryChapters(): StoryChapter[] {
 }
 
 function mergeStoryExpansionChapters(chapters: StoryChapter[]): StoryChapter[] {
-  const next = chapters.filter((chapter) => chapter.id !== LEGACY_ACT_ONE_CHAPTER_ID);
+  const next = chapters.filter((chapter) => (
+    chapter.id !== LEGACY_ACT_ONE_CHAPTER_ID
+    && !LEGACY_GENERAL_HISTORY_CHAPTER_IDS.has(chapter.id)
+  ));
   defaultStoryChapters
     .filter((chapter) => storyExpansionChapterIds.has(chapter.id))
     .forEach((defaultChapter) => {

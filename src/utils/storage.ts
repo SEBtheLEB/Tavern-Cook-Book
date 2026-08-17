@@ -55,12 +55,13 @@ import {
   mergeActOneStoryJourney,
   replaceActOnePondStoryChapters
 } from "../data/actOneCanon";
+import { replaceGeneralHistoryStoryJourney } from "../data/generalHistoryNarrative";
 
 export const DATABASE_KEY = "tavern-cook-book:data";
 export const THEME_KEY = "tavern-cook-book:theme";
 const LEGACY_MODE_KEY = "tavern-cook-book:mode";
 
-export const currentSchemaVersion = 17;
+export const currentSchemaVersion = 18;
 const loreExpansionSchemaVersion = 2;
 const magicalMealCanonSchemaVersion = 3;
 const storyReferenceSchemaVersion = 4;
@@ -69,6 +70,7 @@ const masilCultLeaderSchemaVersion = 12;
 const actOneCanonSchemaVersion = 14;
 const actOnePondRevisionSchemaVersion = 16;
 const actOneChronologySchemaVersion = 17;
+const generalHistoryRevisionSchemaVersion = 18;
 
 const masilCultLeaderEntryTitles = new Set(["Masil Cult Leader"]);
 
@@ -246,6 +248,7 @@ export const migrateDatabase = (value: unknown): LoreDatabase => {
   const needsActOneCanon = Number(incoming.schemaVersion || 0) < actOneCanonSchemaVersion;
   const needsActOnePondRevision = Number(incoming.schemaVersion || 0) < actOnePondRevisionSchemaVersion;
   const needsActOneChronology = Number(incoming.schemaVersion || 0) < actOneChronologySchemaVersion;
+  const needsGeneralHistoryRevision = Number(incoming.schemaVersion || 0) < generalHistoryRevisionSchemaVersion;
   let entries = Array.isArray(incoming.entries)
     ? repairScribeFoodEntries(incoming.entries.map((item) => normalizeEntry(item as Partial<LoreEntry>)))
     : starter.entries;
@@ -324,6 +327,9 @@ export const migrateDatabase = (value: unknown): LoreDatabase => {
     : normalizedStoryJourney;
   if (needsActOnePondRevision && !needsActOneChronology) {
     storyJourney = replaceActOnePondStoryChapters(storyJourney);
+  }
+  if (needsGeneralHistoryRevision) {
+    storyJourney = replaceGeneralHistoryStoryJourney(storyJourney);
   }
 
   return {
