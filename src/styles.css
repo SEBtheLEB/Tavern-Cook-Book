@@ -17650,6 +17650,231 @@ button,
   font-size: 0.76rem;
 }
 
+.story-speechify-control {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.story-speechify-trigger-group {
+  display: flex;
+  min-height: 36px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--gold) 38%, var(--card-border));
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--field-bg) 88%, transparent);
+}
+
+.story-speechify-trigger-group > button {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 0;
+  padding: 6px 9px;
+  color: var(--app-ink);
+  background: transparent;
+  font-size: 0.76rem;
+  font-weight: 650;
+}
+
+.story-speechify-trigger-group > button:hover,
+.story-speechify-trigger-group > button.active,
+.story-speechify-control.open .story-speechify-options-button {
+  color: color-mix(in srgb, var(--gold) 88%, var(--app-ink));
+  background: color-mix(in srgb, var(--gold) 11%, transparent);
+}
+
+.story-speechify-trigger-group > .story-speechify-options-button {
+  width: 31px;
+  padding: 0;
+  border-left: 1px solid color-mix(in srgb, var(--gold) 28%, var(--card-border));
+}
+
+.story-speechify-options-button svg {
+  transition: transform 150ms ease;
+}
+
+.story-speechify-control.open .story-speechify-options-button svg {
+  transform: rotate(180deg);
+}
+
+.story-speechify-panel {
+  position: absolute;
+  top: calc(100% + 9px);
+  left: 0;
+  z-index: 120;
+  display: grid;
+  width: min(340px, calc(100vw - 28px));
+  gap: 12px;
+  border: 1px solid color-mix(in srgb, var(--gold) 46%, var(--panel-border));
+  border-radius: 8px;
+  padding: 14px;
+  color: var(--app-ink);
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--gold) 5%, transparent), transparent 52%),
+    color-mix(in srgb, var(--modal-bg) 97%, var(--panel-bg));
+  box-shadow: 0 24px 52px rgba(0, 0, 0, 0.34);
+}
+
+.story-speechify-panel > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--panel-border) 72%, transparent);
+  padding-bottom: 10px;
+}
+
+.story-speechify-panel > header > div,
+.story-speechify-now-playing > div {
+  display: grid;
+  gap: 2px;
+}
+
+.story-speechify-panel > header span,
+.story-speechify-panel > label > span,
+.story-speechify-now-playing span {
+  color: color-mix(in srgb, var(--gold) 76%, var(--muted-ink));
+  font-size: 0.64rem;
+  font-weight: 720;
+  text-transform: uppercase;
+}
+
+.story-speechify-panel > header strong {
+  font-size: 0.92rem;
+}
+
+.story-speechify-panel > header > button {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 0;
+  border-radius: 5px;
+  color: var(--muted-ink);
+  background: transparent;
+}
+
+.story-speechify-panel > header > button:hover {
+  color: var(--app-ink);
+  background: color-mix(in srgb, var(--gold) 10%, transparent);
+}
+
+.story-speechify-panel > label {
+  display: grid;
+  gap: 5px;
+}
+
+.story-speechify-panel > label select {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid color-mix(in srgb, var(--gold) 28%, var(--panel-border));
+  border-radius: 6px;
+  padding: 6px 30px 6px 9px;
+  color: var(--app-ink);
+  background: var(--field-bg);
+  font-size: 0.78rem;
+}
+
+.story-speechify-now-playing {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  border-left: 2px solid var(--gold);
+  padding: 8px 9px;
+  background: color-mix(in srgb, var(--gold) 7%, transparent);
+}
+
+.story-speechify-now-playing > svg {
+  color: var(--gold);
+}
+
+.story-speechify-now-playing strong {
+  overflow: hidden;
+  font-size: 0.8rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.story-speechify-now-playing small {
+  color: var(--muted-ink);
+  font-size: 0.68rem;
+}
+
+.story-speechify-actions {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 7px;
+}
+
+.story-speechify-actions button {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid color-mix(in srgb, var(--gold) 34%, var(--panel-border));
+  border-radius: 6px;
+  padding: 6px 10px;
+  color: var(--app-ink);
+  background: color-mix(in srgb, var(--gold) 7%, var(--field-bg));
+  font-size: 0.76rem;
+  font-weight: 680;
+}
+
+.story-speechify-actions button:hover:not(:disabled) {
+  border-color: var(--gold);
+  background: color-mix(in srgb, var(--gold) 13%, var(--field-bg));
+}
+
+.story-speechify-error {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 7px;
+  border: 1px solid color-mix(in srgb, var(--danger-ink) 35%, var(--panel-border));
+  border-radius: 6px;
+  padding: 8px;
+  color: color-mix(in srgb, var(--danger-ink) 82%, var(--app-ink));
+  background: color-mix(in srgb, var(--danger-ink) 7%, transparent);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.story-speechify-footnote {
+  color: var(--muted-ink);
+  font-size: 0.66rem;
+  line-height: 1.45;
+}
+
+.story-treatment-chapter-actions .story-listen-active,
+.story-sequence-listen.active {
+  border-color: color-mix(in srgb, var(--gold) 68%, var(--panel-border));
+  color: color-mix(in srgb, var(--gold) 90%, var(--app-ink));
+  background: color-mix(in srgb, var(--gold) 11%, transparent);
+}
+
+.story-sequence-listen {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid color-mix(in srgb, var(--gold) 24%, var(--panel-border));
+  border-radius: 5px;
+  padding: 4px 7px;
+  color: var(--muted-ink);
+  background: color-mix(in srgb, var(--field-bg) 68%, transparent);
+  font-size: 0.68rem;
+  font-weight: 650;
+}
+
+.story-sequence-listen:hover {
+  border-color: color-mix(in srgb, var(--gold) 58%, var(--panel-border));
+  color: color-mix(in srgb, var(--gold) 84%, var(--app-ink));
+}
+
 .story-treatment-progress {
   top: 54px;
   height: 2px;
@@ -18246,6 +18471,17 @@ button,
     min-width: 150px;
     max-width: none;
     flex: 1 1 150px;
+  }
+
+  .story-speechify-control {
+    order: 2;
+  }
+
+  .story-speechify-panel {
+    position: fixed;
+    top: 58px;
+    right: 7px;
+    left: auto;
   }
 
   .story-treatment-search {

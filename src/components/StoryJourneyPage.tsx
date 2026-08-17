@@ -15,6 +15,7 @@ import type {
 } from "../types";
 import { normalizeImageFit, resolveImageSourceUrl } from "../utils/imageFit";
 import { isRichText, plainTextToRichHtml, richTextToPlainText } from "../utils/richText";
+import { createSpeechifyAudio, fetchSpeechifyVoices, splitSpeechifyText, type SpeechifyVoice } from "../utils/speechify";
 import { AdjustableImage } from "./AdjustableImage";
 import { CustomSelect } from "./CustomSelect";
 import { DriveAwareImage } from "./DriveAwareImage";
@@ -1006,6 +1007,20 @@ export function StoryJourneyPage({
   const [collapsedActs, setCollapsedActs] = useState<StoryJourneyScope[]>(["history", "act1", "act2", "act3"]);
   const [chronologyCollapsed, setChronologyCollapsed] = useState(false);
   const [storyToolsOpen, setStoryToolsOpen] = useState(false);
+  const speechifyAudioRef = useRef<HTMLAudioElement | null>(null);
+  const speechifyAudioUrlRef = useRef("");
+  const speechifyAbortRef = useRef<AbortController | null>(null);
+  const speechifySessionRef = useRef(0);
+  const speechifyWaitResolveRef = useRef<(() => void) | null>(null);
+  const speechifyRateRef = useRef(1);
+  const [speechifyPanelOpen, setSpeechifyPanelOpen] = useState(false);
+  const [speechifyVoices, setSpeechifyVoices] = useState<SpeechifyVoice[]>([]);
+  const [speechifyVoiceId, setSpeechifyVoiceId] = useState(() => loadSpeechifyVoicePreference());
+  const [speechifyRate, setSpeechifyRate] = useState(1);
+  const [speechifyStatus, setSpeechifyStatus] = useState<"idle" | "connecting" | "playing" | "paused" | "error">("idle");
+  const [speechifyError, setSpeechifyError] = useState("");
+  const [speechifyNowPlaying, setSpeechifyNowPlaying] = useState("");
+  const [speechifyChunkProgress, setSpeechifyChunkProgress] = useState({ current: 0, total: 0 });
   const [selectedLibraryItemId, setSelectedLibraryItemId] = useState("");
   const [collapsedLibrarySections, setCollapsedLibrarySections] = useState<StoryLibrarySectionId[]>([
     "peoples",
@@ -1058,6 +1073,7 @@ export function StoryJourneyPage({
     chapters: readingChapters.filter((chapter) => storyChapterScope(chapter) === scope.id)
   })).filter((group) => group.chapters.length), [readingChapters]);
   const activeReaderIndex = Math.max(0, readingChapters.findIndex((chapter) => chapter.id === activeReaderChapterId));
+  const activeReaderChapter = readingChapters[activeReaderIndex] || readingChapters[0] || null;
   const readingProgress = readingChapters.length ? ((activeReaderIndex + 1) / readingChapters.length) * 100 : 0;
   const canonReviewItems = useMemo(() => buildCanonReviewItems(chapters, entries), [chapters, entries]);
   const librarySections = useMemo(
@@ -1155,6 +1171,26 @@ export function StoryJourneyPage({
     if (!readingChapters.length || readingChapters.some((chapter) => chapter.id === activeReaderChapterId)) return;
     setActiveReaderChapterId(readingChapters[0].id);
   }, [activeReaderChapterId, readingChapters]);
+
+  useEffect(() => {
+    speechifyRateRef.current = speechifyRate;
+    if (speechifyAudioRef.current) speechifyAudioRef.current.playbackRate = speechifyRate;
+  }, [speechifyRate]);
+
+  useEffect(() => {
+    if (!speechifyPanelOpen || speechifyVoices.length) return;
+    const controller = new AbortController();
+    void loadSpeechifyVoiceOptions(controller.signal);
+    return () => controller.abort();
+  }, [speechifyPanelOpen, speechifyVoices.length]);
+
+  useEffect(() => () => {
+    speechifySessionRef.current += 1;
+    speechifyAbortRef.current?.abort();
+    speechifyWaitResolveRef.current?.();
+    speechifyAudioRef.current?.pause();
+    if (speechifyAudioUrlRef.current) URL.revokeObjectURL(speechifyAudioUrlRef.current);
+  }, []);
 
   const changeStoryScope = (scope: StoryJourneyScope) => {
     const nextChapters = chaptersForScope(chapters, scope);
@@ -1447,6 +1483,135 @@ export function StoryJourneyPage({
     window.setTimeout(() => scrollToStorySection(chapterId), 60);
   };
 
+  async function loadSpeechifyVoiceOptions(signal?: AbortSignal) {
+    if (speechifyStatus === "idle") setSpeechifyStatus("connecting");
+    setSpeechifyError("");
+    try {
+      const response = await fetchSpeechifyVoices(signal);
+      setSpeechifyVoices(response.voices);
+      const preferred = response.voices.find((voice) => voice.id === speechifyVoiceId)
+        || response.voices.find((voice) => voice.id === response.defaultVoiceId)
+        || response.voices.find((voice) => /(^|[-_])en/i.test(voice.language))
+        || response.voices[0];
+      if (!preferred) throw new Error("No Speechify voices are available for this API account.");
+      setSpeechifyVoiceId(preferred.id);
+      saveSpeechifyVoicePreference(preferred.id);
+      setSpeechifyStatus((current) => current === "connecting" ? "idle" : current);
+      return preferred.id;
+    } catch (error) {
+      if (signal?.aborted) return "";
+      setSpeechifyError(error instanceof Error ? error.message : "Speechify could not be connected.");
+      setSpeechifyStatus("error");
+      setSpeechifyPanelOpen(true);
+      return "";
+    }
+  }
+
+  function releaseSpeechifyMedia() {
+    speechifyAudioRef.current?.pause();
+    speechifyAudioRef.current = null;
+    speechifyWaitResolveRef.current?.();
+    speechifyWaitResolveRef.current = null;
+    if (speechifyAudioUrlRef.current) URL.revokeObjectURL(speechifyAudioUrlRef.current);
+    speechifyAudioUrlRef.current = "";
+  }
+
+  function stopSpeechifyNarration() {
+    speechifySessionRef.current += 1;
+    speechifyAbortRef.current?.abort();
+    speechifyAbortRef.current = null;
+    releaseSpeechifyMedia();
+    setSpeechifyStatus("idle");
+    setSpeechifyNowPlaying("");
+    setSpeechifyChunkProgress({ current: 0, total: 0 });
+  }
+
+  async function startSpeechifyNarration(text: string, label: string) {
+    const chunks = splitSpeechifyText(plainStoryText(text));
+    if (!chunks.length) {
+      setSpeechifyError("There is no readable story text in this section yet.");
+      setSpeechifyStatus("error");
+      setSpeechifyPanelOpen(true);
+      return;
+    }
+
+    stopSpeechifyNarration();
+    const session = ++speechifySessionRef.current;
+    const controller = new AbortController();
+    speechifyAbortRef.current = controller;
+    setSpeechifyStatus("connecting");
+    setSpeechifyError("");
+    setSpeechifyNowPlaying(label);
+    setSpeechifyChunkProgress({ current: 0, total: chunks.length });
+
+    try {
+      const voiceId = speechifyVoices.some((voice) => voice.id === speechifyVoiceId)
+        ? speechifyVoiceId
+        : await loadSpeechifyVoiceOptions(controller.signal);
+      if (!voiceId || session !== speechifySessionRef.current) return;
+
+      for (let index = 0; index < chunks.length; index += 1) {
+        if (session !== speechifySessionRef.current) return;
+        setSpeechifyChunkProgress({ current: index + 1, total: chunks.length });
+        const audioUrl = await createSpeechifyAudio(chunks[index], voiceId, controller.signal);
+        if (session !== speechifySessionRef.current) {
+          URL.revokeObjectURL(audioUrl);
+          return;
+        }
+
+        releaseSpeechifyMedia();
+        speechifyAudioUrlRef.current = audioUrl;
+        const audio = new Audio(audioUrl);
+        audio.preload = "auto";
+        audio.playbackRate = speechifyRateRef.current;
+        speechifyAudioRef.current = audio;
+        setSpeechifyStatus("playing");
+
+        await new Promise<void>((resolve, reject) => {
+          speechifyWaitResolveRef.current = resolve;
+          audio.addEventListener("ended", () => resolve(), { once: true });
+          audio.addEventListener("error", () => reject(new Error("The Speechify audio stream could not be played.")), { once: true });
+          void audio.play().catch(reject);
+        });
+      }
+
+      if (session === speechifySessionRef.current) {
+        releaseSpeechifyMedia();
+        setSpeechifyStatus("idle");
+        setSpeechifyNowPlaying("");
+        setSpeechifyChunkProgress({ current: 0, total: 0 });
+      }
+    } catch (error) {
+      if (controller.signal.aborted || session !== speechifySessionRef.current) return;
+      releaseSpeechifyMedia();
+      setSpeechifyError(error instanceof Error ? error.message : "Speechify narration failed.");
+      setSpeechifyStatus("error");
+      setSpeechifyPanelOpen(true);
+    }
+  }
+
+  function toggleSpeechifyNarration() {
+    if (speechifyStatus === "playing" && speechifyAudioRef.current) {
+      speechifyAudioRef.current.pause();
+      setSpeechifyStatus("paused");
+      return;
+    }
+    if (speechifyStatus === "paused" && speechifyAudioRef.current) {
+      void speechifyAudioRef.current.play().then(() => setSpeechifyStatus("playing")).catch((error) => {
+        setSpeechifyError(error instanceof Error ? error.message : "Speechify audio could not resume.");
+        setSpeechifyStatus("error");
+      });
+      return;
+    }
+    if (selectedLibraryItem) {
+      void startSpeechifyNarration(`${selectedLibraryItem.title}. ${selectedLibraryItem.fullText}`, selectedLibraryItem.title);
+      return;
+    }
+    if (activeReaderChapter) {
+      void startSpeechifyNarration(storyChapterNarrationText(activeReaderChapter, readingDepth), activeReaderChapter.title);
+    }
+  }
+
   return (
     <section className={`story-journey-page ${readerOpen ? "reading" : ""} ${storyEditMode ? "story-edit-mode" : ""}`}>
       {!readerOpen ? (
@@ -1625,6 +1790,99 @@ export function StoryJourneyPage({
                   {depth[0].toUpperCase() + depth.slice(1)}
                 </button>
               ))}
+            </div>
+            <div className={`story-speechify-control ${speechifyPanelOpen ? "open" : ""}`}>
+              <div className="story-speechify-trigger-group">
+                <button
+                  type="button"
+                  className={speechifyStatus === "playing" || speechifyStatus === "paused" ? "active" : ""}
+                  onClick={toggleSpeechifyNarration}
+                  disabled={speechifyStatus === "connecting" || (!activeReaderChapter && !selectedLibraryItem)}
+                  title={speechifyStatus === "playing" ? "Pause Speechify" : speechifyStatus === "paused" ? "Resume Speechify" : "Read the current story section with Speechify"}
+                >
+                  <Icon name={speechifyStatus === "playing" ? "Pause" : "Volume2"} className="h-4 w-4" />
+                  {speechifyStatus === "playing" ? "Pause" : speechifyStatus === "paused" ? "Resume" : "Speechify"}
+                </button>
+                <button
+                  type="button"
+                  className="story-speechify-options-button"
+                  onClick={() => setSpeechifyPanelOpen((current) => !current)}
+                  title="Speechify voice and playback settings"
+                  aria-label="Speechify voice and playback settings"
+                >
+                  <Icon name="ChevronDown" className="h-4 w-4" />
+                </button>
+              </div>
+              {speechifyPanelOpen && (
+                <section className="story-speechify-panel">
+                  <header>
+                    <div>
+                      <span>Story Narration</span>
+                      <strong>Speechify Reader</strong>
+                    </div>
+                    <button type="button" onClick={() => setSpeechifyPanelOpen(false)} title="Close Speechify settings" aria-label="Close Speechify settings">
+                      <Icon name="X" className="h-4 w-4" />
+                    </button>
+                  </header>
+
+                  {speechifyNowPlaying && (
+                    <div className="story-speechify-now-playing">
+                      <Icon name="Volume2" className="h-4 w-4" />
+                      <div>
+                        <span>{speechifyStatus === "connecting" ? "Preparing" : speechifyStatus === "paused" ? "Paused" : "Reading"}</span>
+                        <strong>{speechifyNowPlaying}</strong>
+                        {speechifyChunkProgress.total > 1 && <small>Part {speechifyChunkProgress.current} of {speechifyChunkProgress.total}</small>}
+                      </div>
+                    </div>
+                  )}
+
+                  <label>
+                    <span>Voice</span>
+                    <select
+                      value={speechifyVoiceId}
+                      onChange={(event) => {
+                        stopSpeechifyNarration();
+                        setSpeechifyVoiceId(event.target.value);
+                        saveSpeechifyVoicePreference(event.target.value);
+                      }}
+                      disabled={!speechifyVoices.length}
+                    >
+                      {!speechifyVoices.length && <option value="">{speechifyStatus === "connecting" ? "Loading Speechify voices..." : "No voices loaded"}</option>}
+                      {speechifyVoices.map((voice) => (
+                        <option key={voice.id} value={voice.id}>
+                          {voice.name}{voice.language ? ` · ${voice.language}` : ""}{voice.gender ? ` · ${voice.gender}` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label>
+                    <span>Reading speed</span>
+                    <select value={speechifyRate} onChange={(event) => setSpeechifyRate(Number(event.target.value))}>
+                      {[0.75, 1, 1.25, 1.5, 1.75, 2].map((rate) => <option key={rate} value={rate}>{rate}x</option>)}
+                    </select>
+                  </label>
+
+                  <div className="story-speechify-actions">
+                    <button type="button" onClick={toggleSpeechifyNarration} disabled={speechifyStatus === "connecting" || (!activeReaderChapter && !selectedLibraryItem)}>
+                      <Icon name={speechifyStatus === "playing" ? "Pause" : "Play"} className="h-4 w-4" />
+                      {speechifyStatus === "playing" ? "Pause" : speechifyStatus === "paused" ? "Resume" : "Read Current"}
+                    </button>
+                    <button type="button" onClick={stopSpeechifyNarration} disabled={speechifyStatus === "idle"}>
+                      <Icon name="Square" className="h-4 w-4" />
+                      Stop
+                    </button>
+                  </div>
+
+                  {speechifyError && (
+                    <div className="story-speechify-error" role="alert">
+                      <Icon name="CircleAlert" className="h-4 w-4" />
+                      <span>{speechifyError}</span>
+                    </div>
+                  )}
+                  <small className="story-speechify-footnote">Narration uses the private Speechify API connection configured for this app.</small>
+                </section>
+              )}
             </div>
             {storySearchOpen && (
               <label className="story-treatment-search">
@@ -1848,6 +2106,10 @@ export function StoryJourneyPage({
                       onDeletePage={deleteInlinePageDraft}
                       onSave={saveInlineChapterDraft}
                       onCancel={() => setInlineChapterDraft(null)}
+                      onListenChapter={() => void startSpeechifyNarration(storyChapterNarrationText(chapter, readingDepth), chapter.title)}
+                      onListenPage={(page) => void startSpeechifyNarration(storyPageNarrationText(page, readingDepth), `${chapter.title}: ${page.title}`)}
+                      narrationLabel={speechifyNowPlaying}
+                      narrationStatus={speechifyStatus}
                     />
                   ))}
                 </section>
@@ -1980,7 +2242,11 @@ function StoryTreatmentChapter({
   onAddPage,
   onDeletePage,
   onSave,
-  onCancel
+  onCancel,
+  onListenChapter,
+  onListenPage,
+  narrationLabel,
+  narrationStatus
 }: {
   chapter: StoryChapter;
   chapterIndex: number;
@@ -1998,6 +2264,10 @@ function StoryTreatmentChapter({
   onDeletePage: (pageId: string) => void;
   onSave: () => void;
   onCancel: () => void;
+  onListenChapter: () => void;
+  onListenPage: (page: StoryPage) => void;
+  narrationLabel: string;
+  narrationStatus: "idle" | "connecting" | "playing" | "paused" | "error";
 }) {
   const visibleChapter = draft || chapter;
   const editing = Boolean(draft && canEdit);
@@ -2036,6 +2306,15 @@ function StoryTreatmentChapter({
         </div>
         <div className="story-treatment-chapter-actions">
           <em>{visibleChapter.revealLevel}</em>
+          {!editing && (
+            <button
+              className={narrationLabel === visibleChapter.title && narrationStatus !== "idle" ? "story-listen-active" : ""}
+              onClick={onListenChapter}
+              title={`Read ${visibleChapter.title} with Speechify`}
+            >
+              <Icon name="Volume2" className="h-4 w-4" /> Listen
+            </button>
+          )}
           {editing ? (
             <>
               <button className="story-inline-save" onClick={onSave}><Icon name="Save" className="h-4 w-4" /> Save</button>
@@ -2064,7 +2343,16 @@ function StoryTreatmentChapter({
         <section key={page.id || page.title} id={`story-beat-${page.id || `${visibleChapter.id}-page-${pageIndex + 1}`}`} className={`story-treatment-beat ${editing ? "inline-editing" : ""}`}>
           <div className="story-treatment-beat-heading">
             <span>Sequence {pageIndex + 1}</span>
-            {editing && (
+            {!editing ? (
+              <button
+                type="button"
+                className={`story-sequence-listen ${narrationLabel === `${visibleChapter.title}: ${page.title}` && narrationStatus !== "idle" ? "active" : ""}`}
+                onClick={() => onListenPage(page)}
+                title={`Read ${page.title} with Speechify`}
+              >
+                <Icon name="Volume2" className="h-4 w-4" /> Listen
+              </button>
+            ) : (
               <button
                 type="button"
                 className="story-inline-delete"
@@ -2954,6 +3242,34 @@ function joinUniqueStoryText(values: unknown[]) {
 
 function plainStoryText(value: string) {
   return richTextToPlainText(String(value || "")).trim();
+}
+
+function storyChapterNarrationText(chapter: StoryChapter, depth: StoryReadingDepth) {
+  const parts = [chapter.title, chapter.overviewText || chapter.shortDescription];
+  if (depth !== "overview") {
+    chapter.pages.forEach((page) => parts.push(storyPageNarrationText(page, depth)));
+  }
+  return parts.filter(Boolean).join(". ");
+}
+
+function storyPageNarrationText(page: StoryPage, depth: StoryReadingDepth) {
+  return [page.title, page.text, depth === "detailed" ? page.detailedText || "" : ""].filter(Boolean).join(". ");
+}
+
+function loadSpeechifyVoicePreference() {
+  try {
+    return localStorage.getItem("tavernCookBookSpeechifyVoice") || "";
+  } catch {
+    return "";
+  }
+}
+
+function saveSpeechifyVoicePreference(voiceId: string) {
+  try {
+    localStorage.setItem("tavernCookBookSpeechifyVoice", voiceId);
+  } catch {
+    // Voice selection is optional preference data.
+  }
 }
 
 function humanizeStoryLabel(value: string) {
