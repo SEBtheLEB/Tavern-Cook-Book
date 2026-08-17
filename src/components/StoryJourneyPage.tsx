@@ -33,10 +33,19 @@ import { DriveImageSourceControls } from "./DriveImageSourceControls";
 import { ImageManagerModal, type ImageManagerSlotDraft } from "./ImageManagerModal";
 import { Icon } from "./Icon";
 import { RichLoreText, RichTextEditor } from "./RichText";
+import {
+  ACT_ONE_STORY_CHAPTER_IDS,
+  LEGACY_ACT_ONE_CHAPTER_ID,
+  actOneStoryChapters
+} from "../data/actOneCanon";
 
 const STORY_JOURNEY_STATE_KEY = "tavernCookBookStoryJourneyState";
 const STORY_JOURNEY_CHAPTERS_KEY = "tavernCookBookStoryJourneyChapters";
-const storyExpansionChapterIds = new Set(["act-one-whisker-woods", "truth-of-tabby-island", "the-maseel-hunt"]);
+const storyExpansionChapterIds = new Set([
+  ...ACT_ONE_STORY_CHAPTER_IDS,
+  "truth-of-tabby-island",
+  "the-maseel-hunt"
+]);
 
 interface StoryJourneyPageProps {
   entries: LoreEntry[];
@@ -181,7 +190,7 @@ const storyJourneyScopeOptions: Array<{
   },
   {
     id: "act1",
-    label: "Act 1",
+    label: "Act I — The Queen Beneath the Frost",
     eyebrow: "Playable Story",
     description: "Opening playable arc, Whisker Woods, the first corruption threads, and the first recipe-page recovery.",
     emptyTitle: "No Act 1 chapters yet."
@@ -202,7 +211,7 @@ const storyJourneyScopeOptions: Array<{
   }
 ];
 
-const defaultStoryChapters: StoryChapter[] = [
+const legacyDefaultStoryChapters: StoryChapter[] = [
   {
     id: "three-hundred-year-war",
     title: "The 300 Year War",
@@ -908,6 +917,10 @@ const defaultStoryChapters: StoryChapter[] = [
     ]
   }
 ];
+
+const defaultStoryChapters: StoryChapter[] = legacyDefaultStoryChapters.flatMap((chapter) =>
+  chapter.id === LEGACY_ACT_ONE_CHAPTER_ID ? actOneStoryChapters : [chapter]
+);
 
 const fallbackLore: Record<string, { type: string; description: string }> = {
   Ovenhold: {
@@ -4006,32 +4019,32 @@ interface CanonReviewItem {
 function buildCanonReviewItems(chapters: StoryChapter[], entries: LoreEntry[]): CanonReviewItem[] {
   const items: CanonReviewItem[] = [
     {
-      id: "academy-homecoming-gap",
-      severity: "gap",
-      label: "Missing source records",
-      title: "Gwen's Academy education and homecoming",
-      description: "The requested Academy, two-year apprenticeship, final qualification dish, and homecoming sequence are not supported by current Cookbook records. They should be added only after the canon version is documented."
+      id: "academy-name-review",
+      severity: "review",
+      label: "Naming review",
+      title: "Unhold and Ovenhold Academy naming",
+      description: "The final examination is documented, but the relationship between Culinary Imperial Academy of Unhold and Ovenhold remains unresolved. Keep one Academy record until the place-name relationship is confirmed."
     },
     {
-      id: "juno-gap",
-      severity: "gap",
-      label: "Character introduction missing",
-      title: "Juno and the early sparring tutorial",
-      description: "Juno appears on the Development Board, but the current story, character, quest, and worldbuilding records do not explain who Juno is or how the sparring sequence fits the chronology."
+      id: "academy-rival-name-review",
+      severity: "review",
+      label: "Name TBD",
+      title: "Academy Rival needs a final name",
+      description: "The rival's story role and Cook Battle are documented. Ressa Vale remains only a previous working name and should not be treated as final canon."
     },
     {
       id: "cedric-name-conflict",
       severity: "conflict",
       label: "Naming conflict",
-      title: "Cedric or Cedrick the Grunt",
-      description: "The Development Board uses Cedric, while the Act 1 treatment uses Cedrick the Grunt. Confirm one canonical spelling before changing linked records."
+      title: "Cedric or Cedrick spelling",
+      description: "The new canonical record uses Cedric the Grunt and treats Cedrick as an alias. Confirm whether the display spelling should change before removing that alias."
     },
     {
       id: "brambrik-review",
       severity: "review",
       label: "Soft canon",
-      title: "Brambrik's Act 1 role",
-      description: "The current treatment explicitly marks Brambrik as soft canon and offers several possible roles. His identity and function should be confirmed before entering the clean chronology."
+      title: "Brambrake's gate-opening task",
+      description: "Brambrake's role, personality, and hidden early presentation are documented. The exact quest that convinces him to open the gate still needs confirmation."
     },
     {
       id: "masil-maseel-name-conflict",
@@ -4060,7 +4073,7 @@ function buildCanonReviewItems(chapters: StoryChapter[], entries: LoreEntry[]): 
       description: "The Cookbook does not yet contain enough ordered scene information to assemble this act without inventing canon."
     });
   });
-  chapters.filter((chapter) => chapter.pages.length <= 1).forEach((chapter) => {
+  chapters.filter((chapter) => chapter.pages.length <= 1 && chapter.pages.reduce((total, page) => total + richTextToPlainText(page.text).split(/\s+/).filter(Boolean).length, 0) < 120).forEach((chapter) => {
     items.push({
       id: `shallow-${chapter.id}`,
       severity: "gap",
@@ -4217,7 +4230,7 @@ function loadStoryChapters(): StoryChapter[] {
 }
 
 function mergeStoryExpansionChapters(chapters: StoryChapter[]): StoryChapter[] {
-  const next = [...chapters];
+  const next = chapters.filter((chapter) => chapter.id !== LEGACY_ACT_ONE_CHAPTER_ID);
   defaultStoryChapters
     .filter((chapter) => storyExpansionChapterIds.has(chapter.id))
     .forEach((defaultChapter) => {

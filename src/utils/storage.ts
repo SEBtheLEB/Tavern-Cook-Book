@@ -48,17 +48,24 @@ import {
 } from "./storyReferences";
 import { createStarterWorldBuilding, normalizeWorldBuilding, sanitizeWorldBuildingForPersistence } from "./worldBuilding";
 import { normalizeStoryJourneyData } from "./storyJourneyData";
+import {
+  mergeActOneCanonBestiary,
+  mergeActOneCanonEntries,
+  mergeActOneCanonWorldBuilding,
+  mergeActOneStoryJourney
+} from "../data/actOneCanon";
 
 export const DATABASE_KEY = "tavern-cook-book:data";
 export const THEME_KEY = "tavern-cook-book:theme";
 const LEGACY_MODE_KEY = "tavern-cook-book:mode";
 
-export const currentSchemaVersion = 12;
+export const currentSchemaVersion = 13;
 const loreExpansionSchemaVersion = 2;
 const magicalMealCanonSchemaVersion = 3;
 const storyReferenceSchemaVersion = 4;
 const whiskerWoodsPlaytestRoadmapSchemaVersion = 7;
 const masilCultLeaderSchemaVersion = 12;
+const actOneCanonSchemaVersion = 13;
 
 const masilCultLeaderEntryTitles = new Set(["Masil Cult Leader"]);
 
@@ -233,6 +240,7 @@ export const migrateDatabase = (value: unknown): LoreDatabase => {
   const needsStoryReferences = Number(incoming.schemaVersion || 0) < storyReferenceSchemaVersion;
   const needsWhiskerWoodsPlaytestRoadmap = Number(incoming.schemaVersion || 0) < whiskerWoodsPlaytestRoadmapSchemaVersion;
   const needsMasilCultLeader = Number(incoming.schemaVersion || 0) < masilCultLeaderSchemaVersion;
+  const needsActOneCanon = Number(incoming.schemaVersion || 0) < actOneCanonSchemaVersion;
   let entries = Array.isArray(incoming.entries)
     ? repairScribeFoodEntries(incoming.entries.map((item) => normalizeEntry(item as Partial<LoreEntry>)))
     : starter.entries;
@@ -296,10 +304,19 @@ export const migrateDatabase = (value: unknown): LoreDatabase => {
     glossaryTerms = mergeGlossaryTerms(glossaryTerms, createStarterGlossaryTerms());
   }
 
+  if (needsActOneCanon) {
+    entries = mergeActOneCanonEntries(entries);
+    bestiary = mergeActOneCanonBestiary(bestiary);
+    worldBuilding = mergeActOneCanonWorldBuilding(worldBuilding);
+  }
+
   const developmentBoard = incoming.developmentBoard
     ? normalizeDevelopmentBoardData(incoming.developmentBoard)
     : createInitialDevelopmentBoard(entries, bestiary, worldBuilding, storyReferences);
-  const storyJourney = normalizeStoryJourneyData(incoming.storyJourney || starter.storyJourney);
+  const normalizedStoryJourney = normalizeStoryJourneyData(incoming.storyJourney || starter.storyJourney);
+  const storyJourney = needsActOneCanon
+    ? mergeActOneStoryJourney(normalizedStoryJourney)
+    : normalizedStoryJourney;
 
   return {
     schemaVersion: currentSchemaVersion,

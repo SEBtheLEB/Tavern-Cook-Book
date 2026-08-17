@@ -7,6 +7,11 @@ import { defaultQuestCategories, defaultTeamMembers } from "../utils/assignments
 import { createStarterArtDirectionBoard } from "../utils/artDirection";
 import { createStarterRoadmapData } from "../utils/roadmap";
 import { createInitialDevelopmentBoard } from "../utils/developmentBoard";
+import {
+  mergeActOneCanonBestiary,
+  mergeActOneCanonEntries,
+  mergeActOneCanonWorldBuilding
+} from "./actOneCanon";
 
 const stamp = "2026-05-07T00:00:00.000Z";
 
@@ -3712,12 +3717,12 @@ const starterBestiaryCategoryVaults: BestiaryCategoryArtVault[] = Array.from(
 ).map((category) => createBestiaryCategoryArtVaultRecord(category, starterBestiary));
 
 export const createStarterDatabase = (): LoreDatabase => {
-  const entries = starterEntries.map((item) => JSON.parse(JSON.stringify(item)) as LoreEntry);
-  const bestiary = starterBestiary.map((item) => JSON.parse(JSON.stringify(item)) as BestiaryCreature);
-  const worldBuilding = createStarterWorldBuilding(entries, bestiary);
+  const entries = mergeActOneCanonEntries(starterEntries.map((item) => JSON.parse(JSON.stringify(item)) as LoreEntry));
+  const bestiary = mergeActOneCanonBestiary(starterBestiary.map((item) => JSON.parse(JSON.stringify(item)) as BestiaryCreature));
+  const worldBuilding = mergeActOneCanonWorldBuilding(createStarterWorldBuilding(entries, bestiary));
   const storyReferences = createStarterStoryReferences();
   return {
-    schemaVersion: 11,
+    schemaVersion: 13,
     entries,
     bestiary,
     bestiaryCategoryVaults: starterBestiaryCategoryVaults.map((item) => JSON.parse(JSON.stringify(item)) as BestiaryCategoryArtVault),
