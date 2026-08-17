@@ -4647,38 +4647,55 @@ function storyInspectorMetadataFromDraft(draft: ImageManagerSlotDraft, slotId: s
 
 function resolveLorePreview(term: string, entries: LoreEntry[], bestiary: BestiaryCreature[], worldBuilding?: WorldBuildingData): LorePreview {
   const normalized = normalizeTerm(term);
-  const entry = entries.find((candidate) =>
-    [candidate.title, ...candidate.tags].some((value) => normalizeTerm(value) === normalized)
-  ) || entries.find((candidate) => normalizeTerm(candidate.title).includes(normalized));
-  if (entry) {
+  const exactEntry = entries.find((candidate) => normalizeTerm(candidate.title) === normalized);
+  const exactCreature = bestiary.find((candidate) => normalizeTerm(candidate.name) === normalized);
+  const worldEntries = worldBuilding ? Object.values(worldBuilding).flat() : [];
+  const exactWorldEntry = worldEntries.find((candidate) => normalizeTerm(candidate.title) === normalized);
+  if (exactEntry) {
     return {
-      name: entry.title,
-      type: entry.type || entry.category,
-      description: richTextToPlainText(entry.summary || entry.publicDescription || entry.internalLore || "No description has been written yet."),
-      entry
+      name: exactEntry.title,
+      type: exactEntry.type || exactEntry.category,
+      description: richTextToPlainText(exactEntry.summary || exactEntry.publicDescription || exactEntry.internalLore || "No description has been written yet."),
+      entry: exactEntry
     };
   }
 
-  const creature = bestiary.find((candidate) => normalizeTerm(candidate.name) === normalized);
-  if (creature) {
+  if (exactCreature) {
     return {
-      name: creature.name,
-      type: creature.type || "Creature",
-      description: creature.description || creature.overview || "No creature description has been written yet.",
-      creature
+      name: exactCreature.name,
+      type: exactCreature.type || "Creature",
+      description: exactCreature.description || exactCreature.overview || "No creature description has been written yet.",
+      creature: exactCreature
     };
   }
 
-  const worldEntry = worldBuilding
-    ? Object.values(worldBuilding).flat().find((candidate) => normalizeTerm(candidate.title) === normalized)
-      || Object.values(worldBuilding).flat().find((candidate) => normalizeTerm(candidate.title).includes(normalized))
-    : undefined;
-  if (worldEntry) {
+  if (exactWorldEntry) {
     return {
-      name: worldEntry.title,
-      type: worldEntry.type || storyWorldCategoryLabel(worldEntry.category),
-      description: plainStoryText(worldEntry.summary || Object.values(worldEntry.fields).find(Boolean) || "No description has been written yet."),
-      worldEntry
+      name: exactWorldEntry.title,
+      type: exactWorldEntry.type || storyWorldCategoryLabel(exactWorldEntry.category),
+      description: plainStoryText(exactWorldEntry.summary || Object.values(exactWorldEntry.fields).find(Boolean) || "No description has been written yet."),
+      worldEntry: exactWorldEntry
+    };
+  }
+
+  const relatedEntry = entries.find((candidate) => normalizeTerm(candidate.title).includes(normalized))
+    || entries.find((candidate) => candidate.tags.some((value) => normalizeTerm(value) === normalized));
+  if (relatedEntry) {
+    return {
+      name: relatedEntry.title,
+      type: relatedEntry.type || relatedEntry.category,
+      description: richTextToPlainText(relatedEntry.summary || relatedEntry.publicDescription || relatedEntry.internalLore || "No description has been written yet."),
+      entry: relatedEntry
+    };
+  }
+
+  const relatedWorldEntry = worldEntries.find((candidate) => normalizeTerm(candidate.title).includes(normalized));
+  if (relatedWorldEntry) {
+    return {
+      name: relatedWorldEntry.title,
+      type: relatedWorldEntry.type || storyWorldCategoryLabel(relatedWorldEntry.category),
+      description: plainStoryText(relatedWorldEntry.summary || Object.values(relatedWorldEntry.fields).find(Boolean) || "No description has been written yet."),
+      worldEntry: relatedWorldEntry
     };
   }
 

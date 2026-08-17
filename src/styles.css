@@ -18278,12 +18278,12 @@ button,
 }
 
 .story-treatment-layout {
-  grid-template-columns: 252px minmax(0, 1fr) minmax(286px, 324px);
+  grid-template-columns: 252px minmax(0, 900px) minmax(286px, 324px);
   min-height: calc(100dvh - 56px);
 }
 
 .story-treatment-layout.story-inspector-is-collapsed {
-  grid-template-columns: 252px minmax(0, 1fr) 48px;
+  grid-template-columns: 252px minmax(0, 900px) 48px;
 }
 
 .story-treatment-navigator {
