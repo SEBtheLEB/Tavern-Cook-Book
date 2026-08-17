@@ -5091,7 +5091,7 @@ function plainStoryText(value: string) {
 
 const STORY_NARRATION_HIGHLIGHT = "story-speechify-current-word";
 
-function buildStoryNarrationChunks(root: HTMLElement, maxLength = 3_500): StoryNarrationChunk[] {
+function buildStoryNarrationChunks(root: HTMLElement, maxLength = 900): StoryNarrationChunk[] {
   type CharacterLocation = { node: Text; offset: number } | null;
   type BlockMeta = { chapterId: string; chapterTitle: string; sectionTitle: string; kind: StoryNarrationKind };
   const locations: CharacterLocation[] = [];

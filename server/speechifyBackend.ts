@@ -343,11 +343,14 @@ async function generateSpeechifyAudio(
   language: string,
   withTimestamps: boolean
 ): Promise<GeneratedSpeechifyAudio> {
+  if (withTimestamps && text.length > 2_000) {
+    throw new SpeechifyUpstreamError(413, "Saved narration parts must be 2,000 characters or fewer.");
+  }
   for (let attempt = 0; attempt < 4; attempt += 1) {
-    const upstream = await fetch(`${SPEECHIFY_API_BASE}/audio/${withTimestamps ? "stream/with-timestamps" : "stream"}`, {
+    const upstream = await fetch(`${SPEECHIFY_API_BASE}/audio/${withTimestamps ? "speech" : "stream"}`, {
       method: "POST",
       headers: {
-        Accept: withTimestamps ? "text/event-stream" : "audio/mpeg",
+        Accept: withTimestamps ? "application/json" : "audio/mpeg",
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json"
       },
@@ -356,7 +359,7 @@ async function generateSpeechifyAudio(
         voice_id: voiceId,
         language,
         model: process.env.SPEECHIFY_MODEL || DEFAULT_MODEL,
-        output_format: "mp3_24000_64"
+        ...(withTimestamps ? { audio_format: "mp3" } : { output_format: "mp3_24000_64" })
       })
     });
 
@@ -372,12 +375,10 @@ async function generateSpeechifyAudio(
     }
 
     if (withTimestamps) {
-      const timestamped = parseSpeechifyTimestampStream(await upstream.text());
+      const timestamped = parseSpeechifySpeechResponse(await upstream.json());
       return {
         audio: timestamped.audio,
-        contentType: upstream.headers.get("speechify-audio-content-type")
-          || upstream.headers.get("x-speechify-audio-content-type")
-          || "audio/mpeg",
+        contentType: "audio/mpeg",
         speechMarks: timestamped.speechMarks,
         durationMs: timestamped.durationMs
       };
@@ -391,6 +392,29 @@ async function generateSpeechifyAudio(
     };
   }
   throw new SpeechifyUpstreamError(429, "Speechify is still busy. Wait a moment, then continue recording.");
+}
+
+export function parseSpeechifySpeechResponse(value: unknown) {
+  if (!value || typeof value !== "object") throw new Error("Speechify returned an unreadable narration response.");
+  const payload = value as Record<string, unknown>;
+  const encodedAudio = stringValue(payload.audio_data).replace(/^data:[^,]+,/, "");
+  if (!encodedAudio) throw new Error("Speechify returned timestamps without playable audio.");
+
+  const speechMarksRecord = payload.speech_marks && typeof payload.speech_marks === "object"
+    ? payload.speech_marks as Record<string, unknown>
+    : {};
+  const rawMarks = Array.isArray(speechMarksRecord.chunks)
+    ? speechMarksRecord.chunks
+    : Array.isArray(payload.speech_marks)
+      ? payload.speech_marks
+      : [];
+  const speechMarks = rawMarks.flatMap((mark) => {
+    const normalized = normalizeSpeechMark(mark);
+    return normalized ? [normalized] : [];
+  });
+  const durationMs = numberValue(speechMarksRecord.end_time)
+    || speechMarks.reduce((maximum, mark) => Math.max(maximum, mark.end_time), 0);
+  return { audio: Buffer.from(encodedAudio, "base64"), speechMarks, durationMs };
 }
 
 function enqueueSpeechifyGeneration<T>(task: () => Promise<T>) {
