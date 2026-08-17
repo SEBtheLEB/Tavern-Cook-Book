@@ -3382,7 +3382,7 @@ function expandHiddenViewIds(hiddenViewIds: ActiveView[]) {
     expanded.add("recipes");
     expanded.add("items");
   }
-  if (expanded.has("story") || expanded.has("storyJourney")) {
+  if (expanded.has("storyJourney")) {
     expanded.add("story");
     expanded.add("storyJourney");
     expanded.add("timeline");

@@ -125,9 +125,10 @@ export function getFreelancerLockedTabs() {
 
 export function getHiddenTabsForAccessUser(settings: AppSyncSettings, email: string, role: AccessUserPermission["role"]): ActiveView[] {
   if (role === "admin") return [];
-  if (role === "freelancer") return getFreelancerLockedTabs();
   const normalizedEmail = normalizeEmail(email);
   const customHidden = normalizedEmail ? settings.visibility.hiddenByMemberEmail[normalizedEmail] : undefined;
+  if (customHidden) return customHidden;
+  if (role === "freelancer") return getFreelancerLockedTabs();
   return customHidden || settings.visibility.hiddenForMembers;
 }
 

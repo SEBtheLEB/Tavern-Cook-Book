@@ -3,7 +3,7 @@ import type { AccessRole, AccessUserPermission, ActiveView, GoogleAccountUser, L
 import { createStarterDatabase } from "../data/starterData";
 import { mainNavigation } from "../data/navigation";
 import type { AppSyncSettings } from "../utils/appSettings";
-import { getHideableNavigationTabs, normalizeAppSyncSettings } from "../utils/appSettings";
+import { getFreelancerLockedTabs, getHideableNavigationTabs, normalizeAppSyncSettings } from "../utils/appSettings";
 import type { DriveSettings } from "../utils/driveSettings";
 import {
   clearDriveSettings,
@@ -74,10 +74,11 @@ export function SettingsPage({
     ? appSyncSettings.visibility.hiddenByMemberEmail[selectedVisibilityEmail]
     : undefined;
   const selectedHiddenTabs = selectedVisibilityUser?.role === "freelancer"
-    ? getHideableNavigationTabs().filter((viewId) => viewId !== "artVault")
+    ? selectedCustomHidden || getHideableNavigationTabs().filter((viewId) => viewId !== "artVault")
     : selectedCustomHidden || appSyncSettings.visibility.hiddenForMembers;
   const selectedHasCustomVisibility = Boolean(selectedVisibilityEmail && selectedCustomHidden);
   const selectedFreelancerVisibility = selectedVisibilityUser?.role === "freelancer";
+  const selectedHiddenNavigationCount = hideableNavigation.filter((item) => selectedHiddenTabs.includes(item.id)).length;
 
   useEffect(() => {
     fetch("/api/health")
@@ -373,12 +374,9 @@ export function SettingsPage({
   };
 
   const toggleHiddenMemberTab = (viewId: ActiveView) => {
-    if (selectedFreelancerVisibility) {
-      setMessage("Freelancer visibility is fixed to Dashboard and Art Vault / Art Binder. Change the role if this person needs other tabs.");
-      return;
-    }
     const currentHidden = selectedVisibilityEmail
-      ? selectedCustomHidden || appSyncSettings.visibility.hiddenForMembers
+      ? selectedCustomHidden
+        || (selectedFreelancerVisibility ? getFreelancerLockedTabs() : appSyncSettings.visibility.hiddenForMembers)
       : appSyncSettings.visibility.hiddenForMembers;
     const hidden = new Set(currentHidden);
     if (hidden.has(viewId)) hidden.delete(viewId);
@@ -395,6 +393,9 @@ export function SettingsPage({
         hiddenByMemberEmail
       }
     });
+    if (selectedVisibilityEmail) {
+      setMessage("Custom visibility updated. It will save for the team automatically.");
+    }
   };
 
   const resetSelectedMemberVisibility = () => {
@@ -408,7 +409,9 @@ export function SettingsPage({
         hiddenByMemberEmail
       }
     });
-    setMessage("This member now uses the default member tab visibility.");
+    setMessage(selectedFreelancerVisibility
+      ? "This freelancer now uses the restricted Freelancer role default."
+      : "This member now uses the default member tab visibility.");
   };
 
   return (
@@ -485,7 +488,7 @@ export function SettingsPage({
             </p>
           </div>
           <span className="rounded border px-3 py-1 text-sm" style={{ borderColor: "var(--card-border)", background: "var(--field-bg)" }}>
-            {selectedHiddenTabs.length} hidden
+            {selectedHiddenNavigationCount} hidden
           </span>
         </div>
         <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,320px)_auto_1fr] md:items-end">
@@ -510,11 +513,13 @@ export function SettingsPage({
             disabled={!selectedVisibilityEmail || !selectedHasCustomVisibility}
             onClick={resetSelectedMemberVisibility}
           >
-            Use Default
+            {selectedFreelancerVisibility ? "Use Role Default" : "Use Default"}
           </button>
           <p className="text-sm" style={{ color: "var(--muted-ink)" }}>
             {selectedFreelancerVisibility
-              ? "Freelancer is fixed to Dashboard plus Art Vault / Art Binder access only."
+              ? selectedHasCustomVisibility
+                ? "This freelancer has custom visibility. Freelancer editing restrictions still apply."
+                : "Freelancers start with Dashboard plus Art Vault / Art Binder. You can grant extra tabs to this teammate below."
               : selectedVisibilityEmail
                 ? selectedHasCustomVisibility
                   ? "This teammate has custom visibility."
@@ -530,7 +535,6 @@ export function SettingsPage({
                 <input
                   type="checkbox"
                   checked={!hidden}
-                  disabled={selectedFreelancerVisibility}
                   onChange={() => toggleHiddenMemberTab(item.id)}
                 />
                 <span>
@@ -549,7 +553,7 @@ export function SettingsPage({
             <div>
               <h3 className="font-display text-2xl">Team Access</h3>
               <p className="mt-1 text-sm" style={{ color: "var(--muted-ink)" }}>
-                This is the only place that controls app access. Admin can manage permissions, editors can work across the cookbook, freelancers are limited to Art Vault / Art Binder, and viewers can only read.
+                This is the only place that controls app access. Admin can manage permissions, editors can work across the cookbook, freelancers start with Art Vault / Art Binder and can receive per-person tab access, and viewers can only read.
               </p>
             </div>
             <span className="rounded border px-3 py-1 text-sm" style={{ borderColor: "var(--card-border)", background: "var(--field-bg)" }}>
