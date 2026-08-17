@@ -71,7 +71,7 @@ interface StoryJourneyState {
   completedChapterIds: string[];
 }
 
-type StoryScribeScope = "currentPage" | "wholeChapter";
+type StoryScribeScope = "currentPage" | "wholeChapter" | "wholeJourney";
 type StoryReadingDepth = "overview" | "standard" | "detailed";
 type StoryLibrarySectionId = "peoples" | "characters" | "places" | "factions" | "magic" | "creatures" | "quests" | "lore";
 
@@ -132,6 +132,8 @@ interface StoryScribeChapterPatch {
   era?: string;
   revealLevel?: StoryChapter["revealLevel"];
   shortDescription?: string;
+  overviewText?: string;
+  developerNotes?: string;
   relatedLore?: string[];
 }
 
@@ -140,9 +142,12 @@ interface StoryScribePagePatch {
   pageIndex?: number;
   title?: string;
   text?: string;
+  detailedText?: string;
+  developerNotes?: string;
   imagePlaceholder?: string;
   caption?: string;
   relatedLore?: string[];
+  callouts?: StoryJourneyCallout[];
 }
 
 interface StoryScribePatch {
@@ -150,6 +155,16 @@ interface StoryScribePatch {
   chapterPatch?: StoryScribeChapterPatch;
   pagePatches: StoryScribePagePatch[];
   newPages: StoryScribePagePatch[];
+  warnings: string[];
+}
+
+interface StoryScribeChapterDraft extends StoryScribePatch {
+  chapterId: string;
+}
+
+interface StoryScribeJourneyPatch {
+  summary: string;
+  chapterPatches: StoryScribeChapterDraft[];
   warnings: string[];
 }
 
@@ -1054,6 +1069,8 @@ export function StoryJourneyPage({
   const [collapsedActs, setCollapsedActs] = useState<StoryJourneyScope[]>(["history", "act1", "act2", "act3"]);
   const [chronologyCollapsed, setChronologyCollapsed] = useState(false);
   const [storyToolsOpen, setStoryToolsOpen] = useState(false);
+  const [storyScribeOpen, setStoryScribeOpen] = useState(false);
+  const [storyScribeTarget, setStoryScribeTarget] = useState<{ chapterId: string; pageIndex: number; scope: StoryScribeScope } | null>(null);
   const storyTreatmentReaderRef = useRef<HTMLElement | null>(null);
   const speechifyAudioRef = useRef<HTMLAudioElement | null>(null);
   const speechifyAudioUrlRef = useRef("");
@@ -1468,6 +1485,30 @@ export function StoryJourneyPage({
 
   const applyStoryScribeDraft = (draft: StoryScribePatch) => {
     updateChapter(selectedChapter.id, (chapter) => applyStoryScribePatch(chapter, draft));
+    setPageTurnKey((key) => key + 1);
+  };
+
+  const openStoryScribe = (scope: StoryScribeScope, chapterId?: string, pageIndex = 0) => {
+    if (!canEditStory) return;
+    const targetChapter = chapters.find((chapter) => chapter.id === chapterId)
+      || activeReaderChapter
+      || selectedChapter
+      || chapters[0];
+    if (!targetChapter) return;
+    setStoryScribeTarget({
+      chapterId: targetChapter.id,
+      pageIndex: Math.max(0, Math.min(pageIndex, targetChapter.pages.length - 1)),
+      scope
+    });
+    setStoryScribeOpen(true);
+  };
+
+  const applyStoryScribeJourneyDraft = (draft: StoryScribeJourneyPatch) => {
+    const patchesByChapter = new Map(draft.chapterPatches.map((item) => [item.chapterId, item]));
+    setChapters((current) => current.map((chapter) => {
+      const patch = patchesByChapter.get(chapter.id);
+      return patch ? applyStoryScribePatch(chapter, patch) : chapter;
+    }));
     setPageTurnKey((key) => key + 1);
   };
 
@@ -2340,6 +2381,12 @@ export function StoryJourneyPage({
               <Icon name="ListChecks" className="h-4 w-4" />
               Story Tools
             </button>
+            {canEditStory && (
+              <button className="button-frame story-scribe-toolbar-button" onClick={() => openStoryScribe("wholeJourney")}>
+                <Icon name="Sparkles" className="h-4 w-4" />
+                Tavern Scribe
+              </button>
+            )}
           </header>
 
           <div className="story-treatment-progress" aria-label={selectedLibraryItem ? "World guide topic open" : `Reading progress ${Math.round(readingProgress)} percent`}>
@@ -2524,6 +2571,8 @@ export function StoryJourneyPage({
                       bestiary={bestiary}
                       onLoreClick={setSelectedLoreTerm}
                       onEdit={() => editReaderChapter(chapter.id)}
+                      onScribeChapter={() => openStoryScribe("wholeChapter", chapter.id)}
+                      onScribePage={(pageIndex) => openStoryScribe("currentPage", chapter.id, pageIndex)}
                       onDraftChange={updateInlineChapterDraft}
                       onPageChange={updateInlinePageDraft}
                       onAddPage={addInlinePageDraft}
@@ -2606,6 +2655,19 @@ export function StoryJourneyPage({
           </section>
         </div>
       )}
+      {storyScribeOpen && storyScribeTarget && canEditStory && (
+        <div className="story-scribe-backdrop" role="presentation" onMouseDown={() => setStoryScribeOpen(false)}>
+          <div className="story-scribe-dialog" role="dialog" aria-modal="true" aria-label="Tavern Scribe for Story Journey" onMouseDown={(event) => event.stopPropagation()}>
+            <StoryJourneyScribe
+              chapters={chapters}
+              target={storyScribeTarget}
+              onTargetChange={setStoryScribeTarget}
+              onApply={applyStoryScribeJourneyDraft}
+              onClose={() => setStoryScribeOpen(false)}
+            />
+          </div>
+        </div>
+      )}
       {imageManagerOpen && (
         <ImageManagerModal
           title={`${selectedChapter.title} Image Manager`}
@@ -2661,6 +2723,8 @@ function StoryTreatmentChapter({
   bestiary,
   onLoreClick,
   onEdit,
+  onScribeChapter,
+  onScribePage,
   onDraftChange,
   onPageChange,
   onAddPage,
@@ -2682,6 +2746,8 @@ function StoryTreatmentChapter({
   bestiary: BestiaryCreature[];
   onLoreClick: (term: string) => void;
   onEdit: () => void;
+  onScribeChapter: () => void;
+  onScribePage: (pageIndex: number) => void;
   onDraftChange: (patch: Partial<StoryChapter>) => void;
   onPageChange: (pageId: string, patch: Partial<StoryPage>) => void;
   onAddPage: () => void;
@@ -2745,7 +2811,10 @@ function StoryTreatmentChapter({
               <button onClick={onCancel}><Icon name="X" className="h-4 w-4" /> Cancel</button>
             </>
           ) : canEdit ? (
-            <button onClick={onEdit}><Icon name="Edit3" className="h-4 w-4" /> Edit</button>
+            <>
+              <button onClick={onScribeChapter}><Icon name="Sparkles" className="h-4 w-4" /> Scribe</button>
+              <button onClick={onEdit}><Icon name="Edit3" className="h-4 w-4" /> Edit</button>
+            </>
           ) : null}
         </div>
       </header>
@@ -2768,14 +2837,21 @@ function StoryTreatmentChapter({
           <div className="story-treatment-beat-heading">
             <span>Sequence {pageIndex + 1}</span>
             {!editing ? (
-              <button
-                type="button"
-                className={`story-sequence-listen ${narrationLabel === `${visibleChapter.title}: ${page.title}` && narrationStatus !== "idle" ? "active" : ""}`}
-                onClick={() => onListenPage(page)}
-                title={`Read ${page.title} with Speechify`}
-              >
-                <Icon name="Volume2" className="h-4 w-4" /> Listen
-              </button>
+              <div className="story-sequence-actions">
+                <button
+                  type="button"
+                  className={`story-sequence-listen ${narrationLabel === `${visibleChapter.title}: ${page.title}` && narrationStatus !== "idle" ? "active" : ""}`}
+                  onClick={() => onListenPage(page)}
+                  title={`Read ${page.title} with Speechify`}
+                >
+                  <Icon name="Volume2" className="h-4 w-4" /> Listen
+                </button>
+                {canEdit && (
+                  <button type="button" onClick={() => onScribePage(pageIndex)} title={`Ask Tavern Scribe to edit ${page.title}`}>
+                    <Icon name="Sparkles" className="h-4 w-4" /> Scribe
+                  </button>
+                )}
+              </div>
             ) : (
               <button
                 type="button"
@@ -3218,6 +3294,200 @@ function StoryMiniScribe({
   );
 }
 
+function StoryJourneyScribe({
+  chapters,
+  target,
+  onTargetChange,
+  onApply,
+  onClose
+}: {
+  chapters: StoryChapter[];
+  target: { chapterId: string; pageIndex: number; scope: StoryScribeScope };
+  onTargetChange: (target: { chapterId: string; pageIndex: number; scope: StoryScribeScope }) => void;
+  onApply: (draft: StoryScribeJourneyPatch) => void;
+  onClose: () => void;
+}) {
+  const [command, setCommand] = useState("");
+  const [draft, setDraft] = useState<StoryScribeJourneyPatch | null>(null);
+  const [manualPrompt, setManualPrompt] = useState("");
+  const [manualJson, setManualJson] = useState("");
+  const [status, setStatus] = useState("");
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const chapter = chapters.find((item) => item.id === target.chapterId) || chapters[0];
+  const page = chapter?.pages[target.pageIndex] || chapter?.pages[0];
+
+  const setScope = (scope: StoryScribeScope) => onTargetChange({ ...target, scope });
+  const setChapter = (chapterId: string) => onTargetChange({ chapterId, pageIndex: 0, scope: target.scope });
+  const setPage = (pageIndex: number) => onTargetChange({ ...target, pageIndex });
+  const preparedChapters = target.scope === "wholeJourney"
+    ? chapters.map(prepareStoryChapterForScribe)
+    : chapter ? [prepareStoryChapterForScribe(chapter)] : [];
+
+  const runScribe = async () => {
+    if (!command.trim() || !chapter || isLoading) return;
+    setIsLoading(true);
+    setDraft(null);
+    setManualPrompt("");
+    setError("");
+    setStatus(target.scope === "wholeJourney" ? "Reviewing the complete Story Journey..." : "Scribing a safe Story Journey draft...");
+    try {
+      const response = await fetch("/api/story-scribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          command: command.trim(),
+          scope: target.scope,
+          chapters: preparedChapters,
+          currentChapterId: chapter.id,
+          currentPageIndex: target.pageIndex
+        })
+      });
+      const payload = (await response.json()) as { patch?: unknown; error?: string };
+      if (!response.ok || !payload.patch) throw new Error(payload.error || "Tavern Scribe could not create a draft.");
+      const nextDraft = normalizeStoryScribeJourneyPatch(payload.patch, chapter.id);
+      setDraft(nextDraft);
+      setStatus(nextDraft.chapterPatches.length
+        ? `Draft ready for ${nextDraft.chapterPatches.length} ${nextDraft.chapterPatches.length === 1 ? "chapter" : "chapters"}. Review before applying.`
+        : "Tavern Scribe found no Story Journey text that needed changing.");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Tavern Scribe failed.");
+      setStatus("");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const buildManual = async () => {
+    const prompt = buildStoryScribeJourneyManualPrompt(preparedChapters, target, command);
+    setManualPrompt(prompt);
+    setDraft(null);
+    setError("");
+    setStatus("Manual prompt ready.");
+    try {
+      await navigator.clipboard?.writeText(prompt);
+      setStatus("Manual prompt copied. Paste the returned JSON below.");
+    } catch {
+      // The prompt remains visible when clipboard access is unavailable.
+    }
+  };
+
+  const loadManual = () => {
+    try {
+      const nextDraft = normalizeStoryScribeJourneyPatch(JSON.parse(manualJson), chapter.id);
+      setDraft(nextDraft);
+      setError("");
+      setStatus("Pasted draft ready. Review before applying.");
+    } catch {
+      setError("Paste a valid Tavern Scribe Story Journey JSON response first.");
+    }
+  };
+
+  const applyDraft = () => {
+    if (!draft?.chapterPatches.length) return;
+    onApply(draft);
+    setDraft(null);
+    setStatus("Tavern Scribe changes applied and sent to the shared Story Journey save system.");
+  };
+
+  return (
+    <section className="story-mini-scribe story-journey-scribe" aria-busy={isLoading}>
+      <header>
+        <div>
+          <p>Admin Story Assistant</p>
+          <h2 className="font-display">Tavern Scribe</h2>
+          <span>Edit one section, one chapter, or the complete Story Journey without changing app code.</span>
+        </div>
+        <button type="button" className="story-scribe-close" onClick={onClose} title="Close Tavern Scribe" aria-label="Close Tavern Scribe">
+          <Icon name="X" className="h-5 w-5" />
+        </button>
+      </header>
+
+      <div className="story-scribe-scope" aria-label="Tavern Scribe scope">
+        <button className={target.scope === "currentPage" ? "active" : ""} onClick={() => setScope("currentPage")} type="button">Current Section</button>
+        <button className={target.scope === "wholeChapter" ? "active" : ""} onClick={() => setScope("wholeChapter")} type="button">Current Chapter</button>
+        <button className={target.scope === "wholeJourney" ? "active" : ""} onClick={() => setScope("wholeJourney")} type="button">Whole Story Journey</button>
+      </div>
+
+      {target.scope !== "wholeJourney" && chapter && (
+        <div className="story-scribe-target-selectors">
+          <label>
+            <span>Chapter</span>
+            <select value={chapter.id} onChange={(event) => setChapter(event.target.value)}>
+              {chapters.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}
+            </select>
+          </label>
+          {target.scope === "currentPage" && (
+            <label>
+              <span>Section</span>
+              <select value={target.pageIndex} onChange={(event) => setPage(Number(event.target.value))}>
+                {chapter.pages.map((item, index) => <option key={item.id || `${chapter.id}-${index}`} value={index}>{item.title}</option>)}
+              </select>
+            </label>
+          )}
+        </div>
+      )}
+
+      <div className="story-scribe-current-target">
+        <Icon name="BookOpen" className="h-4 w-4" />
+        <span>{target.scope === "wholeJourney" ? `${chapters.length} chapters` : target.scope === "wholeChapter" ? chapter?.title : `${chapter?.title} / ${page?.title}`}</span>
+      </div>
+
+      <textarea
+        autoFocus
+        value={command}
+        onChange={(event) => setCommand(event.target.value)}
+        placeholder='Example: Replace every incorrect school name with "Imperial Culinary Academy of Ovenhold" and change every use of "Unhold" to "Ovenhold".'
+      />
+      <div className="story-scribe-actions">
+        <button type="button" className="button-frame" onClick={runScribe} disabled={isLoading || !command.trim()}>
+          <Icon name="Sparkles" className="h-4 w-4" />
+          {isLoading ? "Scribing..." : "Scribe It"}
+        </button>
+        <button type="button" onClick={buildManual} disabled={isLoading || !command.trim()}>Build Manual Prompt</button>
+      </div>
+
+      {status && <p className="story-scribe-status">{status}</p>}
+      {error && <p className="story-scribe-error">{error}</p>}
+
+      {draft && (
+        <section className="story-scribe-draft">
+          <div>
+            <strong>{draft.summary}</strong>
+            <span>{draft.chapterPatches.length} affected {draft.chapterPatches.length === 1 ? "chapter" : "chapters"}</span>
+          </div>
+          <div className="story-scribe-impact-list">
+            {draft.chapterPatches.map((item) => {
+              const affectedChapter = chapters.find((candidate) => candidate.id === item.chapterId);
+              const count = item.pagePatches.length + item.newPages.length + (item.chapterPatch ? 1 : 0);
+              return (
+                <article key={item.chapterId}>
+                  <Icon name="FileText" className="h-4 w-4" />
+                  <div><strong>{affectedChapter?.title || item.chapterId}</strong><span>{count} proposed {count === 1 ? "change" : "changes"}</span></div>
+                </article>
+              );
+            })}
+          </div>
+          {[...draft.warnings, ...draft.chapterPatches.flatMap((item) => item.warnings)].length > 0 && (
+            <ul>{[...draft.warnings, ...draft.chapterPatches.flatMap((item) => item.warnings)].map((warning, index) => <li key={`${warning}-${index}`}>{warning}</li>)}</ul>
+          )}
+          <div className="story-scribe-draft-actions">
+            <button type="button" className="button-frame" onClick={applyDraft} disabled={!draft.chapterPatches.length}>Apply Changes</button>
+            <button type="button" onClick={() => setDraft(null)}>Discard</button>
+          </div>
+        </section>
+      )}
+
+      <details className="story-scribe-manual">
+        <summary>Manual ChatGPT mode</summary>
+        {manualPrompt && <textarea readOnly value={manualPrompt} />}
+        <textarea value={manualJson} onChange={(event) => setManualJson(event.target.value)} placeholder="Paste the JSON response here." />
+        <button type="button" onClick={loadManual} disabled={!manualJson.trim()}>Use Pasted JSON</button>
+      </details>
+    </section>
+  );
+}
+
 function StoryTextField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
   return (
     <label>
@@ -3299,17 +3569,55 @@ function prepareStoryChapterForScribe(chapter: StoryChapter) {
     era: chapter.era,
     revealLevel: chapter.revealLevel,
     shortDescription: chapter.shortDescription,
+    overviewText: chapter.overviewText,
+    developerNotes: chapter.developerNotes,
     relatedLore: chapter.relatedLore,
     pages: chapter.pages.map((page, index) => ({
       id: page.id,
       index,
       title: page.title,
       text: page.text,
+      detailedText: page.detailedText,
+      developerNotes: page.developerNotes,
       imagePlaceholder: page.imagePlaceholder,
       caption: page.caption,
-      relatedLore: page.relatedLore
+      relatedLore: page.relatedLore,
+      callouts: page.callouts
     }))
   };
+}
+
+function buildStoryScribeJourneyManualPrompt(
+  chapters: ReturnType<typeof prepareStoryChapterForScribe>[],
+  target: { chapterId: string; pageIndex: number; scope: StoryScribeScope },
+  command: string
+) {
+  return `You are Tavern Scribe for The Tavern Cook Book's Story Journey.
+
+User request: ${command}
+Scope: ${target.scope}
+Current chapter id: ${target.chapterId}
+Current section index: ${target.pageIndex}
+
+Return only valid JSON with this shape:
+{
+  "summary": "What will change",
+  "chapterPatches": [
+    {
+      "chapterId": "existing chapter id",
+      "chapterPatch": { "title": "optional", "subtitle": "optional", "shortDescription": "optional", "overviewText": "optional", "relatedLore": ["optional"] },
+      "pagePatches": [{ "pageId": "existing page id", "pageIndex": 0, "title": "optional", "text": "optional complete replacement", "detailedText": "optional", "relatedLore": ["optional"], "callouts": [] }],
+      "newPages": [],
+      "warnings": []
+    }
+  ],
+  "warnings": []
+}
+
+Only return chapters and fields that actually need changing. Preserve all unrelated wording and rich-text HTML. Never edit app code, layout, permissions, images, Drive files, or settings.
+
+Story Journey JSON:
+${JSON.stringify(chapters, null, 2)}`;
 }
 
 function buildStoryScribeManualPrompt(chapter: StoryChapter, currentPageIndex: number, command: string, scope: StoryScribeScope) {
@@ -3375,6 +3683,27 @@ function normalizeStoryScribePatch(value: unknown): StoryScribePatch {
   };
 }
 
+function normalizeStoryScribeJourneyPatch(value: unknown, fallbackChapterId: string): StoryScribeJourneyPatch {
+  const source = isRecord(value) ? value : {};
+  const rawChapterPatches = Array.isArray(source.chapterPatches) ? source.chapterPatches : [];
+  const chapterPatches = rawChapterPatches.map((item) => {
+    if (!isRecord(item) || typeof item.chapterId !== "string" || !item.chapterId.trim()) return null;
+    const patch = normalizeStoryScribePatch(item);
+    return { ...patch, chapterId: item.chapterId.trim() };
+  }).filter((item): item is StoryScribeChapterDraft => Boolean(item));
+
+  // Accept older single-chapter Story Scribe JSON in manual mode.
+  if (!chapterPatches.length && (source.chapterPatch || source.pagePatches || source.newPages)) {
+    chapterPatches.push({ ...normalizeStoryScribePatch(source), chapterId: fallbackChapterId });
+  }
+
+  return {
+    summary: typeof source.summary === "string" ? source.summary : "Tavern Scribe Story Journey draft",
+    chapterPatches,
+    warnings: Array.isArray(source.warnings) ? source.warnings.map((warning) => String(warning)).filter(Boolean) : []
+  };
+}
+
 function normalizeStoryScribeChapterPatch(value: unknown): StoryScribeChapterPatch | undefined {
   if (!isRecord(value)) return undefined;
   const patch: StoryScribeChapterPatch = {};
@@ -3387,6 +3716,8 @@ function normalizeStoryScribeChapterPatch(value: unknown): StoryScribeChapterPat
   if (typeof value.era === "string") patch.era = value.era;
   if (typeof value.revealLevel === "string") patch.revealLevel = normalizeRevealLevel(value.revealLevel);
   if (typeof value.shortDescription === "string") patch.shortDescription = value.shortDescription;
+  if (typeof value.overviewText === "string") patch.overviewText = value.overviewText;
+  if (typeof value.developerNotes === "string") patch.developerNotes = value.developerNotes;
   if (Array.isArray(value.relatedLore)) patch.relatedLore = value.relatedLore.map((term) => String(term).trim()).filter(Boolean);
   return Object.keys(patch).length ? patch : undefined;
 }
@@ -3398,10 +3729,29 @@ function normalizeStoryScribePagePatch(value: unknown): StoryScribePagePatch | n
   if (typeof value.pageIndex === "number" && Number.isFinite(value.pageIndex)) patch.pageIndex = Math.max(0, Math.floor(value.pageIndex));
   if (typeof value.title === "string") patch.title = value.title;
   if (typeof value.text === "string") patch.text = value.text;
+  if (typeof value.detailedText === "string") patch.detailedText = value.detailedText;
+  if (typeof value.developerNotes === "string") patch.developerNotes = value.developerNotes;
   if (typeof value.imagePlaceholder === "string") patch.imagePlaceholder = value.imagePlaceholder;
   if (typeof value.caption === "string") patch.caption = value.caption;
   if (Array.isArray(value.relatedLore)) patch.relatedLore = value.relatedLore.map((term) => String(term).trim()).filter(Boolean);
+  if (Array.isArray(value.callouts)) {
+    patch.callouts = value.callouts.map((callout, index) => normalizeStoryScribeCallout(callout, index)).filter((item): item is StoryJourneyCallout => Boolean(item));
+  }
   return Object.keys(patch).length ? patch : null;
+}
+
+function normalizeStoryScribeCallout(value: unknown, index: number): StoryJourneyCallout | null {
+  if (!isRecord(value) || typeof value.text !== "string" || !value.text.trim()) return null;
+  const allowedKinds: StoryJourneyCallout["kind"][] = ["character", "location", "revelation", "playerKnowledge", "consequence", "canonGap"];
+  const kind = allowedKinds.includes(value.kind as StoryJourneyCallout["kind"])
+    ? value.kind as StoryJourneyCallout["kind"]
+    : "revelation";
+  return {
+    id: typeof value.id === "string" && value.id.trim() ? value.id : `scribe-callout-${Date.now()}-${index}`,
+    kind,
+    label: typeof value.label === "string" && value.label.trim() ? value.label : "Story insight",
+    text: value.text
+  };
 }
 
 function applyStoryScribePatch(chapter: StoryChapter, draft: StoryScribePatch): StoryChapter {
