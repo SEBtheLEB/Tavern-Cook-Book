@@ -163,6 +163,13 @@ interface StoryNarrationRecordingState {
   message: string;
 }
 
+interface StoryNarrationSectionAction {
+  chapterId: string;
+  phase: "idle" | "checking" | "recording" | "ready" | "error";
+  current: number;
+  total: number;
+}
+
 interface StoryScribeChapterPatch {
   title?: string;
   subtitle?: string;
@@ -1178,6 +1185,12 @@ export function StoryJourneyPage({
     current: 0,
     message: ""
   });
+  const [speechifySectionAction, setSpeechifySectionAction] = useState<StoryNarrationSectionAction>({
+    chapterId: "",
+    phase: "idle",
+    current: 0,
+    total: 0
+  });
   const [selectedLibraryItemId, setSelectedLibraryItemId] = useState("");
   const [collapsedLibrarySections, setCollapsedLibrarySections] = useState<StoryLibrarySectionId[]>([
     "peoples",
@@ -1902,10 +1915,17 @@ export function StoryJourneyPage({
     }
   }
 
-  async function recordOrUpdateSpeechifyPage() {
-    const chunks = visibleStoryNarrationChunks();
+  async function handleSpeechifyChapterNarration(chapterId: string, chapterTitle: string) {
+    if (speechifyNowPlaying === chapterTitle && speechifyReadAllMode && (speechifyStatus === "playing" || speechifyStatus === "paused")) {
+      toggleSpeechifyPageNarration();
+      return;
+    }
+
+    const chunks = visibleStoryNarrationChunks().filter((chunk) => chunk.chapterId === chapterId);
     if (!chunks.length) {
-      setSpeechifyRecordingState({ phase: "error", total: 0, recorded: 0, current: 0, message: "There is no readable story text to record." });
+      setSpeechifyError(`There is no readable story text in ${chapterTitle} yet.`);
+      setSpeechifyStatus("error");
+      setSpeechifyPanelOpen(true);
       return;
     }
 
@@ -1913,11 +1933,10 @@ export function StoryJourneyPage({
     speechifyRecordingAbortRef.current?.abort();
     const controller = new AbortController();
     speechifyRecordingAbortRef.current = controller;
-    setSpeechifyStatus("connecting");
     setSpeechifyError("");
-    setSpeechifyPanelOpen(true);
-    setSpeechifyPanelTab("narrations");
-    setSpeechifyRecordingState({ phase: "checking", total: chunks.length, recorded: 0, current: 0, message: "Finding new and edited story sections..." });
+    setSpeechifyStatus("connecting");
+    setSpeechifyNowPlaying(chapterTitle);
+    setSpeechifySectionAction({ chapterId, phase: "checking", current: 0, total: chunks.length });
     let recorded = 0;
 
     try {
@@ -1925,43 +1944,70 @@ export function StoryJourneyPage({
       if (!voiceId || controller.signal.aborted) return;
       const language = speechifyLanguageForVoice(voiceId);
       const status = await fetchSpeechifyRecordingStatus(chunks.map((chunk) => chunk.text), voiceId, language, controller.signal);
-      applySpeechifyRecordingStatus(chunks, status.sections);
       recorded = status.recordedCount;
+      speechifyChunkDurationsRef.current = status.sections.map((section, index) => section.exists
+        ? section.durationMs || estimateSpeechifyDuration(chunks[index]?.text || "")
+        : 0);
+
       if (!status.missingIndexes.length) {
-        setSpeechifyRecordingState({ phase: "ready", total: status.total, recorded: status.total, current: 0, message: "This page recording is already up to date." });
-        setSpeechifyStatus("idle");
+        setSpeechifySectionAction({ chapterId, phase: "ready", current: status.total, total: status.total });
+        await startSpeechifyPageNarration(chunks[0].inputStart, chunks, undefined, chapterTitle);
         return;
       }
+
+      if (!canEditStory) {
+        throw new Error(`${chapterTitle} has not been recorded yet. An admin can use its Speechify button to prepare it for the team.`);
+      }
+
+      setSpeechifyStatus("idle");
+      const confirmed = window.confirm(
+        `${chapterTitle} has ${status.missingIndexes.length} unrecorded ${status.missingIndexes.length === 1 ? "part" : "parts"}. Record and save this section with Speechify now?`
+      );
+      if (!confirmed) {
+        setSpeechifyNowPlaying("");
+        setSpeechifySectionAction({ chapterId: "", phase: "idle", current: 0, total: 0 });
+        return;
+      }
+
+      setSpeechifyPanelOpen(true);
+      setSpeechifyPanelTab("narrations");
+      setSpeechifyStatus("connecting");
+      setSpeechifyRecordingState({
+        phase: "recording",
+        total: status.total,
+        recorded,
+        current: 0,
+        message: `Recording ${chapterTitle}. Each completed part is saved immediately.`
+      });
 
       for (let position = 0; position < status.missingIndexes.length; position += 1) {
         const chunkIndex = status.missingIndexes[position];
         const chunk = chunks[chunkIndex];
         if (!chunk || controller.signal.aborted) break;
+        setSpeechifySectionAction({
+          chapterId,
+          phase: "recording",
+          current: position + 1,
+          total: status.missingIndexes.length
+        });
         setSpeechifyRecordingState({
           phase: "recording",
           total: status.total,
           recorded,
           current: position + 1,
-          message: `${recorded} sections are safely saved. Recording ${chunk.chapterTitle}: ${chunk.sectionTitle}...`
+          message: `${recorded} parts are safely saved. Recording ${chapterTitle}, part ${position + 1} of ${status.missingIndexes.length}...`
         });
         const timed = await recordSpeechifyTimedAudio(chunk.text, voiceId, language, controller.signal);
         URL.revokeObjectURL(timed.audioUrl);
         recorded += 1;
         const durationMs = timed.durationMs || estimateSpeechifyDuration(chunk.text);
         speechifyChunkDurationsRef.current[chunkIndex] = durationMs;
-        setSpeechifyNarrationCatalog((current) => current.map((section) => section.index === chunkIndex
-          ? { ...section, exists: true, durationMs, createdAt: new Date().toISOString() }
-          : section));
-        setSpeechifyTimeline((current) => ({
-          ...current,
-          totalMs: speechifyChunkDurationsRef.current.reduce((total, duration) => total + duration, 0)
-        }));
         setSpeechifyRecordingState({
           phase: recorded === status.total ? "ready" : "recording",
           total: status.total,
           recorded,
           current: position + 1,
-          message: `${recorded} of ${status.total} sections are safely saved.`
+          message: `${recorded} of ${status.total} parts of ${chapterTitle} are safely saved.`
         });
         if (position < status.missingIndexes.length - 1) {
           await new Promise((resolve) => window.setTimeout(resolve, 750));
@@ -1969,13 +2015,14 @@ export function StoryJourneyPage({
       }
 
       if (controller.signal.aborted) {
+        setSpeechifySectionAction({ chapterId, phase: recorded ? "ready" : "idle", current: recorded, total: status.total });
         setSpeechifyRecordingState({
           phase: recorded ? "partial" : "idle",
           total: status.total,
           recorded,
           current: 0,
           message: recorded
-            ? `Recording stopped. ${recorded} sections are saved; Record / Update Page will resume from the next missing section.`
+            ? `Recording stopped. ${recorded} parts of ${chapterTitle} are saved; its Speechify button will resume with the next missing part.`
             : "Recording stopped before the first section finished."
         });
         setSpeechifyStatus("idle");
@@ -1987,11 +2034,16 @@ export function StoryJourneyPage({
         total: status.total,
         recorded: status.total,
         current: status.missingIndexes.length,
-        message: `Shared recording updated. ${status.missingIndexes.length} ${status.missingIndexes.length === 1 ? "section was" : "sections were"} newly recorded.`
+        message: `${chapterTitle} is recorded and saved. It is ready to play for the team.`
       });
+      setSpeechifySectionAction({ chapterId, phase: "ready", current: status.total, total: status.total });
       setSpeechifyStatus("idle");
+      setSpeechifyNowPlaying("");
+      void refreshSpeechifyRecordingStatus();
     } catch (error) {
       if (controller.signal.aborted) {
+        setSpeechifySectionAction({ chapterId, phase: recorded ? "ready" : "idle", current: recorded, total: chunks.length });
+        setSpeechifyNowPlaying("");
         setSpeechifyRecordingState((current) => ({
           ...current,
           phase: current.recorded ? "partial" : "idle",
@@ -2003,7 +2055,8 @@ export function StoryJourneyPage({
         setSpeechifyStatus("idle");
         return;
       }
-      const message = error instanceof Error ? error.message : "The page recording could not be updated.";
+      const message = error instanceof Error ? error.message : `${chapterTitle} could not be recorded.`;
+      setSpeechifySectionAction({ chapterId, phase: "error", current: recorded, total: chunks.length });
       setSpeechifyRecordingState((current) => ({
         ...current,
         phase: current.recorded ? "partial" : "error",
@@ -2122,7 +2175,8 @@ export function StoryJourneyPage({
   async function startSpeechifyPageNarration(
     inputOffset = 0,
     preparedChunks?: StoryNarrationChunk[],
-    timelineStart?: { chunkIndex: number; timeMs: number }
+    timelineStart?: { chunkIndex: number; timeMs: number },
+    nowPlayingLabel?: string
   ) {
     const root = storyTreatmentReaderRef.current;
     const chunks = preparedChunks?.length ? preparedChunks : root ? buildStoryNarrationChunks(root) : [];
@@ -2150,7 +2204,7 @@ export function StoryJourneyPage({
     speechifyAbortRef.current = controller;
     setSpeechifyStatus("connecting");
     setSpeechifyError("");
-    setSpeechifyNowPlaying(selectedLibraryItem?.title || "Full Story Journey");
+    setSpeechifyNowPlaying(nowPlayingLabel || selectedLibraryItem?.title || "Full Story Journey");
 
     const startChunkIndex = timelineStart
       ? Math.max(0, Math.min(timelineStart.chunkIndex, chunks.length - 1))
@@ -2352,7 +2406,7 @@ export function StoryJourneyPage({
       return;
     }
     if (activeReaderChapter) {
-      void startSpeechifyNarration(storyChapterNarrationText(activeReaderChapter, readingDepth), activeReaderChapter.title);
+      void handleSpeechifyChapterNarration(activeReaderChapter.id, activeReaderChapter.title);
     }
   }
 
@@ -2619,8 +2673,8 @@ export function StoryJourneyPage({
 
                   <div className="story-speechify-actions">
                     <button type="button" onClick={toggleSpeechifyNarration} disabled={speechifyStatus === "connecting" || (!activeReaderChapter && !selectedLibraryItem)}>
-                      <Icon name={speechifyStatus === "playing" ? "Pause" : "Play"} className="h-4 w-4" />
-                      {speechifyStatus === "playing" ? "Pause" : speechifyStatus === "paused" ? "Resume" : "Read Current"}
+                      <Icon name={speechifyStatus === "playing" ? "Pause" : "Volume2"} className="h-4 w-4" />
+                      {speechifyStatus === "playing" ? "Pause" : speechifyStatus === "paused" ? "Resume" : "Speechify Current"}
                     </button>
                     <button type="button" onClick={stopSpeechifyNarration} disabled={speechifyStatus === "idle"}>
                       <Icon name="Square" className="h-4 w-4" />
@@ -2642,15 +2696,15 @@ export function StoryJourneyPage({
                         className="h-4 w-4"
                       />
                       <div>
-                        <span>Shared Recording</span>
+                        <span>Saved Story Sections</span>
                         <strong>
                           {speechifyRecordingState.phase === "checking"
-                            ? "Checking page"
+                            ? "Checking sections"
                             : speechifyRecordingState.phase === "recording"
-                              ? `Recording ${speechifyRecordingState.current}`
+                              ? `Recording part ${speechifyRecordingState.current}`
                               : speechifyRecordingState.total
-                                ? `${speechifyRecordingState.recorded} of ${speechifyRecordingState.total} sections ready`
-                                : "Not checked yet"}
+                                ? `${speechifyRecordingState.recorded} of ${speechifyRecordingState.total} audio parts ready`
+                                : "Choose a section below"}
                         </strong>
                       </div>
                     </div>
@@ -2660,20 +2714,9 @@ export function StoryJourneyPage({
                       </div>
                     )}
                     {speechifyRecordingState.message && <p>{speechifyRecordingState.message}</p>}
-                    {canEditStory && (
-                      <button
-                        type="button"
-                        onClick={speechifyRecordingState.phase === "recording" ? stopSpeechifyRecording : () => void recordOrUpdateSpeechifyPage()}
-                        disabled={speechifyRecordingState.phase === "checking"}
-                      >
-                        <Icon name={speechifyRecordingState.phase === "recording" ? "Square" : "RefreshCw"} className="h-4 w-4" />
-                        {speechifyRecordingState.phase === "recording"
-                          ? "Stop and Save Progress"
-                          : speechifyRecordingState.phase === "ready"
-                            ? "Check for Updates"
-                            : speechifyRecordingState.recorded
-                              ? "Resume Recording"
-                              : "Record / Update Page"}
+                    {speechifyRecordingState.phase === "recording" && canEditStory && (
+                      <button type="button" onClick={stopSpeechifyRecording}>
+                        <Icon name="Square" className="h-4 w-4" /> Stop and Save Progress
                       </button>
                     )}
                   </div>
@@ -2718,16 +2761,19 @@ export function StoryJourneyPage({
                         type="button"
                         key={group.id}
                         className={isSpeechifyChapterActive(group, speechifyNarrationChapters, speechifyTimeline.currentMs) ? "active" : ""}
-                        onClick={() => seekSpeechifyChapter(group)}
-                        disabled={!group.recordedCount}
+                        onClick={() => void handleSpeechifyChapterNarration(group.id, group.title)}
+                        disabled={speechifySectionAction.phase === "recording" && speechifySectionAction.chapterId !== group.id}
                       >
                         <Icon name={group.recordedCount === group.sectionCount ? "CircleCheck" : group.recordedCount ? "CircleDashed" : "CircleAlert"} className="h-4 w-4" />
-                        <span><strong>{group.title}</strong><small>{group.recordedCount} of {group.sectionCount} saved</small></span>
+                        <span>
+                          <strong>{group.title}</strong>
+                          <small>{group.recordedCount === group.sectionCount ? "Saved and ready" : group.recordedCount ? `${group.recordedCount} of ${group.sectionCount} parts saved` : canEditStory ? "Click to record" : "Awaiting admin recording"}</small>
+                        </span>
                         <time>{group.durationMs ? formatSpeechifyDuration(group.durationMs) : "--:--"}</time>
                       </button>
                     ))}
                   </div>
-                  <small className="story-speechify-footnote">Saved sections remain available if recording is stopped. Scrubbing or choosing a chapter moves the reader and synchronized word highlight to that point.</small>
+                  <small className="story-speechify-footnote">Sections are listed in story order. Click one to play its saved narration; admins are asked before any missing part is recorded.</small>
                   </div>)}
 
                   {speechifyError && speechifyError !== speechifyRecordingState.message && (
@@ -2978,8 +3024,8 @@ export function StoryJourneyPage({
                       onDeletePage={deleteInlinePageDraft}
                       onSave={saveInlineChapterDraft}
                       onCancel={() => setInlineChapterDraft(null)}
-                      onListenChapter={() => void startSpeechifyNarration(storyChapterNarrationText(chapter, readingDepth), chapter.title)}
-                      onListenPage={(page) => void startSpeechifyNarration(storyPageNarrationText(page, readingDepth), `${chapter.title}: ${page.title}`)}
+                      onSpeechifyChapter={() => void handleSpeechifyChapterNarration(chapter.id, chapter.title)}
+                      speechifyAction={speechifySectionAction.chapterId === chapter.id ? speechifySectionAction : null}
                       narrationLabel={speechifyNowPlaying}
                       narrationStatus={speechifyStatus}
                     />
@@ -3276,8 +3322,8 @@ function StoryTreatmentChapter({
   onDeletePage,
   onSave,
   onCancel,
-  onListenChapter,
-  onListenPage,
+  onSpeechifyChapter,
+  speechifyAction,
   narrationLabel,
   narrationStatus
 }: {
@@ -3299,8 +3345,8 @@ function StoryTreatmentChapter({
   onDeletePage: (pageId: string) => void;
   onSave: () => void;
   onCancel: () => void;
-  onListenChapter: () => void;
-  onListenPage: (page: StoryPage) => void;
+  onSpeechifyChapter: () => void;
+  speechifyAction: StoryNarrationSectionAction | null;
   narrationLabel: string;
   narrationStatus: "idle" | "connecting" | "playing" | "paused" | "error";
 }) {
@@ -3344,10 +3390,20 @@ function StoryTreatmentChapter({
           {!editing && (
             <button
               className={narrationLabel === visibleChapter.title && narrationStatus !== "idle" ? "story-listen-active" : ""}
-              onClick={onListenChapter}
-              title={`Read ${visibleChapter.title} with Speechify`}
+              onClick={onSpeechifyChapter}
+              title={`Record or play ${visibleChapter.title} with Speechify`}
+              disabled={speechifyAction?.phase === "checking" || speechifyAction?.phase === "recording"}
             >
-              <Icon name="Volume2" className="h-4 w-4" /> Listen
+              <Icon name={speechifyAction?.phase === "ready" ? "CircleCheck" : "Volume2"} className="h-4 w-4" />
+              {speechifyAction?.phase === "checking"
+                ? "Checking..."
+                : speechifyAction?.phase === "recording"
+                  ? `Recording ${speechifyAction.current}/${speechifyAction.total}`
+                  : narrationLabel === visibleChapter.title && narrationStatus === "playing"
+                    ? "Pause"
+                    : narrationLabel === visibleChapter.title && narrationStatus === "paused"
+                      ? "Resume"
+                      : "Speechify"}
             </button>
           )}
           {editing ? (
@@ -3383,14 +3439,6 @@ function StoryTreatmentChapter({
             <span>Sequence {pageIndex + 1}</span>
             {!editing ? (
               <div className="story-sequence-actions">
-                <button
-                  type="button"
-                  className={`story-sequence-listen ${narrationLabel === `${visibleChapter.title}: ${page.title}` && narrationStatus !== "idle" ? "active" : ""}`}
-                  onClick={() => onListenPage(page)}
-                  title={`Read ${page.title} with Speechify`}
-                >
-                  <Icon name="Volume2" className="h-4 w-4" /> Listen
-                </button>
                 {canEdit && (
                   <button type="button" onClick={() => onScribePage(pageIndex)} title={`Ask Tavern Scribe to edit ${page.title}`}>
                     <Icon name="Sparkles" className="h-4 w-4" /> Scribe
@@ -4915,18 +4963,6 @@ function plainStoryText(value: string) {
   return richTextToPlainText(String(value || "")).trim();
 }
 
-function storyChapterNarrationText(chapter: StoryChapter, depth: StoryReadingDepth) {
-  const parts = [chapter.title, chapter.overviewText || chapter.shortDescription];
-  if (depth !== "overview") {
-    chapter.pages.forEach((page) => parts.push(storyPageNarrationText(page, depth)));
-  }
-  return parts.filter(Boolean).join(". ");
-}
-
-function storyPageNarrationText(page: StoryPage, depth: StoryReadingDepth) {
-  return [page.title, page.text, depth === "detailed" ? page.detailedText || "" : ""].filter(Boolean).join(". ");
-}
-
 const STORY_NARRATION_HIGHLIGHT = "story-speechify-current-word";
 
 function buildStoryNarrationChunks(root: HTMLElement, maxLength = 3_500): StoryNarrationChunk[] {
@@ -5015,7 +5051,7 @@ function buildStoryNarrationChunks(root: HTMLElement, maxLength = 3_500): StoryN
     .map(({ start, end }) => ({ start: block.start + start, end: block.start + end, meta: block.meta })));
   const ranges = splitRanges.reduce<Array<{ start: number; end: number; meta: BlockMeta }>>((merged, range) => {
     const previous = merged[merged.length - 1];
-    if (previous && range.end - previous.start <= maxLength) {
+    if (previous && previous.meta.chapterId === range.meta.chapterId && range.end - previous.start <= maxLength) {
       previous.end = range.end;
     } else {
       merged.push({ ...range, meta: { ...range.meta } });

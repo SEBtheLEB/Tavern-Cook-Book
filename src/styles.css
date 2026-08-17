@@ -17234,6 +17234,11 @@ button,
   font-weight: 850;
 }
 
+.story-treatment-chapter-actions button:disabled {
+  cursor: wait;
+  opacity: 0.68;
+}
+
 .story-treatment-lede {
   max-width: 760px;
   margin: 0 0 48px;

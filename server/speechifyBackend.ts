@@ -521,7 +521,7 @@ async function readSpeechifyRecordingManifest(recordingId: string): Promise<Stor
   const response = await fetch(supabaseStorageObjectUrl(`${recordingId}.json`), {
     headers: supabaseStorageHeaders()
   });
-  if (response.status === 404) return null;
+  if (await isSupabaseMissingResource(response)) return null;
   if (!response.ok) throw new Error(await supabaseStorageError(response, "Could not load saved narration timing."));
   return response.json() as Promise<StoredSpeechifyRecording>;
 }
@@ -547,13 +547,14 @@ async function readSpeechifyRecording(recordingId: string): Promise<{
   const manifestResponse = await fetch(supabaseStorageObjectUrl(`${recordingId}.json`), {
     headers: supabaseStorageHeaders()
   });
-  if (manifestResponse.status === 404) return null;
+  if (await isSupabaseMissingResource(manifestResponse)) return null;
   if (!manifestResponse.ok) throw new Error(await supabaseStorageError(manifestResponse, "Could not load the narration timing file."));
   const manifest = await manifestResponse.json() as StoredSpeechifyRecording;
 
   const audioResponse = await fetch(supabaseStorageObjectUrl(`${recordingId}.mp3`), {
     headers: supabaseStorageHeaders()
   });
+  if (await isSupabaseMissingResource(audioResponse)) return null;
   if (!audioResponse.ok) throw new Error(await supabaseStorageError(audioResponse, "Could not load the saved narration audio."));
   return {
     audio: Buffer.from(await audioResponse.arrayBuffer()),
@@ -600,7 +601,9 @@ async function ensureNarrationBucket() {
         headers: supabaseStorageHeaders()
       });
       if (existing.ok) return;
-      if (existing.status !== 404) throw new Error(await supabaseStorageError(existing, "Could not check the narration storage bucket."));
+      if (!(await isSupabaseMissingResource(existing))) {
+        throw new Error(await supabaseStorageError(existing, "Could not check the narration storage bucket."));
+      }
 
       const created = await fetch(`${supabaseUrl()}/storage/v1/bucket`, {
         method: "POST",
@@ -756,6 +759,13 @@ async function supabaseStorageError(response: Response, fallback: string) {
   } catch {
     return `${fallback} ${text}`.trim();
   }
+}
+
+async function isSupabaseMissingResource(response: Response) {
+  if (response.status === 404) return true;
+  if (response.status !== 400) return false;
+  const text = await response.clone().text();
+  return /(?:object|bucket)[^\n]*not found|not found[^\n]*(?:object|bucket)/i.test(text);
 }
 
 function supabaseStorageConfigured() {
