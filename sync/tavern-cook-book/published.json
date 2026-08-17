@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-08-17T03:42:02.924Z",
+  "updatedAt": "2026-08-17T03:42:51.523Z",
   "updatedBy": "stlprodz1101@gmail.com",
   "payload": {
     "database": {
@@ -136726,7 +136726,7 @@
             "scope": "act1",
             "revealLevel": "Player-Facing",
             "shortDescription": "Gwen earns the title of chef before choosing where she belongs.",
-            "overviewText": "After roughly two years of practical apprenticeship under the legendary Whisken chef Tohm Kyatt, Gwen returns to the Culinary Imperial Academy of Ovenhold for the final stage of her education. The apprenticeship made her capable, but it did not make her officially qualified. To graduate, she must conceptualize, prepare, cook, and present a dish of her own design before the Academy judges.",
+            "overviewText": "After roughly two years of practical apprenticeship under the legendary Whisken chef Tohm Kyatt, Gwen returns to the Imperial Culinary Academy of Ovenhold for the final stage of her education. The apprenticeship made her capable, but it did not make her officially qualified. To graduate, she must conceptualize, prepare, cook, and present a dish of her own design before the Academy judges.",
             "coverImageUrl": "",
             "coverImageFit": {
               "mode": "contain",
@@ -136737,7 +136737,7 @@
             "relatedLore": [
               "Gwen",
               "Tohm Kyatt",
-              "Culinary Imperial Academy",
+              "Imperial Culinary Academy of Ovenhold",
               "Gwen's Graduation Dish",
               "Academy Qualification"
             ],
@@ -137707,7 +137707,7 @@
             "relatedLore": [
               "Gwen",
               "Tohm Kyatt",
-              "Culinary Imperial Academy of Unhold",
+              "Imperial Culinary Academy of Ovenhold",
               "Feast of Full Plates",
               "Whisper Woods"
             ],
@@ -144241,7 +144241,7 @@
             ]
           }
         ],
-        "updatedAt": "2026-08-17T03:42:04.367Z"
+        "updatedAt": "2026-08-17T03:42:53.067Z"
       },
       "assignments": [],
       "teamMembers": [
