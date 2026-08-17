@@ -5,6 +5,8 @@ import type { LoreEntry } from "../types";
 interface KeywordContextValue {
   keywords: string[];
   onKeywordClick?: (keyword: string) => void;
+  onKeywordEnter?: (keyword: string) => void;
+  onKeywordLeave?: (keyword: string) => void;
 }
 
 const KeywordContext = createContext<KeywordContextValue>({ keywords: [] });
@@ -12,17 +14,44 @@ const KeywordContext = createContext<KeywordContextValue>({ keywords: [] });
 export function LoreKeywordProvider({
   keywords,
   onKeywordClick,
+  onKeywordEnter,
+  onKeywordLeave,
   children
 }: KeywordContextValue & { children: ReactNode }) {
   return (
-    <KeywordContext.Provider value={{ keywords, onKeywordClick }}>
+    <KeywordContext.Provider value={{ keywords, onKeywordClick, onKeywordEnter, onKeywordLeave }}>
+      {children}
+    </KeywordContext.Provider>
+  );
+}
+
+export function LoreKeywordHoverBoundary({
+  onKeywordEnter,
+  onKeywordLeave,
+  additionalKeywords = [],
+  children
+}: Pick<KeywordContextValue, "onKeywordEnter" | "onKeywordLeave"> & { additionalKeywords?: string[]; children: ReactNode }) {
+  const current = useContext(KeywordContext);
+  const keywords = useMemo(() => {
+    const seen = new Set<string>();
+    return [...current.keywords, ...additionalKeywords]
+      .filter((keyword) => {
+        const normalized = keyword.trim().toLowerCase();
+        if (!normalized || seen.has(normalized)) return false;
+        seen.add(normalized);
+        return true;
+      })
+      .sort((left, right) => right.length - left.length);
+  }, [additionalKeywords, current.keywords]);
+  return (
+    <KeywordContext.Provider value={{ ...current, keywords, onKeywordEnter, onKeywordLeave }}>
       {children}
     </KeywordContext.Provider>
   );
 }
 
 export function LoreKeywordText({ text }: { text: string }) {
-  const { keywords, onKeywordClick } = useContext(KeywordContext);
+  const { keywords, onKeywordClick, onKeywordEnter, onKeywordLeave } = useContext(KeywordContext);
   const parts = useMemo(() => splitKeywordText(text, keywords), [text, keywords]);
 
   if (!parts.some((part) => part.keyword)) return <>{text}</>;
@@ -39,6 +68,10 @@ export function LoreKeywordText({ text }: { text: string }) {
               event.stopPropagation();
               onKeywordClick?.(part.keyword || part.text);
             }}
+            onPointerEnter={() => onKeywordEnter?.(part.keyword || part.text)}
+            onPointerLeave={() => onKeywordLeave?.(part.keyword || part.text)}
+            onFocus={() => onKeywordEnter?.(part.keyword || part.text)}
+            onBlur={() => onKeywordLeave?.(part.keyword || part.text)}
             title={`Show references for ${part.keyword || part.text}`}
           >
             {part.text}

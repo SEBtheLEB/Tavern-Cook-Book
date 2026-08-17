@@ -1,7 +1,9 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import type {
+  ArtVaultImageMetadata,
   BestiaryCreature,
+  CharacterArtVault,
   ImageFitSettings,
   LoreEntry,
   StoryReference,
@@ -14,7 +16,17 @@ import type {
   WorldBuildingData,
   WorldBuildingEntry
 } from "../types";
-import { normalizeImageFit, resolveImageSourceUrl } from "../utils/imageFit";
+import {
+  extractGoogleDriveFileId,
+  googleDriveThumbnailUrl,
+  googleDriveWebViewLink,
+  imageFitToStyle,
+  normalizeImageFit,
+  resolveImageSourceUrl
+} from "../utils/imageFit";
+import { normalizeArtVault } from "../utils/entries";
+import { normalizeCreatureArtVault } from "../utils/bestiary";
+import { resolveArtVaultDriveFolder } from "../utils/artVaultDriveFolders";
 import { isRichText, plainTextToRichHtml, richTextToPlainText } from "../utils/richText";
 import {
   createSpeechifyAudio,
@@ -33,6 +45,7 @@ import { DriveAwareImage } from "./DriveAwareImage";
 import { DriveImageSourceControls } from "./DriveImageSourceControls";
 import { ImageManagerModal, type ImageManagerSlotDraft } from "./ImageManagerModal";
 import { Icon } from "./Icon";
+import { LoreKeywordHoverBoundary } from "./LoreKeywordText";
 import { RichLoreText, RichTextEditor } from "./RichText";
 import {
   ACT_ONE_STORY_CHAPTER_IDS,
@@ -59,6 +72,9 @@ interface StoryJourneyPageProps {
   onOpenEntry: (entry: LoreEntry) => void;
   onOpenCreature: (creature: BestiaryCreature) => void;
   onOpenWorldEntry: (category: WorldBuildingCategoryId, entryId: string) => void;
+  onSaveEntry: (entry: LoreEntry) => void;
+  onSaveCreature: (creature: BestiaryCreature) => void;
+  onWorldBuildingChange: (worldBuilding: WorldBuildingData) => void;
   onStoryJourneyChange: (storyJourney: StoryJourneyData) => void;
 }
 
@@ -199,6 +215,29 @@ interface LorePreview {
   description: string;
   entry?: LoreEntry;
   creature?: BestiaryCreature;
+  worldEntry?: WorldBuildingEntry;
+}
+
+interface StoryInspectorImage {
+  id: string;
+  label: string;
+  url: string;
+  webViewLink: string;
+  imageFit?: ImageFitSettings;
+  source: string;
+}
+
+interface StoryInspectorSubject {
+  id: string;
+  title: string;
+  type: string;
+  summary: string;
+  tags: string[];
+  images: StoryInspectorImage[];
+  entry?: LoreEntry;
+  creature?: BestiaryCreature;
+  worldEntry?: WorldBuildingEntry;
+  chapter?: StoryChapter;
 }
 
 const timelineLabels = [
@@ -1060,6 +1099,9 @@ export function StoryJourneyPage({
   onOpenEntry,
   onOpenCreature,
   onOpenWorldEntry,
+  onSaveEntry,
+  onSaveCreature,
+  onWorldBuildingChange,
   onStoryJourneyChange
 }: StoryJourneyPageProps) {
   const initialStoryData = useMemo(() => {
@@ -1080,6 +1122,10 @@ export function StoryJourneyPage({
   const [completedChapterIds, setCompletedChapterIds] = useState<string[]>(storedState.completedChapterIds);
   const [readerOpen, setReaderOpen] = useState(true);
   const [selectedLoreTerm, setSelectedLoreTerm] = useState("");
+  const [hoveredLoreTerm, setHoveredLoreTerm] = useState("");
+  const [storyInspectorImageIndex, setStoryInspectorImageIndex] = useState(0);
+  const [storyInspectorCollapsed, setStoryInspectorCollapsed] = useState(false);
+  const [storyInspectorEditSubject, setStoryInspectorEditSubject] = useState<StoryInspectorSubject | null>(null);
   const [transitioning, setTransitioning] = useState(false);
   const [pageTurnKey, setPageTurnKey] = useState(0);
   const [storyEditMode, setStoryEditMode] = useState(false);
@@ -1154,11 +1200,17 @@ export function StoryJourneyPage({
   const hasScopeChapters = scopeChapters.length > 0;
   const currentPageIndex = Math.min(pageByChapter[selectedChapter.id] || 0, selectedChapter.pages.length - 1);
   const currentPage = selectedChapter.pages[currentPageIndex];
-  const selectedLore = selectedLoreTerm ? resolveLorePreview(selectedLoreTerm, entries, bestiary) : null;
+  const selectedLore = selectedLoreTerm ? resolveLorePreview(selectedLoreTerm, entries, bestiary, worldBuilding) : null;
   const storyThreadChapters = selectedLoreTerm
     ? chapters.filter((chapter) => chapterContainsTerm(chapter, selectedLoreTerm))
     : [];
   const linkableTerms = useMemo(() => buildLinkableTerms(chapters), [chapters]);
+  const storyInspectorKeywords = useMemo(() => Array.from(new Set([
+    ...linkableTerms,
+    ...entries.map((entry) => entry.title),
+    ...bestiary.map((creature) => creature.name),
+    ...Object.values(worldBuilding).flat().map((entry) => entry.title)
+  ].map((term) => term.trim()).filter((term) => term.length >= 3))).sort((left, right) => right.length - left.length), [bestiary, entries, linkableTerms, worldBuilding]);
   const pageImageUrl = currentPage?.imageUrl ? resolveImageSourceUrl(currentPage.imageUrl) : "";
   const coverImageUrl = selectedChapter.coverImageUrl ? resolveImageSourceUrl(selectedChapter.coverImageUrl) : "";
   const storyThreads = useMemo(() => Array.from(new Set(chapters.flatMap((chapter) => [
@@ -1209,6 +1261,29 @@ export function StoryJourneyPage({
   const selectedLibraryChapters = useMemo(() => selectedLibraryItem
     ? chapters.filter((chapter) => chapterContainsTerm(chapter, selectedLibraryItem.title))
     : [], [chapters, selectedLibraryItem]);
+  const storyInspectorBaseSubject = useMemo(
+    () => selectedLibraryItem
+      ? storyInspectorSubjectFromLibraryItem(selectedLibraryItem, entries)
+      : activeReaderChapter
+        ? storyInspectorSubjectFromChapter(activeReaderChapter)
+        : null,
+    [activeReaderChapter, entries, selectedLibraryItem]
+  );
+  const storyInspectorHoverSubject = useMemo(
+    () => hoveredLoreTerm
+      ? storyInspectorSubjectFromLorePreview(resolveLorePreview(hoveredLoreTerm, entries, bestiary, worldBuilding), entries)
+      : null,
+    [bestiary, entries, hoveredLoreTerm, worldBuilding]
+  );
+  const storyInspectorSubject = storyInspectorHoverSubject || storyInspectorBaseSubject;
+  const storyInspectorManagerSlot = useMemo(
+    () => storyInspectorEditSubject ? buildStoryInspectorManagerSlot(storyInspectorEditSubject) : null,
+    [storyInspectorEditSubject]
+  );
+
+  useEffect(() => {
+    setStoryInspectorImageIndex(0);
+  }, [storyInspectorSubject?.id]);
 
   useEffect(() => {
     saveStoryJourneyState({
@@ -1549,6 +1624,7 @@ export function StoryJourneyPage({
   const openLoreFullPage = (preview: LorePreview) => {
     if (preview.entry) onOpenEntry(preview.entry);
     if (preview.creature) onOpenCreature(preview.creature);
+    if (preview.worldEntry) onOpenWorldEntry(preview.worldEntry.category, preview.worldEntry.id);
   };
 
   const openLoreThread = () => {
@@ -1636,6 +1712,48 @@ export function StoryJourneyPage({
     if (item.entry) onOpenEntry(item.entry);
     if (item.creature) onOpenCreature(item.creature);
     if (item.worldEntry) onOpenWorldEntry(item.worldEntry.category, item.worldEntry.id);
+  };
+
+  const openStoryInspectorSource = (subject: StoryInspectorSubject) => {
+    if (subject.entry) onOpenEntry(subject.entry);
+    else if (subject.creature) onOpenCreature(subject.creature);
+    else if (subject.worldEntry) onOpenWorldEntry(subject.worldEntry.category, subject.worldEntry.id);
+    else if (subject.chapter) scrollToStorySection(subject.chapter.id);
+  };
+
+  const openStoryInspectorArtManager = (subject: StoryInspectorSubject) => {
+    if (!canEditStory) return;
+    setStoryInspectorEditSubject(subject);
+  };
+
+  const saveStoryInspectorArt = (slots: ImageManagerSlotDraft[]) => {
+    const subject = storyInspectorEditSubject;
+    const draft = slots[0];
+    if (!subject || !draft?.imageUrl) {
+      setStoryInspectorEditSubject(null);
+      return;
+    }
+
+    if (subject.entry) {
+      onSaveEntry(appendStoryReferenceArtToEntry(subject.entry, draft));
+    } else if (subject.creature) {
+      onSaveCreature(appendStoryReferenceArtToCreature(subject.creature, draft));
+    } else if (subject.worldEntry) {
+      const category = subject.worldEntry.category;
+      onWorldBuildingChange({
+        ...worldBuilding,
+        [category]: worldBuilding[category].map((entry) => entry.id === subject.worldEntry?.id
+          ? { ...entry, image: draft.imageUrl, imageFit: normalizeImageFit(draft.imageFit), updatedAt: new Date().toISOString() }
+          : entry)
+      });
+    } else if (subject.chapter) {
+      updateChapter(subject.chapter.id, (chapter) => ({
+        ...chapter,
+        coverImageUrl: draft.imageUrl,
+        coverImageFit: normalizeImageFit(draft.imageFit)
+      }));
+    }
+    setStoryInspectorEditSubject(null);
   };
 
   const openLibraryChronologyChapter = (chapterId: string) => {
@@ -2669,7 +2787,7 @@ export function StoryJourneyPage({
             <span style={{ width: `${selectedLibraryItem ? 100 : readingProgress}%` }} />
           </div>
 
-          <div className="story-treatment-layout">
+          <div className={`story-treatment-layout ${storyInspectorCollapsed ? "story-inspector-is-collapsed" : ""}`}>
             <aside className="story-treatment-navigator">
               <div className="story-treatment-navigator-heading">
                 <p>Story &amp; World Navigator</p>
@@ -2729,11 +2847,16 @@ export function StoryJourneyPage({
               })}
             </aside>
 
-            <main
-              ref={storyTreatmentReaderRef}
-              className={`story-treatment-reader ${speechifyReadAllMode ? "narration-following" : ""}`}
-              onClickCapture={handleStoryNarrationWordClick}
+            <LoreKeywordHoverBoundary
+              additionalKeywords={storyInspectorKeywords}
+              onKeywordEnter={setHoveredLoreTerm}
+              onKeywordLeave={(keyword) => setHoveredLoreTerm((current) => normalizeTerm(current) === normalizeTerm(keyword) ? "" : current)}
             >
+              <main
+                ref={storyTreatmentReaderRef}
+                className={`story-treatment-reader ${speechifyReadAllMode ? "narration-following" : ""}`}
+                onClickCapture={handleStoryNarrationWordClick}
+              >
               {selectedLibraryItem ? (
                 <article className="story-library-reader">
                   <header className="story-library-titlepage" data-story-narration-block>
@@ -2865,7 +2988,19 @@ export function StoryJourneyPage({
               ))}
                 </>
               )}
-            </main>
+              </main>
+            </LoreKeywordHoverBoundary>
+            <StoryContextInspector
+              subject={storyInspectorSubject}
+              isHoverPreview={Boolean(storyInspectorHoverSubject)}
+              imageIndex={storyInspectorImageIndex}
+              collapsed={storyInspectorCollapsed}
+              canEdit={canEditStory}
+              onImageIndexChange={setStoryInspectorImageIndex}
+              onToggleCollapsed={() => setStoryInspectorCollapsed((current) => !current)}
+              onOpenSource={openStoryInspectorSource}
+              onAddArt={openStoryInspectorArtManager}
+            />
           </div>
         </section>
       )}
@@ -2877,13 +3012,13 @@ export function StoryJourneyPage({
           <h2 className="font-display">{selectedLore.name}</h2>
           <span>{selectedLore.description}</span>
           <div>
-            <button className="button-frame" onClick={() => openLoreFullPage(selectedLore)} disabled={!selectedLore.entry && !selectedLore.creature}>
+            <button className="button-frame" onClick={() => openLoreFullPage(selectedLore)} disabled={!selectedLore.entry && !selectedLore.creature && !selectedLore.worldEntry}>
               Open Full Page
             </button>
             <button onClick={openLoreThread} disabled={!storyThreadChapters.length}>
               View Story Thread
             </button>
-            <button onClick={() => openLoreFullPage(selectedLore)} disabled={!selectedLore.entry && !selectedLore.creature}>
+            <button onClick={() => openLoreFullPage(selectedLore)} disabled={!selectedLore.entry && !selectedLore.creature && !selectedLore.worldEntry}>
               View Related Art Vault
             </button>
           </div>
@@ -2984,7 +3119,141 @@ export function StoryJourneyPage({
           onSave={saveStoryImageManager}
         />
       )}
+      {storyInspectorEditSubject && storyInspectorManagerSlot && (
+        <ImageManagerModal
+          title={`Add ${storyInspectorEditSubject.title} Reference Art`}
+          subtitle="Upload or choose one strong still image. It is saved to this subject's existing Art Vault and Google Drive folder, so every connected view can use it."
+          slots={[storyInspectorManagerSlot]}
+          onClose={() => setStoryInspectorEditSubject(null)}
+          onSave={saveStoryInspectorArt}
+        />
+      )}
     </section>
+  );
+}
+
+function StoryContextInspector({
+  subject,
+  isHoverPreview,
+  imageIndex,
+  collapsed,
+  canEdit,
+  onImageIndexChange,
+  onToggleCollapsed,
+  onOpenSource,
+  onAddArt
+}: {
+  subject: StoryInspectorSubject | null;
+  isHoverPreview: boolean;
+  imageIndex: number;
+  collapsed: boolean;
+  canEdit: boolean;
+  onImageIndexChange: (index: number) => void;
+  onToggleCollapsed: () => void;
+  onOpenSource: (subject: StoryInspectorSubject) => void;
+  onAddArt: (subject: StoryInspectorSubject) => void;
+}) {
+  const activeImage = subject?.images[Math.min(imageIndex, Math.max(0, subject.images.length - 1))] || null;
+
+  if (collapsed) {
+    return (
+      <aside className="story-context-inspector collapsed">
+        <button type="button" className="story-context-expand" onClick={onToggleCollapsed} title="Open live story reference" aria-label="Open live story reference">
+          <Icon name="Eye" className="h-4 w-4" />
+        </button>
+      </aside>
+    );
+  }
+
+  return (
+    <aside className="story-context-inspector" aria-live="polite">
+      <header className="story-context-header">
+        <div>
+          <span>{isHoverPreview ? "Live hover preview" : "Reading reference"}</span>
+          <strong>Story &amp; Art Viewer</strong>
+        </div>
+        <button type="button" onClick={onToggleCollapsed} title="Collapse story reference" aria-label="Collapse story reference">
+          <Icon name="ChevronRight" className="h-4 w-4" />
+        </button>
+      </header>
+
+      {subject ? (
+        <div className="story-context-content">
+          <div className="story-context-subject">
+            <span>{subject.type}</span>
+            <h2 className="font-display">{subject.title}</h2>
+            <p>{subject.summary || "This subject does not have a short description yet."}</p>
+          </div>
+
+          <section className="story-context-gallery" aria-label={`${subject.title} reference art`}>
+            {activeImage ? (
+              <>
+                <div className="story-context-hero">
+                  <DriveAwareImage
+                    src={activeImage.url}
+                    alt={activeImage.label || subject.title}
+                    loading="lazy"
+                    draggable={false}
+                    style={imageFitToStyle(activeImage.imageFit)}
+                  />
+                </div>
+                <div className="story-context-image-meta">
+                  <span>{activeImage.source}</span>
+                  <strong>{activeImage.label}</strong>
+                </div>
+                {subject.images.length > 1 && (
+                  <div className="story-context-thumbnails">
+                    {subject.images.map((image, index) => (
+                      <button
+                        key={image.id}
+                        type="button"
+                        className={index === imageIndex ? "active" : ""}
+                        onClick={() => onImageIndexChange(index)}
+                        title={image.label}
+                      >
+                        <DriveAwareImage src={image.url} alt="" loading="lazy" draggable={false} style={imageFitToStyle(image.imageFit)} />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="story-context-empty-art">
+                <Icon name="Image" className="h-7 w-7" />
+                <strong>No reference art yet</strong>
+                <span>Add a still, portrait, or concept image without leaving the reader.</span>
+              </div>
+            )}
+          </section>
+
+          {subject.tags.length > 0 && (
+            <div className="story-context-tags">
+              {subject.tags.slice(0, 6).map((tag) => <span key={tag}>{tag}</span>)}
+            </div>
+          )}
+
+          <div className="story-context-actions">
+            <button type="button" onClick={() => onOpenSource(subject)}>
+              <Icon name="ExternalLink" className="h-4 w-4" /> Open source
+            </button>
+            {canEdit && (
+              <button type="button" className="primary" onClick={() => onAddArt(subject)}>
+                <Icon name="Plus" className="h-4 w-4" /> Add reference art
+              </button>
+            )}
+          </div>
+          <p className="story-context-hint">
+            Hover a highlighted name in the story to preview its information and art here.
+          </p>
+        </div>
+      ) : (
+        <div className="story-context-empty">
+          <Icon name="BookOpen" className="h-7 w-7" />
+          <strong>Choose a story subject</strong>
+          <span>Open a World Guide topic or hover a highlighted name while reading.</span>
+        </div>
+      )}
+    </aside>
   );
 }
 
@@ -4057,7 +4326,326 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 
-function resolveLorePreview(term: string, entries: LoreEntry[], bestiary: BestiaryCreature[]): LorePreview {
+function storyInspectorSubjectFromLibraryItem(item: StoryLibraryItem, entries: LoreEntry[]): StoryInspectorSubject {
+  const linkedEntry = item.entry || findStoryInspectorEntry(item.title, entries);
+  return {
+    id: item.id,
+    title: item.title,
+    type: item.eyebrow,
+    summary: item.summary,
+    tags: item.tags,
+    images: collectStoryInspectorImages({ entry: linkedEntry, creature: item.creature, worldEntry: item.worldEntry }),
+    entry: linkedEntry,
+    creature: item.creature,
+    worldEntry: item.worldEntry
+  };
+}
+
+function storyInspectorSubjectFromChapter(chapter: StoryChapter): StoryInspectorSubject {
+  return {
+    id: `chapter:${chapter.id}`,
+    title: chapter.title,
+    type: chapter.era || "Story Chapter",
+    summary: plainStoryText(chapter.shortDescription || chapter.overviewText || chapter.subtitle),
+    tags: Array.from(new Set([chapter.revealLevel, ...(chapter.threads || []), ...chapter.relatedLore].filter(Boolean))),
+    images: collectStoryInspectorChapterImages(chapter),
+    chapter
+  };
+}
+
+function storyInspectorSubjectFromLorePreview(preview: LorePreview, entries: LoreEntry[]): StoryInspectorSubject {
+  const linkedEntry = preview.entry || findStoryInspectorEntry(preview.name, entries);
+  return {
+    id: preview.entry
+      ? `entry:${preview.entry.id}`
+      : preview.creature
+        ? `creature:${preview.creature.id}`
+        : preview.worldEntry
+          ? `world:${preview.worldEntry.category}:${preview.worldEntry.id}`
+          : `term:${normalizeTerm(preview.name)}`,
+    title: preview.name,
+    type: preview.type,
+    summary: preview.description,
+    tags: Array.from(new Set([
+      ...(linkedEntry?.tags || []),
+      ...(preview.worldEntry?.tags || []),
+      preview.creature?.category || "",
+      preview.creature?.threatLevel || ""
+    ].filter(Boolean))),
+    images: collectStoryInspectorImages({ entry: linkedEntry, creature: preview.creature, worldEntry: preview.worldEntry }),
+    entry: linkedEntry,
+    creature: preview.creature,
+    worldEntry: preview.worldEntry
+  };
+}
+
+function collectStoryInspectorImages({
+  entry,
+  creature,
+  worldEntry
+}: {
+  entry?: LoreEntry;
+  creature?: BestiaryCreature;
+  worldEntry?: WorldBuildingEntry;
+}) {
+  const images: StoryInspectorImage[] = [];
+
+  if (worldEntry?.image) {
+    pushStoryInspectorImage(images, {
+      id: `world-${worldEntry.id}`,
+      label: `${worldEntry.title} reference`,
+      url: worldEntry.image,
+      imageFit: worldEntry.imageFit,
+      source: "World Guide"
+    });
+  }
+
+  if (entry) {
+    const directImages = [
+      ["characterPortrait", "Portrait", entry.media.characterPortrait],
+      ["mainImage", "Main art", entry.media.mainImage],
+      ["iconImage", "App art", entry.media.iconImage],
+      ["characterHoverImage", "Alternate art", entry.media.characterHoverImage]
+    ] as const;
+    directImages.forEach(([id, label, url]) => {
+      if (!url) return;
+      pushStoryInspectorImage(images, {
+        id: `${entry.id}-${id}`,
+        label,
+        url,
+        imageFit: entry.media.imageFits?.[id],
+        source: "Cookbook"
+      });
+    });
+
+    entry.artGallery.forEach((image) => {
+      if (!isStoryInspectorStaticArt([image.title, image.category, image.notes].join(" "))) return;
+      pushStoryInspectorImage(images, {
+        id: image.id,
+        label: image.title || image.category || "Gallery art",
+        url: image.thumbnailUrl || image.webViewLink,
+        webViewLink: image.webViewLink,
+        imageFit: image.imageFit,
+        source: image.category || "Art Gallery"
+      });
+    });
+
+    normalizeArtVault(entry.artVault).sections.forEach((section) => {
+      section.slots.forEach((slot) => {
+        if (!slot.image || slot.image.spriteAnimation) return;
+        if (!isStoryInspectorStaticArt([section.title, slot.label, slot.requirementType, slot.image.title, slot.image.category, slot.image.fileName].join(" "))) return;
+        pushStoryInspectorImage(images, storyInspectorImageFromMetadata(slot.image, slot.label, section.title));
+      });
+    });
+  }
+
+  if (creature) {
+    const directImages = [
+      ["image", "Main creature art", creature.image, creature.imageFit],
+      ["expandedImage", "Expanded art", creature.expandedImage, creature.expandedImageFit],
+      ["hoverImage", "Alternate pose", creature.hoverImage, creature.hoverImageFit],
+      ["slotImage", "Bestiary portrait", creature.slotImage, creature.slotImageFit]
+    ] as const;
+    directImages.forEach(([id, label, url, imageFit]) => {
+      if (!url) return;
+      pushStoryInspectorImage(images, { id: `${creature.id}-${id}`, label, url, imageFit, source: "Bestiary" });
+    });
+    normalizeCreatureArtVault(creature.artVault).sections.forEach((section) => {
+      section.slots.forEach((slot) => {
+        if (!slot.image || slot.image.spriteAnimation) return;
+        if (!isStoryInspectorStaticArt([section.title, slot.label, slot.requirementType, slot.image.title, slot.image.category, slot.image.fileName].join(" "))) return;
+        pushStoryInspectorImage(images, storyInspectorImageFromMetadata(slot.image, slot.label, section.title));
+      });
+    });
+  }
+
+  return images.slice(0, 6);
+}
+
+function collectStoryInspectorChapterImages(chapter: StoryChapter) {
+  const images: StoryInspectorImage[] = [];
+  if (chapter.coverImageUrl) {
+    pushStoryInspectorImage(images, {
+      id: `${chapter.id}-cover`,
+      label: "Chapter cover",
+      url: chapter.coverImageUrl,
+      imageFit: chapter.coverImageFit,
+      source: "Story Journey"
+    });
+  }
+  chapter.pages.forEach((page) => {
+    if (!page.imageUrl) return;
+    pushStoryInspectorImage(images, {
+      id: `${chapter.id}-${page.id}`,
+      label: page.title,
+      url: page.imageUrl,
+      imageFit: page.imageFit,
+      source: "Story beat"
+    });
+  });
+  return images.slice(0, 6);
+}
+
+function storyInspectorImageFromMetadata(image: ArtVaultImageMetadata, fallbackLabel: string, source: string): StoryInspectorImage {
+  const url = image.thumbnailUrl || (image.driveFileId ? googleDriveThumbnailUrl(image.driveFileId) : image.webViewLink);
+  return {
+    id: image.id || `${image.slotId}-${image.driveFileId}`,
+    label: image.title || fallbackLabel,
+    url,
+    webViewLink: image.webViewLink || (image.driveFileId ? googleDriveWebViewLink(image.driveFileId) : ""),
+    imageFit: image.imageFit,
+    source
+  };
+}
+
+function pushStoryInspectorImage(images: StoryInspectorImage[], image: Omit<StoryInspectorImage, "webViewLink"> & { webViewLink?: string }) {
+  const url = resolveImageSourceUrl(image.url || image.webViewLink || "");
+  if (!url) return;
+  const fileId = extractGoogleDriveFileId(image.webViewLink || image.url || url);
+  const dedupeKey = fileId || url;
+  if (images.some((existing) => (extractGoogleDriveFileId(existing.webViewLink || existing.url) || existing.url) === dedupeKey)) return;
+  images.push({ ...image, url, webViewLink: image.webViewLink || (fileId ? googleDriveWebViewLink(fileId) : "") });
+}
+
+function isStoryInspectorStaticArt(value: string) {
+  return !/(sprite\s*sheet|sprite\s*animation|animation\s*(?:frames?|sequence|cycle)|frame\s*(?:strip|set|sequence))/i.test(value);
+}
+
+function findStoryInspectorEntry(title: string, entries: LoreEntry[]) {
+  const normalized = normalizeTerm(title);
+  return entries.find((entry) => normalizeTerm(entry.title) === normalized)
+    || entries.find((entry) => entry.tags.some((tag) => normalizeTerm(tag) === normalized));
+}
+
+function buildStoryInspectorManagerSlot(subject: StoryInspectorSubject) {
+  const existingVault = subject.entry
+    ? normalizeArtVault(subject.entry.artVault)
+    : subject.creature
+      ? normalizeCreatureArtVault(subject.creature.artVault)
+      : null;
+  const existingSection = existingVault?.sections.find((section) => section.id === "story-reference-art" || normalizeTerm(section.title) === "story reference art");
+  const context = storyInspectorDriveContext(subject);
+  return {
+    id: "storyReferenceArt",
+    label: `${subject.title} Reference Art`,
+    description: "A still image, portrait, concept piece, or environment view used by the live Story Journey viewer.",
+    imageUrl: "",
+    frameWidth: 360,
+    frameHeight: 260,
+    defaultFolderId: existingSection?.driveFolderId || "",
+    defaultFolderLink: existingSection?.driveFolderLink || "",
+    defaultFolderName: existingSection?.driveFolderName || "",
+    resolveUploadFolder: async () => resolveArtVaultDriveFolder(context),
+    uploadNameContext: {
+      subjectName: subject.title,
+      categoryName: "Story Reference Art",
+      slotName: "Reference Art",
+      sourceType: context.sourceType || "Story"
+    },
+    showAssetState: true,
+    assetState: "final" as const
+  };
+}
+
+function storyInspectorDriveContext(subject: StoryInspectorSubject) {
+  if (subject.creature) {
+    return {
+      sourceType: "Bestiary Creature",
+      groupName: subject.creature.category || subject.creature.type || "Creatures",
+      subjectCategory: subject.creature.category,
+      subjectType: subject.creature.type,
+      subjectThreatLevel: subject.creature.threatLevel,
+      subjectHabitat: subject.creature.habitat,
+      subjectBehavior: subject.creature.behavior,
+      subjectStatus: subject.creature.status,
+      subjectName: subject.title,
+      categoryName: "Story Reference Art"
+    };
+  }
+  const sourceType = subject.entry?.category || (subject.worldEntry ? "World" : "Story");
+  return {
+    sourceType,
+    groupName: subject.entry?.category || subject.worldEntry?.category || "Story Journey",
+    subjectType: subject.entry?.type || subject.worldEntry?.type || subject.type,
+    subjectName: subject.title,
+    categoryName: "Story Reference Art"
+  };
+}
+
+function appendStoryReferenceArtToEntry(entry: LoreEntry, draft: ImageManagerSlotDraft): LoreEntry {
+  return {
+    ...entry,
+    artVault: appendStoryReferenceArt(normalizeArtVault(entry.artVault), draft, entry.title),
+    updatedAt: new Date().toISOString()
+  };
+}
+
+function appendStoryReferenceArtToCreature(creature: BestiaryCreature, draft: ImageManagerSlotDraft): BestiaryCreature {
+  return {
+    ...creature,
+    artVault: appendStoryReferenceArt(normalizeCreatureArtVault(creature.artVault), draft, creature.name),
+    updatedAt: new Date().toISOString()
+  };
+}
+
+function appendStoryReferenceArt(vault: CharacterArtVault, draft: ImageManagerSlotDraft, subjectName: string): CharacterArtVault {
+  const timestamp = Date.now();
+  const sectionIndex = vault.sections.findIndex((section) => section.id === "story-reference-art" || normalizeTerm(section.title) === "story reference art");
+  const currentSection = sectionIndex >= 0 ? vault.sections[sectionIndex] : null;
+  const slotId = `story-reference-art-${timestamp}`;
+  const image = storyInspectorMetadataFromDraft(draft, slotId, subjectName);
+  const section = {
+    id: currentSection?.id || "story-reference-art",
+    title: "Story Reference Art",
+    description: "Curated stills, concept art, portraits, and locations used by the Story Journey live viewer.",
+    slots: [
+      ...(currentSection?.slots || []),
+      {
+        id: slotId,
+        label: `${subjectName} Reference ${(currentSection?.slots.length || 0) + 1}`,
+        requirementType: "Story Reference Art",
+        status: "uploaded",
+        image,
+        notes: "Added from the Story Journey live viewer.",
+        order: currentSection?.slots.length || 0
+      }
+    ],
+    order: currentSection?.order ?? vault.sections.length,
+    driveFolderId: draft.defaultFolderId || currentSection?.driveFolderId || "",
+    driveFolderLink: draft.defaultFolderLink || currentSection?.driveFolderLink || "",
+    driveFolderName: draft.defaultFolderName || currentSection?.driveFolderName || ""
+  };
+  const sections = [...vault.sections];
+  if (sectionIndex >= 0) sections[sectionIndex] = section;
+  else sections.push(section);
+  return { sections };
+}
+
+function storyInspectorMetadataFromDraft(draft: ImageManagerSlotDraft, slotId: string, subjectName: string): ArtVaultImageMetadata {
+  const driveFileId = extractGoogleDriveFileId(draft.webViewLink || draft.imageUrl);
+  const now = new Date().toISOString();
+  return {
+    id: `story-reference-image-${Date.now()}`,
+    title: `${subjectName} Reference Art`,
+    category: "Story Reference Art",
+    slotId,
+    driveFileId,
+    thumbnailUrl: resolveImageSourceUrl(draft.imageUrl) || (driveFileId ? googleDriveThumbnailUrl(driveFileId) : ""),
+    webViewLink: draft.webViewLink || (driveFileId ? googleDriveWebViewLink(driveFileId) : ""),
+    dateAdded: now,
+    uploadStatus: "uploaded",
+    assetState: draft.assetState || "final",
+    notes: "Added from Story Journey.",
+    uploadedAt: now,
+    lastUpdatedAt: now,
+    imageFit: normalizeImageFit(draft.imageFit),
+    driveFolderId: draft.defaultFolderId || "",
+    driveFolderLink: draft.defaultFolderLink || "",
+    driveFolderName: draft.defaultFolderName || ""
+  };
+}
+
+function resolveLorePreview(term: string, entries: LoreEntry[], bestiary: BestiaryCreature[], worldBuilding?: WorldBuildingData): LorePreview {
   const normalized = normalizeTerm(term);
   const entry = entries.find((candidate) =>
     [candidate.title, ...candidate.tags].some((value) => normalizeTerm(value) === normalized)
@@ -4078,6 +4666,19 @@ function resolveLorePreview(term: string, entries: LoreEntry[], bestiary: Bestia
       type: creature.type || "Creature",
       description: creature.description || creature.overview || "No creature description has been written yet.",
       creature
+    };
+  }
+
+  const worldEntry = worldBuilding
+    ? Object.values(worldBuilding).flat().find((candidate) => normalizeTerm(candidate.title) === normalized)
+      || Object.values(worldBuilding).flat().find((candidate) => normalizeTerm(candidate.title).includes(normalized))
+    : undefined;
+  if (worldEntry) {
+    return {
+      name: worldEntry.title,
+      type: worldEntry.type || storyWorldCategoryLabel(worldEntry.category),
+      description: plainStoryText(worldEntry.summary || Object.values(worldEntry.fields).find(Boolean) || "No description has been written yet."),
+      worldEntry
     };
   }
 

@@ -3103,6 +3103,9 @@ export default function App() {
                   onOpenEntry={openEntry}
                   onOpenCreature={openBestiaryCreature}
                   onOpenWorldEntry={openWorldBuildingEntry}
+                  onSaveEntry={(entry) => upsertEntry(entry, { openDetail: false })}
+                  onSaveCreature={upsertCreature}
+                  onWorldBuildingChange={updateWorldBuilding}
                   onStoryJourneyChange={updateStoryJourney}
                 />
               )}
