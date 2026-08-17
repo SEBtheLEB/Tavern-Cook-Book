@@ -58,11 +58,12 @@ function splitHeadingBlocks(source: string, headingPattern: RegExp) {
 
 function parseHistorySource(source: string): ParsedChapter[] {
   return splitHeadingBlocks(source, /^##\s+(.+)$/gm).map((chapter) => {
-    const sections = splitHeadingBlocks(chapter.text, /^###\s+(.+)$/gm);
-    const firstSectionIndex = chapter.text.search(/^###\s+/m);
+    const chapterBody = chapter.text.replace(/\r?\n---\s*$/, "").trim();
+    const sections = splitHeadingBlocks(chapterBody, /^###\s+(.+)$/gm);
+    const firstSectionIndex = chapterBody.search(/^###\s+/m);
     return {
       title: chapter.title,
-      introduction: (firstSectionIndex < 0 ? chapter.text : chapter.text.slice(0, firstSectionIndex)).trim(),
+      introduction: (firstSectionIndex < 0 ? chapterBody : chapterBody.slice(0, firstSectionIndex)).trim(),
       sections
     };
   });
