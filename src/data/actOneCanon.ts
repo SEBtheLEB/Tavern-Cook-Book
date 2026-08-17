@@ -804,10 +804,30 @@ export function mergeActOneCanonBestiary(currentCreatures: BestiaryCreature[]): 
 export function mergeActOneStoryJourney(current: StoryJourneyData): StoryJourneyData {
   const normalized = normalizeStoryJourneyData(current);
   if (!normalized.chapters.length) return normalized;
+  const previousActOneChapters = normalized.chapters.filter((chapter) =>
+    chapter.id === LEGACY_ACT_ONE_CHAPTER_ID || ACT_ONE_STORY_CHAPTER_IDS.has(chapter.id)
+  );
   const retained = normalized.chapters.filter((chapter) => chapter.id !== LEGACY_ACT_ONE_CHAPTER_ID && !ACT_ONE_STORY_CHAPTER_IDS.has(chapter.id));
-  // This migration intentionally replaces the previous short Act I treatment once.
-  // After schema 14, ordinary Story Journey edits remain user-owned and are preserved.
-  const replacements = actOneStoryChapters;
+  // Replace the mixed legacy/expanded Act I records with one chronological treatment,
+  // while retaining any art already attached to the surviving canonical chapters.
+  const replacements = actOneStoryChapters.map((replacement) => {
+    const existing = previousActOneChapters.find((chapter) => chapter.id === replacement.id);
+    if (!existing) return replacement;
+    return normalizeStoryJourneyChapter({
+      ...replacement,
+      coverImageUrl: existing.coverImageUrl || replacement.coverImageUrl,
+      coverImageFit: existing.coverImageFit || replacement.coverImageFit,
+      pages: replacement.pages.map((page, pageIndex) => {
+        const existingPage = existing.pages.find((candidate) => candidate.id === page.id || candidate.title === page.title)
+          || existing.pages[pageIndex];
+        return {
+          ...page,
+          imageUrl: existingPage?.imageUrl || page.imageUrl,
+          imageFit: existingPage?.imageFit || page.imageFit
+        };
+      })
+    }, replacement.id);
+  });
   const laterIndex = retained.findIndex((chapter) => chapter.id === "truth-of-tabby-island" || chapter.scope === "act3");
   if (laterIndex >= 0) retained.splice(laterIndex, 0, ...replacements);
   else retained.push(...replacements);

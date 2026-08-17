@@ -60,7 +60,7 @@ export const DATABASE_KEY = "tavern-cook-book:data";
 export const THEME_KEY = "tavern-cook-book:theme";
 const LEGACY_MODE_KEY = "tavern-cook-book:mode";
 
-export const currentSchemaVersion = 16;
+export const currentSchemaVersion = 17;
 const loreExpansionSchemaVersion = 2;
 const magicalMealCanonSchemaVersion = 3;
 const storyReferenceSchemaVersion = 4;
@@ -68,6 +68,7 @@ const whiskerWoodsPlaytestRoadmapSchemaVersion = 7;
 const masilCultLeaderSchemaVersion = 12;
 const actOneCanonSchemaVersion = 14;
 const actOnePondRevisionSchemaVersion = 16;
+const actOneChronologySchemaVersion = 17;
 
 const masilCultLeaderEntryTitles = new Set(["Masil Cult Leader"]);
 
@@ -244,6 +245,7 @@ export const migrateDatabase = (value: unknown): LoreDatabase => {
   const needsMasilCultLeader = Number(incoming.schemaVersion || 0) < masilCultLeaderSchemaVersion;
   const needsActOneCanon = Number(incoming.schemaVersion || 0) < actOneCanonSchemaVersion;
   const needsActOnePondRevision = Number(incoming.schemaVersion || 0) < actOnePondRevisionSchemaVersion;
+  const needsActOneChronology = Number(incoming.schemaVersion || 0) < actOneChronologySchemaVersion;
   let entries = Array.isArray(incoming.entries)
     ? repairScribeFoodEntries(incoming.entries.map((item) => normalizeEntry(item as Partial<LoreEntry>)))
     : starter.entries;
@@ -317,10 +319,10 @@ export const migrateDatabase = (value: unknown): LoreDatabase => {
     ? normalizeDevelopmentBoardData(incoming.developmentBoard)
     : createInitialDevelopmentBoard(entries, bestiary, worldBuilding, storyReferences);
   const normalizedStoryJourney = normalizeStoryJourneyData(incoming.storyJourney || starter.storyJourney);
-  let storyJourney = needsActOneCanon
+  let storyJourney = needsActOneCanon || needsActOneChronology
     ? mergeActOneStoryJourney(normalizedStoryJourney)
     : normalizedStoryJourney;
-  if (needsActOnePondRevision) {
+  if (needsActOnePondRevision && !needsActOneChronology) {
     storyJourney = replaceActOnePondStoryChapters(storyJourney);
   }
 

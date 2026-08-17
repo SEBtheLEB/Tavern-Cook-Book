@@ -292,7 +292,37 @@ Importantly, Gwen does **not** use the Prawnhusk meat in place of the boar meat 
   }
 ];
 
-export const revisedActOneStoryChapters: StoryJourneyChapterRecord[] = chapters.map((chapter, index) => {
+const canonicalActOneOrder = [
+  "act1-revised-opening",
+  "act1-woods-feel-wrong",
+  "act1-kaps-corrupted-pond",
+  "act1-queen-beneath-the-stories",
+  "act1-homecoming-feast",
+  "act1-cook-battle",
+  "act1-fire-meal",
+  "act1-first-trance",
+  "act1-fire-awakening",
+  "act1-juno-training",
+  "act1-gathering-rhythm",
+  "act1-magical-boar",
+  "act1-brambrake-gate",
+  "act1-bug-misunderstanding",
+  "act1-thairrott",
+  "act1-caverns-cedrick",
+  "act1-cedar-lyra-oswin",
+  "act1-muramar",
+  "act1-ice-and-recipe-pages",
+  "act1-ice-queen-hive",
+  "act1-queen-ballerina",
+  "act1-recipe-page",
+  "act1-thaw"
+];
+
+const orderedChapters = canonicalActOneOrder
+  .map((chapterId) => chapters.find((chapter) => chapter.id === chapterId))
+  .filter((chapter): chapter is NarrativeChapter => Boolean(chapter));
+
+export const revisedActOneStoryChapters: StoryJourneyChapterRecord[] = orderedChapters.map((chapter, index) => {
   const order = index + 1;
   const pageId = `${chapter.id}-narrative`;
   return normalizeStoryJourneyChapter({
@@ -301,8 +331,8 @@ export const revisedActOneStoryChapters: StoryJourneyChapterRecord[] = chapters.
     subtitle: chapter.subtitle,
     timelineStartLabel: `Act I · Chapter ${order}`,
     timelineEndLabel: `Act I · Chapter ${order}`,
-    timelineStartPercent: 70 + index * (12 / chapters.length),
-    timelineEndPercent: Math.min(82, 70 + (index + 0.7) * (12 / chapters.length)),
+    timelineStartPercent: 70 + index * (12 / orderedChapters.length),
+    timelineEndPercent: Math.min(82, 70 + (index + 0.7) * (12 / orderedChapters.length)),
     era: "Act I — The Queen Beneath the Frost",
     scope: "act1",
     revealLevel: "Player-Facing",

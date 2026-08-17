@@ -2926,6 +2926,7 @@ export default function App() {
               storageWarning={storageWarning}
               currentUser={currentUser}
               onOpenProfile={openProfile}
+              onSignOut={signOut}
               onOpenTavernScribe={canUseTavernScribe ? () => setTavernScribeOpen(true) : undefined}
               onOpenQuestDashboard={freelancerMode ? undefined : openQuestDashboard}
               onOpenPushChanges={LIVE_TEAM_SYNC ? undefined : openPushReview}
