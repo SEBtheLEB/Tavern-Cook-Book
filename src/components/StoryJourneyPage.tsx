@@ -1184,6 +1184,7 @@ export function StoryJourneyPage({
   const [speechifyReadAllMode, setSpeechifyReadAllMode] = useState(false);
   const [speechifyNarrationCatalog, setSpeechifyNarrationCatalog] = useState<StoryNarrationCatalogSection[]>([]);
   const [speechifyTimeline, setSpeechifyTimeline] = useState({ currentMs: 0, totalMs: 0, chunkIndex: 0 });
+  const [speechifyTimingDiagnostics, setSpeechifyTimingDiagnostics] = useState({ marks: 0, words: 0, matched: 0 });
   const [speechifyRecordingState, setSpeechifyRecordingState] = useState<StoryNarrationRecordingState>({
     phase: "idle",
     total: 0,
@@ -2356,6 +2357,12 @@ export function StoryJourneyPage({
         speechifyActiveChunkRef.current = chunk;
         speechifyActiveChunkIndexRef.current = index;
         speechifyActiveMarksRef.current = timed.speechMarks;
+        const alignedWords = alignSpeechifyMarksToStoryWords(timed.speechMarks, chunk.words);
+        setSpeechifyTimingDiagnostics({
+          marks: timed.speechMarks.length,
+          words: chunk.words.length,
+          matched: alignedWords.filter(Boolean).length
+        });
         if (timed.durationMs > 0) {
           speechifyChunkDurationsRef.current[index] = timed.durationMs;
           setSpeechifyTimeline((current) => ({
@@ -2731,7 +2738,10 @@ export function StoryJourneyPage({
                 </button>
               </div>
               {speechifyPanelOpen && (
-                <section className="story-speechify-panel">
+                <section
+                  className="story-speechify-panel"
+                  data-speechify-timing={`${speechifyTimingDiagnostics.marks}:${speechifyTimingDiagnostics.words}:${speechifyTimingDiagnostics.matched}`}
+                >
                   <header>
                     <div>
                       <span>Story Narration</span>
