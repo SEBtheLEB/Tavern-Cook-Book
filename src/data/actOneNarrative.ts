@@ -65,12 +65,70 @@ const chapters: NarrativeChapter[] = [
     callouts: insight("Gwen begins the playable story as a qualified chef after two years of practical placement under Tohm.", "Her decision to leave the Academy celebration establishes that home and community matter more to her than prestige.", { kind: "canonGap", label: "Canon check", text: "The supplied revision uses Unhold and Whisper Woods. Existing records may still use Ovenhold and Whisker Woods, so those names remain flagged for canon review." })
   },
   {
-    id: "act1-road-home",
-    title: "The Road Home",
-    subtitle: "The familiar journey becomes Gwen's first warning that the woods are changing.",
-    text: revision[1],
-    relatedLore: ["Gwen", "Kap", "Prawnhusk", "Whisper Woods", "Corrupted Pond"],
-    callouts: insight("Gwen sees abnormal insect behavior before she understands its cause, then rescues Kap from the Prawnhusk.", "The homecoming journey becomes the opening combat sequence and provides physical evidence of spreading corruption.")
+    id: "act1-woods-feel-wrong",
+    title: "Something Is Wrong with Whisker Woods",
+    subtitle: "Gwen's homecoming is interrupted by the first clear sign that something has gone seriously wrong.",
+    text: `The path home should be familiar, but **Whisker Woods** feels wrong almost immediately. Insects appear in unusual numbers. Beetles and **Dappleflies** behave with unnatural aggression, **egg clusters** cling to places where they should not exist, and frightened wildlife has been pushed out of its normal territory.
+
+The signs do not yet form a complete answer, but they are too consistent to dismiss as a bad season. Something is disturbing the forest's natural balance.
+
+As **Gwen** continues toward the tavern, she suddenly hears someone screaming for help somewhere deeper in the woods. She follows the voice until she reaches a **large corrupted pond**, where she finds **Kap** stranded in the middle while hostile insects swarm around him.
+
+Gwen has been away completing her final Academy exam and has heard nothing about what has happened to Whisker Woods. Seeing the forest like this leaves her confused and immediately concerned.`,
+    relatedLore: ["Gwen", "Whisker Woods", "Dappleflies", "Egg Clusters", "Kap", "Corrupted Pond"],
+    callouts: insight("The forest's insects and wildlife are behaving unnaturally, but Gwen does not yet know the cause.", "Gwen's homecoming is interrupted by the first clear sign that something has gone seriously wrong in Whisker Woods.")
+  },
+  {
+    id: "act1-kaps-corrupted-pond",
+    title: "The Corrupted Pond",
+    subtitle: "Gwen's journey home becomes an unexpected rescue.",
+    text: `While traveling back toward the tavern, **Gwen** hears someone screaming for help. She follows the voice through the woods until she reaches a **large corrupted pond**, its water darkened and its surrounding vegetation beginning to die.
+
+Insects swarm throughout the area, and **Kap** is stranded in the middle of the pond.
+
+Gwen calls out to him, demanding to know what he is doing out here and what has happened to Whisker Woods. She has only just returned from taking her final Academy exam and has received no word about the strange changes spreading through the forest.
+
+Kap, however, is mostly relieved to see her.
+
+He excitedly welcomes Gwen home and explains that he came to the pond because he had heard there was an especially good fish living there. He wanted to catch it and give it to her as a **welcome-back gift**.
+
+Gwen quickly realizes that Kap's idea of a gift is a raw fish that **she would then have to cook herself**.
+
+She questions him on this ridiculous logic, while Kap sees absolutely nothing wrong with the idea.
+
+Gwen fights through the hostile insects surrounding the pond and clears a path toward Kap.
+
+Just as she is about to rescue him, **the ground begins to shake**.
+
+Kap suddenly looks past Gwen and screams:
+
+**"Gwen! Behind you!"**
+
+Gwen turns around.
+
+A massive **Prawnhusk** has emerged from beneath the ground.
+
+Gwen is stunned.
+
+Prawnhusks are not creatures that should be anywhere near the surface. They are known to live **deep beneath the earth in dangerous underground cave systems**, and Gwen has never actually seen one before. She recognizes the creature only from what she has read.
+
+Kap has no idea what he is looking at.
+
+Gwen explains that it is a Prawnhusk and that its presence this far above ground makes no sense. She then remembers something else she has read about them: **Prawnhusk meat is said to have an extraordinary flavor and is considered one of the finest insect meats.**
+
+The Prawnhusk attacks, turning the rescue into **Gwen's first major combat test after returning home**.
+
+Gwen defeats the creature, rescues Kap, and takes some of the Prawnhusk meat with her before continuing toward the tavern.
+
+The discovery gives Gwen another troubling clue that whatever is happening in Whisker Woods is affecting creatures far beyond their normal habitats.
+
+She does not yet know why.
+
+Later, when **Tom / Tohm Kyatt** sees that Gwen has somehow returned with Prawnhusk meat, he is shocked. The rare meat is exactly the ingredient he needs to **make the Fire Meal again**.
+
+Importantly, Gwen does **not** use the Prawnhusk meat in place of the boar meat for her Feast of Full Plates dish. She still recreates the winning dish from her Academy exam using **boar meat**.`,
+    relatedLore: ["Gwen", "Kap", "Whisker Woods", "Corrupted Pond", "Prawnhusk", "Prawnhusk Meat", "Tohm Kyatt", "Fire Meal", "Boar Meat"],
+    callouts: insight("Creatures are appearing far outside their natural habitats, and the corruption spreading through Whisker Woods is becoming increasingly abnormal. Gwen now possesses rare Prawnhusk meat, though she does not yet understand how important it will become.", "Kap is rescued, Gwen gains further evidence that something is deeply wrong with the forest, and the Prawnhusk meat provides Tom with the missing ingredient needed to create the Fire Meal, setting up Gwen's first trance.")
   },
   {
     id: "act1-queen-beneath-the-stories",

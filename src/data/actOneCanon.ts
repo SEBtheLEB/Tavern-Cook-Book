@@ -910,12 +910,12 @@ const pondChapterReplacements: Record<string, PondChapterReplacement> = {
 export function replaceActOnePondStoryChapters(current: StoryJourneyData): StoryJourneyData {
   const normalized = normalizeStoryJourneyData(current);
   let changed = false;
-  const chapters = normalized.chapters.map((chapter) => {
-    const replacement = pondChapterReplacements[chapter.id];
-    if (!replacement) return chapter;
+  const replacementIds = ["act1-woods-feel-wrong", "act1-kaps-corrupted-pond"];
+  const buildReplacement = (chapter: StoryJourneyChapterRecord, replacementId: string) => {
+    const replacement = pondChapterReplacements[replacementId];
     changed = true;
     const page = chapter.pages[0];
-    const pageId = page?.id || `${chapter.id}-sequence-1`;
+    const pageId = `${replacementId}-narrative`;
     const callouts = [
       {
         id: page?.callouts?.find((callout) => callout.kind === "playerKnowledge")?.id || `${pageId}-knowledge`,
@@ -932,6 +932,7 @@ export function replaceActOnePondStoryChapters(current: StoryJourneyData): Story
     ];
     return normalizeStoryJourneyChapter({
       ...chapter,
+      id: replacementId,
       title: replacement.title,
       subtitle: replacement.subtitle,
       shortDescription: replacement.subtitle,
@@ -949,7 +950,30 @@ export function replaceActOnePondStoryChapters(current: StoryJourneyData): Story
         callouts,
         sourceRecords: replacement.relatedLore.map((label) => ({ type: sourceTypeFor(label), id: slugify(label), label }))
       }]
-    }, chapter.id);
+    }, replacementId);
+  };
+
+  const chapters = normalized.chapters.flatMap((chapter) => {
+    if (chapter.id === "act1-road-home") {
+      return replacementIds.map((replacementId) => buildReplacement(chapter, replacementId));
+    }
+    if (replacementIds.includes(chapter.id)) {
+      return [buildReplacement(chapter, chapter.id)];
+    }
+    return [chapter];
+  });
+
+  replacementIds.forEach((replacementId, replacementIndex) => {
+    if (chapters.some((chapter) => chapter.id === replacementId)) return;
+    const canonical = actOneStoryChapters.find((chapter) => chapter.id === replacementId);
+    if (!canonical) return;
+    const previousReplacementId = replacementIds[replacementIndex - 1];
+    const openingIndex = chapters.findIndex((chapter) => chapter.id === "act1-revised-opening");
+    const previousIndex = previousReplacementId
+      ? chapters.findIndex((chapter) => chapter.id === previousReplacementId)
+      : openingIndex;
+    chapters.splice(Math.max(0, previousIndex + 1), 0, canonical);
+    changed = true;
   });
 
   return changed
