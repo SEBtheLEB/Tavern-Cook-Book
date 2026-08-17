@@ -1809,7 +1809,7 @@ export default function App() {
     setPushMessage(
       cloudSync.configured
         ? ""
-        : "Cloud sync is not configured yet. Add SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in Vercel before pushing globally."
+        : "Cloud sync is not configured yet. Add SUPABASE_URL and SUPABASE_SECRET_KEY in Vercel before pushing globally."
     );
     setPushReviewOpen(true);
   };

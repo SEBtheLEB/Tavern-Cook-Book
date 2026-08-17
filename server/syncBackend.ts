@@ -86,7 +86,7 @@ export async function handleSyncRequest(request: SyncRequest): Promise<SyncResul
 
   if (syncProvider() === "none") {
     return json(503, {
-      error: "Cloud sync is not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in Vercel, or keep TAVERN_SYNC_GITHUB_TOKEN as the fallback.",
+      error: "Cloud sync is not configured. Set SUPABASE_URL and SUPABASE_SECRET_KEY in Vercel, or keep TAVERN_SYNC_GITHUB_TOKEN as the fallback.",
       configured: false
     });
   }
@@ -283,11 +283,12 @@ function supabaseRowToEnvelope(row: SupabaseSyncRow): SyncEnvelope {
 
 function supabaseHeaders() {
   const key = supabaseServiceRoleKey();
-  return {
+  const headers: Record<string, string> = {
     apikey: key,
-    Authorization: `Bearer ${key}`,
     Accept: "application/json"
   };
+  if (!key.startsWith("sb_secret_")) headers.Authorization = `Bearer ${key}`;
+  return headers;
 }
 
 async function supabaseError(response: Response, fallback: string) {
@@ -500,7 +501,13 @@ function supabaseRestBaseUrl() {
 }
 
 function supabaseServiceRoleKey() {
-  return (process.env.TAVERN_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+  return (
+    process.env.TAVERN_SUPABASE_SECRET_KEY
+    || process.env.SUPABASE_SECRET_KEY
+    || process.env.TAVERN_SUPABASE_SERVICE_ROLE_KEY
+    || process.env.SUPABASE_SERVICE_ROLE_KEY
+    || ""
+  ).trim();
 }
 
 function supabaseTable() {

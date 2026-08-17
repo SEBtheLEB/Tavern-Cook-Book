@@ -732,11 +732,12 @@ function encodeStoragePath(path: string) {
 
 function supabaseStorageHeaders() {
   const key = supabaseServiceRoleKey();
-  return {
+  const headers: Record<string, string> = {
     apikey: key,
-    Authorization: `Bearer ${key}`,
     Accept: "application/json"
   };
+  if (!key.startsWith("sb_secret_")) headers.Authorization = `Bearer ${key}`;
+  return headers;
 }
 
 async function supabaseStorageError(response: Response, fallback: string) {
@@ -769,7 +770,13 @@ function supabaseUrl() {
 }
 
 function supabaseServiceRoleKey() {
-  return (process.env.TAVERN_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+  return (
+    process.env.TAVERN_SUPABASE_SECRET_KEY
+    || process.env.SUPABASE_SECRET_KEY
+    || process.env.TAVERN_SUPABASE_SERVICE_ROLE_KEY
+    || process.env.SUPABASE_SERVICE_ROLE_KEY
+    || ""
+  ).trim();
 }
 
 function githubSyncToken() {

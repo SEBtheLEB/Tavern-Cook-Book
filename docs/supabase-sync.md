@@ -25,11 +25,11 @@ Add these to the Vercel project for Production, Preview, and Development:
 
 ```env
 SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=YOUR_SERVICE_ROLE_KEY
+SUPABASE_SECRET_KEY=YOUR_SECRET_KEY
 TAVERN_SUPABASE_SYNC_TABLE=tavern_sync_documents
 ```
 
-Use the service role key only in Vercel/server environments. Do not expose it as a `VITE_` variable.
+Use the secret key only in Vercel/server environments. Do not expose it as a `VITE_` variable. The legacy `SUPABASE_SERVICE_ROLE_KEY` remains supported for older projects.
 
 ## 3. First Load Migration
 
