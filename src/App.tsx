@@ -79,6 +79,7 @@ import {
   clearGoogleAccount,
   disableGoogleAutoSelect,
   getGoogleUserAccess,
+  loadGoogleCredential,
   loadGoogleAccount,
   roleCanAccessSettings,
   roleCanEdit,
@@ -484,6 +485,7 @@ export default function App() {
   const sessionUiStateRef = useRef<AppSessionUiState | null>(null);
   const restoredSessionScrollRef = useRef(false);
   const restoredSessionEntryRef = useRef(Boolean(selectedEntry));
+  const googleCredentialReady = Boolean(loadGoogleCredential());
   const currentRole = currentUser?.role || "viewer";
   const freelancerMode = currentRole === "freelancer";
   const canEdit = roleCanEdit(currentRole);
@@ -684,7 +686,7 @@ export default function App() {
 
   useEffect(() => {
     if (!publishedReady) return;
-    if (!currentUser || readOnly || hostedViewer || remoteLoadRef.current || realtimeRemoteLoadRef.current) return;
+    if (!currentUser || readOnly || hostedViewer || !googleCredentialReady || remoteLoadRef.current || realtimeRemoteLoadRef.current) return;
     const pendingDatabase = databaseRef.current;
     const nextHash = databaseSyncHash(pendingDatabase);
     if (nextHash === lastDraftHashRef.current && nextHash !== pendingTeamChangeHashRef.current) return;
@@ -751,7 +753,7 @@ export default function App() {
     }, LIVE_SYNC_AUTOSAVE_DELAY_MS);
 
     return () => window.clearTimeout(timer);
-  }, [database, teamSaveSignal, currentUser?.email, readOnly, hostedViewer, publishedReady, realtimeActive]);
+  }, [database, teamSaveSignal, currentUser?.email, readOnly, hostedViewer, publishedReady, realtimeActive, googleCredentialReady]);
 
   useEffect(() => {
     if (!LIVE_TEAM_SYNC) return;
@@ -2866,7 +2868,7 @@ export default function App() {
   const desktopBrowserAuthMode = isDesktopBrowserAuthRequest();
   const storyFocusMode = activeView === "storyJourney";
 
-  if (!currentUser || desktopBrowserAuthMode) {
+  if (!currentUser || desktopBrowserAuthMode || (!hostedViewer && !googleCredentialReady)) {
     return (
       <div className={themeClassName}>
         <AccessGate onSignIn={setCurrentUser} />

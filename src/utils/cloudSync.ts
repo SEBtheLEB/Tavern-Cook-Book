@@ -168,12 +168,12 @@ async function cloudRequest<T>(
   options: { email?: string; payload?: unknown } = {}
 ): Promise<CloudSyncResponse<T>> {
   const credential = loadGoogleCredential();
-  if (!credential && scope !== "published") {
+  if (!credential && (method === "POST" || scope !== "published")) {
     return {
       ok: false,
       configured: false,
       envelope: null,
-      error: "Google sign-in token expired. Sign out and sign back in to turn cloud sync on."
+      error: "Google sign-in expired. Reconnect Google to save this change for the team."
     };
   }
 
