@@ -18278,12 +18278,12 @@ button,
 }
 
 .story-treatment-layout {
-  grid-template-columns: 252px minmax(0, 900px) minmax(286px, 324px);
+  grid-template-columns: 252px minmax(0, 1fr) minmax(286px, 324px);
   min-height: calc(100dvh - 56px);
 }
 
 .story-treatment-layout.story-inspector-is-collapsed {
-  grid-template-columns: 252px minmax(0, 900px) 48px;
+  grid-template-columns: 252px minmax(0, 1fr) 48px;
 }
 
 .story-treatment-navigator {
@@ -18420,9 +18420,10 @@ button,
 }
 
 .story-treatment-reader {
-  width: min(100%, 900px);
+  width: 100%;
+  max-width: none;
   margin: 0;
-  padding: 28px 30px 86px 38px;
+  padding: 28px 38px 86px;
 }
 
 .story-treatment-titlepage {
@@ -18458,7 +18459,7 @@ button,
 }
 
 .story-library-reader {
-  width: min(100%, 760px);
+  width: min(100%, 1020px);
   margin: 0;
   padding-bottom: 56px;
 }
@@ -18854,7 +18855,7 @@ button,
 }
 
 .story-treatment-lede {
-  max-width: 720px;
+  max-width: 1020px;
   margin-bottom: 34px;
   font-size: 1.02rem;
   font-weight: 580;
@@ -18862,7 +18863,7 @@ button,
 }
 
 .story-treatment-beat {
-  max-width: 740px;
+  max-width: 1020px;
   scroll-margin-top: 78px;
   margin-bottom: 38px;
 }
