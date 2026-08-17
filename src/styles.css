@@ -18159,6 +18159,45 @@ button,
   font-size: 0.63rem;
 }
 
+.story-speechify-continuation {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  min-height: 48px;
+  border: 1px solid color-mix(in srgb, var(--gold) 30%, var(--panel-border));
+  border-radius: 6px;
+  padding: 8px 10px;
+  color: var(--app-ink);
+  text-align: left;
+  background: color-mix(in srgb, var(--field-bg) 88%, transparent);
+}
+
+.story-speechify-continuation:hover,
+.story-speechify-continuation.active {
+  border-color: color-mix(in srgb, var(--gold) 64%, var(--panel-border));
+  background: color-mix(in srgb, var(--gold) 10%, var(--field-bg));
+}
+
+.story-speechify-continuation > svg {
+  color: var(--gold);
+}
+
+.story-speechify-continuation > span {
+  display: grid;
+  gap: 2px;
+}
+
+.story-speechify-continuation strong {
+  font-size: 0.72rem;
+}
+
+.story-speechify-continuation small {
+  color: var(--muted-ink);
+  font-size: 0.64rem;
+  line-height: 1.35;
+}
+
 .story-speechify-chapter-list {
   display: grid;
   max-height: 250px;

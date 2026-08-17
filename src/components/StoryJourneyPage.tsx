@@ -1182,6 +1182,7 @@ export function StoryJourneyPage({
   const [speechifyNowPlaying, setSpeechifyNowPlaying] = useState("");
   const [speechifyChunkProgress, setSpeechifyChunkProgress] = useState({ current: 0, total: 0 });
   const [speechifyReadAllMode, setSpeechifyReadAllMode] = useState(false);
+  const [speechifyContinuePlayback, setSpeechifyContinuePlayback] = useState(true);
   const [speechifyNarrationCatalog, setSpeechifyNarrationCatalog] = useState<StoryNarrationCatalogSection[]>([]);
   const [speechifyTimeline, setSpeechifyTimeline] = useState({ currentMs: 0, totalMs: 0, chunkIndex: 0 });
   const [speechifyTimingDiagnostics, setSpeechifyTimingDiagnostics] = useState({ marks: 0, words: 0, matched: 0 });
@@ -2342,69 +2343,127 @@ export function StoryJourneyPage({
       if (!voiceId || session !== speechifySessionRef.current) return;
       const language = speechifyLanguageForVoice(voiceId);
 
+      let skippedSectionCount = 0;
       for (let index = startChunkIndex; index < chunks.length; index += 1) {
         if (session !== speechifySessionRef.current) return;
         const chunk = chunks[index];
         setSpeechifyChunkProgress({ current: index + 1, total: chunks.length });
-        const timed = await loadSpeechifyRecordedAudio(chunk.speechText, voiceId, language, controller.signal);
-        if (session !== speechifySessionRef.current) {
-          URL.revokeObjectURL(timed.audioUrl);
-          return;
-        }
+        setSpeechifyNowPlaying(chunk.chapterTitle || nowPlayingLabel || "Full Story Journey");
 
-        releaseSpeechifyMedia();
-        speechifyAudioUrlRef.current = timed.audioUrl;
-        speechifyActiveChunkRef.current = chunk;
-        speechifyActiveChunkIndexRef.current = index;
-        speechifyActiveMarksRef.current = timed.speechMarks;
-        const alignedWords = alignSpeechifyMarksToStoryWords(timed.speechMarks, chunk.words);
-        setSpeechifyTimingDiagnostics({
-          marks: timed.speechMarks.length,
-          words: chunk.words.length,
-          matched: alignedWords.filter(Boolean).length
-        });
-        if (timed.durationMs > 0) {
-          speechifyChunkDurationsRef.current[index] = timed.durationMs;
-          setSpeechifyTimeline((current) => ({
-            ...current,
-            totalMs: speechifyChunkDurationsRef.current.reduce((total, duration) => total + duration, 0),
-            chunkIndex: index
-          }));
-        }
-        const audio = new Audio(timed.audioUrl);
-        audio.preload = "auto";
-        audio.playbackRate = speechifyRateRef.current;
-        speechifyAudioRef.current = audio;
+        try {
+          let timed;
+          try {
+            timed = await loadSpeechifyRecordedAudio(chunk.speechText, voiceId, language, controller.signal);
+          } catch (firstError) {
+            if (controller.signal.aborted || session !== speechifySessionRef.current) throw firstError;
+            await new Promise((resolve) => window.setTimeout(resolve, 350));
+            timed = await loadSpeechifyRecordedAudio(chunk.speechText, voiceId, language, controller.signal);
+          }
+          if (session !== speechifySessionRef.current) {
+            URL.revokeObjectURL(timed.audioUrl);
+            return;
+          }
 
-        if (index === startChunkIndex && timelineStart && timelineStart.timeMs > 0) {
-          await waitForSpeechifyAudioMetadata(audio);
-          if (session !== speechifySessionRef.current) return;
-          audio.currentTime = Math.max(0, Math.min(timelineStart.timeMs / 1_000, Number.isFinite(audio.duration) ? audio.duration - 0.02 : timelineStart.timeMs / 1_000));
-        } else if (index === startChunkIndex && inputOffset > chunk.inputStart) {
-          const mark = findSpeechMarkForInputOffset(timed.speechMarks, chunk, inputOffset - chunk.inputStart);
-          if (mark) {
+          releaseSpeechifyMedia();
+          speechifyAudioUrlRef.current = timed.audioUrl;
+          speechifyActiveChunkRef.current = chunk;
+          speechifyActiveChunkIndexRef.current = index;
+          speechifyActiveMarksRef.current = timed.speechMarks;
+          const alignedWords = alignSpeechifyMarksToStoryWords(timed.speechMarks, chunk.words);
+          setSpeechifyTimingDiagnostics({
+            marks: timed.speechMarks.length,
+            words: chunk.words.length,
+            matched: alignedWords.filter(Boolean).length
+          });
+          if (timed.durationMs > 0) {
+            speechifyChunkDurationsRef.current[index] = timed.durationMs;
+            setSpeechifyTimeline((current) => ({
+              ...current,
+              totalMs: speechifyChunkDurationsRef.current.reduce((total, duration) => total + duration, 0),
+              chunkIndex: index
+            }));
+          }
+          const audio = new Audio(timed.audioUrl);
+          audio.preload = "auto";
+          audio.playbackRate = speechifyRateRef.current;
+          speechifyAudioRef.current = audio;
+
+          if (index === startChunkIndex && timelineStart && timelineStart.timeMs > 0) {
             await waitForSpeechifyAudioMetadata(audio);
             if (session !== speechifySessionRef.current) return;
-            audio.currentTime = Math.max(0, mark.start_time / 1_000);
+            audio.currentTime = Math.max(0, Math.min(timelineStart.timeMs / 1_000, Number.isFinite(audio.duration) ? audio.duration - 0.02 : timelineStart.timeMs / 1_000));
+          } else if (index === startChunkIndex && inputOffset > chunk.inputStart) {
+            const mark = findSpeechMarkForInputOffset(timed.speechMarks, chunk, inputOffset - chunk.inputStart);
+            if (mark) {
+              await waitForSpeechifyAudioMetadata(audio);
+              if (session !== speechifySessionRef.current) return;
+              audio.currentTime = Math.max(0, mark.start_time / 1_000);
+            }
           }
-        }
 
-        if (index === startChunkIndex && audio.currentTime > 0) {
-          const mark = findSpeechMarkAtTime(timed.speechMarks, audio.currentTime * 1_000);
-          const target = mark ? findStoryNarrationWordForMark(chunk, mark, timed.speechMarks) : chunk.words[0];
-          if (target) {
-            speechifyHighlightedWordRef.current = target;
-            highlightStoryNarrationWord(target, true);
+          if (index === startChunkIndex && audio.currentTime > 0) {
+            const mark = findSpeechMarkAtTime(timed.speechMarks, audio.currentTime * 1_000);
+            const target = mark ? findStoryNarrationWordForMark(chunk, mark, timed.speechMarks) : chunk.words[0];
+            if (target) {
+              speechifyHighlightedWordRef.current = target;
+              highlightStoryNarrationWord(target, true);
+            }
           }
-        }
 
-        setSpeechifyStatus("playing");
-        await new Promise<void>((resolve, reject) => {
-          speechifyWaitResolveRef.current = resolve;
-          audio.addEventListener("ended", () => resolve(), { once: true });
-          audio.addEventListener("error", () => reject(new Error("The synchronized Speechify audio could not be played.")), { once: true });
-          void audio.play().then(() => beginSpeechifyWordTracking(audio, timed.speechMarks, chunk, session, index)).catch(reject);
-        });
+          setSpeechifyStatus("playing");
+          await new Promise<void>((resolve, reject) => {
+            let settled = false;
+            let lastPlaybackTime = audio.currentTime;
+            let lastProgressAt = performance.now();
+            const finish = () => {
+              if (settled) return;
+              settled = true;
+              window.clearInterval(watchdogId);
+              audio.removeEventListener("ended", finish);
+              audio.removeEventListener("error", fail);
+              if (speechifyWaitResolveRef.current === finish) speechifyWaitResolveRef.current = null;
+              resolve();
+            };
+            const fail = () => {
+              if (settled) return;
+              settled = true;
+              window.clearInterval(watchdogId);
+              audio.removeEventListener("ended", finish);
+              audio.removeEventListener("error", fail);
+              if (speechifyWaitResolveRef.current === finish) speechifyWaitResolveRef.current = null;
+              reject(new Error("The synchronized Speechify audio could not be played."));
+            };
+            const watchdogId = window.setInterval(() => {
+              if (audio.paused || settled) return;
+              if (Number.isFinite(audio.duration) && audio.currentTime >= Math.max(0, audio.duration - 0.08)) {
+                finish();
+                return;
+              }
+              if (audio.currentTime > lastPlaybackTime + 0.02) {
+                lastPlaybackTime = audio.currentTime;
+                lastProgressAt = performance.now();
+              } else if (performance.now() - lastProgressAt > 8_000) {
+                fail();
+              }
+            }, 250);
+            speechifyWaitResolveRef.current = finish;
+            audio.addEventListener("ended", finish, { once: true });
+            audio.addEventListener("error", fail, { once: true });
+            void audio.play().then(() => beginSpeechifyWordTracking(audio, timed.speechMarks, chunk, session, index)).catch(fail);
+          });
+        } catch (error) {
+          if (controller.signal.aborted || session !== speechifySessionRef.current) return;
+          skippedSectionCount += 1;
+          releaseSpeechifyMedia();
+          setSpeechifyTimeline((current) => ({
+            ...current,
+            currentMs: Math.min(current.totalMs, speechifyDurationBeforeChunk(speechifyChunkDurationsRef.current, index + 1)),
+            chunkIndex: Math.min(index + 1, chunks.length - 1)
+          }));
+          setSpeechifyError(
+            `${chunk.sectionTitle || chunk.chapterTitle || "A story section"} could not be played and was skipped. Narration is continuing with the next section.`
+          );
+        }
       }
 
       if (session === speechifySessionRef.current) {
@@ -2418,6 +2477,7 @@ export function StoryJourneyPage({
         setSpeechifyNowPlaying("");
         setSpeechifyChunkProgress({ current: 0, total: 0 });
         setSpeechifyTimeline((current) => ({ ...current, currentMs: current.totalMs, chunkIndex: Math.max(0, chunks.length - 1) }));
+        if (!skippedSectionCount) setSpeechifyError("");
       }
     } catch (error) {
       if (controller.signal.aborted || session !== speechifySessionRef.current) return;
@@ -2452,6 +2512,7 @@ export function StoryJourneyPage({
       });
       return;
     }
+    setSpeechifyContinuePlayback(true);
     void startSpeechifyPageNarration();
   }
 
@@ -2478,7 +2539,16 @@ export function StoryJourneyPage({
     const chunks = visibleStoryNarrationChunks();
     if (!chunks.length) return;
     setSpeechifyPanelTab("narrations");
-    void startSpeechifyPageNarration(group.inputOffset, chunks);
+    void startSpeechifyPageNarration(group.inputOffset, chunks, undefined, group.title);
+  }
+
+  function selectSpeechifyNarrationChapter(group: StoryNarrationChapterGroup) {
+    setSpeechifyPanelTab("narrations");
+    if (speechifyContinuePlayback && group.recordedCount === group.sectionCount) {
+      seekSpeechifyChapter(group);
+      return;
+    }
+    void handleSpeechifyChapterNarration(group.id, group.title);
   }
 
   function seekAdjacentSpeechifyChapter(direction: -1 | 1) {
@@ -2901,13 +2971,26 @@ export function StoryJourneyPage({
                     </div>
                   )}
 
+                  <button
+                    type="button"
+                    className={`story-speechify-continuation ${speechifyContinuePlayback ? "active" : ""}`}
+                    aria-pressed={speechifyContinuePlayback}
+                    onClick={() => setSpeechifyContinuePlayback((current) => !current)}
+                  >
+                    <Icon name={speechifyContinuePlayback ? "ChevronsRight" : "Square"} className="h-4 w-4" />
+                    <span>
+                      <strong>Keep Playing: {speechifyContinuePlayback ? "On" : "Off"}</strong>
+                      <small>{speechifyContinuePlayback ? "Chapter choices continue through the rest of the story." : "Chapter choices stop when that chapter ends."}</small>
+                    </span>
+                  </button>
+
                   <div className="story-speechify-chapter-list">
                     {speechifyNarrationChapters.map((group) => (
                       <button
                         type="button"
                         key={group.id}
                         className={isSpeechifyChapterActive(group, speechifyNarrationChapters, speechifyTimeline.currentMs) ? "active" : ""}
-                        onClick={() => void handleSpeechifyChapterNarration(group.id, group.title)}
+                        onClick={() => selectSpeechifyNarrationChapter(group)}
                         disabled={speechifySectionAction.phase === "recording" && speechifySectionAction.chapterId !== group.id}
                       >
                         <Icon name={group.recordedCount === group.sectionCount ? "CircleCheck" : group.recordedCount ? "CircleDashed" : "CircleAlert"} className="h-4 w-4" />
@@ -2919,7 +3002,7 @@ export function StoryJourneyPage({
                       </button>
                     ))}
                   </div>
-                  <small className="story-speechify-footnote">Sections are listed in story order. Click one to play its saved narration; admins are asked before any missing part is recorded.</small>
+                  <small className="story-speechify-footnote">Sections are listed in story order. Choose any chapter to jump there; Keep Playing controls whether narration continues into the chapters after it.</small>
                   </div>)}
 
                   {speechifyError && speechifyError !== speechifyRecordingState.message && (
