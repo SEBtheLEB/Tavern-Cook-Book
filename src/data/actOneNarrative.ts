@@ -21,7 +21,7 @@ const beforeMarker = (text: string, marker: string) => {
 
 // Story Journey stores rich text. This converts only the author's Markdown formatting;
 // the wording remains the supplied narrative verbatim.
-const markdownToRichText = (source: string) => source
+export const markdownToRichText = (source: string) => source
   .trim()
   .split(/\r?\n\r?\n/)
   .map((block) => {

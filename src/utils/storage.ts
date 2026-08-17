@@ -52,20 +52,22 @@ import {
   mergeActOneCanonBestiary,
   mergeActOneCanonEntries,
   mergeActOneCanonWorldBuilding,
-  mergeActOneStoryJourney
+  mergeActOneStoryJourney,
+  replaceActOnePondStoryChapters
 } from "../data/actOneCanon";
 
 export const DATABASE_KEY = "tavern-cook-book:data";
 export const THEME_KEY = "tavern-cook-book:theme";
 const LEGACY_MODE_KEY = "tavern-cook-book:mode";
 
-export const currentSchemaVersion = 14;
+export const currentSchemaVersion = 15;
 const loreExpansionSchemaVersion = 2;
 const magicalMealCanonSchemaVersion = 3;
 const storyReferenceSchemaVersion = 4;
 const whiskerWoodsPlaytestRoadmapSchemaVersion = 7;
 const masilCultLeaderSchemaVersion = 12;
 const actOneCanonSchemaVersion = 14;
+const actOnePondRevisionSchemaVersion = 15;
 
 const masilCultLeaderEntryTitles = new Set(["Masil Cult Leader"]);
 
@@ -241,6 +243,7 @@ export const migrateDatabase = (value: unknown): LoreDatabase => {
   const needsWhiskerWoodsPlaytestRoadmap = Number(incoming.schemaVersion || 0) < whiskerWoodsPlaytestRoadmapSchemaVersion;
   const needsMasilCultLeader = Number(incoming.schemaVersion || 0) < masilCultLeaderSchemaVersion;
   const needsActOneCanon = Number(incoming.schemaVersion || 0) < actOneCanonSchemaVersion;
+  const needsActOnePondRevision = Number(incoming.schemaVersion || 0) < actOnePondRevisionSchemaVersion;
   let entries = Array.isArray(incoming.entries)
     ? repairScribeFoodEntries(incoming.entries.map((item) => normalizeEntry(item as Partial<LoreEntry>)))
     : starter.entries;
@@ -314,9 +317,12 @@ export const migrateDatabase = (value: unknown): LoreDatabase => {
     ? normalizeDevelopmentBoardData(incoming.developmentBoard)
     : createInitialDevelopmentBoard(entries, bestiary, worldBuilding, storyReferences);
   const normalizedStoryJourney = normalizeStoryJourneyData(incoming.storyJourney || starter.storyJourney);
-  const storyJourney = needsActOneCanon
+  let storyJourney = needsActOneCanon
     ? mergeActOneStoryJourney(normalizedStoryJourney)
     : normalizedStoryJourney;
+  if (needsActOnePondRevision) {
+    storyJourney = replaceActOnePondStoryChapters(storyJourney);
+  }
 
   return {
     schemaVersion: currentSchemaVersion,

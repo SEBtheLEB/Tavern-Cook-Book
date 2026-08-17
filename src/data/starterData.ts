@@ -3722,7 +3722,7 @@ export const createStarterDatabase = (): LoreDatabase => {
   const worldBuilding = mergeActOneCanonWorldBuilding(createStarterWorldBuilding(entries, bestiary));
   const storyReferences = createStarterStoryReferences();
   return {
-    schemaVersion: 13,
+    schemaVersion: 15,
     entries,
     bestiary,
     bestiaryCategoryVaults: starterBestiaryCategoryVaults.map((item) => JSON.parse(JSON.stringify(item)) as BestiaryCategoryArtVault),

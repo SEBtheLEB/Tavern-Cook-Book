@@ -11,7 +11,7 @@ import { normalizeBestiaryCreature } from "../utils/bestiary";
 import { normalizeEntry, slugify } from "../utils/entries";
 import { normalizeStoryJourneyData, normalizeStoryJourneyChapter } from "../utils/storyJourneyData";
 import { normalizeWorldBuilding, normalizeWorldBuildingEntry } from "../utils/worldBuilding";
-import { revisedActOneStoryChapters } from "./actOneNarrative";
+import { markdownToRichText, revisedActOneStoryChapters } from "./actOneNarrative";
 
 const ACT_ONE_STAMP = "2026-08-16T12:00:00.000Z";
 export const LEGACY_ACT_ONE_CHAPTER_ID = "act-one-whisker-woods";
@@ -816,4 +816,143 @@ export function mergeActOneStoryJourney(current: StoryJourneyData): StoryJourney
     chapters: retained,
     updatedAt: ACT_ONE_STAMP
   });
+}
+
+const ACT_ONE_POND_REVISION_STAMP = "2026-08-17T20:00:00.000Z";
+
+const whiskerWoodsWarningText = `The path home should be familiar, but **Whisker Woods** feels wrong almost immediately. Insects appear in unusual numbers. Beetles and **Dappleflies** behave with unnatural aggression, **egg clusters** cling to places where they should not exist, and frightened wildlife has been pushed out of its normal territory.
+
+The signs do not yet form a complete answer, but they are too consistent to dismiss as a bad season. Something is disturbing the forest's natural balance.
+
+As **Gwen** continues toward the tavern, she suddenly hears someone screaming for help somewhere deeper in the woods. She follows the voice until she reaches a **large corrupted pond**, where she finds **Kap** stranded in the middle while hostile insects swarm around him.
+
+Gwen has been away completing her final Academy exam and has heard nothing about what has happened to Whisker Woods. Seeing the forest like this leaves her confused and immediately concerned.`;
+
+const corruptedPondOverview = `While returning to the tavern, Gwen hears Kap screaming for help and follows his voice to a large corrupted pond. Kap is stranded in the middle while aggressive insects swarm around him. After learning that he came here trying to catch a special fish as a welcome-home gift for her, Gwen fights through the insects to rescue him. Just as she is about to reach Kap, the ground begins to shake. Kap looks behind her and screams a warning. Gwen turns to see something she never expected to encounter on the surface: a Prawnhusk.`;
+
+const corruptedPondText = `While traveling back toward the tavern, **Gwen** hears someone screaming for help. She follows the voice through the woods until she reaches a **large corrupted pond**, its water darkened and its surrounding vegetation beginning to die.
+
+Insects swarm throughout the area, and **Kap** is stranded in the middle of the pond.
+
+Gwen calls out to him, demanding to know what he is doing out here and what has happened to Whisker Woods. She has only just returned from taking her final Academy exam and has received no word about the strange changes spreading through the forest.
+
+Kap, however, is mostly relieved to see her.
+
+He excitedly welcomes Gwen home and explains that he came to the pond because he had heard there was an especially good fish living there. He wanted to catch it and give it to her as a **welcome-back gift**.
+
+Gwen quickly realizes that Kap's idea of a gift is a raw fish that **she would then have to cook herself**.
+
+She questions him on this ridiculous logic, while Kap sees absolutely nothing wrong with the idea.
+
+Gwen fights through the hostile insects surrounding the pond and clears a path toward Kap.
+
+Just as she is about to rescue him, **the ground begins to shake**.
+
+Kap suddenly looks past Gwen and screams:
+
+**“Gwen! Behind you!”**
+
+Gwen turns around.
+
+A massive **Prawnhusk** has emerged from beneath the ground.
+
+Gwen is stunned.
+
+Prawnhusks are not creatures that should be anywhere near the surface. They are known to live **deep beneath the earth in dangerous underground cave systems**, and Gwen has never actually seen one before. She recognizes the creature only from what she has read.
+
+Kap has no idea what he is looking at.
+
+Gwen explains that it is a Prawnhusk and that its presence this far above ground makes no sense. She then remembers something else she has read about them: **Prawnhusk meat is said to have an extraordinary flavor and is considered one of the finest insect meats.**
+
+The Prawnhusk attacks, turning the rescue into **Gwen's first major combat test after returning home**.
+
+Gwen defeats the creature, rescues Kap, and takes some of the Prawnhusk meat with her before continuing toward the tavern.
+
+The discovery gives Gwen another troubling clue that whatever is happening in Whisker Woods is affecting creatures far beyond their normal habitats.
+
+She does not yet know why.
+
+Later, when **Tom / Tohm Kyatt** sees that Gwen has somehow returned with Prawnhusk meat, he is shocked. The rare meat is exactly the ingredient he needs to **make the Fire Meal again**.
+
+Importantly, Gwen does **not** use the Prawnhusk meat in place of the boar meat for her Feast of Full Plates dish. She still recreates the winning dish from her Academy exam using **boar meat**.`;
+
+type PondChapterReplacement = {
+  title: string;
+  subtitle: string;
+  overviewText: string;
+  text: string;
+  relatedLore: string[];
+  playerKnowledge: string;
+  consequence: string;
+};
+
+const pondChapterReplacements: Record<string, PondChapterReplacement> = {
+  "act1-woods-feel-wrong": {
+    title: "Something Is Wrong with Whisker Woods",
+    subtitle: "Gwen's homecoming is interrupted by the first clear sign that something is wrong.",
+    overviewText: "The path home should be familiar, but Whisker Woods feels wrong almost immediately.",
+    text: whiskerWoodsWarningText,
+    relatedLore: ["Gwen", "Whisker Woods", "Dappleflies", "Egg Clusters", "Kap", "Corrupted Pond"],
+    playerKnowledge: "The forest's insects and wildlife are behaving unnaturally, but Gwen does not yet know the cause.",
+    consequence: "Gwen's homecoming is interrupted by the first clear sign that something has gone seriously wrong in Whisker Woods."
+  },
+  "act1-kaps-corrupted-pond": {
+    title: "The Corrupted Pond",
+    subtitle: "Gwen's journey home becomes an unexpected rescue.",
+    overviewText: corruptedPondOverview,
+    text: corruptedPondText,
+    relatedLore: ["Gwen", "Kap", "Whisker Woods", "Corrupted Pond", "Prawnhusk", "Prawnhusk Meat", "Tohm Kyatt", "Fire Meal", "Boar Meat"],
+    playerKnowledge: "Creatures are appearing far outside their natural habitats, and the corruption spreading through Whisker Woods is becoming increasingly abnormal. Gwen now possesses rare Prawnhusk meat, though she does not yet understand how important it will become.",
+    consequence: "Kap is rescued, Gwen gains further evidence that something is deeply wrong with the forest, and the Prawnhusk meat provides Tom with the missing ingredient needed to create the Fire Meal, setting up Gwen's first trance."
+  }
+};
+
+export function replaceActOnePondStoryChapters(current: StoryJourneyData): StoryJourneyData {
+  const normalized = normalizeStoryJourneyData(current);
+  let changed = false;
+  const chapters = normalized.chapters.map((chapter) => {
+    const replacement = pondChapterReplacements[chapter.id];
+    if (!replacement) return chapter;
+    changed = true;
+    const page = chapter.pages[0];
+    const pageId = page?.id || `${chapter.id}-sequence-1`;
+    const callouts = [
+      {
+        id: page?.callouts?.find((callout) => callout.kind === "playerKnowledge")?.id || `${pageId}-knowledge`,
+        kind: "playerKnowledge" as const,
+        label: "Player knowledge",
+        text: replacement.playerKnowledge
+      },
+      {
+        id: page?.callouts?.find((callout) => callout.kind === "consequence")?.id || `${pageId}-consequence`,
+        kind: "consequence" as const,
+        label: "Story consequence",
+        text: replacement.consequence
+      }
+    ];
+    return normalizeStoryJourneyChapter({
+      ...chapter,
+      title: replacement.title,
+      subtitle: replacement.subtitle,
+      shortDescription: replacement.subtitle,
+      overviewText: markdownToRichText(replacement.overviewText),
+      relatedLore: replacement.relatedLore,
+      threads: ["Gwen", "Act I", ...replacement.relatedLore],
+      sourceRecords: replacement.relatedLore.map((label) => ({ type: sourceTypeFor(label), id: slugify(label), label })),
+      pages: [{
+        ...page,
+        id: pageId,
+        title: replacement.title,
+        text: markdownToRichText(replacement.text),
+        relatedLore: replacement.relatedLore,
+        threads: ["Gwen", "Act I", ...replacement.relatedLore],
+        callouts,
+        sourceRecords: replacement.relatedLore.map((label) => ({ type: sourceTypeFor(label), id: slugify(label), label }))
+      }]
+    }, chapter.id);
+  });
+
+  return changed
+    ? normalizeStoryJourneyData({ ...normalized, chapters, updatedAt: ACT_ONE_POND_REVISION_STAMP })
+    : normalized;
 }
