@@ -5493,9 +5493,10 @@ function alignSpeechifyMarksToStoryWords(marks: SpeechifySpeechMark[], words: St
       const visible = normalizeSpeechifySpokenWord(word.value);
       return visible === spoken || visible.includes(spoken) || spoken.includes(visible);
     });
-    if (matchIndex < 0) return;
-    aligned[markIndex] = words[matchIndex];
-    wordIndex = matchIndex + 1;
+    const resolvedIndex = matchIndex >= 0 ? matchIndex : wordIndex;
+    if (!words[resolvedIndex]) return;
+    aligned[markIndex] = words[resolvedIndex];
+    wordIndex = resolvedIndex + 1;
   });
   return aligned;
 }
