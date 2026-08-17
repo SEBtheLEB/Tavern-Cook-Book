@@ -1758,6 +1758,9 @@ export function StoryJourneyPage({
         const timed = await recordSpeechifyTimedAudio(chunk.text, voiceId, language, controller.signal);
         URL.revokeObjectURL(timed.audioUrl);
         recorded += 1;
+        if (position < status.missingIndexes.length - 1) {
+          await new Promise((resolve) => window.setTimeout(resolve, 750));
+        }
       }
 
       setSpeechifyRecordingState({
@@ -2331,7 +2334,7 @@ export function StoryJourneyPage({
                     </button>
                   </div>
 
-                  {speechifyError && (
+                  {speechifyError && speechifyError !== speechifyRecordingState.message && (
                     <div className="story-speechify-error" role="alert">
                       <Icon name="CircleAlert" className="h-4 w-4" />
                       <span>{speechifyError}</span>
@@ -4114,8 +4117,17 @@ function buildStoryNarrationChunks(root: HTMLElement, maxLength = 3_500): StoryN
     });
   }
 
-  const ranges = blockRanges.flatMap((block) => splitStoryNarrationRanges(input.slice(block.start, block.end), maxLength)
+  const splitRanges = blockRanges.flatMap((block) => splitStoryNarrationRanges(input.slice(block.start, block.end), maxLength)
     .map(({ start, end }) => ({ start: block.start + start, end: block.start + end })));
+  const ranges = splitRanges.reduce<Array<{ start: number; end: number }>>((merged, range) => {
+    const previous = merged[merged.length - 1];
+    if (previous && range.end - previous.start <= maxLength) {
+      previous.end = range.end;
+    } else {
+      merged.push({ ...range });
+    }
+    return merged;
+  }, []);
   return ranges.map(({ start, end }) => ({
     text: input.slice(start, end),
     inputStart: start,

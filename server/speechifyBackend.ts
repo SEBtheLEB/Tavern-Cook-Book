@@ -706,7 +706,13 @@ async function gitHubNarrationError(response: Response, fallback: string) {
   if (!text) return fallback;
   try {
     const payload = JSON.parse(text) as Record<string, unknown>;
-    return stringValue(payload.message) || fallback;
+    const message = stringValue(payload.message);
+    if ((response.status === 403 || response.status === 429) && /rate limit|secondary rate|abuse detection/i.test(message)) {
+      const resetSeconds = Number(response.headers.get("x-ratelimit-reset")) || 0;
+      const resetAt = resetSeconds ? new Date(resetSeconds * 1_000) : null;
+      return `GitHub temporarily paused shared narration storage${resetAt ? ` until ${resetAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "UTC", timeZoneName: "short" })}` : ""}. Your completed recordings are safe. Try Record / Update Page again after the pause, or connect Supabase Storage to remove this GitHub limit.`;
+    }
+    return message || fallback;
   } catch {
     return fallback;
   }
