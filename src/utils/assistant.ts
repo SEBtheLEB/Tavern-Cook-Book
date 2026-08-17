@@ -1708,6 +1708,8 @@ const findCreatureToRemove = (database: LoreDatabase, id?: string, name?: string
 const normalizeLooseName = (value: string) =>
   value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 
+let activeAiUndoSnapshot: { id: string; database: LoreDatabase } | null = null;
+
 const createArchiveEntry = (title: string, content: string) => normalizeEntry({
   id: `archive-${slugify(title)}-${Date.now()}`,
   title,
@@ -1730,6 +1732,14 @@ export const applyAssistantPatch = (
 ): LoreDatabase => {
   const backupId = `ai-backup-${Date.now()}`;
   const selected = new Set(selectedIndexes);
+  if (shouldBackup) {
+    // Keep the one-step AI undo in memory. Embedding a second full Cookbook in
+    // the shared payload can exceed the serverless request-size limit.
+    activeAiUndoSnapshot = {
+      id: backupId,
+      database: cloneDatabase(database)
+    };
+  }
   let nextDatabase = cloneDatabase(database);
 
   patch.changes.forEach((change, index) => {
@@ -1738,28 +1748,24 @@ export const applyAssistantPatch = (
     }
   });
 
-  const backup = {
-    id: backupId,
-    label: `AI change: ${patch.summary || "Assistant patch"}`,
-    createdAt: nowIso(),
-    entries: cloneDatabase(database).entries,
-    bestiary: cloneDatabase(database).bestiary || [],
-    bestiaryCategoryVaults: cloneDatabase(database).bestiaryCategoryVaults || [],
-    worldBuilding: cloneDatabase(database).worldBuilding || createEmptyWorldBuilding(),
-    storyReferences: cloneDatabase(database).storyReferences || [],
-    glossaryTerms: cloneDatabase(database).glossaryTerms || [],
-    artDirection: cloneDatabase(database).artDirection || createStarterArtDirectionBoard(),
-    roadmap: cloneDatabase(database).roadmap || createStarterRoadmapData()
-  };
-
   return {
     ...nextDatabase,
-    backups: shouldBackup ? [backup, ...database.backups].slice(0, 12) : database.backups,
+    backups: database.backups,
     lastAiBackupId: shouldBackup ? backupId : database.lastAiBackupId
   };
 };
 
 export const undoLastAiChange = (database: LoreDatabase): LoreDatabase | null => {
+  const undoSnapshot = activeAiUndoSnapshot;
+  if (undoSnapshot && undoSnapshot.id === database.lastAiBackupId) {
+    const restored = cloneDatabase(undoSnapshot.database);
+    activeAiUndoSnapshot = null;
+    return {
+      ...restored,
+      lastAiBackupId: undefined
+    };
+  }
+
   const backup = database.backups.find((item) => item.id === database.lastAiBackupId);
   if (!backup) return null;
 
