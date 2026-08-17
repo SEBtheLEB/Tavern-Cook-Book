@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-08-17T03:26:12.393Z",
+  "updatedAt": "2026-08-17T03:26:17.708Z",
   "updatedBy": "stlprodz1101@gmail.com",
   "payload": {
     "database": {
@@ -141524,6 +141524,26 @@
           "avatar": "",
           "permission": "freelancer",
           "department": "Production",
+          "bio": ""
+        },
+        {
+          "id": "carrieboberry2820-gmail-com",
+          "name": "Carrioasudns",
+          "email": "carrieboberry2820@gmail.com",
+          "role": "Editor",
+          "avatar": "",
+          "permission": "editor",
+          "department": "",
+          "bio": ""
+        },
+        {
+          "id": "frostlyspark-gmail-com",
+          "name": "meeyirvin",
+          "email": "frostlyspark@gmail.com",
+          "role": "Editor",
+          "avatar": "",
+          "permission": "editor",
+          "department": "",
           "bio": ""
         },
         {
