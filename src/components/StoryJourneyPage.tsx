@@ -5488,21 +5488,29 @@ function alignSpeechifyMarksToStoryWords(marks: SpeechifySpeechMark[], words: St
   marks.forEach((mark, markIndex) => {
     const spoken = normalizeSpeechifySpokenWord(mark.value);
     if (!spoken) return;
-    while (wordIndex < words.length) {
-      const visible = normalizeSpeechifySpokenWord(words[wordIndex].value);
-      if (visible === spoken || visible.includes(spoken) || spoken.includes(visible)) {
-        aligned[markIndex] = words[wordIndex];
-        wordIndex += 1;
-        return;
-      }
-      wordIndex += 1;
-    }
+    const matchIndex = words.findIndex((word, index) => {
+      if (index < wordIndex) return false;
+      const visible = normalizeSpeechifySpokenWord(word.value);
+      return visible === spoken || visible.includes(spoken) || spoken.includes(visible);
+    });
+    if (matchIndex < 0) return;
+    aligned[markIndex] = words[matchIndex];
+    wordIndex = matchIndex + 1;
   });
   return aligned;
 }
 
 function normalizeSpeechifySpokenWord(value: string) {
-  return value.normalize("NFKD").replace(/[^\p{L}\p{N}]/gu, "").toLocaleLowerCase();
+  return value
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&(?:amp|#38);/gi, "&")
+    .replace(/&(?:quot|#34);/gi, '"')
+    .replace(/&(?:apos|#39);/gi, "'")
+    .replace(/&(?:lt|#60);/gi, "<")
+    .replace(/&(?:gt|#62);/gi, ">")
+    .normalize("NFKD")
+    .replace(/[^\p{L}\p{N}]/gu, "")
+    .toLocaleLowerCase();
 }
 
 function findStoryNarrationWordAtPoint(
