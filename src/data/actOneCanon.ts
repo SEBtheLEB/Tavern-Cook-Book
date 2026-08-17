@@ -11,6 +11,7 @@ import { normalizeBestiaryCreature } from "../utils/bestiary";
 import { normalizeEntry, slugify } from "../utils/entries";
 import { normalizeStoryJourneyData, normalizeStoryJourneyChapter } from "../utils/storyJourneyData";
 import { normalizeWorldBuilding, normalizeWorldBuildingEntry } from "../utils/worldBuilding";
+import { revisedActOneStoryChapters } from "./actOneNarrative";
 
 const ACT_ONE_STAMP = "2026-08-16T12:00:00.000Z";
 export const LEGACY_ACT_ONE_CHAPTER_ID = "act-one-whisker-woods";
@@ -447,8 +448,12 @@ const actOneChapterInputs: ChapterInput[] = [
   }
 ];
 
-export const actOneStoryChapters = actOneChapterInputs.map((chapter, index) => makeChapter(chapter, index + 1));
-export const ACT_ONE_STORY_CHAPTER_IDS = new Set(actOneStoryChapters.map((chapter) => chapter.id));
+const legacyGeneratedActOneChapterIds = actOneChapterInputs.map((chapter) => chapter.id);
+export const actOneStoryChapters = revisedActOneStoryChapters;
+export const ACT_ONE_STORY_CHAPTER_IDS = new Set([
+  ...legacyGeneratedActOneChapterIds,
+  ...actOneStoryChapters.map((chapter) => chapter.id)
+]);
 
 type EntryPatch = {
   title: string;
@@ -799,9 +804,10 @@ export function mergeActOneCanonBestiary(currentCreatures: BestiaryCreature[]): 
 export function mergeActOneStoryJourney(current: StoryJourneyData): StoryJourneyData {
   const normalized = normalizeStoryJourneyData(current);
   if (!normalized.chapters.length) return normalized;
-  const existingById = new Map(normalized.chapters.map((chapter) => [chapter.id, chapter]));
   const retained = normalized.chapters.filter((chapter) => chapter.id !== LEGACY_ACT_ONE_CHAPTER_ID && !ACT_ONE_STORY_CHAPTER_IDS.has(chapter.id));
-  const replacements = actOneStoryChapters.map((chapter) => existingById.get(chapter.id) || chapter);
+  // This migration intentionally replaces the previous short Act I treatment once.
+  // After schema 14, ordinary Story Journey edits remain user-owned and are preserved.
+  const replacements = actOneStoryChapters;
   const laterIndex = retained.findIndex((chapter) => chapter.id === "truth-of-tabby-island" || chapter.scope === "act3");
   if (laterIndex >= 0) retained.splice(laterIndex, 0, ...replacements);
   else retained.push(...replacements);
