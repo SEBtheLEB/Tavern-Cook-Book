@@ -1,4 +1,5 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import type { MouseEvent as ReactMouseEvent } from "react";
 import type {
   BestiaryCreature,
   ImageFitSettings,
@@ -15,7 +16,15 @@ import type {
 } from "../types";
 import { normalizeImageFit, resolveImageSourceUrl } from "../utils/imageFit";
 import { isRichText, plainTextToRichHtml, richTextToPlainText } from "../utils/richText";
-import { createSpeechifyAudio, fetchSpeechifyVoices, splitSpeechifyText, type SpeechifyVoice } from "../utils/speechify";
+import {
+  createSpeechifyAudio,
+  createSpeechifyTimedAudio,
+  fetchSpeechifyVoices,
+  splitSpeechifyText,
+  type SpeechifySpeechMark,
+  type SpeechifyTimedAudio,
+  type SpeechifyVoice
+} from "../utils/speechify";
 import { AdjustableImage } from "./AdjustableImage";
 import { CustomSelect } from "./CustomSelect";
 import { DriveAwareImage } from "./DriveAwareImage";
@@ -77,6 +86,22 @@ interface StoryLibrarySection {
   label: string;
   description: string;
   items: StoryLibraryItem[];
+}
+
+interface StoryNarrationWordTarget {
+  startNode: Text;
+  endNode: Text;
+  nodeStart: number;
+  nodeEnd: number;
+  inputStart: number;
+  inputEnd: number;
+}
+
+interface StoryNarrationChunk {
+  text: string;
+  inputStart: number;
+  inputEnd: number;
+  words: StoryNarrationWordTarget[];
 }
 
 interface StoryScribeChapterPatch {
@@ -1007,12 +1032,19 @@ export function StoryJourneyPage({
   const [collapsedActs, setCollapsedActs] = useState<StoryJourneyScope[]>(["history", "act1", "act2", "act3"]);
   const [chronologyCollapsed, setChronologyCollapsed] = useState(false);
   const [storyToolsOpen, setStoryToolsOpen] = useState(false);
+  const storyTreatmentReaderRef = useRef<HTMLElement | null>(null);
   const speechifyAudioRef = useRef<HTMLAudioElement | null>(null);
   const speechifyAudioUrlRef = useRef("");
   const speechifyAbortRef = useRef<AbortController | null>(null);
   const speechifySessionRef = useRef(0);
   const speechifyWaitResolveRef = useRef<(() => void) | null>(null);
   const speechifyRateRef = useRef(1);
+  const speechifyTrackingFrameRef = useRef(0);
+  const speechifyNarrationChunksRef = useRef<StoryNarrationChunk[]>([]);
+  const speechifyActiveChunkRef = useRef<StoryNarrationChunk | null>(null);
+  const speechifyActiveMarksRef = useRef<SpeechifySpeechMark[]>([]);
+  const speechifyHighlightedWordRef = useRef<StoryNarrationWordTarget | null>(null);
+  const speechifyModeRef = useRef<"section" | "page">("section");
   const [speechifyPanelOpen, setSpeechifyPanelOpen] = useState(false);
   const [speechifyVoices, setSpeechifyVoices] = useState<SpeechifyVoice[]>([]);
   const [speechifyVoiceId, setSpeechifyVoiceId] = useState(() => loadSpeechifyVoicePreference());
@@ -1021,6 +1053,7 @@ export function StoryJourneyPage({
   const [speechifyError, setSpeechifyError] = useState("");
   const [speechifyNowPlaying, setSpeechifyNowPlaying] = useState("");
   const [speechifyChunkProgress, setSpeechifyChunkProgress] = useState({ current: 0, total: 0 });
+  const [speechifyReadAllMode, setSpeechifyReadAllMode] = useState(false);
   const [selectedLibraryItemId, setSelectedLibraryItemId] = useState("");
   const [collapsedLibrarySections, setCollapsedLibrarySections] = useState<StoryLibrarySectionId[]>([
     "peoples",
@@ -1184,11 +1217,17 @@ export function StoryJourneyPage({
     return () => controller.abort();
   }, [speechifyPanelOpen, speechifyVoices.length]);
 
+  useEffect(() => {
+    if (speechifyModeRef.current === "page") stopSpeechifyNarration();
+  }, [readingDepth, storyThread, selectedLibraryItemId, normalizedStorySearch]);
+
   useEffect(() => () => {
     speechifySessionRef.current += 1;
     speechifyAbortRef.current?.abort();
     speechifyWaitResolveRef.current?.();
     speechifyAudioRef.current?.pause();
+    window.cancelAnimationFrame(speechifyTrackingFrameRef.current);
+    clearStoryNarrationHighlight();
     if (speechifyAudioUrlRef.current) URL.revokeObjectURL(speechifyAudioUrlRef.current);
   }, []);
 
@@ -1512,6 +1551,10 @@ export function StoryJourneyPage({
     speechifyAudioRef.current = null;
     speechifyWaitResolveRef.current?.();
     speechifyWaitResolveRef.current = null;
+    window.cancelAnimationFrame(speechifyTrackingFrameRef.current);
+    speechifyTrackingFrameRef.current = 0;
+    speechifyActiveChunkRef.current = null;
+    speechifyActiveMarksRef.current = [];
     if (speechifyAudioUrlRef.current) URL.revokeObjectURL(speechifyAudioUrlRef.current);
     speechifyAudioUrlRef.current = "";
   }
@@ -1521,9 +1564,39 @@ export function StoryJourneyPage({
     speechifyAbortRef.current?.abort();
     speechifyAbortRef.current = null;
     releaseSpeechifyMedia();
+    clearStoryNarrationHighlight();
+    speechifyHighlightedWordRef.current = null;
+    speechifyNarrationChunksRef.current = [];
+    speechifyModeRef.current = "section";
+    setSpeechifyReadAllMode(false);
     setSpeechifyStatus("idle");
     setSpeechifyNowPlaying("");
     setSpeechifyChunkProgress({ current: 0, total: 0 });
+  }
+
+  function speechifyLanguageForVoice(voiceId: string) {
+    return speechifyVoices.find((voice) => voice.id === voiceId)?.language
+      || (voiceId === "john-rhys-davies" ? "en-GB" : "en-US");
+  }
+
+  function beginSpeechifyWordTracking(
+    audio: HTMLAudioElement,
+    marks: SpeechifySpeechMark[],
+    chunk: StoryNarrationChunk,
+    session: number
+  ) {
+    window.cancelAnimationFrame(speechifyTrackingFrameRef.current);
+    const track = () => {
+      if (session !== speechifySessionRef.current || speechifyModeRef.current !== "page" || audio.paused) return;
+      const mark = findSpeechMarkAtTime(marks, audio.currentTime * 1_000);
+      const target = mark ? findStoryNarrationWordForMark(chunk, mark) : null;
+      if (target && target !== speechifyHighlightedWordRef.current) {
+        speechifyHighlightedWordRef.current = target;
+        highlightStoryNarrationWord(target, true);
+      }
+      speechifyTrackingFrameRef.current = window.requestAnimationFrame(track);
+    };
+    speechifyTrackingFrameRef.current = window.requestAnimationFrame(track);
   }
 
   async function startSpeechifyNarration(text: string, label: string) {
@@ -1536,6 +1609,7 @@ export function StoryJourneyPage({
     }
 
     stopSpeechifyNarration();
+    speechifyModeRef.current = "section";
     const session = ++speechifySessionRef.current;
     const controller = new AbortController();
     speechifyAbortRef.current = controller;
@@ -1549,11 +1623,12 @@ export function StoryJourneyPage({
         ? speechifyVoiceId
         : await loadSpeechifyVoiceOptions(controller.signal);
       if (!voiceId || session !== speechifySessionRef.current) return;
+      const language = speechifyLanguageForVoice(voiceId);
 
       for (let index = 0; index < chunks.length; index += 1) {
         if (session !== speechifySessionRef.current) return;
         setSpeechifyChunkProgress({ current: index + 1, total: chunks.length });
-        const audioUrl = await createSpeechifyAudio(chunks[index], voiceId, controller.signal);
+        const audioUrl = await createSpeechifyAudio(chunks[index], voiceId, language, controller.signal);
         if (session !== speechifySessionRef.current) {
           URL.revokeObjectURL(audioUrl);
           return;
@@ -1590,7 +1665,176 @@ export function StoryJourneyPage({
     }
   }
 
+  async function startSpeechifyPageNarration(
+    inputOffset = 0,
+    preparedChunks?: StoryNarrationChunk[]
+  ) {
+    const root = storyTreatmentReaderRef.current;
+    const chunks = preparedChunks?.length ? preparedChunks : root ? buildStoryNarrationChunks(root) : [];
+    if (!chunks.length) {
+      setSpeechifyError("There is no readable story text on this page yet.");
+      setSpeechifyStatus("error");
+      setSpeechifyPanelOpen(true);
+      return;
+    }
+
+    stopSpeechifyNarration();
+    speechifyModeRef.current = "page";
+    speechifyNarrationChunksRef.current = chunks;
+    const requestedWord = inputOffset > 0
+      ? chunks.flatMap((chunk) => chunk.words).find((word) => word.inputStart <= inputOffset && word.inputEnd > inputOffset)
+        || chunks.flatMap((chunk) => chunk.words).find((word) => word.inputStart >= inputOffset)
+      : null;
+    if (requestedWord) {
+      highlightStoryNarrationWord(requestedWord, true);
+      speechifyHighlightedWordRef.current = requestedWord;
+    }
+    setSpeechifyReadAllMode(true);
+    const session = ++speechifySessionRef.current;
+    const controller = new AbortController();
+    speechifyAbortRef.current = controller;
+    setSpeechifyStatus("connecting");
+    setSpeechifyError("");
+    setSpeechifyNowPlaying(selectedLibraryItem?.title || "Full Story Journey");
+
+    const startChunkIndex = Math.max(0, chunks.findIndex((chunk) => inputOffset < chunk.inputEnd));
+    setSpeechifyChunkProgress({ current: startChunkIndex + 1, total: chunks.length });
+    if (inputOffset <= 0) root?.scrollIntoView({ behavior: "smooth", block: "start" });
+    let prefetched: Promise<{ timed?: SpeechifyTimedAudio; error?: unknown }> | null = null;
+
+    try {
+      const voiceId = speechifyVoices.some((voice) => voice.id === speechifyVoiceId)
+        ? speechifyVoiceId
+        : await loadSpeechifyVoiceOptions(controller.signal);
+      if (!voiceId || session !== speechifySessionRef.current) return;
+      const language = speechifyLanguageForVoice(voiceId);
+
+      for (let index = startChunkIndex; index < chunks.length; index += 1) {
+        if (session !== speechifySessionRef.current) return;
+        const chunk = chunks[index];
+        setSpeechifyChunkProgress({ current: index + 1, total: chunks.length });
+        const prepared = prefetched
+          ? await prefetched
+          : { timed: await createSpeechifyTimedAudio(chunk.text, voiceId, language, controller.signal) };
+        prefetched = null;
+        if (prepared.error) throw prepared.error;
+        const timed = prepared.timed;
+        if (!timed) throw new Error("Speechify did not prepare the next synchronized story section.");
+        if (session !== speechifySessionRef.current) {
+          URL.revokeObjectURL(timed.audioUrl);
+          return;
+        }
+
+        const nextChunk = chunks[index + 1];
+        if (nextChunk) {
+          prefetched = createSpeechifyTimedAudio(nextChunk.text, voiceId, language, controller.signal)
+            .then((nextTimed) => ({ timed: nextTimed }))
+            .catch((error) => ({ error }));
+        }
+
+        releaseSpeechifyMedia();
+        speechifyAudioUrlRef.current = timed.audioUrl;
+        speechifyActiveChunkRef.current = chunk;
+        speechifyActiveMarksRef.current = timed.speechMarks;
+        const audio = new Audio(timed.audioUrl);
+        audio.preload = "auto";
+        audio.playbackRate = speechifyRateRef.current;
+        speechifyAudioRef.current = audio;
+
+        if (index === startChunkIndex && inputOffset > chunk.inputStart) {
+          const mark = findSpeechMarkForInputOffset(timed.speechMarks, inputOffset - chunk.inputStart);
+          if (mark) {
+            await waitForSpeechifyAudioMetadata(audio);
+            if (session !== speechifySessionRef.current) return;
+            audio.currentTime = Math.max(0, mark.start_time / 1_000);
+          }
+        }
+
+        setSpeechifyStatus("playing");
+        await new Promise<void>((resolve, reject) => {
+          speechifyWaitResolveRef.current = resolve;
+          audio.addEventListener("ended", () => resolve(), { once: true });
+          audio.addEventListener("error", () => reject(new Error("The synchronized Speechify audio could not be played.")), { once: true });
+          void audio.play().then(() => beginSpeechifyWordTracking(audio, timed.speechMarks, chunk, session)).catch(reject);
+        });
+      }
+
+      if (session === speechifySessionRef.current) {
+        releaseSpeechifyMedia();
+        clearStoryNarrationHighlight();
+        speechifyHighlightedWordRef.current = null;
+        speechifyNarrationChunksRef.current = [];
+        speechifyModeRef.current = "section";
+        setSpeechifyReadAllMode(false);
+        setSpeechifyStatus("idle");
+        setSpeechifyNowPlaying("");
+        setSpeechifyChunkProgress({ current: 0, total: 0 });
+      }
+    } catch (error) {
+      if (controller.signal.aborted || session !== speechifySessionRef.current) return;
+      releaseSpeechifyMedia();
+      clearStoryNarrationHighlight();
+      speechifyHighlightedWordRef.current = null;
+      speechifyNarrationChunksRef.current = [];
+      speechifyModeRef.current = "section";
+      setSpeechifyReadAllMode(false);
+      setSpeechifyError(error instanceof Error ? error.message : "Synchronized Speechify narration failed.");
+      setSpeechifyStatus("error");
+      setSpeechifyPanelOpen(true);
+    } finally {
+      if (prefetched) {
+        void prefetched.then((prepared) => {
+          if (prepared.timed) URL.revokeObjectURL(prepared.timed.audioUrl);
+        });
+      }
+    }
+  }
+
+  function toggleSpeechifyPageNarration() {
+    if (speechifyReadAllMode && speechifyStatus === "playing" && speechifyAudioRef.current) {
+      speechifyAudioRef.current.pause();
+      window.cancelAnimationFrame(speechifyTrackingFrameRef.current);
+      setSpeechifyStatus("paused");
+      return;
+    }
+    if (speechifyReadAllMode && speechifyStatus === "paused" && speechifyAudioRef.current) {
+      const audio = speechifyAudioRef.current;
+      void audio.play().then(() => {
+        setSpeechifyStatus("playing");
+        const chunk = speechifyActiveChunkRef.current;
+        if (chunk) beginSpeechifyWordTracking(audio, speechifyActiveMarksRef.current, chunk, speechifySessionRef.current);
+      }).catch((error) => {
+        setSpeechifyError(error instanceof Error ? error.message : "Speechify audio could not resume.");
+        setSpeechifyStatus("error");
+      });
+      return;
+    }
+    void startSpeechifyPageNarration();
+  }
+
+  function handleStoryNarrationWordClick(event: ReactMouseEvent<HTMLElement>) {
+    if (!speechifyReadAllMode) return;
+    const root = storyTreatmentReaderRef.current;
+    if (!root) return;
+    const target = findStoryNarrationWordAtPoint(
+      root,
+      event.clientX,
+      event.clientY,
+      speechifyNarrationChunksRef.current.flatMap((chunk) => chunk.words)
+    );
+    if (!target) return;
+    event.preventDefault();
+    event.stopPropagation();
+    highlightStoryNarrationWord(target, true);
+    speechifyHighlightedWordRef.current = target;
+    void startSpeechifyPageNarration(target.inputStart, speechifyNarrationChunksRef.current);
+  }
+
   function toggleSpeechifyNarration() {
+    if (speechifyReadAllMode) {
+      toggleSpeechifyPageNarration();
+      return;
+    }
     if (speechifyStatus === "playing" && speechifyAudioRef.current) {
       speechifyAudioRef.current.pause();
       setSpeechifyStatus("paused");
@@ -1795,13 +2039,13 @@ export function StoryJourneyPage({
               <div className="story-speechify-trigger-group">
                 <button
                   type="button"
-                  className={speechifyStatus === "playing" || speechifyStatus === "paused" ? "active" : ""}
-                  onClick={toggleSpeechifyNarration}
+                  className={speechifyReadAllMode && (speechifyStatus === "playing" || speechifyStatus === "paused") ? "active" : ""}
+                  onClick={toggleSpeechifyPageNarration}
                   disabled={speechifyStatus === "connecting" || (!activeReaderChapter && !selectedLibraryItem)}
-                  title={speechifyStatus === "playing" ? "Pause Speechify" : speechifyStatus === "paused" ? "Resume Speechify" : "Read the current story section with Speechify"}
+                  title={speechifyReadAllMode && speechifyStatus === "playing" ? "Pause full-page narration" : speechifyReadAllMode && speechifyStatus === "paused" ? "Resume full-page narration" : "Read this page from top to bottom"}
                 >
-                  <Icon name={speechifyStatus === "playing" ? "Pause" : "Volume2"} className="h-4 w-4" />
-                  {speechifyStatus === "playing" ? "Pause" : speechifyStatus === "paused" ? "Resume" : "Speechify"}
+                  <Icon name={speechifyReadAllMode && speechifyStatus === "playing" ? "Pause" : "Play"} className="h-4 w-4" />
+                  {speechifyReadAllMode && speechifyStatus === "playing" ? "Pause" : speechifyReadAllMode && speechifyStatus === "paused" ? "Resume" : "Play All"}
                 </button>
                 <button
                   type="button"
@@ -1880,7 +2124,9 @@ export function StoryJourneyPage({
                       <span>{speechifyError}</span>
                     </div>
                   )}
-                  <small className="story-speechify-footnote">Narration uses the private Speechify API connection configured for this app.</small>
+                  <small className="story-speechify-footnote">
+                    {speechifyReadAllMode ? "Click any word in the story to continue narration from that point." : "Narration uses the private Speechify API connection configured for this app."}
+                  </small>
                 </section>
               )}
             </div>
@@ -1986,10 +2232,14 @@ export function StoryJourneyPage({
               })}
             </aside>
 
-            <main className="story-treatment-reader">
+            <main
+              ref={storyTreatmentReaderRef}
+              className={`story-treatment-reader ${speechifyReadAllMode ? "narration-following" : ""}`}
+              onClickCapture={handleStoryNarrationWordClick}
+            >
               {selectedLibraryItem ? (
                 <article className="story-library-reader">
-                  <header className="story-library-titlepage">
+                  <header className="story-library-titlepage" data-story-narration-block>
                     <span>{selectedLibraryItem.eyebrow}</span>
                     <h1 className="font-display">{selectedLibraryItem.title}</h1>
                     <p>{selectedLibraryItem.summary || "This topic does not have a written summary yet."}</p>
@@ -1999,7 +2249,7 @@ export function StoryJourneyPage({
                   </header>
 
                   {readingDepth !== "overview" && (
-                    <section className="story-library-prose">
+                    <section className="story-library-prose" data-story-narration-block>
                       <span>Story Reading Guide</span>
                       <h2>Key Story Context</h2>
                       <RichLoreText text={selectedLibraryItem.fullText || selectedLibraryItem.summary} />
@@ -2007,7 +2257,7 @@ export function StoryJourneyPage({
                   )}
 
                   {readingDepth === "detailed" && selectedLibraryItem.facts.length > 0 && (
-                    <section className="story-library-facts">
+                    <section className="story-library-facts" data-story-narration-block>
                       <span>Reference Notes</span>
                       <h2>Key details</h2>
                       <dl>
@@ -2043,7 +2293,7 @@ export function StoryJourneyPage({
                       <h2>Linked canon references</h2>
                       <div>
                         {selectedLibraryReferences.map((reference) => (
-                          <article key={reference.id}>
+                          <article key={reference.id} data-story-narration-block>
                             <small>{reference.canonStatus} · {reference.spoilerLevel}</small>
                             <strong>{reference.title}</strong>
                             <p>{reference.shortSummary}</p>
@@ -2063,7 +2313,7 @@ export function StoryJourneyPage({
                 </article>
               ) : (
                 <>
-              <header className="story-treatment-titlepage">
+              <header className="story-treatment-titlepage" data-story-narration-block>
                 <p>Tales of the Tavern · Story Reader</p>
                 <h1 className="font-display">{storyJourney.title || "The Story of Tales of the Tavern"}</h1>
                 <span>{storyJourney.description}</span>
@@ -2082,7 +2332,7 @@ export function StoryJourneyPage({
                 </section>
               ) : readingGroups.map(({ scope, chapters: groupChapters }) => (
                 <section key={scope.id} className="story-treatment-act">
-                  <header>
+                  <header data-story-narration-block>
                     <span>{scope.eyebrow}</span>
                     <h2 className="font-display">{scope.label}</h2>
                     <p>{scope.description}</p>
@@ -2279,7 +2529,7 @@ function StoryTreatmentChapter({
       className={`story-treatment-chapter ${editing ? "inline-editing" : ""}`}
     >
       <header className="story-treatment-chapter-heading">
-        <div>
+        <div data-story-narration-block={!editing ? "true" : undefined}>
           <span>{scopeLabel} · Chapter {chapterIndex + 1}</span>
           {editing ? (
             <>
@@ -2336,7 +2586,7 @@ function StoryTreatmentChapter({
           />
         </section>
       ) : (
-        <div className="story-treatment-lede"><RichLoreText text={visibleChapter.overviewText || visibleChapter.shortDescription} /></div>
+        <div className="story-treatment-lede" data-story-narration-block><RichLoreText text={visibleChapter.overviewText || visibleChapter.shortDescription} /></div>
       )}
 
       {readingDepth !== "overview" && visibleChapter.pages.map((page, pageIndex) => (
@@ -2372,10 +2622,13 @@ function StoryTreatmentChapter({
               aria-label={`Sequence ${pageIndex + 1} title`}
             />
           ) : (
-            <h3>{page.title}</h3>
+            <h3 data-story-narration-block>{page.title}</h3>
           )}
 
-          <div className={`story-treatment-prose ${editing ? "story-inline-rich-field" : ""}`}>
+          <div
+            className={`story-treatment-prose ${editing ? "story-inline-rich-field" : ""}`}
+            data-story-narration-block={!editing ? "true" : undefined}
+          >
             {editing ? (
               <>
                 <span>Story text</span>
@@ -2403,7 +2656,7 @@ function StoryTreatmentChapter({
           </div>
 
           {!editing && buildBeatCallouts(visibleChapter, page).map((callout) => (
-            <aside key={callout.id} className={`story-treatment-callout ${callout.kind}`}>
+            <aside key={callout.id} className={`story-treatment-callout ${callout.kind}`} data-story-narration-block>
               <strong>{callout.label}</strong>
               <span>{callout.text}</span>
             </aside>
@@ -3254,6 +3507,230 @@ function storyChapterNarrationText(chapter: StoryChapter, depth: StoryReadingDep
 
 function storyPageNarrationText(page: StoryPage, depth: StoryReadingDepth) {
   return [page.title, page.text, depth === "detailed" ? page.detailedText || "" : ""].filter(Boolean).join(". ");
+}
+
+const STORY_NARRATION_HIGHLIGHT = "story-speechify-current-word";
+
+function buildStoryNarrationChunks(root: HTMLElement, maxLength = 3_500): StoryNarrationChunk[] {
+  type CharacterLocation = { node: Text; offset: number } | null;
+  const locations: CharacterLocation[] = [];
+  let input = "";
+  const blocks = Array.from(root.querySelectorAll<HTMLElement>("[data-story-narration-block]"))
+    .filter((block) => !block.parentElement?.closest("[data-story-narration-block]") && block.getClientRects().length > 0);
+
+  const appendSeparator = () => {
+    if (!input) return;
+    while (/\s$/.test(input)) {
+      input = input.slice(0, -1);
+      locations.pop();
+    }
+    const separator = /[.!?]$/.test(input) ? " " : ". ";
+    input += separator;
+    separator.split("").forEach(() => locations.push(null));
+  };
+
+  blocks.forEach((block, blockIndex) => {
+    if (blockIndex > 0) appendSeparator();
+    const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT, {
+      acceptNode(node) {
+        const textNode = node as Text;
+        const parent = textNode.parentElement;
+        if (!parent || parent.closest("[data-story-narration-ignore], input, textarea, [contenteditable='true']")) {
+          return NodeFilter.FILTER_REJECT;
+        }
+        return textNode.data ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+      }
+    });
+
+    let current = walker.nextNode() as Text | null;
+    while (current) {
+      for (let offset = 0; offset < current.data.length; offset += 1) {
+        const character = current.data[offset];
+        if (/\s/.test(character)) {
+          if (input && !/\s$/.test(input)) {
+            input += " ";
+            locations.push({ node: current, offset });
+          }
+        } else {
+          input += character;
+          locations.push({ node: current, offset });
+        }
+      }
+      current = walker.nextNode() as Text | null;
+    }
+  });
+
+  input = input.trim();
+  locations.length = input.length;
+  if (!input) return [];
+
+  const words: StoryNarrationWordTarget[] = [];
+  const wordPattern = /[\p{L}\p{M}\p{N}]+(?:['’-][\p{L}\p{M}\p{N}]+)*/gu;
+  let match: RegExpExecArray | null;
+  while ((match = wordPattern.exec(input))) {
+    const inputStart = match.index;
+    const inputEnd = inputStart + match[0].length;
+    const startLocation = nearestCharacterLocation(locations, inputStart, inputEnd, 1);
+    const endLocation = nearestCharacterLocation(locations, inputEnd - 1, inputStart, -1);
+    if (!startLocation || !endLocation) continue;
+    words.push({
+      startNode: startLocation.node,
+      endNode: endLocation.node,
+      nodeStart: startLocation.offset,
+      nodeEnd: endLocation.offset + 1,
+      inputStart,
+      inputEnd
+    });
+  }
+
+  return splitStoryNarrationRanges(input, maxLength).map(({ start, end }) => ({
+    text: input.slice(start, end),
+    inputStart: start,
+    inputEnd: end,
+    words: words.filter((word) => word.inputStart >= start && word.inputStart < end)
+  })).filter((chunk) => chunk.text.trim() && chunk.words.length);
+}
+
+function nearestCharacterLocation(
+  locations: Array<{ node: Text; offset: number } | null>,
+  from: number,
+  limit: number,
+  direction: 1 | -1
+) {
+  for (let index = from; direction > 0 ? index < limit : index >= limit; index += direction) {
+    if (locations[index]) return locations[index];
+  }
+  return null;
+}
+
+function splitStoryNarrationRanges(text: string, maxLength: number) {
+  const ranges: Array<{ start: number; end: number }> = [];
+  let start = 0;
+  while (start < text.length) {
+    while (start < text.length && /\s/.test(text[start])) start += 1;
+    if (start >= text.length) break;
+    let end = Math.min(text.length, start + maxLength);
+    if (end < text.length) {
+      const minimum = start + Math.floor(maxLength * 0.55);
+      const sample = text.slice(minimum, end);
+      const sentenceBreaks = Array.from(sample.matchAll(/[.!?]["'’”)]*\s/g));
+      const sentenceBreak = sentenceBreaks.at(-1);
+      if (sentenceBreak?.index !== undefined) {
+        end = minimum + sentenceBreak.index + sentenceBreak[0].length;
+      } else {
+        const wordBreak = text.lastIndexOf(" ", end);
+        if (wordBreak > minimum) end = wordBreak + 1;
+      }
+    }
+    while (end > start && /\s/.test(text[end - 1])) end -= 1;
+    if (end <= start) end = Math.min(text.length, start + maxLength);
+    ranges.push({ start, end });
+    start = end;
+  }
+  return ranges;
+}
+
+function findSpeechMarkAtTime(marks: SpeechifySpeechMark[], timeMs: number) {
+  if (!marks.length) return null;
+  if (timeMs < marks[0].start_time) return null;
+  let low = 0;
+  let high = marks.length - 1;
+  let closest = marks[0];
+  while (low <= high) {
+    const middle = Math.floor((low + high) / 2);
+    const mark = marks[middle];
+    if (mark.start_time <= timeMs) {
+      closest = mark;
+      low = middle + 1;
+    } else {
+      high = middle - 1;
+    }
+  }
+  return closest;
+}
+
+function findSpeechMarkForInputOffset(marks: SpeechifySpeechMark[], inputOffset: number) {
+  return marks.find((mark) => mark.end > inputOffset)
+    || marks.find((mark) => mark.start >= inputOffset)
+    || marks.at(-1)
+    || null;
+}
+
+function findStoryNarrationWordForMark(chunk: StoryNarrationChunk, mark: SpeechifySpeechMark) {
+  const inputOffset = chunk.inputStart + mark.start;
+  return chunk.words.find((word) => word.inputStart <= inputOffset && word.inputEnd > inputOffset)
+    || chunk.words.find((word) => word.inputStart >= inputOffset)
+    || chunk.words.at(-1)
+    || null;
+}
+
+function findStoryNarrationWordAtPoint(
+  root: HTMLElement,
+  clientX: number,
+  clientY: number,
+  words: StoryNarrationWordTarget[]
+) {
+  const documentWithCaret = document as Document & {
+    caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null;
+    caretRangeFromPoint?: (x: number, y: number) => Range | null;
+  };
+  const position = documentWithCaret.caretPositionFromPoint?.(clientX, clientY);
+  const fallbackRange = position ? null : documentWithCaret.caretRangeFromPoint?.(clientX, clientY);
+  const node = (position?.offsetNode || fallbackRange?.startContainer) as Node | undefined;
+  const offset = position?.offset ?? fallbackRange?.startOffset ?? -1;
+  if (!(node instanceof Text) || offset < 0 || !root.contains(node)) return null;
+
+  const exact = words.find((word) => word.startNode === node && word.endNode === node && offset >= word.nodeStart && offset <= word.nodeEnd);
+  if (exact) return exact;
+  const sameNodeWords = words.filter((word) => word.startNode === node && word.endNode === node);
+  return sameNodeWords.reduce<StoryNarrationWordTarget | null>((nearest, word) => {
+    if (!nearest) return word;
+    const wordDistance = offset < word.nodeStart ? word.nodeStart - offset : Math.max(0, offset - word.nodeEnd);
+    const nearestDistance = offset < nearest.nodeStart ? nearest.nodeStart - offset : Math.max(0, offset - nearest.nodeEnd);
+    return wordDistance < nearestDistance ? word : nearest;
+  }, null);
+}
+
+function highlightStoryNarrationWord(target: StoryNarrationWordTarget, follow: boolean) {
+  const range = document.createRange();
+  range.setStart(target.startNode, Math.min(target.nodeStart, target.startNode.length));
+  range.setEnd(target.endNode, Math.min(target.nodeEnd, target.endNode.length));
+  const registry = (CSS as unknown as { highlights?: { set: (name: string, highlight: unknown) => void } }).highlights;
+  const HighlightConstructor = (window as unknown as { Highlight?: new (...ranges: Range[]) => unknown }).Highlight;
+  if (registry && HighlightConstructor) {
+    registry.set(STORY_NARRATION_HIGHLIGHT, new HighlightConstructor(range));
+  } else {
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(range);
+  }
+
+  if (!follow) return;
+  const rect = range.getBoundingClientRect();
+  if (rect.top < 120 || rect.bottom > window.innerHeight - 100) {
+    (target.startNode.parentElement || target.endNode.parentElement)?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+}
+
+function clearStoryNarrationHighlight() {
+  const registry = (CSS as unknown as { highlights?: { delete: (name: string) => void } }).highlights;
+  if (registry) registry.delete(STORY_NARRATION_HIGHLIGHT);
+  else window.getSelection()?.removeAllRanges();
+}
+
+function waitForSpeechifyAudioMetadata(audio: HTMLAudioElement) {
+  if (audio.readyState >= HTMLMediaElement.HAVE_METADATA) return Promise.resolve();
+  return new Promise<void>((resolve) => {
+    const finish = () => {
+      window.clearTimeout(timeout);
+      audio.removeEventListener("loadedmetadata", finish);
+      audio.removeEventListener("error", finish);
+      resolve();
+    };
+    const timeout = window.setTimeout(finish, 2_000);
+    audio.addEventListener("loadedmetadata", finish, { once: true });
+    audio.addEventListener("error", finish, { once: true });
+  });
 }
 
 function loadSpeechifyVoicePreference() {

@@ -1,6 +1,7 @@
 import { loadGoogleCredential } from "./accessControl";
 
 const speechifyAudioCache = new Map<string, Blob>();
+const speechifyTimedAudioCache = new Map<string, { audio: Blob; speechMarks: SpeechifySpeechMark[]; durationMs: number }>();
 const MAX_CACHED_AUDIO_CHUNKS = 24;
 
 export interface SpeechifyVoice {
@@ -17,6 +18,20 @@ export interface SpeechifyVoiceResponse {
   voices: SpeechifyVoice[];
 }
 
+export interface SpeechifySpeechMark {
+  start: number;
+  end: number;
+  start_time: number;
+  end_time: number;
+  value: string;
+}
+
+export interface SpeechifyTimedAudio {
+  audioUrl: string;
+  speechMarks: SpeechifySpeechMark[];
+  durationMs: number;
+}
+
 export async function fetchSpeechifyVoices(signal?: AbortSignal): Promise<SpeechifyVoiceResponse> {
   const response = await fetch("/api/speechify", { headers: authHeaders(), signal });
   const payload = await readJson(response);
@@ -31,16 +46,17 @@ export async function fetchSpeechifyVoices(signal?: AbortSignal): Promise<Speech
 export async function createSpeechifyAudio(
   text: string,
   voiceId: string,
+  language = "en-US",
   signal?: AbortSignal
 ) {
-  const cacheKey = `${voiceId}:${text}`;
+  const cacheKey = `${voiceId}:${language}:${text}`;
   const cached = speechifyAudioCache.get(cacheKey);
   if (cached) return URL.createObjectURL(cached);
 
   const response = await fetch("/api/speechify", {
     method: "POST",
     headers: { ...authHeaders(), "Content-Type": "application/json" },
-    body: JSON.stringify({ text, voiceId, language: "en-US" }),
+    body: JSON.stringify({ text, voiceId, language }),
     signal
   });
   if (!response.ok) {
@@ -54,6 +70,40 @@ export async function createSpeechifyAudio(
     if (oldestKey) speechifyAudioCache.delete(oldestKey);
   }
   return URL.createObjectURL(audio);
+}
+
+export async function createSpeechifyTimedAudio(
+  text: string,
+  voiceId: string,
+  language = "en-US",
+  signal?: AbortSignal
+): Promise<SpeechifyTimedAudio> {
+  const cacheKey = `${voiceId}:${language}:${text}`;
+  const cached = speechifyTimedAudioCache.get(cacheKey);
+  if (cached) {
+    return { audioUrl: URL.createObjectURL(cached.audio), speechMarks: cached.speechMarks, durationMs: cached.durationMs };
+  }
+
+  const response = await fetch("/api/speechify", {
+    method: "POST",
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify({ text, voiceId, language, withTimestamps: true }),
+    signal
+  });
+  const payload = await readJson(response);
+  if (!response.ok) throw new Error(errorMessage(payload, "Speechify could not prepare synchronized narration."));
+
+  const audioBase64 = stringValue(payload.audioBase64);
+  if (!audioBase64) throw new Error("Speechify returned synchronized narration without audio.");
+  const audio = base64ToBlob(audioBase64, stringValue(payload.contentType) || "audio/mpeg");
+  const speechMarks = Array.isArray(payload.speechMarks) ? payload.speechMarks.filter(isSpeechifySpeechMark) : [];
+  const durationMs = Number(payload.durationMs) || 0;
+  speechifyTimedAudioCache.set(cacheKey, { audio, speechMarks, durationMs });
+  if (speechifyTimedAudioCache.size > MAX_CACHED_AUDIO_CHUNKS) {
+    const oldestKey = speechifyTimedAudioCache.keys().next().value;
+    if (oldestKey) speechifyTimedAudioCache.delete(oldestKey);
+  }
+  return { audioUrl: URL.createObjectURL(audio), speechMarks, durationMs };
 }
 
 export function splitSpeechifyText(text: string, maxLength = 2_500) {
@@ -85,6 +135,23 @@ export function splitSpeechifyText(text: string, maxLength = 2_500) {
 
 function isSpeechifyVoice(value: unknown): value is SpeechifyVoice {
   return Boolean(value && typeof value === "object" && typeof (value as SpeechifyVoice).id === "string");
+}
+
+function isSpeechifySpeechMark(value: unknown): value is SpeechifySpeechMark {
+  if (!value || typeof value !== "object") return false;
+  const mark = value as SpeechifySpeechMark;
+  return typeof mark.value === "string"
+    && Number.isFinite(Number(mark.start))
+    && Number.isFinite(Number(mark.end))
+    && Number.isFinite(Number(mark.start_time))
+    && Number.isFinite(Number(mark.end_time));
+}
+
+function base64ToBlob(value: string, contentType: string) {
+  const binary = window.atob(value);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+  return new Blob([bytes], { type: contentType });
 }
 
 async function readJson(response: Response): Promise<Record<string, unknown>> {

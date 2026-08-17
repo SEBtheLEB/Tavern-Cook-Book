@@ -17850,6 +17850,24 @@ button,
   line-height: 1.45;
 }
 
+::highlight(story-speechify-current-word) {
+  color: var(--app-ink);
+  background: color-mix(in srgb, var(--gold) 62%, rgba(255, 235, 166, 0.88));
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--gold) 78%, var(--app-ink));
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+
+.story-treatment-reader.narration-following [data-story-narration-block],
+.story-treatment-reader.narration-following [data-story-narration-block] .lore-keyword-link {
+  cursor: text;
+}
+
+.story-treatment-reader.narration-following [data-story-narration-block]:hover {
+  background-color: color-mix(in srgb, var(--gold) 3%, transparent);
+}
+
 .story-treatment-chapter-actions .story-listen-active,
 .story-sequence-listen.active {
   border-color: color-mix(in srgb, var(--gold) 68%, var(--panel-border));

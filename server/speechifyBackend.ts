@@ -13,6 +13,15 @@ interface SpeechifyRequest {
   text?: unknown;
   voiceId?: unknown;
   language?: unknown;
+  withTimestamps?: unknown;
+}
+
+interface SpeechifyWordMark {
+  start: number;
+  end: number;
+  start_time: number;
+  end_time: number;
+  value: string;
 }
 
 export interface SpeechifyVoice {
@@ -114,13 +123,14 @@ export async function synthesizeSpeechifyAudio(headers: IncomingHttpHeaders, bod
   const text = typeof body.text === "string" ? body.text.trim() : "";
   const voiceId = typeof body.voiceId === "string" ? body.voiceId.trim() : "";
   const language = typeof body.language === "string" ? body.language.trim() : "en-US";
+  const withTimestamps = body.withTimestamps === true;
 
   if (!text) return jsonAudioError(400, "No story text was provided to Speechify.");
   if (!voiceId) return jsonAudioError(400, "Choose a Speechify voice before starting narration.");
   if (text.length > MAX_TEXT_LENGTH) return jsonAudioError(413, `Speechify text chunks must be ${MAX_TEXT_LENGTH.toLocaleString()} characters or fewer.`);
 
   try {
-    const upstream = await fetch(`${SPEECHIFY_API_BASE}/audio/stream`, {
+    const upstream = await fetch(`${SPEECHIFY_API_BASE}/audio/${withTimestamps ? "stream/with-timestamps" : "stream"}`, {
       method: "POST",
       headers: {
         Accept: "audio/mpeg",
@@ -140,6 +150,20 @@ export async function synthesizeSpeechifyAudio(headers: IncomingHttpHeaders, bod
       return jsonAudioError(upstream.status, speechifyError(payload, upstream.status));
     }
 
+    if (withTimestamps) {
+      const timestamped = parseSpeechifyTimestampStream(await upstream.text());
+      return {
+        status: 200,
+        contentType: "application/json",
+        body: Buffer.from(JSON.stringify({
+          audioBase64: timestamped.audio.toString("base64"),
+          contentType: upstream.headers.get("speechify-audio-content-type") || "audio/mpeg",
+          speechMarks: timestamped.speechMarks,
+          durationMs: timestamped.durationMs
+        }))
+      };
+    }
+
     return {
       status: 200,
       contentType: upstream.headers.get("content-type") || "audio/mpeg",
@@ -148,6 +172,59 @@ export async function synthesizeSpeechifyAudio(headers: IncomingHttpHeaders, bod
   } catch (error) {
     return jsonAudioError(502, error instanceof Error ? error.message : "Speechify narration failed.");
   }
+}
+
+export function parseSpeechifyTimestampStream(stream: string) {
+  const audioParts: Buffer[] = [];
+  const speechMarks: SpeechifyWordMark[] = [];
+  let durationMs = 0;
+
+  for (const block of stream.split(/\r?\n\r?\n/)) {
+    const lines = block.split(/\r?\n/);
+    const eventType = lines.find((line) => line.startsWith("event:"))?.slice(6).trim() || "";
+    const data = lines.filter((line) => line.startsWith("data:")).map((line) => line.slice(5).trim()).join("\n");
+    if (!data) continue;
+
+    let payload: Record<string, unknown>;
+    try {
+      payload = JSON.parse(data) as Record<string, unknown>;
+    } catch {
+      continue;
+    }
+
+    const type = eventType || stringValue(payload.type);
+    if (type === "speech.error") throw new Error(speechifyError(payload, 502));
+    if (type === "speech.done") {
+      durationMs = numberValue(payload.audio_duration_ms);
+      continue;
+    }
+    if (type !== "speech.chunk") continue;
+
+    const audio = stringValue(payload.audio);
+    if (audio) audioParts.push(Buffer.from(audio, "base64"));
+    if (Array.isArray(payload.speech_marks)) {
+      payload.speech_marks.forEach((mark) => {
+        const normalized = normalizeSpeechMark(mark);
+        if (normalized) speechMarks.push(normalized);
+      });
+    }
+  }
+
+  if (!audioParts.length) throw new Error("Speechify returned timestamps without playable audio.");
+  return { audio: Buffer.concat(audioParts), speechMarks, durationMs };
+}
+
+function normalizeSpeechMark(value: unknown): SpeechifyWordMark | null {
+  if (!value || typeof value !== "object") return null;
+  const mark = value as Record<string, unknown>;
+  const normalized = {
+    start: numberValue(mark.start),
+    end: numberValue(mark.end),
+    start_time: numberValue(mark.start_time),
+    end_time: numberValue(mark.end_time),
+    value: stringValue(mark.value)
+  };
+  return normalized.value ? normalized : null;
 }
 
 function normalizeVoices(payload: unknown): SpeechifyVoice[] {
@@ -190,7 +267,9 @@ function speechifyError(payload: unknown, status: number) {
   if (payload && typeof payload === "object") {
     const record = payload as Record<string, unknown>;
     const detail = record.detail && typeof record.detail === "object" ? record.detail as Record<string, unknown> : {};
-    return stringValue(record.error || record.message || detail.message || detail.error) || `Speechify request failed (${status}).`;
+    const error = record.error && typeof record.error === "object" ? record.error as Record<string, unknown> : {};
+    return stringValue(record.message || error.message || error.code || detail.message || detail.error)
+      || `Speechify request failed (${status}).`;
   }
   return `Speechify request failed (${status}).`;
 }
@@ -205,6 +284,11 @@ function jsonAudioError(status: number, error: string) {
 
 function stringValue(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function numberValue(value: unknown) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : 0;
 }
 
 function consumeSpeechifyRequest(email: string) {
