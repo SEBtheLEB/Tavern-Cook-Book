@@ -1964,12 +1964,6 @@ export function StoryJourneyPage({
         return;
       }
 
-      const missingCost = status.missingIndexes.reduce((total, index) => total + speechifyRecordingCostForText(chunks[index]?.speechText || ""), 0);
-      const confirmed = window.confirm(
-        `Create the complete fresh Story Journey recording with John Rhys-Davies?\n\n${status.missingIndexes.length} audio parts will be generated and saved independently. Estimated remaining Speechify cost: $${missingCost.toFixed(2)}. Safety cap: $${SPEECHIFY_FRESH_RECORDING_CAP_USD.toFixed(2)}.`
-      );
-      if (!confirmed) return;
-
       setSpeechifyPanelOpen(true);
       setSpeechifyPanelTab("narrations");
       setSpeechifyError("");
