@@ -30,9 +30,9 @@ import { normalizeCreatureArtVault } from "../utils/bestiary";
 import { resolveArtVaultDriveFolder } from "../utils/artVaultDriveFolders";
 import { isRichText, plainTextToRichHtml, richTextToPlainText } from "../utils/richText";
 import {
-  exportStorySectionForChatGpt,
-  parseStorySectionTransfer,
-  type ParsedStorySection
+  exportStoryChapterSection,
+  parseStoryChapterSection,
+  type ParsedStoryChapterSection
 } from "../utils/storySectionTransfer";
 import {
   createSpeechifyAudio,
@@ -3752,12 +3752,11 @@ function StoryTreatmentChapter({
 }) {
   const visibleChapter = draft || chapter;
   const editing = Boolean(draft && canEdit);
-  const [transferPageId, setTransferPageId] = useState<string | null>(null);
-  const [copiedPageId, setCopiedPageId] = useState<string | null>(null);
+  const [transferOpen, setTransferOpen] = useState(false);
+  const [sectionCopied, setSectionCopied] = useState(false);
 
-  const copyPageForChatGpt = async (page: StoryPage, pageIndex: number) => {
-    const pageId = page.id || `${visibleChapter.id}-page-${pageIndex + 1}`;
-    const transferText = exportStorySectionForChatGpt(page, buildBeatCallouts(visibleChapter, page));
+  const copySelectedSection = async () => {
+    const transferText = exportStoryChapterSection(visibleChapter, (page) => buildBeatCallouts(visibleChapter, page));
     try {
       await navigator.clipboard.writeText(transferText);
     } catch {
@@ -3770,26 +3769,32 @@ function StoryTreatmentChapter({
       document.execCommand("copy");
       textarea.remove();
     }
-    setCopiedPageId(pageId);
-    window.setTimeout(() => setCopiedPageId((current) => current === pageId ? null : current), 2200);
+    setSectionCopied(true);
+    window.setTimeout(() => setSectionCopied(false), 2200);
   };
 
-  const applyTransferredSection = (page: StoryPage, pageIndex: number, parsed: ParsedStorySection) => {
-    const pageId = page.id || `${visibleChapter.id}-page-${pageIndex + 1}`;
-    const replacedKinds = new Set(parsed.replacedCalloutKinds);
-    const retainedCallouts = (page.callouts || []).filter((callout) => !replacedKinds.has(callout.kind));
-    const importedCallouts = parsed.callouts.map((callout) => ({
-      ...callout,
-      id: `${pageId}-${callout.kind}`
-    }));
-    const patch: Partial<StoryPage> = {
-      title: parsed.title || page.title,
-      text: parsed.text,
-      callouts: [...retainedCallouts, ...importedCallouts]
-    };
-    if (parsed.hasDetailedText) patch.detailedText = parsed.detailedText || "";
-    onPageChange(pageId, patch);
-    setTransferPageId(null);
+  const applyTransferredSection = (parsed: ParsedStoryChapterSection) => {
+    const importedPages = parsed.pages.map((parsedPage, pageIndex) => {
+      const existingPage = visibleChapter.pages[pageIndex];
+      const pageId = existingPage?.id || `${visibleChapter.id}-page-${Date.now()}-${pageIndex + 1}`;
+      const replacedKinds = new Set(parsedPage.replacedCalloutKinds);
+      const retainedCallouts = (existingPage?.callouts || []).filter((callout) => !replacedKinds.has(callout.kind));
+      const importedCallouts = parsedPage.callouts.map((callout) => ({ ...callout, id: `${pageId}-${callout.kind}` }));
+      return {
+        ...(existingPage || { id: pageId, relatedLore: [] }),
+        title: parsedPage.title || existingPage?.title || `Sequence ${pageIndex + 1}`,
+        text: parsedPage.text,
+        ...(parsedPage.hasDetailedText ? { detailedText: parsedPage.detailedText || "" } : {}),
+        callouts: [...retainedCallouts, ...importedCallouts]
+      } as StoryPage;
+    });
+    const untouchedTrailingPages = visibleChapter.pages.slice(importedPages.length);
+    onDraftChange({
+      title: parsed.title || visibleChapter.title,
+      overviewText: parsed.overviewText || visibleChapter.overviewText || visibleChapter.shortDescription,
+      pages: [...importedPages, ...untouchedTrailingPages]
+    });
+    setTransferOpen(false);
   };
 
   return (
@@ -3849,8 +3854,21 @@ function StoryTreatmentChapter({
                       : "Speechify"}
             </button>
           )}
+          {!editing && (
+            <button type="button" onClick={() => void copySelectedSection()} title={`Copy the complete ${visibleChapter.title} section`}>
+              <Icon name={sectionCopied ? "CircleCheck" : "Copy"} className="h-4 w-4" />
+              {sectionCopied ? "Copied" : "Copy Section"}
+            </button>
+          )}
           {editing ? (
             <>
+              <button type="button" onClick={() => void copySelectedSection()} title={`Copy the complete ${visibleChapter.title} section`}>
+                <Icon name={sectionCopied ? "CircleCheck" : "Copy"} className="h-4 w-4" />
+                {sectionCopied ? "Copied" : "Copy Section"}
+              </button>
+              <button type="button" onClick={() => setTransferOpen(true)} title={`Paste and format a revision for ${visibleChapter.title}`}>
+                <Icon name="Clipboard" className="h-4 w-4" /> Paste Revision
+              </button>
               <button className="story-inline-save" onClick={onSave}><Icon name="Save" className="h-4 w-4" /> Save</button>
               <button onClick={onCancel}><Icon name="X" className="h-4 w-4" /> Cancel</button>
             </>
@@ -3888,10 +3906,6 @@ function StoryTreatmentChapter({
             <span>Sequence {pageIndex + 1}</span>
             {!editing ? (
               <div className="story-sequence-actions">
-                <button type="button" onClick={() => void copyPageForChatGpt(page, pageIndex)} title={`Copy ${page.title} with formatting markers`}>
-                  <Icon name={copiedPageId === (page.id || `${visibleChapter.id}-page-${pageIndex + 1}`) ? "CircleCheck" : "Copy"} className="h-4 w-4" />
-                  {copiedPageId === (page.id || `${visibleChapter.id}-page-${pageIndex + 1}`) ? "Copied" : "Copy for ChatGPT"}
-                </button>
                 {canEdit && (
                   <button type="button" onClick={() => onScribePage(pageIndex)} title={`Ask Tavern Scribe to edit ${page.title}`}>
                     <Icon name="Sparkles" className="h-4 w-4" /> Scribe
@@ -3900,13 +3914,6 @@ function StoryTreatmentChapter({
               </div>
             ) : (
               <div className="story-sequence-actions">
-                <button type="button" onClick={() => void copyPageForChatGpt(page, pageIndex)} title={`Copy ${page.title} with formatting markers`}>
-                  <Icon name={copiedPageId === (page.id || `${visibleChapter.id}-page-${pageIndex + 1}`) ? "CircleCheck" : "Copy"} className="h-4 w-4" />
-                  {copiedPageId === (page.id || `${visibleChapter.id}-page-${pageIndex + 1}`) ? "Copied" : "Copy for ChatGPT"}
-                </button>
-                <button type="button" onClick={() => setTransferPageId(page.id || `${visibleChapter.id}-page-${pageIndex + 1}`)} title={`Paste and format a revision for ${page.title}`}>
-                  <Icon name="Clipboard" className="h-4 w-4" /> Paste Revision
-                </button>
                 <button
                   type="button"
                   className="story-inline-delete"
@@ -4005,15 +4012,16 @@ function StoryTreatmentChapter({
               {(page.developerNotes || visibleChapter.developerNotes) && <p>{page.developerNotes || visibleChapter.developerNotes}</p>}
             </details>
           )}
-          {editing && transferPageId === (page.id || `${visibleChapter.id}-page-${pageIndex + 1}`) && (
-            <StorySectionTransferModal
-              page={page}
-              onApply={(parsed) => applyTransferredSection(page, pageIndex, parsed)}
-              onClose={() => setTransferPageId(null)}
-            />
-          )}
         </section>
       ))}
+
+      {editing && transferOpen && (
+        <StorySectionTransferModal
+          chapter={visibleChapter}
+          onApply={applyTransferredSection}
+          onClose={() => setTransferOpen(false)}
+        />
+      )}
 
       {!editing && visibleChapter.id === GENERAL_HISTORY_OTHER_FAITHS_ID && (
         <nav className="story-history-faith-directory" aria-label="General Note on Other Faiths">
@@ -4043,17 +4051,17 @@ function StoryTreatmentChapter({
 }
 
 function StorySectionTransferModal({
-  page,
+  chapter,
   onApply,
   onClose
 }: {
-  page: StoryPage;
-  onApply: (parsed: ParsedStorySection) => void;
+  chapter: StoryChapter;
+  onApply: (parsed: ParsedStoryChapterSection) => void;
   onClose: () => void;
 }) {
   const [value, setValue] = useState("");
   const [clipboardMessage, setClipboardMessage] = useState("");
-  const parsed = useMemo(() => value.trim() ? parseStorySectionTransfer(value, page.title) : null, [page.title, value]);
+  const parsed = useMemo(() => value.trim() ? parseStoryChapterSection(value, chapter.title) : null, [chapter.title, value]);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
@@ -4078,12 +4086,12 @@ function StorySectionTransferModal({
 
   return (
     <div className="story-section-transfer-overlay" onMouseDown={onClose}>
-      <section className="story-section-transfer-modal" role="dialog" aria-modal="true" aria-label={`Paste revision for ${page.title}`} onMouseDown={(event) => event.stopPropagation()}>
+      <section className="story-section-transfer-modal" role="dialog" aria-modal="true" aria-label={`Paste revision for ${chapter.title}`} onMouseDown={(event) => event.stopPropagation()}>
         <header>
           <div>
             <span>Story section importer</span>
             <h2 className="font-display">Paste Revision</h2>
-            <p>Paste the revised section and preview how its markers will be formatted before replacing this sequence.</p>
+            <p>Paste the revised chapter and preview its overview, sequences, and story notes before applying it.</p>
           </div>
           <button type="button" className="icon-button" onClick={onClose} title="Close"><Icon name="X" className="h-5 w-5" /></button>
         </header>
@@ -4093,6 +4101,8 @@ function StorySectionTransferModal({
             <div className="story-section-transfer-format-guide">
               <strong>Recognized formatting</strong>
               <code>-- Section Title --</code>
+              <code>-- Chapter Overview --</code>
+              <code>-- Sequence 1: Title --</code>
               <code>## Subheading</code>
               <code>**Bold**</code>
               <code>*Italic*</code>
@@ -4104,7 +4114,7 @@ function StorySectionTransferModal({
               ref={textareaRef}
               value={value}
               onChange={(event) => setValue(event.target.value)}
-              placeholder={`-- ${page.title} --\n\nPaste the revised story text here...`}
+              placeholder={`-- ${chapter.title} --\n\n-- Chapter Overview --\n\nPaste the overview...\n\n-- Sequence 1: First Sequence --\n\nPaste the story text...`}
               aria-label="Revised story section"
             />
             <div className="story-section-transfer-paste-row">
@@ -4118,18 +4128,19 @@ function StorySectionTransferModal({
             {parsed ? (
               <article>
                 <h3 className="font-display">{parsed.title}</h3>
-                <RichLoreText text={parsed.text} />
-                {parsed.detailedText && (
-                  <details>
-                    <summary>Detailed reading</summary>
-                    <RichLoreText text={parsed.detailedText} />
-                  </details>
-                )}
-                {parsed.callouts.map((callout) => (
-                  <aside key={callout.kind} className={`story-treatment-callout ${callout.kind}`}>
-                    <strong>{callout.label}</strong>
-                    <span>{callout.text}</span>
-                  </aside>
+                {parsed.overviewText && <div className="story-section-transfer-overview"><strong>Chapter overview</strong><RichLoreText text={parsed.overviewText} /></div>}
+                {parsed.pages.map((page, pageIndex) => (
+                  <section className="story-section-transfer-sequence" key={`${page.title}-${pageIndex}`}>
+                    <small>Sequence {pageIndex + 1}</small>
+                    <h4 className="font-display">{page.title}</h4>
+                    <RichLoreText text={page.text} />
+                    {page.detailedText && <details><summary>Detailed reading</summary><RichLoreText text={page.detailedText} /></details>}
+                    {page.callouts.map((callout) => (
+                      <aside key={callout.kind} className={`story-treatment-callout ${callout.kind}`}>
+                        <strong>{callout.label}</strong><span>{callout.text}</span>
+                      </aside>
+                    ))}
+                  </section>
                 ))}
               </article>
             ) : (
@@ -4143,10 +4154,10 @@ function StorySectionTransferModal({
         </div>
 
         <footer>
-          <span>Existing callouts are preserved unless the pasted text contains a matching callout header.</span>
+          <span>Existing metadata and trailing sequences are preserved. Matching pasted callout headers update their existing story notes.</span>
           <div>
             <button type="button" onClick={onClose}>Cancel</button>
-            <button type="button" className="primary" onClick={() => parsed && onApply(parsed)} disabled={!parsed || !parsed.text.trim()}>
+            <button type="button" className="primary" onClick={() => parsed && onApply(parsed)} disabled={!parsed || !parsed.pages.length}>
               <Icon name="Import" className="h-4 w-4" /> Apply Revision
             </button>
           </div>

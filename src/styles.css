@@ -17642,6 +17642,15 @@ button,
     display: grid;
   }
 
+  .story-treatment-chapter.inline-editing .story-treatment-chapter-heading {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .story-treatment-chapter.inline-editing .story-treatment-chapter-actions {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
   .story-treatment-chapter-actions {
     flex-wrap: wrap;
   }
@@ -19721,6 +19730,8 @@ button,
 }
 
 .story-treatment-chapter.inline-editing {
+  width: 100%;
+  max-width: none !important;
   border: 1px solid color-mix(in srgb, var(--gold) 42%, var(--panel-border));
   border-radius: 8px;
   padding: 18px;
@@ -19728,10 +19739,23 @@ button,
   box-shadow: 0 16px 36px rgba(0, 0, 0, 0.16);
 }
 
+.story-treatment-chapter.inline-editing .story-treatment-chapter-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  width: 100%;
+}
+
+.story-treatment-chapter.inline-editing .story-treatment-chapter-heading > div:first-child {
+  width: 100%;
+  min-width: 0;
+}
+
 .story-inline-title-input,
 .story-inline-subtitle-input,
 .story-inline-beat-title {
   width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   border: 0;
   border-bottom: 1px solid color-mix(in srgb, var(--gold) 38%, var(--panel-border));
   border-radius: 0;
@@ -19781,7 +19805,8 @@ button,
 }
 
 .story-inline-overview-field {
-  max-width: 740px;
+  width: 100%;
+  max-width: 1020px;
   margin-bottom: 34px;
 }
 
@@ -20016,6 +20041,32 @@ button,
   margin: 0 0 18px;
   color: var(--app-ink);
   font-size: 1.9rem;
+}
+
+.story-section-transfer-overview {
+  margin-bottom: 24px;
+  border-bottom: 1px solid color-mix(in srgb, var(--gold) 24%, var(--panel-border));
+  padding-bottom: 20px;
+}
+
+.story-section-transfer-overview > strong,
+.story-section-transfer-sequence > small {
+  color: color-mix(in srgb, var(--gold) 82%, var(--muted-ink));
+  font-size: 0.66rem;
+  font-weight: 760;
+  text-transform: uppercase;
+}
+
+.story-section-transfer-sequence {
+  margin: 0 0 30px;
+  border-bottom: 1px solid color-mix(in srgb, var(--gold) 20%, var(--panel-border));
+  padding-bottom: 26px;
+}
+
+.story-section-transfer-sequence h4 {
+  margin: 4px 0 14px;
+  color: var(--app-ink);
+  font-size: 1.45rem;
 }
 
 .story-section-transfer-preview .rich-lore-text {

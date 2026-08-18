@@ -1,4 +1,4 @@
-import type { StoryJourneyCallout, StoryJourneyPageRecord } from "../types";
+import type { StoryJourneyCallout, StoryJourneyChapterRecord, StoryJourneyPageRecord } from "../types";
 import { escapeHtml, isRichText, richTextToPlainText, sanitizeRichHtml } from "./richText";
 
 export interface ParsedStorySection {
@@ -8,6 +8,12 @@ export interface ParsedStorySection {
   callouts: StoryJourneyCallout[];
   replacedCalloutKinds: StoryJourneyCallout["kind"][];
   hasDetailedText: boolean;
+}
+
+export interface ParsedStoryChapterSection {
+  title: string;
+  overviewText: string;
+  pages: ParsedStorySection[];
 }
 
 const calloutHeadings: Array<{
@@ -40,6 +46,84 @@ export function exportStorySectionForChatGpt(
   });
 
   return blocks.filter((block) => block.trim()).join("\n\n");
+}
+
+export function exportStoryChapterSection(
+  chapter: StoryJourneyChapterRecord,
+  resolveCallouts: (page: StoryJourneyPageRecord) => StoryJourneyCallout[] = (page) => page.callouts || []
+) {
+  const blocks = [
+    `-- ${chapter.title.trim() || "Untitled Section"} --`,
+    "-- Chapter Overview --",
+    richHtmlToTransferText(chapter.overviewText || chapter.shortDescription)
+  ];
+
+  chapter.pages.forEach((page, index) => {
+    blocks.push(
+      `-- Sequence ${index + 1}: ${page.title.trim() || `Sequence ${index + 1}`} --`,
+      richHtmlToTransferText(page.text)
+    );
+
+    if (page.detailedText?.trim()) {
+      blocks.push("-- Detailed Reading --", richHtmlToTransferText(page.detailedText));
+    }
+
+    resolveCallouts(page).forEach((callout) => {
+      blocks.push(`-- ${callout.label} --`, richTextToPlainText(callout.text));
+    });
+  });
+
+  return blocks.filter((block) => block.trim()).join("\n\n");
+}
+
+export function parseStoryChapterSection(value: string, fallbackTitle = "Untitled Section"): ParsedStoryChapterSection {
+  const lines = value.replace(/\r\n?/g, "\n").split("\n");
+  let title = fallbackTitle;
+  let titleFound = false;
+  let readingOverview = false;
+  const overviewLines: string[] = [];
+  const pageSections: string[][] = [];
+  let activePage: string[] | null = null;
+
+  lines.forEach((line) => {
+    const heading = parseTransferHeading(line);
+    if (!heading) {
+      if (activePage) activePage.push(line);
+      else if (readingOverview || titleFound) overviewLines.push(line);
+      return;
+    }
+
+    const normalized = normalizeHeading(heading.text);
+    const sequence = heading.text.match(/^sequence\s*(\d+)?\s*(?::|[-\u2014])\s*(.+)$/i);
+
+    if (!titleFound) {
+      title = heading.text.trim() || fallbackTitle;
+      titleFound = true;
+      return;
+    }
+
+    if (normalized === "chapter overview" || normalized === "section overview" || normalized === "overview") {
+      readingOverview = true;
+      activePage = null;
+      return;
+    }
+
+    if (sequence) {
+      activePage = [`-- ${sequence[2].trim()} --`];
+      pageSections.push(activePage);
+      readingOverview = false;
+      return;
+    }
+
+    if (activePage) activePage.push(line);
+    else overviewLines.push(`${"#".repeat(Math.max(2, heading.level))} ${heading.text}`);
+  });
+
+  return {
+    title,
+    overviewText: markdownToRichHtml(trimBlankLines(overviewLines).join("\n")),
+    pages: pageSections.map((section, index) => parseStorySectionTransfer(section.join("\n"), `Sequence ${index + 1}`))
+  };
 }
 
 export function parseStorySectionTransfer(value: string, fallbackTitle = "Untitled Section"): ParsedStorySection {
