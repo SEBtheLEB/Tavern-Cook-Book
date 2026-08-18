@@ -6467,7 +6467,28 @@ function mergeStoryExpansionChapters(chapters: StoryChapter[]): StoryChapter[] {
       }
     });
 
-  return next.map((chapter) => normalizeStoryChapter(chapter));
+  return ensureActOneOpeningFirst(next.map((chapter) => normalizeStoryChapter(chapter)));
+}
+
+function ensureActOneOpeningFirst(chapters: StoryChapter[]) {
+  const next = [...chapters];
+  const openingIndex = next.findIndex((chapter) => chapter.id === "act1-revised-opening") >= 0
+    ? next.findIndex((chapter) => chapter.id === "act1-revised-opening")
+    : next.findIndex((chapter) => {
+        const title = normalizeTerm(chapter.title);
+        return chapter.id === "act1-final-test"
+          || title.includes("gwen's final examination")
+          || title.includes("gwens final examination")
+          || title === "the final test";
+      });
+  if (openingIndex < 0) return next;
+
+  const firstActOneIndex = next.findIndex((chapter) => storyChapterScope(chapter) === "act1");
+  if (firstActOneIndex < 0 || openingIndex === firstActOneIndex) return next;
+
+  const [opening] = next.splice(openingIndex, 1);
+  next.splice(firstActOneIndex, 0, opening);
+  return next;
 }
 
 function preserveStoryChapterImages(currentChapter: StoryChapter, defaultChapter: StoryChapter): StoryChapter {
