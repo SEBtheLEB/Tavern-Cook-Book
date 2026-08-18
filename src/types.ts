@@ -844,6 +844,13 @@ export interface StoryJourneyCallout {
   text: string;
 }
 
+export interface StoryJourneyDialogueSpriteSelection {
+  assetId: string;
+  imageUrl: string;
+  imageFit?: ImageFitSettings;
+  sourceEntryId?: string;
+}
+
 export interface StoryJourneyPageRecord {
   id?: string;
   title: string;
@@ -858,6 +865,7 @@ export interface StoryJourneyPageRecord {
   callouts?: StoryJourneyCallout[];
   sourceRecords?: StoryJourneySourceRecord[];
   developerNotes?: string;
+  dialogueSpriteOverrides?: Record<string, StoryJourneyDialogueSpriteSelection>;
 }
 
 export interface StoryJourneyChapterRecord {

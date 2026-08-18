@@ -10,6 +10,7 @@ import type {
   StoryJourneyChapterRecord,
   StoryJourneyCallout,
   StoryJourneyData,
+  StoryJourneyDialogueSpriteSelection,
   StoryJourneyPageRecord,
   StoryJourneyScope,
   WorldBuildingCategoryId,
@@ -48,6 +49,12 @@ import { Icon } from "./Icon";
 import { LoreKeywordHoverBoundary } from "./LoreKeywordText";
 import { RichLoreText, RichTextEditor } from "./RichText";
 import { StoryDialogueText } from "./StoryDialogueText";
+import type { StoryDialogueSpriteTarget } from "./StoryDialogueText";
+import {
+  collectDialogueSpriteOptions,
+  DialogueSpritePickerModal,
+  type DialogueSpriteOption
+} from "./DialogueSpritePickerModal";
 import {
   ACT_ONE_STORY_CHAPTER_IDS,
   LEGACY_ACT_ONE_CHAPTER_ID,
@@ -1157,7 +1164,12 @@ export function StoryJourneyPage({
   const [inlineChapterDraft, setInlineChapterDraft] = useState<StoryChapter | null>(null);
   const [imageManagerOpen, setImageManagerOpen] = useState(false);
   const [dialogueArtEntry, setDialogueArtEntry] = useState<LoreEntry | null | undefined>(undefined);
+  const [dialogueSpritePickerTarget, setDialogueSpritePickerTarget] = useState<(StoryDialogueSpriteTarget & {
+    chapterId: string;
+    pageId: string;
+  }) | null>(null);
   const [readingDepth, setReadingDepth] = useState<StoryReadingDepth>("standard");
+  const dialogueSpriteOptions = useMemo(() => collectDialogueSpriteOptions(entries), [entries]);
   const [storySearch, setStorySearch] = useState("");
   const [storySearchOpen, setStorySearchOpen] = useState(false);
   const storySearchInputRef = useRef<HTMLInputElement>(null);
@@ -1538,7 +1550,6 @@ export function StoryJourneyPage({
 
   const saveDialogueArt = (slots: ImageManagerSlotDraft[]) => {
     const bubbleFrame = slots.find((slot) => slot.id === "dialogueBubbleFrame");
-    const dialogueSprite = slots.find((slot) => slot.id === "dialogueSprite");
     if (bubbleFrame) {
       onStoryJourneyChange({
         ...storyJourney,
@@ -1548,21 +1559,32 @@ export function StoryJourneyPage({
         updatedAt: new Date().toISOString()
       });
     }
-    if (dialogueArtEntry && dialogueSprite) {
-      onSaveEntry({
-        ...dialogueArtEntry,
-        media: {
-          ...dialogueArtEntry.media,
-          dialogueSpriteImage: dialogueSprite.imageUrl,
-          imageFits: {
-            ...dialogueArtEntry.media.imageFits,
-            dialogueSpriteImage: normalizeImageFit(dialogueSprite.imageFit)
-          }
-        },
-        updatedAt: new Date().toISOString()
-      });
-    }
     setDialogueArtEntry(undefined);
+  };
+
+  const saveDialogueSpriteSelection = (selection: DialogueSpriteOption | null) => {
+    const target = dialogueSpritePickerTarget;
+    if (!target) return;
+    updateChapter(target.chapterId, (chapter) => ({
+      ...chapter,
+      pages: chapter.pages.map((page, pageIndex) => {
+        const pageId = page.id || `${chapter.id}-page-${pageIndex + 1}`;
+        if (pageId !== target.pageId) return page;
+        const nextOverrides = { ...(page.dialogueSpriteOverrides || {}) };
+        if (selection) {
+          nextOverrides[target.dialogueKey] = {
+            assetId: selection.assetId,
+            imageUrl: selection.imageUrl,
+            imageFit: selection.imageFit,
+            sourceEntryId: selection.sourceEntryId
+          };
+        } else {
+          delete nextOverrides[target.dialogueKey];
+        }
+        return { ...page, dialogueSpriteOverrides: nextOverrides };
+      })
+    }));
+    setDialogueSpritePickerTarget(null);
   };
 
   const addChapter = () => {
@@ -3307,7 +3329,7 @@ export function StoryJourneyPage({
                       dialogueBubbleImageUrl={storyJourney.dialogueBubbleImageUrl || ""}
                       dialogueBubbleImageFit={storyJourney.dialogueBubbleImageFit}
                       onLoreClick={setSelectedLoreTerm}
-                      onManageDialogueArt={setDialogueArtEntry}
+                      onEditDialogueSprite={(pageId, target) => setDialogueSpritePickerTarget({ ...target, chapterId: chapter.id, pageId })}
                       onEdit={() => editReaderChapter(chapter.id)}
                       onScribeChapter={() => openStoryScribe("wholeChapter", chapter.id)}
                       onScribePage={(pageIndex) => openStoryScribe("currentPage", chapter.id, pageIndex)}
@@ -3470,10 +3492,8 @@ export function StoryJourneyPage({
       )}
       {dialogueArtEntry !== undefined && (
         <ImageManagerModal
-          title={dialogueArtEntry ? `${dialogueArtEntry.title} Dialogue Presentation` : "Story Journey Dialogue UI"}
-          subtitle={dialogueArtEntry
-            ? "Set this character's dialogue sprite and the shared speech-bubble frame. Both remain replaceable from their existing art slots."
-            : "Set the shared speech-bubble frame used by every dialogue line. Character portraits continue to come from each character's Dialogue Sprite slot."}
+          title="Story Journey Dialogue UI"
+          subtitle="Set the shared speech-bubble frame used by every dialogue line. Individual sprites are chosen from the app's existing Dialogue Sprite assets directly on each line."
           slots={[
             {
               id: "dialogueBubbleFrame",
@@ -3489,29 +3509,43 @@ export function StoryJourneyPage({
                 slotName: "Speech Bubble Frame",
                 sourceType: "Story UI"
               }
-            },
-            ...(dialogueArtEntry ? [{
-              id: "dialogueSprite",
-              label: `${dialogueArtEntry.title} Dialogue Sprite`,
-              description: "Character portrait used beside spoken dialogue. This is the same Dialogue Sprite field shown in the character Art Binder.",
-              imageUrl: dialogueArtEntry.media.dialogueSpriteImage || "",
-              imageFit: dialogueArtEntry.media.imageFits?.dialogueSpriteImage,
-              frameWidth: 280,
-              frameHeight: 320,
-              uploadNameContext: {
-                subjectName: dialogueArtEntry.title,
-                categoryName: "Dialogue UI Art",
-                slotName: "Dialogue Sprite",
-                sourceType: "Character"
-              }
-            }] : [])
+            }
           ]}
           onClose={() => setDialogueArtEntry(undefined)}
           onSave={saveDialogueArt}
         />
       )}
+      {dialogueSpritePickerTarget && (
+        <DialogueSpritePickerModal
+          speakerName={dialogueSpritePickerTarget.speakerName}
+          speakerEntryId={dialogueSpritePickerTarget.speaker?.id}
+          dialogue={dialogueSpritePickerTarget.dialogue}
+          currentSelection={findDialogueSpriteSelection(chapters, dialogueSpritePickerTarget)}
+          options={prioritizeDialogueSpriteOptions(dialogueSpriteOptions, dialogueSpritePickerTarget.speaker?.id)}
+          onApply={saveDialogueSpriteSelection}
+          onClose={() => setDialogueSpritePickerTarget(null)}
+        />
+      )}
     </section>
   );
+}
+
+function prioritizeDialogueSpriteOptions(options: DialogueSpriteOption[], speakerEntryId?: string) {
+  if (!speakerEntryId) return options;
+  return [...options].sort((left, right) => {
+    const leftPriority = left.sourceEntryId === speakerEntryId ? 0 : 1;
+    const rightPriority = right.sourceEntryId === speakerEntryId ? 0 : 1;
+    return leftPriority - rightPriority || left.ownerName.localeCompare(right.ownerName) || left.label.localeCompare(right.label);
+  });
+}
+
+function findDialogueSpriteSelection(
+  chapters: StoryChapter[],
+  target: { chapterId: string; pageId: string; dialogueKey: string }
+): StoryJourneyDialogueSpriteSelection | undefined {
+  const chapter = chapters.find((item) => item.id === target.chapterId);
+  const page = chapter?.pages.find((item, index) => (item.id || `${chapter.id}-page-${index + 1}`) === target.pageId);
+  return page?.dialogueSpriteOverrides?.[target.dialogueKey];
 }
 
 function StoryContextInspector({
@@ -3651,7 +3685,7 @@ function StoryTreatmentChapter({
   dialogueBubbleImageUrl,
   dialogueBubbleImageFit,
   onLoreClick,
-  onManageDialogueArt,
+  onEditDialogueSprite,
   onEdit,
   onScribeChapter,
   onScribePage,
@@ -3678,7 +3712,7 @@ function StoryTreatmentChapter({
   dialogueBubbleImageUrl: string;
   dialogueBubbleImageFit?: ImageFitSettings;
   onLoreClick: (term: string) => void;
-  onManageDialogueArt: (speaker: LoreEntry | null) => void;
+  onEditDialogueSprite: (pageId: string, target: StoryDialogueSpriteTarget) => void;
   onEdit: () => void;
   onScribeChapter: () => void;
   onScribePage: (pageIndex: number) => void;
@@ -3847,23 +3881,27 @@ function StoryTreatmentChapter({
             ) : (
               <>
                 <StoryDialogueText
+                  pageId={page.id || `${visibleChapter.id}-page-${pageIndex + 1}`}
                   text={page.text}
                   entries={entries}
                   relatedLore={[...visibleChapter.relatedLore, ...page.relatedLore]}
                   bubbleImageUrl={dialogueBubbleImageUrl}
                   bubbleImageFit={dialogueBubbleImageFit}
+                  spriteOverrides={page.dialogueSpriteOverrides}
                   canEdit={canEdit}
-                  onManageArt={onManageDialogueArt}
+                  onEditSprite={(target) => onEditDialogueSprite(page.id || `${visibleChapter.id}-page-${pageIndex + 1}`, target)}
                 />
                 {readingDepth === "detailed" && page.detailedText && (
                   <StoryDialogueText
+                    pageId={`${page.id || `${visibleChapter.id}-page-${pageIndex + 1}`}:detailed`}
                     text={page.detailedText}
                     entries={entries}
                     relatedLore={[...visibleChapter.relatedLore, ...page.relatedLore]}
                     bubbleImageUrl={dialogueBubbleImageUrl}
                     bubbleImageFit={dialogueBubbleImageFit}
+                    spriteOverrides={page.dialogueSpriteOverrides}
                     canEdit={canEdit}
-                    onManageArt={onManageDialogueArt}
+                    onEditSprite={(target) => onEditDialogueSprite(page.id || `${visibleChapter.id}-page-${pageIndex + 1}`, target)}
                   />
                 )}
               </>

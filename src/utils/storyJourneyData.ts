@@ -77,7 +77,18 @@ export const normalizeStoryJourneyPage = (
   threads: cleanList(value.threads),
   callouts: normalizeCallouts(value.callouts),
   sourceRecords: normalizeSourceRecords(value.sourceRecords),
-  developerNotes: value.developerNotes ? String(value.developerNotes) : undefined
+  developerNotes: value.developerNotes ? String(value.developerNotes) : undefined,
+  dialogueSpriteOverrides: Object.fromEntries(
+    Object.entries(value.dialogueSpriteOverrides || {}).flatMap(([key, selection]) => {
+      if (!selection || typeof selection !== "object" || !selection.imageUrl) return [];
+      return [[key, {
+        assetId: String(selection.assetId || key),
+        imageUrl: String(selection.imageUrl),
+        imageFit: normalizeImageFit(selection.imageFit),
+        sourceEntryId: selection.sourceEntryId ? String(selection.sourceEntryId) : undefined
+      }]];
+    })
+  )
 });
 
 export const normalizeStoryJourneyChapter = (

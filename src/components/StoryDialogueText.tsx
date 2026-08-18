@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import type { ImageFitSettings, LoreEntry } from "../types";
+import type { ImageFitSettings, LoreEntry, StoryJourneyDialogueSpriteSelection } from "../types";
 import { imageFitToStyle } from "../utils/imageFit";
 import { isRichText, plainTextToRichHtml, sanitizeRichHtml } from "../utils/richText";
 import { DriveAwareImage } from "./DriveAwareImage";
@@ -12,8 +12,17 @@ interface StoryDialogueTextProps {
   relatedLore: string[];
   bubbleImageUrl?: string;
   bubbleImageFit?: ImageFitSettings;
+  pageId: string;
+  spriteOverrides?: Record<string, StoryJourneyDialogueSpriteSelection>;
   canEdit?: boolean;
-  onManageArt?: (speaker: LoreEntry | null) => void;
+  onEditSprite?: (target: StoryDialogueSpriteTarget) => void;
+}
+
+export interface StoryDialogueSpriteTarget {
+  dialogueKey: string;
+  dialogue: string;
+  speaker: LoreEntry | null;
+  speakerName: string;
 }
 
 interface StoryTextBlock {
@@ -35,8 +44,10 @@ export function StoryDialogueText({
   relatedLore,
   bubbleImageUrl = "",
   bubbleImageFit,
+  pageId,
+  spriteOverrides = {},
   canEdit = false,
-  onManageArt
+  onEditSprite
 }: StoryDialogueTextProps) {
   const relatedLoreKey = relatedLore.join("\u0000");
   const blocks = useMemo(() => buildStoryTextBlocks(text, entries, relatedLore), [entries, relatedLoreKey, text]);
@@ -45,45 +56,52 @@ export function StoryDialogueText({
 
   return (
     <div className="story-dialogue-flow">
-      {blocks.map((block, index) => block.dialogue ? (
-        <StoryDialogueBubble
-          key={`dialogue-${index}-${block.speakerName}`}
-          dialogue={block.dialogue}
-          speaker={block.speaker}
-          speakerName={block.speakerName}
-          bubbleImageUrl={bubbleImageUrl}
-          bubbleImageFit={bubbleImageFit}
-          canEdit={canEdit}
-          onManageArt={onManageArt}
-        />
-      ) : (
-        <RichLoreText key={`prose-${index}`} text={block.html} />
-      ))}
+      {blocks.map((block, index) => {
+        const dialogueKey = block.dialogue ? storyDialogueKey(pageId, block.dialogue, dialogueOccurrence(blocks, index)) : "";
+        return block.dialogue ? (
+          <StoryDialogueBubble
+            key={dialogueKey}
+            dialogueKey={dialogueKey}
+            dialogue={block.dialogue}
+            speaker={block.speaker}
+            speakerName={block.speakerName}
+            bubbleImageUrl={bubbleImageUrl}
+            bubbleImageFit={bubbleImageFit}
+            spriteSelection={spriteOverrides[dialogueKey]}
+            canEdit={canEdit}
+            onEditSprite={onEditSprite}
+          />
+        ) : (
+          <RichLoreText key={`prose-${index}`} text={block.html} />
+        );
+      })}
     </div>
   );
 }
 
 function StoryDialogueBubble({
+  dialogueKey,
   dialogue,
   speaker,
   speakerName,
   bubbleImageUrl,
   bubbleImageFit,
+  spriteSelection,
   canEdit,
-  onManageArt
+  onEditSprite
 }: {
+  dialogueKey: string;
   dialogue: string;
   speaker: LoreEntry | null;
   speakerName: string;
   bubbleImageUrl: string;
   bubbleImageFit?: ImageFitSettings;
+  spriteSelection?: StoryJourneyDialogueSpriteSelection;
   canEdit: boolean;
-  onManageArt?: (speaker: LoreEntry | null) => void;
+  onEditSprite?: (target: StoryDialogueSpriteTarget) => void;
 }) {
-  const portrait = speaker
-    ? speaker.media.dialogueSpriteImage || speaker.media.characterPortrait || speaker.media.mainImage || speaker.media.iconImage || ""
-    : "";
-  const portraitFit = speaker?.media.imageFits?.dialogueSpriteImage || speaker?.media.imageFits?.characterPortrait;
+  const portrait = spriteSelection?.imageUrl || speaker?.media.dialogueSpriteImage || "";
+  const portraitFit = spriteSelection?.imageFit || speaker?.media.imageFits?.dialogueSpriteImage;
   const right = /\bgwen\b/i.test(speakerName);
   const hasCustomBubble = Boolean(bubbleImageUrl);
 
@@ -110,21 +128,33 @@ function StoryDialogueBubble({
           )}
         </div>
         <figcaption>{speakerName}</figcaption>
-        {canEdit && onManageArt && (
+        {canEdit && onEditSprite && (
           <button
             type="button"
             className="story-dialogue-art-button"
-            onClick={() => onManageArt(speaker)}
-            title={`Manage ${speakerName} dialogue sprite and speech-bubble art`}
+            onClick={() => onEditSprite({ dialogueKey, dialogue, speaker, speakerName })}
+            title={`Choose an existing dialogue sprite for ${speakerName}`}
             data-story-narration-ignore
           >
             <Icon name="Image" className="h-4 w-4" />
-            Art
+            Edit Sprite
           </button>
         )}
       </div>
     </figure>
   );
+}
+
+function dialogueOccurrence(blocks: StoryTextBlock[], index: number) {
+  const dialogue = normalizeName(blocks[index]?.dialogue || "");
+  return blocks.slice(0, index).filter((block) => normalizeName(block.dialogue) === dialogue).length;
+}
+
+function storyDialogueKey(pageId: string, dialogue: string, occurrence: number) {
+  let hash = 5381;
+  const value = `${normalizeName(dialogue)}:${occurrence}`;
+  for (let index = 0; index < value.length; index += 1) hash = ((hash << 5) + hash) ^ value.charCodeAt(index);
+  return `${pageId}:dialogue:${(hash >>> 0).toString(36)}`;
 }
 
 function buildStoryTextBlocks(text: string, entries: LoreEntry[], relatedLore: string[]): StoryTextBlock[] {
