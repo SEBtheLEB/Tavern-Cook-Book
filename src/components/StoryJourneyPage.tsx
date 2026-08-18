@@ -1231,6 +1231,8 @@ export function StoryJourneyPage({
   const [storyThread, setStoryThread] = useState("all");
   const [activeReaderChapterId, setActiveReaderChapterId] = useState(storedState.selectedChapterId);
   const [collapsedActs, setCollapsedActs] = useState<StoryJourneyScope[]>(["history", "act1", "act2", "act3"]);
+  const [collapsedReaderScopes, setCollapsedReaderScopes] = useState<StoryJourneyScope[]>([]);
+  const [collapsedReaderChapterIds, setCollapsedReaderChapterIds] = useState<string[]>([]);
   const [chronologyCollapsed, setChronologyCollapsed] = useState(false);
   const [storyToolsOpen, setStoryToolsOpen] = useState(false);
   const [storyScribeOpen, setStoryScribeOpen] = useState(false);
@@ -1843,6 +1845,49 @@ export function StoryJourneyPage({
       document.getElementById(pageId ? `story-beat-${pageId}` : `story-chapter-${chapterId}`)
         ?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
+  };
+
+  const scrollToReaderElement = (elementId: string) => {
+    window.setTimeout(() => {
+      document.getElementById(elementId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 80);
+  };
+
+  const toggleReaderScope = (scopeId: StoryJourneyScope) => {
+    const collapsing = !collapsedReaderScopes.includes(scopeId);
+    setCollapsedReaderScopes((current) => collapsing ? [...current, scopeId] : current.filter((id) => id !== scopeId));
+    if (!collapsing) return;
+
+    const scopeIndex = readingGroups.findIndex((group) => group.scope.id === scopeId);
+    const nextGroup = readingGroups[scopeIndex + 1];
+    if (nextGroup) {
+      setActiveReaderChapterId(nextGroup.chapters[0]?.id || activeReaderChapterId);
+      scrollToReaderElement(`story-scope-${nextGroup.scope.id}`);
+    }
+  };
+
+  const toggleReaderChapter = (chapterId: string) => {
+    const collapsing = !collapsedReaderChapterIds.includes(chapterId);
+    setCollapsedReaderChapterIds((current) => collapsing ? [...current, chapterId] : current.filter((id) => id !== chapterId));
+    if (!collapsing) return;
+
+    const orderedTargets = readingGroups.flatMap((group) => [
+      { kind: "scope" as const, id: group.scope.id },
+      ...group.chapters.map((chapter) => ({ kind: "chapter" as const, id: chapter.id }))
+    ]);
+    const chapterIndex = orderedTargets.findIndex((target) => target.kind === "chapter" && target.id === chapterId);
+    const nextTarget = orderedTargets[chapterIndex + 1];
+    if (!nextTarget) return;
+
+    if (nextTarget.kind === "scope") {
+      const nextGroup = readingGroups.find((group) => group.scope.id === nextTarget.id);
+      setActiveReaderChapterId(nextGroup?.chapters[0]?.id || activeReaderChapterId);
+      scrollToReaderElement(`story-scope-${nextTarget.id}`);
+      return;
+    }
+
+    setActiveReaderChapterId(nextTarget.id);
+    scrollToReaderElement(`story-chapter-${nextTarget.id}`);
   };
 
   const editReaderChapter = (chapterId: string) => {
@@ -3614,12 +3659,28 @@ export function StoryJourneyPage({
                   <h2>No story sections match.</h2>
                   <p>Clear the search or choose another story thread.</p>
                 </section>
-              ) : readingGroups.map(({ scope, chapters: groupChapters }) => (
-                <section key={scope.id} className="story-treatment-act">
+              ) : readingGroups.map(({ scope, chapters: groupChapters }) => {
+                const scopeCollapsed = collapsedReaderScopes.includes(scope.id);
+                return (
+                <section
+                  key={scope.id}
+                  id={`story-scope-${scope.id}`}
+                  className={`story-treatment-act ${scopeCollapsed ? "is-collapsed" : ""}`}
+                >
                   <header data-story-narration-block>
                     <span>{scope.eyebrow}</span>
                     <h2 className="font-display">{scope.label}</h2>
                     <p>{scope.description}</p>
+                    <button
+                      type="button"
+                      className="story-treatment-act-collapse"
+                      onClick={() => toggleReaderScope(scope.id)}
+                      aria-expanded={!scopeCollapsed}
+                      aria-label={`${scopeCollapsed ? "Expand" : "Collapse"} ${scope.label}`}
+                      title={`${scopeCollapsed ? "Expand" : "Collapse"} ${scope.label}`}
+                    >
+                      <Icon name={scopeCollapsed ? "ChevronRight" : "ChevronDown"} className="h-4 w-4" />
+                    </button>
                   </header>
                   {groupChapters.map((chapter, chapterIndex) => (
                     <StoryTreatmentChapter
@@ -3651,10 +3712,13 @@ export function StoryJourneyPage({
                       speechifyAction={speechifySectionAction.chapterId === chapter.id ? speechifySectionAction : null}
                       narrationLabel={speechifyNowPlaying}
                       narrationStatus={speechifyStatus}
+                      collapsed={collapsedReaderChapterIds.includes(chapter.id)}
+                      onToggleCollapsed={() => toggleReaderChapter(chapter.id)}
                     />
                   ))}
                 </section>
-              ))}
+                );
+              })}
                 </>
               )}
               </main>
@@ -4254,7 +4318,9 @@ function StoryTreatmentChapter({
   onOpenFaithTopic,
   speechifyAction,
   narrationLabel,
-  narrationStatus
+  narrationStatus,
+  collapsed,
+  onToggleCollapsed
 }: {
   chapter: StoryChapter;
   chapterIndex: number;
@@ -4283,6 +4349,8 @@ function StoryTreatmentChapter({
   speechifyAction: StoryNarrationSectionAction | null;
   narrationLabel: string;
   narrationStatus: "idle" | "connecting" | "playing" | "paused" | "error";
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
 }) {
   const visibleChapter = draft || chapter;
   const editing = Boolean(draft && canEdit);
@@ -4336,13 +4404,23 @@ function StoryTreatmentChapter({
     <article
       id={`story-chapter-${chapter.id}`}
       data-story-reader-chapter={chapter.id}
-      className={`story-treatment-chapter ${visibleChapter.id === GENERAL_HISTORY_OTHER_FAITHS_ID ? "story-history-faith-insight" : ""} ${editing ? "inline-editing" : ""}`}
+      className={`story-treatment-chapter ${visibleChapter.id === GENERAL_HISTORY_OTHER_FAITHS_ID ? "story-history-faith-insight" : ""} ${editing ? "inline-editing" : ""} ${collapsed ? "is-collapsed" : ""}`}
     >
+      <button
+        type="button"
+        className="story-treatment-chapter-marker"
+        onClick={onToggleCollapsed}
+        disabled={editing}
+        aria-expanded={!collapsed}
+        aria-label={`${collapsed ? "Expand" : "Collapse"} chapter ${chapterIndex + 1}: ${visibleChapter.title}`}
+        title={editing ? "Finish editing before collapsing this chapter" : `${collapsed ? "Expand" : "Collapse"} ${visibleChapter.title}`}
+      >
+        {storyReaderRomanNumeral(chapterIndex + 1)}
+      </button>
       <header className={`story-treatment-chapter-heading ${hideRedundantStandardIntro ? "standard-reading" : ""}`}>
         <div
           className={hideRedundantStandardIntro ? "story-standard-hidden-overview" : ""}
           data-story-narration-block={!editing ? "true" : undefined}
-          aria-hidden={hideRedundantStandardIntro ? "true" : undefined}
         >
           <span>{scopeLabel} · Chapter {chapterIndex + 1}</span>
           {editing ? (
@@ -6152,6 +6230,23 @@ function joinUniqueStoryText(values: unknown[]) {
     seen.add(key);
     return [isRichText(source) ? source : plainTextToRichHtml(source)];
   }).join("");
+}
+
+function storyReaderRomanNumeral(value: number) {
+  const numerals: Array<[number, string]> = [
+    [1000, "M"], [900, "CM"], [500, "D"], [400, "CD"],
+    [100, "C"], [90, "XC"], [50, "L"], [40, "XL"],
+    [10, "X"], [9, "IX"], [5, "V"], [4, "IV"], [1, "I"]
+  ];
+  let remaining = Math.max(1, Math.floor(value));
+  let result = "";
+  numerals.forEach(([amount, numeral]) => {
+    while (remaining >= amount) {
+      result += numeral;
+      remaining -= amount;
+    }
+  });
+  return result;
 }
 
 function plainStoryText(value: string) {

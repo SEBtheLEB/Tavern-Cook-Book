@@ -19164,9 +19164,6 @@ button,
 }
 
 /* Story Reader codex layout: a calm, chronological document surface. */
-.story-treatment-reader:not(.depth-overview) > .story-treatment-titlepage {
-  display: none;
-}
 
 .story-treatment-reader > .story-treatment-act {
   width: min(100%, 980px);
@@ -19179,7 +19176,47 @@ button,
   gap: 9px;
   border: 0;
   margin-bottom: 58px;
-  padding: 2px 0 28px;
+  padding: 2px 48px 28px 0;
+}
+
+.story-treatment-act {
+  scroll-margin-top: 78px;
+}
+
+.story-treatment-act-collapse {
+  position: absolute;
+  top: 3px;
+  right: 0;
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--gold) 38%, var(--panel-border));
+  border-radius: 50%;
+  padding: 0;
+  color: color-mix(in srgb, var(--gold) 86%, var(--app-ink));
+  background: color-mix(in srgb, var(--field-bg) 52%, transparent);
+  transition: border-color 150ms ease, background-color 150ms ease, transform 150ms ease;
+}
+
+.story-treatment-act-collapse:hover,
+.story-treatment-act-collapse:focus-visible {
+  border-color: color-mix(in srgb, var(--gold) 82%, var(--panel-border));
+  background: color-mix(in srgb, var(--gold) 10%, var(--field-bg));
+  outline: 0;
+  transform: scale(1.04);
+}
+
+.story-treatment-act.is-collapsed > header {
+  margin-bottom: 34px;
+}
+
+.story-treatment-act.is-collapsed > header p {
+  display: none;
+}
+
+.story-treatment-act.is-collapsed > .story-treatment-chapter {
+  display: none;
 }
 
 .story-treatment-reader .story-treatment-act > header::after {
@@ -19229,7 +19266,7 @@ button,
   counter-reset: story-reader-sequence;
 }
 
-.story-treatment-reader .story-treatment-chapter::before {
+.story-treatment-reader .story-treatment-chapter-marker {
   position: absolute;
   z-index: 2;
   top: 0;
@@ -19240,15 +19277,33 @@ button,
   place-items: center;
   border: 1px solid color-mix(in srgb, var(--gold) 82%, transparent);
   border-radius: 50%;
+  padding: 0;
   color: color-mix(in srgb, var(--gold) 88%, #f8e8ca);
   background: color-mix(in srgb, var(--app-bg) 94%, #071424);
   box-shadow:
     0 0 0 4px color-mix(in srgb, var(--app-bg) 92%, transparent),
     0 0 0 5px color-mix(in srgb, var(--gold) 38%, transparent);
-  content: counter(story-reader-chapter, upper-roman);
   font-family: Georgia, Cambria, "Times New Roman", serif;
   font-size: 1.7rem;
   line-height: 1;
+  cursor: pointer;
+  transition: color 150ms ease, border-color 150ms ease, background-color 150ms ease, transform 150ms ease;
+}
+
+.story-treatment-reader .story-treatment-chapter-marker:hover,
+.story-treatment-reader .story-treatment-chapter-marker:focus-visible,
+.story-treatment-reader .story-treatment-chapter.is-collapsed .story-treatment-chapter-marker {
+  border-color: color-mix(in srgb, var(--gold) 96%, transparent);
+  color: #fff1d1;
+  background: color-mix(in srgb, var(--gold) 12%, var(--app-bg));
+  outline: 0;
+  transform: scale(1.04);
+}
+
+.story-treatment-reader .story-treatment-chapter-marker:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+  transform: none;
 }
 
 .story-treatment-reader .story-treatment-chapter::after {
@@ -19263,6 +19318,35 @@ button,
 
 .story-treatment-reader .story-treatment-act > .story-treatment-chapter:last-child::after {
   bottom: 22px;
+}
+
+.story-treatment-reader .story-treatment-chapter.is-collapsed {
+  min-height: 58px;
+  margin-bottom: 34px;
+  padding-bottom: 24px;
+}
+
+.story-treatment-reader .story-treatment-chapter.is-collapsed::after {
+  bottom: -36px;
+}
+
+.story-treatment-reader .story-treatment-chapter.is-collapsed > :not(.story-treatment-chapter-marker):not(.story-treatment-chapter-heading) {
+  display: none;
+}
+
+.story-treatment-reader .story-treatment-chapter.is-collapsed .story-treatment-chapter-heading {
+  min-height: 56px;
+  margin-bottom: 0;
+}
+
+.story-treatment-reader .story-treatment-chapter.is-collapsed .story-treatment-chapter-heading p,
+.story-treatment-reader .story-treatment-chapter.is-collapsed .story-treatment-chapter-menu,
+.story-treatment-reader .story-treatment-chapter.is-collapsed .story-treatment-chapter-actions {
+  display: none;
+}
+
+.story-treatment-reader .story-treatment-chapter.is-collapsed .story-treatment-chapter-heading h2 {
+  font-size: clamp(1.55rem, 2.6vw, 2.15rem);
 }
 
 .story-treatment-reader .story-treatment-chapter-heading,
@@ -19554,7 +19638,7 @@ button,
     padding-left: 88px;
   }
 
-  .story-treatment-reader .story-treatment-chapter::before {
+  .story-treatment-reader .story-treatment-chapter-marker {
     left: 5px;
   }
 
@@ -19585,7 +19669,7 @@ button,
     padding: 0 0 54px 54px;
   }
 
-  .story-treatment-reader .story-treatment-chapter::before {
+  .story-treatment-reader .story-treatment-chapter-marker {
     left: 2px;
     width: 38px;
     height: 38px;
