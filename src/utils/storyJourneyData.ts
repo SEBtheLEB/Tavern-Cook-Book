@@ -122,6 +122,8 @@ export const normalizeStoryJourneyData = (value: Partial<StoryJourneyData> | und
     description: /chronological narrative treatment assembled from the tavern cookbook's existing canon/i.test(description)
       ? "The complete story of Tales of the Tavern in chronological order."
       : description,
+    dialogueBubbleImageUrl: value?.dialogueBubbleImageUrl ? String(value.dialogueBubbleImageUrl) : "",
+    dialogueBubbleImageFit: normalizeImageFit(value?.dialogueBubbleImageFit),
     chapters: Array.isArray(value?.chapters)
       ? value.chapters.map((chapter, index) => normalizeStoryJourneyChapter(chapter, `story-chapter-${index + 1}`))
       : [],

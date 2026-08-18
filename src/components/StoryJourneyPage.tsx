@@ -47,6 +47,7 @@ import { ImageManagerModal, type ImageManagerSlotDraft } from "./ImageManagerMod
 import { Icon } from "./Icon";
 import { LoreKeywordHoverBoundary } from "./LoreKeywordText";
 import { RichLoreText, RichTextEditor } from "./RichText";
+import { StoryDialogueText } from "./StoryDialogueText";
 import {
   ACT_ONE_STORY_CHAPTER_IDS,
   LEGACY_ACT_ONE_CHAPTER_ID,
@@ -1155,6 +1156,7 @@ export function StoryJourneyPage({
   const [storyEditMode, setStoryEditMode] = useState(false);
   const [inlineChapterDraft, setInlineChapterDraft] = useState<StoryChapter | null>(null);
   const [imageManagerOpen, setImageManagerOpen] = useState(false);
+  const [dialogueArtEntry, setDialogueArtEntry] = useState<LoreEntry | null | undefined>(undefined);
   const [readingDepth, setReadingDepth] = useState<StoryReadingDepth>("standard");
   const [storySearch, setStorySearch] = useState("");
   const [storySearchOpen, setStorySearchOpen] = useState(false);
@@ -1345,10 +1347,12 @@ export function StoryJourneyPage({
     onStoryJourneyChange({
       title: storyJourney.title || "The Story of Tales of the Tavern",
       description: storyJourney.description || "The complete story of Tales of the Tavern in chronological order.",
+      dialogueBubbleImageUrl: storyJourney.dialogueBubbleImageUrl || "",
+      dialogueBubbleImageFit: normalizeImageFit(storyJourney.dialogueBubbleImageFit),
       chapters,
       updatedAt: new Date().toISOString()
     });
-  }, [canEditStory, chapters, onStoryJourneyChange, storyJourney.chapters.length, storyJourney.description, storyJourney.title]);
+  }, [canEditStory, chapters, onStoryJourneyChange, storyJourney.chapters.length, storyJourney.description, storyJourney.dialogueBubbleImageFit, storyJourney.dialogueBubbleImageUrl, storyJourney.title]);
 
   useEffect(() => {
     if (!storyJourney.chapters.length) return;
@@ -1530,6 +1534,35 @@ export function StoryJourneyPage({
       });
     }
     setImageManagerOpen(false);
+  };
+
+  const saveDialogueArt = (slots: ImageManagerSlotDraft[]) => {
+    const bubbleFrame = slots.find((slot) => slot.id === "dialogueBubbleFrame");
+    const dialogueSprite = slots.find((slot) => slot.id === "dialogueSprite");
+    if (bubbleFrame) {
+      onStoryJourneyChange({
+        ...storyJourney,
+        dialogueBubbleImageUrl: bubbleFrame.imageUrl,
+        dialogueBubbleImageFit: normalizeImageFit(bubbleFrame.imageFit),
+        chapters,
+        updatedAt: new Date().toISOString()
+      });
+    }
+    if (dialogueArtEntry && dialogueSprite) {
+      onSaveEntry({
+        ...dialogueArtEntry,
+        media: {
+          ...dialogueArtEntry.media,
+          dialogueSpriteImage: dialogueSprite.imageUrl,
+          imageFits: {
+            ...dialogueArtEntry.media.imageFits,
+            dialogueSpriteImage: normalizeImageFit(dialogueSprite.imageFit)
+          }
+        },
+        updatedAt: new Date().toISOString()
+      });
+    }
+    setDialogueArtEntry(undefined);
   };
 
   const addChapter = () => {
@@ -3069,10 +3102,16 @@ export function StoryJourneyPage({
               Story Tools
             </button>
             {canEditStory && (
-              <button className="button-frame story-scribe-toolbar-button" onClick={() => openStoryScribe("wholeJourney")}>
-                <Icon name="Sparkles" className="h-4 w-4" />
-                Tavern Scribe
-              </button>
+              <>
+                <button className="button-frame" onClick={() => setDialogueArtEntry(null)} title="Manage the shared speech-bubble frame">
+                  <Icon name="Image" className="h-4 w-4" />
+                  Dialogue UI
+                </button>
+                <button className="button-frame story-scribe-toolbar-button" onClick={() => openStoryScribe("wholeJourney")}>
+                  <Icon name="Sparkles" className="h-4 w-4" />
+                  Tavern Scribe
+                </button>
+              </>
             )}
           </header>
 
@@ -3265,7 +3304,10 @@ export function StoryJourneyPage({
                       draft={inlineChapterDraft?.id === chapter.id ? inlineChapterDraft : null}
                       entries={entries}
                       bestiary={bestiary}
+                      dialogueBubbleImageUrl={storyJourney.dialogueBubbleImageUrl || ""}
+                      dialogueBubbleImageFit={storyJourney.dialogueBubbleImageFit}
                       onLoreClick={setSelectedLoreTerm}
+                      onManageDialogueArt={setDialogueArtEntry}
                       onEdit={() => editReaderChapter(chapter.id)}
                       onScribeChapter={() => openStoryScribe("wholeChapter", chapter.id)}
                       onScribePage={(pageIndex) => openStoryScribe("currentPage", chapter.id, pageIndex)}
@@ -3426,6 +3468,48 @@ export function StoryJourneyPage({
           onSave={saveStoryInspectorArt}
         />
       )}
+      {dialogueArtEntry !== undefined && (
+        <ImageManagerModal
+          title={dialogueArtEntry ? `${dialogueArtEntry.title} Dialogue Presentation` : "Story Journey Dialogue UI"}
+          subtitle={dialogueArtEntry
+            ? "Set this character's dialogue sprite and the shared speech-bubble frame. Both remain replaceable from their existing art slots."
+            : "Set the shared speech-bubble frame used by every dialogue line. Character portraits continue to come from each character's Dialogue Sprite slot."}
+          slots={[
+            {
+              id: "dialogueBubbleFrame",
+              label: "Shared Speech-Bubble Frame",
+              description: "Optional UI artwork stretched behind Story Journey dialogue. Leave empty to use the built-in parchment frame.",
+              imageUrl: storyJourney.dialogueBubbleImageUrl || "",
+              imageFit: storyJourney.dialogueBubbleImageFit,
+              frameWidth: 720,
+              frameHeight: 220,
+              uploadNameContext: {
+                subjectName: "Story Journey",
+                categoryName: "Dialogue UI",
+                slotName: "Speech Bubble Frame",
+                sourceType: "Story UI"
+              }
+            },
+            ...(dialogueArtEntry ? [{
+              id: "dialogueSprite",
+              label: `${dialogueArtEntry.title} Dialogue Sprite`,
+              description: "Character portrait used beside spoken dialogue. This is the same Dialogue Sprite field shown in the character Art Binder.",
+              imageUrl: dialogueArtEntry.media.dialogueSpriteImage || "",
+              imageFit: dialogueArtEntry.media.imageFits?.dialogueSpriteImage,
+              frameWidth: 280,
+              frameHeight: 320,
+              uploadNameContext: {
+                subjectName: dialogueArtEntry.title,
+                categoryName: "Dialogue UI Art",
+                slotName: "Dialogue Sprite",
+                sourceType: "Character"
+              }
+            }] : [])
+          ]}
+          onClose={() => setDialogueArtEntry(undefined)}
+          onSave={saveDialogueArt}
+        />
+      )}
     </section>
   );
 }
@@ -3564,7 +3648,10 @@ function StoryTreatmentChapter({
   draft,
   entries,
   bestiary,
+  dialogueBubbleImageUrl,
+  dialogueBubbleImageFit,
   onLoreClick,
+  onManageDialogueArt,
   onEdit,
   onScribeChapter,
   onScribePage,
@@ -3588,7 +3675,10 @@ function StoryTreatmentChapter({
   draft: StoryChapter | null;
   entries: LoreEntry[];
   bestiary: BestiaryCreature[];
+  dialogueBubbleImageUrl: string;
+  dialogueBubbleImageFit?: ImageFitSettings;
   onLoreClick: (term: string) => void;
+  onManageDialogueArt: (speaker: LoreEntry | null) => void;
   onEdit: () => void;
   onScribeChapter: () => void;
   onScribePage: (pageIndex: number) => void;
@@ -3756,8 +3846,26 @@ function StoryTreatmentChapter({
               </>
             ) : (
               <>
-                <RichLoreText text={page.text} />
-                {readingDepth === "detailed" && page.detailedText && <RichLoreText text={page.detailedText} />}
+                <StoryDialogueText
+                  text={page.text}
+                  entries={entries}
+                  relatedLore={[...visibleChapter.relatedLore, ...page.relatedLore]}
+                  bubbleImageUrl={dialogueBubbleImageUrl}
+                  bubbleImageFit={dialogueBubbleImageFit}
+                  canEdit={canEdit}
+                  onManageArt={onManageDialogueArt}
+                />
+                {readingDepth === "detailed" && page.detailedText && (
+                  <StoryDialogueText
+                    text={page.detailedText}
+                    entries={entries}
+                    relatedLore={[...visibleChapter.relatedLore, ...page.relatedLore]}
+                    bubbleImageUrl={dialogueBubbleImageUrl}
+                    bubbleImageFit={dialogueBubbleImageFit}
+                    canEdit={canEdit}
+                    onManageArt={onManageDialogueArt}
+                  />
+                )}
               </>
             )}
           </div>

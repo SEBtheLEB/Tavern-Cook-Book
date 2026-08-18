@@ -1,0 +1,261 @@
+import { useMemo } from "react";
+import type { ImageFitSettings, LoreEntry } from "../types";
+import { imageFitToStyle } from "../utils/imageFit";
+import { isRichText, plainTextToRichHtml, sanitizeRichHtml } from "../utils/richText";
+import { DriveAwareImage } from "./DriveAwareImage";
+import { Icon } from "./Icon";
+import { RichLoreText } from "./RichText";
+
+interface StoryDialogueTextProps {
+  text: string;
+  entries: LoreEntry[];
+  relatedLore: string[];
+  bubbleImageUrl?: string;
+  bubbleImageFit?: ImageFitSettings;
+  canEdit?: boolean;
+  onManageArt?: (speaker: LoreEntry | null) => void;
+}
+
+interface StoryTextBlock {
+  html: string;
+  plain: string;
+  dialogue: string;
+  speaker: LoreEntry | null;
+  speakerName: string;
+}
+
+interface SpeakerCandidate {
+  entry: LoreEntry;
+  aliases: string[];
+}
+
+export function StoryDialogueText({
+  text,
+  entries,
+  relatedLore,
+  bubbleImageUrl = "",
+  bubbleImageFit,
+  canEdit = false,
+  onManageArt
+}: StoryDialogueTextProps) {
+  const relatedLoreKey = relatedLore.join("\u0000");
+  const blocks = useMemo(() => buildStoryTextBlocks(text, entries, relatedLore), [entries, relatedLoreKey, text]);
+
+  if (!blocks.some((block) => block.dialogue)) return <RichLoreText text={text} />;
+
+  return (
+    <div className="story-dialogue-flow">
+      {blocks.map((block, index) => block.dialogue ? (
+        <StoryDialogueBubble
+          key={`dialogue-${index}-${block.speakerName}`}
+          dialogue={block.dialogue}
+          speaker={block.speaker}
+          speakerName={block.speakerName}
+          bubbleImageUrl={bubbleImageUrl}
+          bubbleImageFit={bubbleImageFit}
+          canEdit={canEdit}
+          onManageArt={onManageArt}
+        />
+      ) : (
+        <RichLoreText key={`prose-${index}`} text={block.html} />
+      ))}
+    </div>
+  );
+}
+
+function StoryDialogueBubble({
+  dialogue,
+  speaker,
+  speakerName,
+  bubbleImageUrl,
+  bubbleImageFit,
+  canEdit,
+  onManageArt
+}: {
+  dialogue: string;
+  speaker: LoreEntry | null;
+  speakerName: string;
+  bubbleImageUrl: string;
+  bubbleImageFit?: ImageFitSettings;
+  canEdit: boolean;
+  onManageArt?: (speaker: LoreEntry | null) => void;
+}) {
+  const portrait = speaker
+    ? speaker.media.dialogueSpriteImage || speaker.media.characterPortrait || speaker.media.mainImage || speaker.media.iconImage || ""
+    : "";
+  const portraitFit = speaker?.media.imageFits?.dialogueSpriteImage || speaker?.media.imageFits?.characterPortrait;
+  const right = /\bgwen\b/i.test(speakerName);
+  const hasCustomBubble = Boolean(bubbleImageUrl);
+
+  return (
+    <figure className={`story-dialogue-bubble ${right ? "speaker-right" : "speaker-left"} ${hasCustomBubble ? "has-custom-frame" : ""}`}>
+      <div className="story-dialogue-frame">
+        {hasCustomBubble && (
+          <div className="story-dialogue-frame-art" aria-hidden="true">
+            <DriveAwareImage src={bubbleImageUrl} alt="" style={imageFitToStyle(bubbleImageFit)} draggable={false} />
+          </div>
+        )}
+        <div className="story-dialogue-copy">
+          <blockquote>{dialogue}</blockquote>
+          <span aria-hidden="true" />
+        </div>
+        <div className={`story-dialogue-portrait ${portrait ? "has-art" : "missing-art"}`} aria-label={`${speakerName} dialogue sprite`}>
+          {portrait ? (
+            <DriveAwareImage src={portrait} alt="" style={imageFitToStyle(portraitFit)} draggable={false} />
+          ) : (
+            <div data-story-narration-ignore>
+              <Icon name="Image" className="h-6 w-6" />
+              <small>Dialogue sprite</small>
+            </div>
+          )}
+        </div>
+        <figcaption>{speakerName}</figcaption>
+        {canEdit && onManageArt && (
+          <button
+            type="button"
+            className="story-dialogue-art-button"
+            onClick={() => onManageArt(speaker)}
+            title={`Manage ${speakerName} dialogue sprite and speech-bubble art`}
+            data-story-narration-ignore
+          >
+            <Icon name="Image" className="h-4 w-4" />
+            Art
+          </button>
+        )}
+      </div>
+    </figure>
+  );
+}
+
+function buildStoryTextBlocks(text: string, entries: LoreEntry[], relatedLore: string[]): StoryTextBlock[] {
+  const rawBlocks = storyHtmlBlocks(text);
+  const candidates = buildSpeakerCandidates(entries, relatedLore);
+  const participants: SpeakerCandidate[] = [];
+  let narrativeSpeaker: SpeakerCandidate | null = null;
+  let previousSpeaker: SpeakerCandidate | null = null;
+
+  return rawBlocks.map((block) => {
+    const dialogue = standaloneDialogue(block.plain);
+    if (!dialogue) {
+      const mentioned = lastMentionedSpeaker(block.plain, candidates);
+      if (mentioned) {
+        narrativeSpeaker = mentioned;
+        rememberParticipant(participants, mentioned);
+      }
+      return { ...block, dialogue: "", speaker: null, speakerName: "" };
+    }
+
+    let selected = lastMentionedSpeaker(block.plain, candidates) || narrativeSpeaker;
+    narrativeSpeaker = null;
+    if (!selected && previousSpeaker && participants.length > 1) {
+      const previousIndex = participants.findIndex((candidate) => candidate.entry.id === previousSpeaker?.entry.id);
+      selected = participants[(previousIndex + 1) % participants.length] || null;
+    }
+    if (!selected) selected = previousSpeaker || participants[0] || relatedSpeakerFallback(candidates, relatedLore);
+    if (selected) {
+      previousSpeaker = selected;
+      rememberParticipant(participants, selected);
+    }
+
+    return {
+      ...block,
+      dialogue,
+      speaker: selected?.entry || null,
+      speakerName: selected?.entry.title || "Unknown Speaker"
+    };
+  });
+}
+
+function storyHtmlBlocks(text: string) {
+  const source = isRichText(text) ? sanitizeRichHtml(text) : plainTextToRichHtml(text);
+  if (typeof DOMParser === "undefined") {
+    return source.split(/\n\s*\n/).filter(Boolean).map((plain) => ({ html: plainTextToRichHtml(plain), plain }));
+  }
+  const document = new DOMParser().parseFromString(`<div>${source}</div>`, "text/html");
+  const root = document.body.firstElementChild;
+  return Array.from(root?.children || []).map((element) => ({
+    html: element.outerHTML,
+    plain: (element.textContent || "").trim()
+  })).filter((block) => block.plain);
+}
+
+function standaloneDialogue(value: string) {
+  const normalized = value.trim();
+  const match = normalized.match(/^[\u201c"]([\s\S]*?)[\u201d"]$/);
+  if (match?.[1]?.trim()) return match[1].trim();
+  if (!/^[\u201c"]/.test(normalized) || !/\b(?:said|asked|replied|answered|called|cried|yelled|shouted|screamed|whispered|muttered|snapped|added|continued|told|warned|insisted|explained)\b/i.test(normalized)) return "";
+
+  const spoken: string[] = [];
+  const quotePattern = /[\u201c"]([^\u201d"]+)[\u201d"]/g;
+  let quote: RegExpExecArray | null;
+  while ((quote = quotePattern.exec(normalized))) {
+    const line = quote[1].trim();
+    if (line) spoken.push(line);
+  }
+  return spoken.join(" ").replace(/,\s+([a-z])/g, ", $1").trim();
+}
+
+function buildSpeakerCandidates(entries: LoreEntry[], relatedLore: string[]): SpeakerCandidate[] {
+  const related = new Set(relatedLore.map(normalizeName));
+  return entries
+    .filter((entry) => isCharacterEntry(entry) || related.has(normalizeName(entry.title)))
+    .map((entry) => ({
+      entry,
+      aliases: speakerAliases(entry)
+    }))
+    .sort((left, right) => Math.max(...right.aliases.map((alias) => alias.length)) - Math.max(...left.aliases.map((alias) => alias.length)));
+}
+
+function isCharacterEntry(entry: LoreEntry) {
+  return /character|cast|people/i.test(`${entry.category} ${entry.type}`) && !/culture|faction|race|religion/i.test(`${entry.category} ${entry.type}`);
+}
+
+function speakerAliases(entry: LoreEntry) {
+  const aliases = [entry.title];
+  const storedAliases = entry.fields.Aliases || entry.fields.aliases || entry.fields["Alternate Names"];
+  if (Array.isArray(storedAliases)) aliases.push(...storedAliases.map(String));
+  if (typeof storedAliases === "string") aliases.push(...storedAliases.split(/[,/]/));
+  if (/tohm kyatt/i.test(entry.title)) aliases.push("Tohm", "Tom", "Tomcat");
+  if (/princess lillia/i.test(entry.title)) aliases.push("Lillia", "Princess");
+  if (/cedric(?:k)? the grunt/i.test(entry.title)) aliases.push("Cedric", "Cedrick");
+  return Array.from(new Set(aliases.map((alias) => alias.trim()).filter((alias) => alias.length >= 2)));
+}
+
+function lastMentionedSpeaker(text: string, candidates: SpeakerCandidate[]) {
+  let matchedCandidate: SpeakerCandidate | null = null;
+  let matchedIndex = -1;
+  candidates.forEach((candidate) => candidate.aliases.forEach((alias) => {
+    const expression = new RegExp(`\\b${escapeRegExp(alias)}(?:'s)?\\b`, "gi");
+    let result: RegExpExecArray | null;
+    while ((result = expression.exec(text))) {
+      if (result.index >= matchedIndex) {
+        matchedCandidate = candidate;
+        matchedIndex = result.index;
+      }
+    }
+  }));
+  return matchedCandidate;
+}
+
+function relatedSpeakerFallback(candidates: SpeakerCandidate[], relatedLore: string[]) {
+  for (const term of relatedLore) {
+    const normalized = normalizeName(term);
+    const candidate = candidates.find((item) => item.aliases.some((alias) => normalizeName(alias) === normalized));
+    if (candidate) return candidate;
+  }
+  return null;
+}
+
+function rememberParticipant(participants: SpeakerCandidate[], candidate: SpeakerCandidate) {
+  if (participants.some((item) => item.entry.id === candidate.entry.id)) return;
+  participants.push(candidate);
+  if (participants.length > 3) participants.shift();
+}
+
+function normalizeName(value: string) {
+  return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}

@@ -885,6 +885,8 @@ export interface StoryJourneyChapterRecord {
 export interface StoryJourneyData {
   title: string;
   description: string;
+  dialogueBubbleImageUrl?: string;
+  dialogueBubbleImageFit?: ImageFitSettings;
   chapters: StoryJourneyChapterRecord[];
   updatedAt: string;
 }

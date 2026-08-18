@@ -19154,6 +19154,234 @@ button,
   margin-bottom: 1.3em;
 }
 
+/* In-game dialogue presentation inside the Story Journey reader. */
+.story-dialogue-flow {
+  display: block;
+}
+
+.story-dialogue-flow > .rich-lore-text p {
+  margin-bottom: 1.3em;
+}
+
+.story-dialogue-bubble {
+  width: min(92%, 780px);
+  margin: 30px 0 42px;
+}
+
+.story-dialogue-bubble.speaker-left {
+  margin-right: auto;
+  padding-left: 86px;
+}
+
+.story-dialogue-bubble.speaker-right {
+  margin-left: auto;
+  padding-right: 86px;
+}
+
+.story-dialogue-frame {
+  position: relative;
+  min-height: 142px;
+  border: 2px solid color-mix(in srgb, var(--gold) 62%, #3a2411);
+  border-radius: 24px;
+  padding: 28px 42px 34px 96px;
+  color: #332417;
+  background: #dfb66f;
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.22), inset 0 0 0 2px rgba(255, 243, 205, 0.2);
+  isolation: isolate;
+}
+
+.story-dialogue-bubble.speaker-right .story-dialogue-frame {
+  padding-right: 96px;
+  padding-left: 42px;
+  background: #d6cec1;
+}
+
+.story-dialogue-frame-art {
+  position: absolute;
+  z-index: -1;
+  inset: -2px;
+  overflow: hidden;
+  border-radius: inherit;
+}
+
+.story-dialogue-bubble.has-custom-frame .story-dialogue-frame {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+.story-dialogue-copy {
+  position: relative;
+  z-index: 2;
+}
+
+.story-dialogue-copy blockquote {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.46rem;
+  font-style: italic;
+  font-weight: 700;
+  line-height: 1.42;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.42);
+}
+
+.story-dialogue-copy > span {
+  display: block;
+  width: 78%;
+  height: 1px;
+  margin: 24px auto 0;
+  background: linear-gradient(90deg, transparent, currentColor 42%, currentColor 58%, transparent);
+  opacity: 0.34;
+}
+
+.story-dialogue-portrait {
+  position: absolute;
+  z-index: 3;
+  bottom: -16px;
+  left: -92px;
+  width: 176px;
+  height: 188px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.story-dialogue-bubble.speaker-right .story-dialogue-portrait {
+  right: -92px;
+  left: auto;
+}
+
+.story-dialogue-portrait.has-art img {
+  filter: drop-shadow(0 10px 8px rgba(0, 0, 0, 0.32));
+}
+
+.story-dialogue-portrait.missing-art {
+  display: grid;
+  place-items: end center;
+  padding-bottom: 30px;
+}
+
+.story-dialogue-portrait.missing-art > div {
+  display: grid;
+  width: 104px;
+  height: 122px;
+  place-items: center;
+  align-content: center;
+  gap: 7px;
+  border: 1px dashed color-mix(in srgb, var(--gold) 60%, #5b3b20);
+  border-radius: 50% 50% 14px 14px;
+  color: #5b432b;
+  background: rgba(255, 244, 216, 0.68);
+}
+
+.story-dialogue-portrait.missing-art small {
+  max-width: 78px;
+  font-size: 0.58rem;
+  font-weight: 750;
+  line-height: 1.15;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.story-dialogue-frame figcaption {
+  position: absolute;
+  z-index: 4;
+  bottom: -30px;
+  left: -72px;
+  max-width: 220px;
+  overflow: hidden;
+  color: color-mix(in srgb, var(--app-ink) 88%, var(--gold));
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.08rem;
+  font-weight: 800;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  text-shadow: 0 2px 4px var(--app-bg);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.story-dialogue-bubble.speaker-right figcaption {
+  right: -72px;
+  left: auto;
+  text-align: right;
+}
+
+.story-dialogue-art-button {
+  position: absolute;
+  z-index: 5;
+  top: 8px;
+  right: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid rgba(76, 49, 24, 0.3);
+  border-radius: 6px;
+  padding: 4px 7px;
+  color: #49321d;
+  background: rgba(255, 247, 223, 0.78);
+  font-size: 0.66rem;
+  font-weight: 750;
+}
+
+.story-dialogue-bubble.speaker-right .story-dialogue-art-button {
+  right: auto;
+  left: 10px;
+}
+
+.story-dialogue-art-button:hover {
+  border-color: rgba(76, 49, 24, 0.62);
+  background: rgba(255, 249, 230, 0.96);
+}
+
+.theme-dream .story-dialogue-frame figcaption {
+  color: #f3dfb9;
+  text-shadow: 0 2px 5px #050912;
+}
+
+@media (max-width: 760px) {
+  .story-dialogue-bubble {
+    width: 100%;
+    margin-top: 24px;
+    padding-right: 0;
+    padding-left: 0;
+  }
+
+  .story-dialogue-frame,
+  .story-dialogue-bubble.speaker-right .story-dialogue-frame {
+    min-height: 128px;
+    padding: 24px 64px 30px;
+  }
+
+  .story-dialogue-portrait {
+    bottom: -8px;
+    left: -18px;
+    width: 92px;
+    height: 132px;
+  }
+
+  .story-dialogue-bubble.speaker-right .story-dialogue-portrait {
+    right: -18px;
+  }
+
+  .story-dialogue-portrait.missing-art > div {
+    width: 68px;
+    height: 92px;
+  }
+
+  .story-dialogue-copy blockquote {
+    font-size: 1.08rem;
+  }
+
+  .story-dialogue-frame figcaption,
+  .story-dialogue-bubble.speaker-right figcaption {
+    right: auto;
+    bottom: -26px;
+    left: 8px;
+    font-size: 0.86rem;
+    text-align: left;
+  }
+}
+
 .story-treatment-reader.depth-standard .story-treatment-callout,
 .story-treatment-reader.depth-standard .story-treatment-gap {
   max-width: 860px;
