@@ -137,7 +137,8 @@ function buildStoryTextBlocks(text: string, entries: LoreEntry[], relatedLore: s
   return rawBlocks.map((block) => {
     const dialogue = standaloneDialogue(block.plain);
     if (!dialogue) {
-      const mentioned = lastMentionedSpeaker(block.plain, candidates);
+      const mentioned = firstMentionedSpeaker(block.plain, candidates)
+        || (/^(?:he|she|they)\b/i.test(block.plain) ? previousSpeaker : null);
       if (mentioned) {
         narrativeSpeaker = mentioned;
         rememberParticipant(participants, mentioned);
@@ -145,11 +146,17 @@ function buildStoryTextBlocks(text: string, entries: LoreEntry[], relatedLore: s
       return { ...block, dialogue: "", speaker: null, speakerName: "" };
     }
 
-    let selected = lastMentionedSpeaker(block.plain, candidates) || narrativeSpeaker;
+    let selected = attributedSpeaker(block.plain, candidates) || narrativeSpeaker;
     narrativeSpeaker = null;
+    if (!selected && /^(?:help|anyone)\b/i.test(dialogue)) {
+      selected = relatedSpeakerFallback(candidates, relatedLore, { exclude: ["gwen"] });
+    }
     if (!selected && previousSpeaker && participants.length > 1) {
       const previousIndex = participants.findIndex((candidate) => candidate.entry.id === previousSpeaker?.entry.id);
       selected = participants[(previousIndex + 1) % participants.length] || null;
+    }
+    if (selected && dialogueRefersToSpeakerInThirdPerson(dialogue, selected)) {
+      selected = participants.find((candidate) => candidate.entry.id !== selected?.entry.id) || null;
     }
     if (!selected) selected = previousSpeaker || participants[0] || relatedSpeakerFallback(candidates, relatedLore);
     if (selected) {
@@ -221,29 +228,51 @@ function speakerAliases(entry: LoreEntry) {
   return Array.from(new Set(aliases.map((alias) => alias.trim()).filter((alias) => alias.length >= 2)));
 }
 
-function lastMentionedSpeaker(text: string, candidates: SpeakerCandidate[]) {
+function firstMentionedSpeaker(text: string, candidates: SpeakerCandidate[]) {
   let matchedCandidate: SpeakerCandidate | null = null;
-  let matchedIndex = -1;
+  let matchedIndex = Number.POSITIVE_INFINITY;
   candidates.forEach((candidate) => candidate.aliases.forEach((alias) => {
     const expression = new RegExp(`\\b${escapeRegExp(alias)}(?:'s)?\\b`, "gi");
-    let result: RegExpExecArray | null;
-    while ((result = expression.exec(text))) {
-      if (result.index >= matchedIndex) {
-        matchedCandidate = candidate;
-        matchedIndex = result.index;
-      }
+    const result = expression.exec(text);
+    if (result && result.index < matchedIndex) {
+      matchedCandidate = candidate;
+      matchedIndex = result.index;
     }
   }));
   return matchedCandidate;
 }
 
-function relatedSpeakerFallback(candidates: SpeakerCandidate[], relatedLore: string[]) {
+function attributedSpeaker(text: string, candidates: SpeakerCandidate[]) {
+  const speechVerb = "said|asked|replied|answered|called|cried|yelled|shouted|screamed|whispered|muttered|snapped|added|continued|told|warned|insisted|explained";
+  for (const candidate of candidates) {
+    for (const alias of candidate.aliases) {
+      const name = escapeRegExp(alias);
+      if (new RegExp(`\\b${name}\\b[^.!?]{0,42}\\b(?:${speechVerb})\\b|\\b(?:${speechVerb})\\b[^.!?]{0,42}\\b${name}\\b`, "i").test(text)) {
+        return candidate;
+      }
+    }
+  }
+  return null;
+}
+
+function relatedSpeakerFallback(
+  candidates: SpeakerCandidate[],
+  relatedLore: string[],
+  options: { exclude?: string[] } = {}
+) {
+  const excluded = new Set((options.exclude || []).map(normalizeName));
   for (const term of relatedLore) {
     const normalized = normalizeName(term);
     const candidate = candidates.find((item) => item.aliases.some((alias) => normalizeName(alias) === normalized));
-    if (candidate) return candidate;
+    if (candidate && !candidate.aliases.some((alias) => excluded.has(normalizeName(alias)))) return candidate;
   }
   return null;
+}
+
+function dialogueRefersToSpeakerInThirdPerson(dialogue: string, speaker: SpeakerCandidate) {
+  if (/\b(?:i|i'm|i've|me|my|mine)\b/i.test(dialogue)) return false;
+  if (/^there (?:she|he|they)\b/i.test(dialogue)) return true;
+  return speaker.aliases.some((alias) => new RegExp(`\\b${escapeRegExp(alias)}\\b`, "i").test(dialogue));
 }
 
 function rememberParticipant(participants: SpeakerCandidate[], candidate: SpeakerCandidate) {
