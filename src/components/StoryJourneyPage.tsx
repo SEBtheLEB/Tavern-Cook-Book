@@ -3752,6 +3752,7 @@ function StoryTreatmentChapter({
 }) {
   const visibleChapter = draft || chapter;
   const editing = Boolean(draft && canEdit);
+  const hideRedundantStandardIntro = readingDepth === "standard" && !editing && isRedundantStoryChapterIntro(visibleChapter);
   const [transferOpen, setTransferOpen] = useState(false);
   const [sectionCopied, setSectionCopied] = useState(false);
 
@@ -3803,11 +3804,11 @@ function StoryTreatmentChapter({
       data-story-reader-chapter={chapter.id}
       className={`story-treatment-chapter ${visibleChapter.id === GENERAL_HISTORY_OTHER_FAITHS_ID ? "story-history-faith-insight" : ""} ${editing ? "inline-editing" : ""}`}
     >
-      <header className={`story-treatment-chapter-heading ${readingDepth === "standard" && !editing ? "standard-reading" : ""}`}>
+      <header className={`story-treatment-chapter-heading ${hideRedundantStandardIntro ? "standard-reading" : ""}`}>
         <div
-          className={readingDepth === "standard" && !editing ? "story-standard-hidden-overview" : ""}
+          className={hideRedundantStandardIntro ? "story-standard-hidden-overview" : ""}
           data-story-narration-block={!editing ? "true" : undefined}
-          aria-hidden={readingDepth === "standard" && !editing ? "true" : undefined}
+          aria-hidden={hideRedundantStandardIntro ? "true" : undefined}
         >
           <span>{scopeLabel} · Chapter {chapterIndex + 1}</span>
           {editing ? (
@@ -3892,9 +3893,9 @@ function StoryTreatmentChapter({
         </section>
       ) : (
         <div
-          className={`story-treatment-lede ${readingDepth === "standard" ? "story-standard-hidden-overview" : ""}`}
+          className={`story-treatment-lede ${hideRedundantStandardIntro ? "story-standard-hidden-overview" : ""}`}
           data-story-narration-block
-          aria-hidden={readingDepth === "standard" ? "true" : undefined}
+          aria-hidden={hideRedundantStandardIntro ? "true" : undefined}
         >
           <RichLoreText text={visibleChapter.overviewText || visibleChapter.shortDescription} />
         </div>
@@ -6141,6 +6142,27 @@ function splitStoryParagraphs(value: string) {
     .split(/\n\s*\n/)
     .map((paragraph) => paragraph.replace(/\n/g, " ").trim())
     .filter(Boolean);
+}
+
+function isRedundantStoryChapterIntro(chapter: StoryChapter) {
+  const firstPage = chapter.pages[0];
+  if (!firstPage) return false;
+  const chapterTitle = normalizeStoryHeadingForComparison(chapter.title);
+  const firstPageTitle = normalizeStoryHeadingForComparison(firstPage.title);
+  if (!chapterTitle || !firstPageTitle) return false;
+  return chapterTitle === firstPageTitle
+    || (chapterTitle.length > 10 && firstPageTitle.length > 10 && (
+      chapterTitle.endsWith(firstPageTitle) || firstPageTitle.endsWith(chapterTitle)
+    ));
+}
+
+function normalizeStoryHeadingForComparison(value: string) {
+  return richTextToPlainText(value)
+    .toLowerCase()
+    .replace(/^chapter\s+(?:\d+|[ivxlcdm]+)\s*[-:\u2013\u2014]?\s*/i, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/^the\s+/, "")
+    .trim();
 }
 
 function buildBeatCallouts(chapter: StoryChapter, page: StoryPage): StoryJourneyCallout[] {
