@@ -28,9 +28,11 @@ export function DialogueSpritePickerModal({
   onApply,
   onClose
 }: DialogueSpritePickerModalProps) {
+  const wholeBoxMode = options.length > 0 && options.every((option) => option.presentation === "full-box");
+  const neutralOption = options.find((option) => /neutral/i.test(option.label)) || options[0] || null;
   const [query, setQuery] = useState("");
   const [speakerOnly, setSpeakerOnly] = useState(Boolean(speakerEntryId));
-  const [selectedAssetId, setSelectedAssetId] = useState(currentSelection?.assetId || "");
+  const [selectedAssetId, setSelectedAssetId] = useState(currentSelection?.assetId || neutralOption?.assetId || "");
   const visibleOptions = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
     return options.filter((option) => {
@@ -50,12 +52,14 @@ export function DialogueSpritePickerModal({
 
   return (
     <div className="dialogue-sprite-picker-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <section className="dialogue-sprite-picker" role="dialog" aria-modal="true" aria-labelledby="dialogue-sprite-picker-title">
+      <section className={`dialogue-sprite-picker ${wholeBoxMode ? "whole-box-mode" : ""}`} role="dialog" aria-modal="true" aria-labelledby="dialogue-sprite-picker-title">
         <header>
           <div>
-            <span>Dialogue art</span>
-            <h2 id="dialogue-sprite-picker-title">Choose {speakerName}'s Sprite</h2>
-            <p>Only Dialogue Sprites already posted in the Tavern Cookbook are available here.</p>
+            <span>{wholeBoxMode ? "Dialogue emotion" : "Dialogue art"}</span>
+            <h2 id="dialogue-sprite-picker-title">Choose {speakerName}'s {wholeBoxMode ? "Emotion" : "Sprite"}</h2>
+            <p>{wholeBoxMode
+              ? "Choose an emotion to replace this line's complete dialogue-box PNG."
+              : "Only Dialogue Sprites already posted in the Tavern Cookbook are available here."}</p>
           </div>
           <button type="button" className="icon-button" onClick={onClose} title="Close sprite picker">
             <Icon name="X" className="h-5 w-5" />
@@ -64,7 +68,7 @@ export function DialogueSpritePickerModal({
 
         <blockquote>{dialogue}</blockquote>
 
-        <div className="dialogue-sprite-picker-tools">
+        {!wholeBoxMode && <div className="dialogue-sprite-picker-tools">
           <label>
             <Icon name="Search" className="h-4 w-4" />
             <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search dialogue sprites" autoFocus />
@@ -77,7 +81,7 @@ export function DialogueSpritePickerModal({
               All Sprites
             </button>
           </div>
-        </div>
+        </div>}
 
         <div className="dialogue-sprite-picker-grid">
           {visibleOptions.map((option) => (
@@ -85,7 +89,10 @@ export function DialogueSpritePickerModal({
               type="button"
               key={option.assetId}
               className={selectedAssetId === option.assetId ? "selected" : ""}
-              onClick={() => setSelectedAssetId(option.assetId)}
+              onClick={() => {
+                setSelectedAssetId(option.assetId);
+                if (wholeBoxMode) onApply(option);
+              }}
             >
               <span className="dialogue-sprite-picker-preview">
                 <DriveAwareImage src={option.imageUrl} alt="" style={imageFitToStyle(option.imageFit)} draggable={false} />
@@ -105,12 +112,14 @@ export function DialogueSpritePickerModal({
         </div>
 
         <footer>
-          <button type="button" onClick={() => onApply(null)}>Use Character Default</button>
+          <button type="button" onClick={() => wholeBoxMode && neutralOption ? onApply(neutralOption) : onApply(null)}>
+            {wholeBoxMode ? "Use Neutral" : "Use Character Default"}
+          </button>
           <span />
           <button type="button" onClick={onClose}>Cancel</button>
-          <button type="button" className="primary" onClick={() => selected && onApply(selected)} disabled={!selected}>
+          {!wholeBoxMode && <button type="button" className="primary" onClick={() => selected && onApply(selected)} disabled={!selected}>
             <Icon name="CircleCheck" className="h-4 w-4" /> Apply Sprite
-          </button>
+          </button>}
         </footer>
       </section>
     </div>
@@ -118,7 +127,7 @@ export function DialogueSpritePickerModal({
 }
 
 export function collectDialogueSpriteOptions(entries: LoreEntry[]): DialogueSpriteOption[] {
-  const options: DialogueSpriteOption[] = [];
+  const options: DialogueSpriteOption[] = temporaryDialogueBoxOptions(entries);
   const seen = new Set<string>();
   const add = (entry: LoreEntry, assetId: string, label: string, imageUrl: string, imageFit?: ImageFitSettings) => {
     const resolvedUrl = resolveImageSourceUrl(imageUrl) || imageUrl;
@@ -142,5 +151,31 @@ export function collectDialogueSpriteOptions(entries: LoreEntry[]): DialogueSpri
     }));
   });
 
-  return options.sort((left, right) => left.ownerName.localeCompare(right.ownerName) || left.label.localeCompare(right.label));
+  const emotionOrder = new Map(["Neutral", "Angry", "Disgusted", "Laughing", "Surprised"].map((label, index) => [label, index]));
+  return options.sort((left, right) => (
+    left.ownerName.localeCompare(right.ownerName)
+    || (emotionOrder.get(left.label) ?? 99) - (emotionOrder.get(right.label) ?? 99)
+    || left.label.localeCompare(right.label)
+  ));
+}
+
+function temporaryDialogueBoxOptions(entries: LoreEntry[]): DialogueSpriteOption[] {
+  const gwen = entries.find((entry) => /^gwen\b/i.test(entry.title));
+  const tohm = entries.find((entry) => /^(?:tohm|thom|tom)(?:\s+kyatt)?$/i.test(entry.title));
+  const option = (ownerName: string, sourceEntryId: string | undefined, emotion: string, fileName: string): DialogueSpriteOption => ({
+    assetId: `temporary-dialogue-box:${ownerName.toLowerCase().replace(/\s+/g, "-")}:${emotion.toLowerCase()}`,
+    label: emotion,
+    ownerName,
+    imageUrl: `/story-dialogue/${fileName}`,
+    sourceEntryId,
+    presentation: "full-box"
+  });
+  return [
+    option("Gwen", gwen?.id, "Neutral", "gwen-neutral.png"),
+    option("Gwen", gwen?.id, "Angry", "gwen-angry.png"),
+    option("Gwen", gwen?.id, "Disgusted", "gwen-disgusted.png"),
+    option("Gwen", gwen?.id, "Laughing", "gwen-laughing.png"),
+    option("Gwen", gwen?.id, "Surprised", "gwen-surprised.png"),
+    option("Tohm Kyatt", tohm?.id, "Neutral", "tohm-neutral.png")
+  ];
 }

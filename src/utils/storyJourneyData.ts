@@ -85,7 +85,8 @@ export const normalizeStoryJourneyPage = (
         assetId: String(selection.assetId || key),
         imageUrl: String(selection.imageUrl),
         imageFit: normalizeImageFit(selection.imageFit),
-        sourceEntryId: selection.sourceEntryId ? String(selection.sourceEntryId) : undefined
+        sourceEntryId: selection.sourceEntryId ? String(selection.sourceEntryId) : undefined,
+        presentation: selection.presentation === "full-box" ? "full-box" : "portrait"
       }]];
     })
   )

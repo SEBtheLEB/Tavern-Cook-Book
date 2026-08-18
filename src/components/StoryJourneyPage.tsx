@@ -1576,7 +1576,8 @@ export function StoryJourneyPage({
             assetId: selection.assetId,
             imageUrl: selection.imageUrl,
             imageFit: selection.imageFit,
-            sourceEntryId: selection.sourceEntryId
+            sourceEntryId: selection.sourceEntryId,
+            presentation: selection.presentation
           };
         } else {
           delete nextOverrides[target.dialogueKey];
@@ -3521,7 +3522,11 @@ export function StoryJourneyPage({
           speakerEntryId={dialogueSpritePickerTarget.speaker?.id}
           dialogue={dialogueSpritePickerTarget.dialogue}
           currentSelection={findDialogueSpriteSelection(chapters, dialogueSpritePickerTarget)}
-          options={prioritizeDialogueSpriteOptions(dialogueSpriteOptions, dialogueSpritePickerTarget.speaker?.id)}
+          options={dialogueSpriteOptionsForSpeaker(
+            dialogueSpriteOptions,
+            dialogueSpritePickerTarget.speakerName,
+            dialogueSpritePickerTarget.speaker?.id
+          )}
           onApply={saveDialogueSpriteSelection}
           onClose={() => setDialogueSpritePickerTarget(null)}
         />
@@ -3530,7 +3535,14 @@ export function StoryJourneyPage({
   );
 }
 
-function prioritizeDialogueSpriteOptions(options: DialogueSpriteOption[], speakerEntryId?: string) {
+function dialogueSpriteOptionsForSpeaker(options: DialogueSpriteOption[], speakerName: string, speakerEntryId?: string) {
+  const normalizedSpeaker = speakerName.trim().toLowerCase();
+  if (/\bgwen\b/.test(normalizedSpeaker)) {
+    return options.filter((option) => option.presentation === "full-box" && /^Gwen$/i.test(option.ownerName));
+  }
+  if (/^(?:tohm|thom|tom)(?:\s+kyatt)?$/.test(normalizedSpeaker)) {
+    return options.filter((option) => option.presentation === "full-box" && /^(?:Tohm|Thom) Kyatt$/i.test(option.ownerName));
+  }
   if (!speakerEntryId) return options;
   return [...options].sort((left, right) => {
     const leftPriority = left.sourceEntryId === speakerEntryId ? 0 : 1;

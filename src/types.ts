@@ -849,6 +849,7 @@ export interface StoryJourneyDialogueSpriteSelection {
   imageUrl: string;
   imageFit?: ImageFitSettings;
   sourceEntryId?: string;
+  presentation?: "portrait" | "full-box";
 }
 
 export interface StoryJourneyPageRecord {

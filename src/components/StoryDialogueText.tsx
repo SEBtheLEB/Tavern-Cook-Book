@@ -100,14 +100,23 @@ function StoryDialogueBubble({
   canEdit: boolean;
   onEditSprite?: (target: StoryDialogueSpriteTarget) => void;
 }) {
-  const portrait = spriteSelection?.imageUrl || speaker?.media.dialogueSpriteImage || "";
+  const builtInBox = temporaryDialogueBoxForSpeaker(speakerName);
+  const selectedFullBox = spriteSelection?.presentation === "full-box" || /\/story-dialogue\//.test(spriteSelection?.imageUrl || "");
+  const fullBoxImage = selectedFullBox ? spriteSelection?.imageUrl || builtInBox : builtInBox;
+  const fullBox = Boolean(fullBoxImage);
+  const portrait = fullBox ? "" : spriteSelection?.imageUrl || speaker?.media.dialogueSpriteImage || "";
   const portraitFit = spriteSelection?.imageFit || speaker?.media.imageFits?.dialogueSpriteImage;
   const right = /\bgwen\b/i.test(speakerName);
-  const hasCustomBubble = Boolean(bubbleImageUrl);
+  const hasCustomBubble = !fullBox && Boolean(bubbleImageUrl);
 
   return (
-    <figure className={`story-dialogue-bubble ${right ? "speaker-right" : "speaker-left"} ${hasCustomBubble ? "has-custom-frame" : ""}`}>
+    <figure className={`story-dialogue-bubble ${right ? "speaker-right" : "speaker-left"} ${hasCustomBubble ? "has-custom-frame" : ""} ${fullBox ? "full-dialogue-box" : ""}`}>
       <div className="story-dialogue-frame">
+        {fullBoxImage && (
+          <div className="story-dialogue-full-box-art" aria-hidden="true">
+            <DriveAwareImage src={fullBoxImage} alt="" draggable={false} />
+          </div>
+        )}
         {hasCustomBubble && (
           <div className="story-dialogue-frame-art" aria-hidden="true">
             <DriveAwareImage src={bubbleImageUrl} alt="" style={imageFitToStyle(bubbleImageFit)} draggable={false} />
@@ -117,7 +126,7 @@ function StoryDialogueBubble({
           <blockquote>{dialogue}</blockquote>
           <span aria-hidden="true" />
         </div>
-        <div className={`story-dialogue-portrait ${portrait ? "has-art" : "missing-art"}`} aria-label={`${speakerName} dialogue sprite`}>
+        {!fullBox && <div className={`story-dialogue-portrait ${portrait ? "has-art" : "missing-art"}`} aria-label={`${speakerName} dialogue sprite`}>
           {portrait ? (
             <DriveAwareImage src={portrait} alt="" style={imageFitToStyle(portraitFit)} draggable={false} />
           ) : (
@@ -126,23 +135,29 @@ function StoryDialogueBubble({
               <small>Dialogue sprite</small>
             </div>
           )}
-        </div>
-        <figcaption>{speakerName}</figcaption>
+        </div>}
+        {!fullBox && <figcaption>{speakerName}</figcaption>}
         {canEdit && onEditSprite && (
           <button
             type="button"
             className="story-dialogue-art-button"
             onClick={() => onEditSprite({ dialogueKey, dialogue, speaker, speakerName })}
-            title={`Choose an existing dialogue sprite for ${speakerName}`}
+            title={fullBox ? `Choose ${speakerName}'s dialogue emotion` : `Choose an existing dialogue sprite for ${speakerName}`}
             data-story-narration-ignore
           >
             <Icon name="Image" className="h-4 w-4" />
-            Choose Sprite
+            {fullBox ? "Emotion" : "Choose Sprite"}
           </button>
         )}
       </div>
     </figure>
   );
+}
+
+function temporaryDialogueBoxForSpeaker(speakerName: string) {
+  if (/\bgwen\b/i.test(speakerName)) return "/story-dialogue/gwen-neutral.png";
+  if (/^\s*(?:tohm|thom|tom)(?:\s+kyatt)?\s*$/i.test(speakerName)) return "/story-dialogue/tohm-neutral.png";
+  return "";
 }
 
 function dialogueOccurrence(blocks: StoryTextBlock[], index: number) {
