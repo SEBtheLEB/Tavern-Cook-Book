@@ -146,19 +146,21 @@ function buildStoryTextBlocks(text: string, entries: LoreEntry[], relatedLore: s
       return { ...block, dialogue: "", speaker: null, speakerName: "" };
     }
 
-    let selected = attributedSpeaker(block.plain, candidates) || narrativeSpeaker;
+    const distressSpeaker = /^(?:help|anyone)\b/i.test(dialogue)
+      ? relatedSpeakerFallback(candidates, relatedLore, { exclude: ["gwen"] })
+      : null;
+    let selected = distressSpeaker || attributedSpeaker(block.plain, candidates) || narrativeSpeaker;
+    let preventPreviousFallback = false;
     narrativeSpeaker = null;
-    if (!selected && /^(?:help|anyone)\b/i.test(dialogue)) {
-      selected = relatedSpeakerFallback(candidates, relatedLore, { exclude: ["gwen"] });
-    }
     if (!selected && previousSpeaker && participants.length > 1) {
       const previousIndex = participants.findIndex((candidate) => candidate.entry.id === previousSpeaker?.entry.id);
       selected = participants[(previousIndex + 1) % participants.length] || null;
     }
     if (selected && dialogueRefersToSpeakerInThirdPerson(dialogue, selected)) {
       selected = participants.find((candidate) => candidate.entry.id !== selected?.entry.id) || null;
+      preventPreviousFallback = !selected;
     }
-    if (!selected) selected = previousSpeaker || participants[0] || relatedSpeakerFallback(candidates, relatedLore);
+    if (!selected && !preventPreviousFallback) selected = previousSpeaker || participants[0] || relatedSpeakerFallback(candidates, relatedLore);
     if (selected) {
       previousSpeaker = selected;
       rememberParticipant(participants, selected);
