@@ -4368,52 +4368,57 @@ function StoryTreatmentChapter({
             </>
           )}
         </div>
-        <div className="story-treatment-chapter-actions">
-          {readingDepth !== "standard" && <em>{visibleChapter.revealLevel}</em>}
-          {!editing && (
-            <button
-              className={narrationLabel === visibleChapter.title && narrationStatus !== "idle" ? "story-listen-active" : ""}
-              onClick={onSpeechifyChapter}
-              title={`Record or play ${visibleChapter.title} with Speechify`}
-              disabled={speechifyAction?.phase === "checking" || speechifyAction?.phase === "recording"}
-            >
-              <Icon name={speechifyAction?.phase === "ready" ? "CircleCheck" : "Volume2"} className="h-4 w-4" />
-              {speechifyAction?.phase === "checking"
-                ? "Checking..."
-                : speechifyAction?.phase === "recording"
-                  ? `Recording ${speechifyAction.current}/${speechifyAction.total}`
-                  : narrationLabel === visibleChapter.title && narrationStatus === "playing"
-                    ? "Pause"
-                    : narrationLabel === visibleChapter.title && narrationStatus === "paused"
-                      ? "Resume"
-                      : "Speechify"}
-            </button>
-          )}
-          {!editing && (
+        {editing ? (
+          <div className="story-treatment-chapter-actions">
+            {readingDepth !== "standard" && <em>{visibleChapter.revealLevel}</em>}
             <button type="button" onClick={() => void copySelectedSection()} title={`Copy the complete ${visibleChapter.title} section`}>
               <Icon name={sectionCopied ? "CircleCheck" : "Copy"} className="h-4 w-4" />
               {sectionCopied ? "Copied" : "Copy Section"}
             </button>
-          )}
-          {editing ? (
-            <>
+            <button type="button" onClick={() => setTransferOpen(true)} title={`Paste and format a revision for ${visibleChapter.title}`}>
+              <Icon name="Clipboard" className="h-4 w-4" /> Paste Revision
+            </button>
+            <button className="story-inline-save" onClick={onSave}><Icon name="Save" className="h-4 w-4" /> Save</button>
+            <button onClick={onCancel}><Icon name="X" className="h-4 w-4" /> Cancel</button>
+          </div>
+        ) : (
+          <details className="story-treatment-chapter-menu">
+            <summary>
+              Actions
+              <Icon name="Menu" className="h-4 w-4" />
+            </summary>
+            <div className="story-treatment-chapter-actions">
+              {readingDepth !== "standard" && <em>{visibleChapter.revealLevel}</em>}
+              <button
+                className={narrationLabel === visibleChapter.title && narrationStatus !== "idle" ? "story-listen-active" : ""}
+                onClick={onSpeechifyChapter}
+                title={`Record or play ${visibleChapter.title} with Speechify`}
+                disabled={speechifyAction?.phase === "checking" || speechifyAction?.phase === "recording"}
+              >
+                <Icon name={speechifyAction?.phase === "ready" ? "CircleCheck" : "Volume2"} className="h-4 w-4" />
+                {speechifyAction?.phase === "checking"
+                  ? "Checking..."
+                  : speechifyAction?.phase === "recording"
+                    ? `Recording ${speechifyAction.current}/${speechifyAction.total}`
+                    : narrationLabel === visibleChapter.title && narrationStatus === "playing"
+                      ? "Pause"
+                      : narrationLabel === visibleChapter.title && narrationStatus === "paused"
+                        ? "Resume"
+                        : "Speechify"}
+              </button>
               <button type="button" onClick={() => void copySelectedSection()} title={`Copy the complete ${visibleChapter.title} section`}>
                 <Icon name={sectionCopied ? "CircleCheck" : "Copy"} className="h-4 w-4" />
                 {sectionCopied ? "Copied" : "Copy Section"}
               </button>
-              <button type="button" onClick={() => setTransferOpen(true)} title={`Paste and format a revision for ${visibleChapter.title}`}>
-                <Icon name="Clipboard" className="h-4 w-4" /> Paste Revision
-              </button>
-              <button className="story-inline-save" onClick={onSave}><Icon name="Save" className="h-4 w-4" /> Save</button>
-              <button onClick={onCancel}><Icon name="X" className="h-4 w-4" /> Cancel</button>
-            </>
-          ) : canEdit ? (
-            <>
-              <button onClick={onScribeChapter}><Icon name="Sparkles" className="h-4 w-4" /> Scribe</button>
-              <button onClick={onEdit}><Icon name="Edit3" className="h-4 w-4" /> Edit</button>
-            </>
-          ) : null}
-        </div>
+              {canEdit && (
+                <>
+                  <button onClick={onScribeChapter}><Icon name="Sparkles" className="h-4 w-4" /> Scribe</button>
+                  <button onClick={onEdit}><Icon name="Edit3" className="h-4 w-4" /> Edit</button>
+                </>
+              )}
+            </div>
+          </details>
+        )}
       </header>
 
       {editing ? (
