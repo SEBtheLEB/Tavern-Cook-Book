@@ -502,8 +502,9 @@ export default function App() {
   const canUseTavernScribe = !freelancerMode && canEdit;
   const canWriteTeamDatabase = LIVE_TEAM_SYNC && canEdit;
   const realtimeActive = Boolean(currentUser && !hostedViewer && appSessionReady && realtimeReady);
-  const teamDataReady = publishedReady;
-  const readOnly = forcedReadOnly || !canEdit || Boolean(currentUser && !hostedViewer && (!teamDataReady || !appSessionReady));
+  // Sync readiness must not demote an editor into the Live View UI. Local changes remain
+  // queued while cloud/session services reconnect, and the sync controls report that state.
+  const readOnly = forcedReadOnly || !canEdit;
   const setDatabase = useCallback((
     nextValue: LoreDatabase | ((current: LoreDatabase) => LoreDatabase),
     options: { source?: "local" | "remote" } = {}
