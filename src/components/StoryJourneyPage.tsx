@@ -79,6 +79,7 @@ const storyExpansionChapterIds = new Set([
 
 interface StoryJourneyPageProps {
   entries: LoreEntry[];
+  dialogueEntries?: LoreEntry[];
   bestiary: BestiaryCreature[];
   worldBuilding: WorldBuildingData;
   storyReferences: StoryReference[];
@@ -1122,6 +1123,7 @@ const linkableTerms = Array.from(
 
 export function StoryJourneyPage({
   entries,
+  dialogueEntries = entries,
   bestiary,
   worldBuilding,
   storyReferences,
@@ -1169,7 +1171,7 @@ export function StoryJourneyPage({
     pageId: string;
   }) | null>(null);
   const [readingDepth, setReadingDepth] = useState<StoryReadingDepth>("standard");
-  const dialogueSpriteOptions = useMemo(() => collectDialogueSpriteOptions(entries), [entries]);
+  const dialogueSpriteOptions = useMemo(() => collectDialogueSpriteOptions(dialogueEntries), [dialogueEntries]);
   const [storySearch, setStorySearch] = useState("");
   const [storySearchOpen, setStorySearchOpen] = useState(false);
   const storySearchInputRef = useRef<HTMLInputElement>(null);
@@ -3326,6 +3328,7 @@ export function StoryJourneyPage({
                       canEdit={canEditStory}
                       draft={inlineChapterDraft?.id === chapter.id ? inlineChapterDraft : null}
                       entries={entries}
+                      dialogueEntries={dialogueEntries}
                       bestiary={bestiary}
                       dialogueBubbleImageUrl={storyJourney.dialogueBubbleImageUrl || ""}
                       dialogueBubbleImageFit={storyJourney.dialogueBubbleImageFit}
@@ -3693,6 +3696,7 @@ function StoryTreatmentChapter({
   canEdit,
   draft,
   entries,
+  dialogueEntries,
   bestiary,
   dialogueBubbleImageUrl,
   dialogueBubbleImageFit,
@@ -3720,6 +3724,7 @@ function StoryTreatmentChapter({
   canEdit: boolean;
   draft: StoryChapter | null;
   entries: LoreEntry[];
+  dialogueEntries: LoreEntry[];
   bestiary: BestiaryCreature[];
   dialogueBubbleImageUrl: string;
   dialogueBubbleImageFit?: ImageFitSettings;
@@ -3895,7 +3900,7 @@ function StoryTreatmentChapter({
                 <StoryDialogueText
                   pageId={page.id || `${visibleChapter.id}-page-${pageIndex + 1}`}
                   text={page.text}
-                  entries={entries}
+                  entries={dialogueEntries}
                   relatedLore={[...visibleChapter.relatedLore, ...page.relatedLore]}
                   bubbleImageUrl={dialogueBubbleImageUrl}
                   bubbleImageFit={dialogueBubbleImageFit}
@@ -3907,7 +3912,7 @@ function StoryTreatmentChapter({
                   <StoryDialogueText
                     pageId={`${page.id || `${visibleChapter.id}-page-${pageIndex + 1}`}:detailed`}
                     text={page.detailedText}
-                    entries={entries}
+                    entries={dialogueEntries}
                     relatedLore={[...visibleChapter.relatedLore, ...page.relatedLore]}
                     bubbleImageUrl={dialogueBubbleImageUrl}
                     bubbleImageFit={dialogueBubbleImageFit}

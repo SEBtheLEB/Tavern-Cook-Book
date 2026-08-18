@@ -3180,6 +3180,7 @@ export default function App() {
               {activeView === "storyJourney" && (
                 <StoryJourneyPage
                   entries={visibleEntries}
+                  dialogueEntries={database.entries}
                   bestiary={database.bestiary || []}
                   worldBuilding={database.worldBuilding}
                   storyReferences={visibleStoryReferences}
