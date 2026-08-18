@@ -30,6 +30,11 @@ import { normalizeCreatureArtVault } from "../utils/bestiary";
 import { resolveArtVaultDriveFolder } from "../utils/artVaultDriveFolders";
 import { isRichText, plainTextToRichHtml, richTextToPlainText } from "../utils/richText";
 import {
+  exportStorySectionForChatGpt,
+  parseStorySectionTransfer,
+  type ParsedStorySection
+} from "../utils/storySectionTransfer";
+import {
   createSpeechifyAudio,
   fetchSpeechifyRecordingStatus,
   fetchSpeechifyVoices,
@@ -3747,6 +3752,45 @@ function StoryTreatmentChapter({
 }) {
   const visibleChapter = draft || chapter;
   const editing = Boolean(draft && canEdit);
+  const [transferPageId, setTransferPageId] = useState<string | null>(null);
+  const [copiedPageId, setCopiedPageId] = useState<string | null>(null);
+
+  const copyPageForChatGpt = async (page: StoryPage, pageIndex: number) => {
+    const pageId = page.id || `${visibleChapter.id}-page-${pageIndex + 1}`;
+    const transferText = exportStorySectionForChatGpt(page, buildBeatCallouts(visibleChapter, page));
+    try {
+      await navigator.clipboard.writeText(transferText);
+    } catch {
+      const textarea = document.createElement("textarea");
+      textarea.value = transferText;
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      textarea.remove();
+    }
+    setCopiedPageId(pageId);
+    window.setTimeout(() => setCopiedPageId((current) => current === pageId ? null : current), 2200);
+  };
+
+  const applyTransferredSection = (page: StoryPage, pageIndex: number, parsed: ParsedStorySection) => {
+    const pageId = page.id || `${visibleChapter.id}-page-${pageIndex + 1}`;
+    const replacedKinds = new Set(parsed.replacedCalloutKinds);
+    const retainedCallouts = (page.callouts || []).filter((callout) => !replacedKinds.has(callout.kind));
+    const importedCallouts = parsed.callouts.map((callout) => ({
+      ...callout,
+      id: `${pageId}-${callout.kind}`
+    }));
+    const patch: Partial<StoryPage> = {
+      title: parsed.title || page.title,
+      text: parsed.text,
+      callouts: [...retainedCallouts, ...importedCallouts]
+    };
+    if (parsed.hasDetailedText) patch.detailedText = parsed.detailedText || "";
+    onPageChange(pageId, patch);
+    setTransferPageId(null);
+  };
 
   return (
     <article
@@ -3844,6 +3888,10 @@ function StoryTreatmentChapter({
             <span>Sequence {pageIndex + 1}</span>
             {!editing ? (
               <div className="story-sequence-actions">
+                <button type="button" onClick={() => void copyPageForChatGpt(page, pageIndex)} title={`Copy ${page.title} with formatting markers`}>
+                  <Icon name={copiedPageId === (page.id || `${visibleChapter.id}-page-${pageIndex + 1}`) ? "CircleCheck" : "Copy"} className="h-4 w-4" />
+                  {copiedPageId === (page.id || `${visibleChapter.id}-page-${pageIndex + 1}`) ? "Copied" : "Copy for ChatGPT"}
+                </button>
                 {canEdit && (
                   <button type="button" onClick={() => onScribePage(pageIndex)} title={`Ask Tavern Scribe to edit ${page.title}`}>
                     <Icon name="Sparkles" className="h-4 w-4" /> Scribe
@@ -3851,15 +3899,24 @@ function StoryTreatmentChapter({
                 )}
               </div>
             ) : (
-              <button
-                type="button"
-                className="story-inline-delete"
-                onClick={() => onDeletePage(page.id || `${visibleChapter.id}-page-${pageIndex + 1}`)}
-                disabled={visibleChapter.pages.length <= 1}
-                title="Remove this sequence"
-              >
-                <Icon name="Trash2" className="h-4 w-4" /> Remove
-              </button>
+              <div className="story-sequence-actions">
+                <button type="button" onClick={() => void copyPageForChatGpt(page, pageIndex)} title={`Copy ${page.title} with formatting markers`}>
+                  <Icon name={copiedPageId === (page.id || `${visibleChapter.id}-page-${pageIndex + 1}`) ? "CircleCheck" : "Copy"} className="h-4 w-4" />
+                  {copiedPageId === (page.id || `${visibleChapter.id}-page-${pageIndex + 1}`) ? "Copied" : "Copy for ChatGPT"}
+                </button>
+                <button type="button" onClick={() => setTransferPageId(page.id || `${visibleChapter.id}-page-${pageIndex + 1}`)} title={`Paste and format a revision for ${page.title}`}>
+                  <Icon name="Clipboard" className="h-4 w-4" /> Paste Revision
+                </button>
+                <button
+                  type="button"
+                  className="story-inline-delete"
+                  onClick={() => onDeletePage(page.id || `${visibleChapter.id}-page-${pageIndex + 1}`)}
+                  disabled={visibleChapter.pages.length <= 1}
+                  title="Remove this sequence"
+                >
+                  <Icon name="Trash2" className="h-4 w-4" /> Remove
+                </button>
+              </div>
             )}
           </div>
           {editing ? (
@@ -3948,6 +4005,13 @@ function StoryTreatmentChapter({
               {(page.developerNotes || visibleChapter.developerNotes) && <p>{page.developerNotes || visibleChapter.developerNotes}</p>}
             </details>
           )}
+          {editing && transferPageId === (page.id || `${visibleChapter.id}-page-${pageIndex + 1}`) && (
+            <StorySectionTransferModal
+              page={page}
+              onApply={(parsed) => applyTransferredSection(page, pageIndex, parsed)}
+              onClose={() => setTransferPageId(null)}
+            />
+          )}
         </section>
       ))}
 
@@ -3975,6 +4039,120 @@ function StoryTreatmentChapter({
         </aside>
       )}
     </article>
+  );
+}
+
+function StorySectionTransferModal({
+  page,
+  onApply,
+  onClose
+}: {
+  page: StoryPage;
+  onApply: (parsed: ParsedStorySection) => void;
+  onClose: () => void;
+}) {
+  const [value, setValue] = useState("");
+  const [clipboardMessage, setClipboardMessage] = useState("");
+  const parsed = useMemo(() => value.trim() ? parseStorySectionTransfer(value, page.title) : null, [page.title, value]);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  useEffect(() => {
+    textareaRef.current?.focus();
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [onClose]);
+
+  const pasteFromClipboard = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      setValue(text);
+      setClipboardMessage(text.trim() ? "Pasted from clipboard." : "The clipboard is empty.");
+    } catch {
+      setClipboardMessage("Clipboard access was blocked. Paste into the box with Ctrl+V.");
+      textareaRef.current?.focus();
+    }
+  };
+
+  return (
+    <div className="story-section-transfer-overlay" onMouseDown={onClose}>
+      <section className="story-section-transfer-modal" role="dialog" aria-modal="true" aria-label={`Paste revision for ${page.title}`} onMouseDown={(event) => event.stopPropagation()}>
+        <header>
+          <div>
+            <span>Story section importer</span>
+            <h2 className="font-display">Paste Revision</h2>
+            <p>Paste the revised section and preview how its markers will be formatted before replacing this sequence.</p>
+          </div>
+          <button type="button" className="icon-button" onClick={onClose} title="Close"><Icon name="X" className="h-5 w-5" /></button>
+        </header>
+
+        <div className="story-section-transfer-layout">
+          <div className="story-section-transfer-input">
+            <div className="story-section-transfer-format-guide">
+              <strong>Recognized formatting</strong>
+              <code>-- Section Title --</code>
+              <code>## Subheading</code>
+              <code>**Bold**</code>
+              <code>*Italic*</code>
+              <code>- List item</code>
+              <code>-- Player Knowledge --</code>
+              <code>-- Story Consequence --</code>
+            </div>
+            <textarea
+              ref={textareaRef}
+              value={value}
+              onChange={(event) => setValue(event.target.value)}
+              placeholder={`-- ${page.title} --\n\nPaste the revised story text here...`}
+              aria-label="Revised story section"
+            />
+            <div className="story-section-transfer-paste-row">
+              <button type="button" onClick={() => void pasteFromClipboard()}><Icon name="Clipboard" className="h-4 w-4" /> Paste from Clipboard</button>
+              {clipboardMessage && <span>{clipboardMessage}</span>}
+            </div>
+          </div>
+
+          <div className="story-section-transfer-preview">
+            <span>Formatting preview</span>
+            {parsed ? (
+              <article>
+                <h3 className="font-display">{parsed.title}</h3>
+                <RichLoreText text={parsed.text} />
+                {parsed.detailedText && (
+                  <details>
+                    <summary>Detailed reading</summary>
+                    <RichLoreText text={parsed.detailedText} />
+                  </details>
+                )}
+                {parsed.callouts.map((callout) => (
+                  <aside key={callout.kind} className={`story-treatment-callout ${callout.kind}`}>
+                    <strong>{callout.label}</strong>
+                    <span>{callout.text}</span>
+                  </aside>
+                ))}
+              </article>
+            ) : (
+              <div className="story-section-transfer-empty">
+                <Icon name="ScrollText" className="h-7 w-7" />
+                <strong>Your formatted preview will appear here.</strong>
+                <span>Nothing changes until you choose Apply Revision.</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <footer>
+          <span>Existing callouts are preserved unless the pasted text contains a matching callout header.</span>
+          <div>
+            <button type="button" onClick={onClose}>Cancel</button>
+            <button type="button" className="primary" onClick={() => parsed && onApply(parsed)} disabled={!parsed || !parsed.text.trim()}>
+              <Icon name="Import" className="h-4 w-4" /> Apply Revision
+            </button>
+          </div>
+        </footer>
+      </section>
+    </div>
   );
 }
 
