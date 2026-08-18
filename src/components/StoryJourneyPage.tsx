@@ -161,6 +161,16 @@ interface StoryGuideEditorValue {
   tags: string[];
 }
 
+interface StoryChronologyEditorValue {
+  scope: StoryJourneyScope;
+  title: string;
+  subtitle: string;
+  overviewText: string;
+  firstSequenceTitle: string;
+  firstSequenceText: string;
+  relatedLore: string[];
+}
+
 const storyGuideSourceOptions: Array<{ id: StoryJourneyGuideSourceSection; label: string }> = [
   { id: "peoples", label: "Peoples & Realms source pages" },
   { id: "characters", label: "Character source pages" },
@@ -1272,6 +1282,7 @@ export function StoryJourneyPage({
   });
   const [selectedLibraryItemId, setSelectedLibraryItemId] = useState("");
   const [storyGuideEditorTarget, setStoryGuideEditorTarget] = useState<StoryGuideEditorTarget | null>(null);
+  const [storyChapterCreatorScope, setStoryChapterCreatorScope] = useState<StoryJourneyScope | null>(null);
   const [collapsedLibrarySections, setCollapsedLibrarySections] = useState<StoryLibrarySectionId[]>([
     "peoples",
     "characters",
@@ -1680,16 +1691,71 @@ export function StoryJourneyPage({
     window.setTimeout(() => scrollToStorySection(chapter.id), 60);
   };
 
-  const deleteSelectedChapter = () => {
+  const createChronologyChapter = (value: StoryChronologyEditorValue) => {
+    if (!canEditStory) return;
+    const nextNumber = chapters.length + 1;
+    const template = storyChapterTemplateForScope(value.scope, nextNumber);
+    const id = uniqueId(slugify(value.title), chapters.map((chapter) => chapter.id));
+    const chapter = normalizeStoryChapter({
+      id,
+      title: value.title,
+      subtitle: value.subtitle || template.subtitle,
+      timelineStartLabel: template.timelineStartLabel,
+      timelineEndLabel: template.timelineEndLabel,
+      timelineStartPercent: template.timelineStartPercent,
+      timelineEndPercent: template.timelineEndPercent,
+      era: template.era,
+      scope: value.scope,
+      revealLevel: value.scope === "history" ? "Ancient History" : "Player-Facing",
+      shortDescription: value.overviewText || template.shortDescription,
+      overviewText: value.overviewText,
+      coverImageUrl: "",
+      relatedLore: value.relatedLore,
+      pages: [{
+        id: `${id}-page-1`,
+        title: value.firstSequenceTitle || "First Sequence",
+        text: value.firstSequenceText || "Start writing this story sequence here.",
+        imageUrl: "",
+        imagePlaceholder: "",
+        caption: "",
+        relatedLore: value.relatedLore
+      }]
+    });
+    setChapters((current) => [...current, chapter]);
+    setActiveScope(value.scope);
+    setSelectedChapterId(chapter.id);
+    setActiveReaderChapterId(chapter.id);
+    setPageByChapter((current) => ({ ...current, [chapter.id]: 0 }));
+    setCollapsedActs((current) => current.filter((scope) => scope !== value.scope));
+    setChronologyCollapsed(false);
+    setSelectedLibraryItemId("");
+    setReaderOpen(true);
+    setStoryEditMode(false);
+    setInlineChapterDraft(null);
+    setStoryChapterCreatorScope(null);
+    window.setTimeout(() => scrollToStorySection(chapter.id), 60);
+  };
+
+  const deleteStoryChapter = (targetChapter: StoryChapter) => {
     if (chapters.length <= 1) return;
-    const confirmed = window.confirm(`Delete "${selectedChapter.title}" from Story Journey?`);
+    const confirmed = window.confirm(`Delete "${targetChapter.title}" from Story Journey? This removes the chapter and its sequences from the chronology.`);
     if (!confirmed) return;
-    const nextChapters = chapters.filter((chapter) => chapter.id !== selectedChapter.id);
+    const targetIndex = chapters.findIndex((chapter) => chapter.id === targetChapter.id);
+    const targetScope = storyChapterScope(targetChapter);
+    const nextChapters = chapters.filter((chapter) => chapter.id !== targetChapter.id);
     setChapters(nextChapters);
-    const nextScopeChapters = chaptersForScope(nextChapters, activeScope);
-    setSelectedChapterId(nextScopeChapters[Math.max(0, selectedIndex - 1)]?.id || nextScopeChapters[0]?.id || nextChapters[Math.max(0, selectedChapterOrderIndex - 1)]?.id || nextChapters[0].id);
+    const nextScopeChapters = chaptersForScope(nextChapters, targetScope);
+    const nextChapter = nextScopeChapters[Math.max(0, nextScopeChapters.length - 1)]
+      || nextChapters[Math.max(0, targetIndex - 1)]
+      || nextChapters[0];
+    setSelectedChapterId(nextChapter.id);
+    setActiveReaderChapterId(nextChapter.id);
+    setActiveScope(storyChapterScope(nextChapter));
+    if (inlineChapterDraft?.id === targetChapter.id) setInlineChapterDraft(null);
     setReaderOpen(true);
   };
+
+  const deleteSelectedChapter = () => deleteStoryChapter(selectedChapter);
 
   const moveSelectedChapter = (direction: -1 | 1) => {
     const targetIndex = selectedChapterOrderIndex + direction;
@@ -3312,11 +3378,20 @@ export function StoryJourneyPage({
                 </button>
               </div>
               <section className="story-navigator-collection chronology">
-                <button className="story-treatment-act-toggle story-navigator-collection-toggle" onClick={() => setChronologyCollapsed((current) => !current)}>
-                  <span><Icon name="Clock3" className="h-4 w-4" /> Chronological Story</span>
-                  <b>{chapters.length}</b>
-                  <Icon name={chronologyCollapsed ? "ChevronRight" : "ChevronDown"} className="h-4 w-4" />
-                </button>
+                <div className="story-navigator-collection-header">
+                  <button className="story-treatment-act-toggle story-navigator-collection-toggle" onClick={() => setChronologyCollapsed((current) => !current)}>
+                    <span><Icon name="Clock3" className="h-4 w-4" /> Chronological Story</span>
+                    <b>{chapters.length}</b>
+                    <Icon name={chronologyCollapsed ? "ChevronRight" : "ChevronDown"} className="h-4 w-4" />
+                  </button>
+                  {canEditStory && (
+                    <div className="story-navigator-collection-actions">
+                      <button type="button" onClick={() => setStoryChapterCreatorScope(activeScope)} title="Add chronological chapter" aria-label="Add chronological chapter">
+                        <Icon name="Plus" className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  )}
+                </div>
                 {!chronologyCollapsed && readingGroups.map(({ scope, chapters: groupChapters }) => {
                   const collapsed = collapsedActs.includes(scope.id);
                   return (
@@ -3327,7 +3402,19 @@ export function StoryJourneyPage({
                       </button>
                       {!collapsed && groupChapters.map((chapter) => (
                         <div key={chapter.id} className={`story-treatment-nav-chapter ${!selectedLibraryItem && activeReaderChapterId === chapter.id ? "active" : ""}`}>
-                          <button onClick={() => { setSelectedLibraryItemId(""); window.setTimeout(() => scrollToStorySection(chapter.id), 40); }}>{chapter.title}</button>
+                          <div className="story-treatment-nav-chapter-row">
+                            <button onClick={() => { setSelectedLibraryItemId(""); window.setTimeout(() => scrollToStorySection(chapter.id), 40); }}>{chapter.title}</button>
+                            {canEditStory && (
+                              <div>
+                                <button type="button" onClick={() => editReaderChapter(chapter.id)} title={`Edit ${chapter.title}`} aria-label={`Edit ${chapter.title}`}>
+                                  <Icon name="Edit3" className="h-3.5 w-3.5" />
+                                </button>
+                                <button type="button" onClick={() => deleteStoryChapter(chapter)} disabled={chapters.length <= 1} title={`Delete ${chapter.title}`} aria-label={`Delete ${chapter.title}`}>
+                                  <Icon name="Trash2" className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            )}
+                          </div>
                           {readingDepth !== "overview" && chapter.pages.map((page) => (
                             <button key={page.id || page.title} className="story-treatment-nav-beat" onClick={() => { setSelectedLibraryItemId(""); window.setTimeout(() => scrollToStorySection(chapter.id, page.id), 40); }}>
                               {page.title}
@@ -3660,6 +3747,13 @@ export function StoryJourneyPage({
           onClose={() => setStoryGuideEditorTarget(null)}
         />
       )}
+      {storyChapterCreatorScope && canEditStory && (
+        <StoryChronologyEditorModal
+          initialScope={storyChapterCreatorScope}
+          onSave={createChronologyChapter}
+          onClose={() => setStoryChapterCreatorScope(null)}
+        />
+      )}
       {storyScribeOpen && storyScribeTarget && canEditStory && (
         <div className="story-scribe-backdrop" role="presentation" onMouseDown={() => setStoryScribeOpen(false)}>
           <div className="story-scribe-dialog" role="dialog" aria-modal="true" aria-label="Tavern Scribe for Story Journey" onMouseDown={(event) => event.stopPropagation()}>
@@ -3789,6 +3883,104 @@ function findDialogueSpriteSelection(
   const chapter = chapters.find((item) => item.id === target.chapterId);
   const page = chapter?.pages.find((item, index) => (item.id || `${chapter.id}-page-${index + 1}`) === target.pageId);
   return page?.dialogueSpriteOverrides?.[target.dialogueKey];
+}
+
+function StoryChronologyEditorModal({
+  initialScope,
+  onSave,
+  onClose
+}: {
+  initialScope: StoryJourneyScope;
+  onSave: (value: StoryChronologyEditorValue) => void;
+  onClose: () => void;
+}) {
+  const [scope, setScope] = useState<StoryJourneyScope>(initialScope);
+  const [title, setTitle] = useState("");
+  const [subtitle, setSubtitle] = useState("");
+  const [overviewText, setOverviewText] = useState("");
+  const [firstSequenceTitle, setFirstSequenceTitle] = useState("");
+  const [firstSequenceText, setFirstSequenceText] = useState("");
+  const [manualTags, setManualTags] = useState("");
+  const scopeLabel = storyJourneyScopeOptions.find((option) => option.id === scope)?.label || "Chronological Story";
+  const suggestedTags = useMemo(
+    () => suggestStoryGuideTags(title, overviewText, scopeLabel),
+    [overviewText, scopeLabel, title]
+  );
+
+  const submit = () => {
+    if (!title.trim()) return;
+    onSave({
+      scope,
+      title: title.trim(),
+      subtitle: subtitle.trim(),
+      overviewText: overviewText.trim(),
+      firstSequenceTitle: firstSequenceTitle.trim(),
+      firstSequenceText: firstSequenceText || plainTextToRichHtml(overviewText.trim()),
+      relatedLore: Array.from(new Set([
+        ...manualTags.split(",").map((tag) => tag.trim()).filter(Boolean),
+        ...suggestedTags
+      ]))
+    });
+  };
+
+  return (
+    <div className="story-guide-editor-backdrop" role="presentation" onMouseDown={onClose}>
+      <section className="story-guide-editor story-chronology-editor" role="dialog" aria-modal="true" aria-label="Add chronological story chapter" onMouseDown={(event) => event.stopPropagation()}>
+        <header>
+          <div>
+            <span>Chronological Story</span>
+            <h2 className="font-display">Add Chapter</h2>
+            <p>Create the chapter and its first sequence directly in the reader.</p>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Close chapter editor"><Icon name="X" className="h-5 w-5" /></button>
+        </header>
+        <div className="story-guide-editor-fields">
+          <label>
+            <span>Act / story section</span>
+            <select value={scope} onChange={(event) => setScope(event.target.value as StoryJourneyScope)}>
+              {storyJourneyScopeOptions.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
+            </select>
+          </label>
+          <label>
+            <span>Chapter title</span>
+            <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="The next chapter" autoFocus />
+          </label>
+          <label>
+            <span>Subtitle</span>
+            <input value={subtitle} onChange={(event) => setSubtitle(event.target.value)} placeholder="A short line explaining why this chapter matters." />
+          </label>
+          <label>
+            <span>Chapter overview</span>
+            <textarea value={overviewText} onChange={(event) => setOverviewText(event.target.value)} placeholder="Explain what happens in this chapter and what leads into it." />
+          </label>
+          <label>
+            <span>First sequence title</span>
+            <input value={firstSequenceTitle} onChange={(event) => setFirstSequenceTitle(event.target.value)} placeholder="Opening sequence" />
+          </label>
+          <div className="story-guide-rich-field">
+            <span>First sequence text</span>
+            <RichTextEditor value={firstSequenceText} onChange={setFirstSequenceText} placeholder="Write the first chronological story sequence here." tall />
+          </div>
+          <label>
+            <span>Manual tags / related lore</span>
+            <input value={manualTags} onChange={(event) => setManualTags(event.target.value)} placeholder="Gwen, Whisker Woods, Main Quest" />
+          </label>
+          {suggestedTags.length > 0 && (
+            <div className="story-guide-suggested-tags">
+              <span><Icon name="Sparkles" className="h-3.5 w-3.5" /> Suggested from this chapter</span>
+              <div>{suggestedTags.map((tag) => <strong key={tag}>{tag}</strong>)}</div>
+            </div>
+          )}
+        </div>
+        <footer>
+          <button type="button" onClick={onClose}>Cancel</button>
+          <button type="button" className="primary" onClick={submit} disabled={!title.trim()}>
+            <Icon name="Plus" className="h-4 w-4" /> Add Chapter
+          </button>
+        </footer>
+      </section>
+    </div>
+  );
 }
 
 function StoryGuideEditorModal({
