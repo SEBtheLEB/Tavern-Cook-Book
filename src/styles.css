@@ -20165,6 +20165,312 @@ button,
   color: #9299a8;
 }
 
+.story-treatment-layout.story-navigator-is-collapsed {
+  grid-template-columns: 48px minmax(0, 1fr) minmax(286px, 324px);
+}
+
+.story-treatment-layout.story-navigator-is-collapsed.story-inspector-is-collapsed {
+  grid-template-columns: 48px minmax(0, 1fr) 48px;
+}
+
+.story-treatment-navigator.collapsed {
+  display: flex;
+  justify-content: center;
+  padding: 14px 0;
+  overflow: hidden;
+}
+
+.story-navigator-expand,
+.story-treatment-navigator-heading > button {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--gold) 36%, var(--panel-border));
+  border-radius: 7px;
+  color: color-mix(in srgb, var(--gold) 80%, var(--app-ink));
+  background: color-mix(in srgb, var(--field-bg) 72%, transparent);
+}
+
+.story-navigator-expand:hover,
+.story-treatment-navigator-heading > button:hover {
+  border-color: var(--gold);
+  color: var(--app-ink);
+}
+
+.story-treatment-navigator-heading {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+}
+
+.story-treatment-navigator-heading > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.story-navigator-divider-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 16px 6px 7px;
+}
+
+.story-navigator-divider-row .story-navigator-divider {
+  margin: 0;
+}
+
+.story-navigator-divider-row > button {
+  display: inline-flex;
+  min-height: 28px;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid color-mix(in srgb, var(--gold) 34%, var(--panel-border));
+  border-radius: 6px;
+  padding: 4px 7px;
+  color: color-mix(in srgb, var(--gold) 82%, var(--app-ink));
+  background: color-mix(in srgb, var(--field-bg) 66%, transparent);
+  font-size: 0.66rem;
+  font-weight: 680;
+}
+
+.story-navigator-collection-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  border-bottom: 1px solid color-mix(in srgb, var(--panel-border) 54%, transparent);
+}
+
+.story-navigator-collection-header .story-navigator-collection-toggle {
+  min-width: 0;
+  border-bottom: 0 !important;
+}
+
+.story-navigator-collection-actions,
+.story-library-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding-right: 5px;
+}
+
+.story-navigator-collection-actions button,
+.story-library-nav-actions button {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border: 0;
+  border-radius: 5px;
+  padding: 0;
+  color: var(--muted-ink);
+  background: transparent;
+}
+
+.story-navigator-collection-actions button:hover,
+.story-library-nav-actions button:hover {
+  color: color-mix(in srgb, var(--gold) 84%, var(--app-ink));
+  background: color-mix(in srgb, var(--gold) 10%, transparent);
+}
+
+.story-library-nav-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  border-bottom: 1px solid color-mix(in srgb, var(--panel-border) 38%, transparent);
+}
+
+.story-library-nav-row:last-child {
+  border-bottom: 0;
+}
+
+.story-library-nav-row:hover,
+.story-library-nav-row.active {
+  color: color-mix(in srgb, var(--gold) 76%, var(--app-ink));
+  background: color-mix(in srgb, var(--gold) 10%, transparent);
+}
+
+.story-library-nav-items .story-library-nav-row > .story-library-nav-open {
+  gap: 1px;
+  width: 100%;
+  border: 0;
+  border-radius: 0;
+  border-bottom: 0;
+  padding: 7px 4px 7px 12px;
+  color: inherit;
+  background: transparent;
+}
+
+.story-guide-editor-backdrop {
+  position: fixed;
+  z-index: 360;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(2, 6, 14, 0.72);
+  backdrop-filter: blur(5px);
+}
+
+.story-guide-editor {
+  display: grid;
+  width: min(760px, calc(100vw - 28px));
+  max-height: calc(100dvh - 36px);
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--gold) 50%, var(--panel-border));
+  border-radius: 8px;
+  color: var(--app-ink);
+  background: color-mix(in srgb, var(--panel-bg) 97%, var(--field-bg));
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.48);
+}
+
+.story-guide-editor > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  border-bottom: 1px solid color-mix(in srgb, var(--gold) 32%, var(--panel-border));
+  padding: 18px 20px;
+}
+
+.story-guide-editor > header > div {
+  display: grid;
+  gap: 4px;
+}
+
+.story-guide-editor > header span,
+.story-guide-editor-fields label > span,
+.story-guide-rich-field > span,
+.story-guide-suggested-tags > span {
+  color: color-mix(in srgb, var(--gold) 78%, var(--muted-ink));
+  font-size: 0.66rem;
+  font-weight: 720;
+  text-transform: uppercase;
+}
+
+.story-guide-editor > header h2,
+.story-guide-editor > header p {
+  margin: 0;
+}
+
+.story-guide-editor > header h2 {
+  font-size: 2rem;
+}
+
+.story-guide-editor > header p {
+  color: var(--muted-ink);
+  font-size: 0.82rem;
+}
+
+.story-guide-editor > header > button {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid var(--panel-border);
+  border-radius: 7px;
+  color: var(--app-ink);
+  background: var(--field-bg);
+}
+
+.story-guide-editor-fields {
+  display: grid;
+  gap: 14px;
+  overflow: auto;
+  padding: 18px 20px 22px;
+}
+
+.story-guide-editor-fields label,
+.story-guide-rich-field {
+  display: grid;
+  gap: 6px;
+}
+
+.story-guide-editor-fields input,
+.story-guide-editor-fields textarea,
+.story-guide-editor-fields select {
+  width: 100%;
+  border: 1px solid color-mix(in srgb, var(--gold) 30%, var(--panel-border));
+  border-radius: 7px;
+  padding: 10px 11px;
+  color: var(--app-ink);
+  background: var(--field-bg);
+  font: inherit;
+}
+
+.story-guide-editor-fields label > small {
+  color: var(--muted-ink);
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+
+.story-guide-editor-fields textarea {
+  min-height: 92px;
+  resize: vertical;
+  line-height: 1.55;
+}
+
+.story-guide-editor .rich-text-editor {
+  min-height: 220px;
+}
+
+.story-guide-suggested-tags {
+  display: grid;
+  gap: 7px;
+  border: 1px solid color-mix(in srgb, var(--gold) 24%, var(--panel-border));
+  border-radius: 7px;
+  padding: 10px;
+  background: color-mix(in srgb, var(--gold) 5%, var(--field-bg));
+}
+
+.story-guide-suggested-tags > span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.story-guide-suggested-tags > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.story-guide-suggested-tags strong {
+  border: 1px solid color-mix(in srgb, var(--gold) 34%, var(--panel-border));
+  border-radius: 6px;
+  padding: 3px 7px;
+  font-size: 0.68rem;
+  font-weight: 620;
+}
+
+.story-guide-editor > footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  border-top: 1px solid var(--panel-border);
+  padding: 12px 20px;
+}
+
+.story-guide-editor > footer button {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--panel-border);
+  border-radius: 7px;
+  padding: 7px 12px;
+  color: var(--app-ink);
+  background: var(--field-bg);
+  font-weight: 680;
+}
+
+.story-guide-editor > footer button.primary {
+  border-color: color-mix(in srgb, var(--gold) 58%, var(--panel-border));
+  color: color-mix(in srgb, var(--gold) 88%, var(--app-ink));
+}
+
 @media (max-width: 1000px) {
   .story-treatment-toolbar {
     flex-wrap: wrap;
@@ -20186,6 +20492,14 @@ button,
 
   .story-treatment-layout.story-inspector-is-collapsed {
     grid-template-columns: 210px minmax(0, 1fr) 46px;
+  }
+
+  .story-treatment-layout.story-navigator-is-collapsed {
+    grid-template-columns: 46px minmax(0, 1fr) minmax(250px, 286px);
+  }
+
+  .story-treatment-layout.story-navigator-is-collapsed.story-inspector-is-collapsed {
+    grid-template-columns: 46px minmax(0, 1fr) 46px;
   }
 
   .story-treatment-reader {
@@ -20245,6 +20559,16 @@ button,
   .story-treatment-navigator {
     max-height: 42vh;
     padding: 11px 9px 18px;
+  }
+
+  .story-treatment-layout,
+  .story-treatment-layout.story-inspector-is-collapsed {
+    grid-template-columns: 210px minmax(0, 1fr);
+  }
+
+  .story-treatment-layout.story-navigator-is-collapsed,
+  .story-treatment-layout.story-navigator-is-collapsed.story-inspector-is-collapsed {
+    grid-template-columns: 46px minmax(0, 1fr);
   }
 
   .story-treatment-reader {

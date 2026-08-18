@@ -891,12 +891,43 @@ export interface StoryJourneyChapterRecord {
   pages: StoryJourneyPageRecord[];
 }
 
+export type StoryJourneyGuideSourceSection =
+  | "peoples"
+  | "characters"
+  | "places"
+  | "factions"
+  | "magic"
+  | "creatures"
+  | "quests"
+  | "lore";
+
+export interface StoryJourneyGuidePageRecord {
+  id: string;
+  title: string;
+  eyebrow: string;
+  summary: string;
+  fullText: string;
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StoryJourneyGuideCollectionRecord {
+  id: string;
+  title: string;
+  description: string;
+  sourceSectionId?: StoryJourneyGuideSourceSection;
+  hiddenSourceItemIds: string[];
+  pages: StoryJourneyGuidePageRecord[];
+}
+
 export interface StoryJourneyData {
   title: string;
   description: string;
   dialogueBubbleImageUrl?: string;
   dialogueBubbleImageFit?: ImageFitSettings;
   chapters: StoryJourneyChapterRecord[];
+  guideCollections?: StoryJourneyGuideCollectionRecord[];
   updatedAt: string;
 }
 

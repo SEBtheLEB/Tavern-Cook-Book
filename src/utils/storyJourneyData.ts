@@ -2,6 +2,9 @@ import type {
   StoryJourneyCallout,
   StoryJourneyChapterRecord,
   StoryJourneyData,
+  StoryJourneyGuideCollectionRecord,
+  StoryJourneyGuidePageRecord,
+  StoryJourneyGuideSourceSection,
   StoryJourneyPageRecord,
   StoryJourneyRevealLevel,
   StoryJourneyScope,
@@ -19,6 +22,32 @@ const revealLevels = new Set<StoryJourneyRevealLevel>([
 ]);
 
 const scopes = new Set<StoryJourneyScope>(["history", "act1", "act2", "act3"]);
+
+const guideSourceSections = new Set<StoryJourneyGuideSourceSection>([
+  "peoples",
+  "characters",
+  "places",
+  "factions",
+  "magic",
+  "creatures",
+  "quests",
+  "lore"
+]);
+
+const defaultGuideCollectionDefinitions: Array<{
+  id: StoryJourneyGuideSourceSection;
+  title: string;
+  description: string;
+}> = [
+  { id: "peoples", title: "Peoples & Realms", description: "Cultures, kingdoms, peoples, and the traditions that distinguish them." },
+  { id: "characters", title: "Characters", description: "The people whose choices move the story." },
+  { id: "places", title: "Places", description: "Regions, settlements, landmarks, and important story spaces." },
+  { id: "factions", title: "Factions & Faiths", description: "Organizations, alliances, religions, and competing beliefs." },
+  { id: "magic", title: "Magic, Meals & Artifacts", description: "Food magic, recipes, ingredients, relics, and important objects." },
+  { id: "creatures", title: "Creatures & Threats", description: "Wildlife, enemies, bosses, and corrupted beings." },
+  { id: "quests", title: "Quests & Storylines", description: "Objectives and playable story threads." },
+  { id: "lore", title: "Lore & Mysteries", description: "Myths, secrets, rules, unresolved questions, and glossary concepts." }
+];
 
 const cleanList = (value: unknown) => Array.isArray(value)
   ? value.map((item) => String(item || "").trim()).filter(Boolean)
@@ -51,6 +80,60 @@ const normalizeCallouts = (value: unknown): StoryJourneyCallout[] => Array.isArr
       }];
     })
   : [];
+
+export const createDefaultStoryJourneyGuideCollections = (): StoryJourneyGuideCollectionRecord[] =>
+  defaultGuideCollectionDefinitions.map((definition) => ({
+    id: definition.id,
+    title: definition.title,
+    description: definition.description,
+    sourceSectionId: definition.id,
+    hiddenSourceItemIds: [],
+    pages: []
+  }));
+
+export const normalizeStoryJourneyGuidePage = (
+  value: Partial<StoryJourneyGuidePageRecord>,
+  fallbackId: string
+): StoryJourneyGuidePageRecord => {
+  const now = new Date().toISOString();
+  return {
+    id: String(value.id || fallbackId),
+    title: String(value.title || "Untitled Guide Page"),
+    eyebrow: String(value.eyebrow || "World Guide"),
+    summary: String(value.summary || ""),
+    fullText: String(value.fullText || value.summary || ""),
+    tags: cleanList(value.tags),
+    createdAt: String(value.createdAt || now),
+    updatedAt: String(value.updatedAt || value.createdAt || now)
+  };
+};
+
+export const normalizeStoryJourneyGuideCollections = (
+  value: unknown
+): StoryJourneyGuideCollectionRecord[] => {
+  if (!Array.isArray(value)) return createDefaultStoryJourneyGuideCollections();
+  return value.flatMap((item, collectionIndex) => {
+    if (!item || typeof item !== "object") return [];
+    const collection = item as Partial<StoryJourneyGuideCollectionRecord>;
+    const sourceSectionId = guideSourceSections.has(collection.sourceSectionId as StoryJourneyGuideSourceSection)
+      ? collection.sourceSectionId as StoryJourneyGuideSourceSection
+      : undefined;
+    const fallbackDefinition = sourceSectionId
+      ? defaultGuideCollectionDefinitions.find((definition) => definition.id === sourceSectionId)
+      : undefined;
+    const id = String(collection.id || `guide-collection-${collectionIndex + 1}`);
+    return [{
+      id,
+      title: String(collection.title || fallbackDefinition?.title || "Untitled Collection"),
+      description: String(collection.description || fallbackDefinition?.description || ""),
+      sourceSectionId,
+      hiddenSourceItemIds: cleanList(collection.hiddenSourceItemIds),
+      pages: Array.isArray(collection.pages)
+        ? collection.pages.map((page, pageIndex) => normalizeStoryJourneyGuidePage(page, `${id}-page-${pageIndex + 1}`))
+        : []
+    }];
+  });
+};
 
 export const inferStoryJourneyScope = (chapter: Partial<StoryJourneyChapterRecord>): StoryJourneyScope => {
   if (chapter.scope && scopes.has(chapter.scope)) return chapter.scope;
@@ -139,6 +222,7 @@ export const normalizeStoryJourneyData = (value: Partial<StoryJourneyData> | und
     chapters: Array.isArray(value?.chapters)
       ? value.chapters.map((chapter, index) => normalizeStoryJourneyChapter(chapter, `story-chapter-${index + 1}`))
       : [],
+    guideCollections: normalizeStoryJourneyGuideCollections(value?.guideCollections),
     updatedAt: String(value?.updatedAt || new Date().toISOString())
   };
 };

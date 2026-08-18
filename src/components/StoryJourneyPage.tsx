@@ -11,6 +11,9 @@ import type {
   StoryJourneyCallout,
   StoryJourneyData,
   StoryJourneyDialogueSpriteSelection,
+  StoryJourneyGuideCollectionRecord,
+  StoryJourneyGuidePageRecord,
+  StoryJourneyGuideSourceSection,
   StoryJourneyPageRecord,
   StoryJourneyScope,
   WorldBuildingCategoryId,
@@ -27,6 +30,10 @@ import {
 } from "../utils/imageFit";
 import { normalizeArtVault } from "../utils/entries";
 import { normalizeCreatureArtVault } from "../utils/bestiary";
+import {
+  normalizeStoryJourneyGuideCollections,
+  normalizeStoryJourneyGuidePage
+} from "../utils/storyJourneyData";
 import { resolveArtVaultDriveFolder } from "../utils/artVaultDriveFolders";
 import { isRichText, plainTextToRichHtml, richTextToPlainText } from "../utils/richText";
 import {
@@ -112,13 +119,14 @@ interface StoryJourneyState {
 
 type StoryScribeScope = "currentPage" | "wholeChapter" | "wholeJourney";
 type StoryReadingDepth = "overview" | "standard" | "detailed";
-type StoryLibrarySectionId = "peoples" | "characters" | "places" | "factions" | "magic" | "creatures" | "quests" | "lore";
+type BuiltInStoryLibrarySectionId = StoryJourneyGuideSourceSection;
+type StoryLibrarySectionId = string;
 
 interface StoryLibraryItem {
   id: string;
   title: string;
   sectionId: StoryLibrarySectionId;
-  sourceType: "entry" | "world" | "creature";
+  sourceType: "entry" | "world" | "creature" | "custom";
   eyebrow: string;
   summary: string;
   fullText: string;
@@ -128,14 +136,41 @@ interface StoryLibraryItem {
   entry?: LoreEntry;
   worldEntry?: WorldBuildingEntry;
   creature?: BestiaryCreature;
+  customPage?: StoryJourneyGuidePageRecord;
 }
 
 interface StoryLibrarySection {
   id: StoryLibrarySectionId;
   label: string;
   description: string;
+  sourceSectionId?: StoryJourneyGuideSourceSection;
   items: StoryLibraryItem[];
 }
+
+type StoryGuideEditorTarget =
+  | { kind: "collection"; collectionId?: string }
+  | { kind: "page"; collectionId: string; pageId?: string };
+
+interface StoryGuideEditorValue {
+  title: string;
+  description: string;
+  sourceSectionId?: StoryJourneyGuideSourceSection;
+  eyebrow: string;
+  summary: string;
+  fullText: string;
+  tags: string[];
+}
+
+const storyGuideSourceOptions: Array<{ id: StoryJourneyGuideSourceSection; label: string }> = [
+  { id: "peoples", label: "Peoples & Realms source pages" },
+  { id: "characters", label: "Character source pages" },
+  { id: "places", label: "Place source pages" },
+  { id: "factions", label: "Faction & Faith source pages" },
+  { id: "magic", label: "Magic, Meal & Artifact source pages" },
+  { id: "creatures", label: "Creature & Threat source pages" },
+  { id: "quests", label: "Quest & Storyline source pages" },
+  { id: "lore", label: "Lore & Mystery source pages" }
+];
 
 interface StoryNarrationWordTarget {
   value: string;
@@ -1149,11 +1184,13 @@ export function StoryJourneyPage({
       : loadStoryChapters();
     return {
       chapters,
+      guideCollections: normalizeStoryJourneyGuideCollections(storyJourney.guideCollections),
       storedState: loadStoryJourneyState(chapters)
     };
   }, []);
   const lastSharedStoryHashRef = useRef("");
   const [chapters, setChapters] = useState<StoryChapter[]>(initialStoryData.chapters);
+  const [guideCollections, setGuideCollections] = useState<StoryJourneyGuideCollectionRecord[]>(initialStoryData.guideCollections);
   const storedState = initialStoryData.storedState;
   const [selectedChapterId, setSelectedChapterId] = useState(storedState.selectedChapterId);
   const [activeScope, setActiveScope] = useState<StoryJourneyScope>(storedState.activeScope);
@@ -1163,7 +1200,8 @@ export function StoryJourneyPage({
   const [selectedLoreTerm, setSelectedLoreTerm] = useState("");
   const [hoveredLoreTerm, setHoveredLoreTerm] = useState("");
   const [storyInspectorImageIndex, setStoryInspectorImageIndex] = useState(0);
-  const [storyInspectorCollapsed, setStoryInspectorCollapsed] = useState(() => typeof window !== "undefined" && window.matchMedia("(max-width: 780px)").matches);
+  const [storyInspectorCollapsed, setStoryInspectorCollapsed] = useState(true);
+  const [storyNavigatorCollapsed, setStoryNavigatorCollapsed] = useState(false);
   const [storyInspectorEditSubject, setStoryInspectorEditSubject] = useState<StoryInspectorSubject | null>(null);
   const [transitioning, setTransitioning] = useState(false);
   const [pageTurnKey, setPageTurnKey] = useState(0);
@@ -1233,6 +1271,7 @@ export function StoryJourneyPage({
     total: 0
   });
   const [selectedLibraryItemId, setSelectedLibraryItemId] = useState("");
+  const [storyGuideEditorTarget, setStoryGuideEditorTarget] = useState<StoryGuideEditorTarget | null>(null);
   const [collapsedLibrarySections, setCollapsedLibrarySections] = useState<StoryLibrarySectionId[]>([
     "peoples",
     "characters",
@@ -1295,8 +1334,8 @@ export function StoryJourneyPage({
   const readingProgress = readingChapters.length ? ((activeReaderIndex + 1) / readingChapters.length) * 100 : 0;
   const canonReviewItems = useMemo(() => buildCanonReviewItems(chapters, entries), [chapters, entries]);
   const librarySections = useMemo(
-    () => buildStoryLibrarySections(entries, bestiary, worldBuilding),
-    [bestiary, entries, worldBuilding]
+    () => buildStoryLibrarySections(entries, bestiary, worldBuilding, guideCollections),
+    [bestiary, entries, guideCollections, worldBuilding]
   );
   const selectedLibraryItem = useMemo(
     () => librarySections.flatMap((section) => section.items).find((item) => item.id === selectedLibraryItemId) || null,
@@ -1360,26 +1399,30 @@ export function StoryJourneyPage({
   useEffect(() => {
     if (!canEditStory) return;
     saveStoryChapters(chapters);
-    const storyHash = JSON.stringify(chapters);
+    const storyHash = JSON.stringify({ chapters, guideCollections });
     if (storyHash === lastSharedStoryHashRef.current && storyJourney.chapters.length) return;
     lastSharedStoryHashRef.current = storyHash;
     onStoryJourneyChange({
+      ...storyJourney,
       title: storyJourney.title || "The Story of Tales of the Tavern",
       description: storyJourney.description || "The complete story of Tales of the Tavern in chronological order.",
       dialogueBubbleImageUrl: storyJourney.dialogueBubbleImageUrl || "",
       dialogueBubbleImageFit: normalizeImageFit(storyJourney.dialogueBubbleImageFit),
       chapters,
+      guideCollections,
       updatedAt: new Date().toISOString()
     });
-  }, [canEditStory, chapters, onStoryJourneyChange, storyJourney.chapters.length, storyJourney.description, storyJourney.dialogueBubbleImageFit, storyJourney.dialogueBubbleImageUrl, storyJourney.title]);
+  }, [canEditStory, chapters, guideCollections, onStoryJourneyChange, storyJourney, storyJourney.chapters.length, storyJourney.description, storyJourney.dialogueBubbleImageFit, storyJourney.dialogueBubbleImageUrl, storyJourney.title]);
 
   useEffect(() => {
     if (!storyJourney.chapters.length) return;
-    const incomingHash = JSON.stringify(storyJourney.chapters);
-    const currentHash = JSON.stringify(chapters);
+    const incomingGuideCollections = normalizeStoryJourneyGuideCollections(storyJourney.guideCollections);
+    const incomingHash = JSON.stringify({ chapters: storyJourney.chapters, guideCollections: incomingGuideCollections });
+    const currentHash = JSON.stringify({ chapters, guideCollections });
     if (incomingHash === currentHash || incomingHash === lastSharedStoryHashRef.current) return;
     lastSharedStoryHashRef.current = incomingHash;
     setChapters(mergeStoryExpansionChapters(storyJourney.chapters));
+    setGuideCollections(incomingGuideCollections);
   }, [storyJourney.updatedAt]);
 
   useEffect(() => {
@@ -1802,6 +1845,109 @@ export function StoryJourneyPage({
     setSelectedLibraryItemId(item.id);
     setStorySearch("");
     window.requestAnimationFrame(() => document.querySelector(".story-library-reader")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  };
+
+  const saveStoryGuideEditor = (value: StoryGuideEditorValue) => {
+    const target = storyGuideEditorTarget;
+    if (!target || !canEditStory) return;
+    if (target.kind === "collection") {
+      if (target.collectionId) {
+        setGuideCollections((current) => current.map((collection) => collection.id === target.collectionId
+          ? {
+              ...collection,
+              title: value.title,
+              description: value.description,
+              sourceSectionId: value.sourceSectionId,
+              hiddenSourceItemIds: collection.sourceSectionId === value.sourceSectionId ? collection.hiddenSourceItemIds : []
+            }
+          : collection));
+      } else {
+        const id = uniqueStoryGuideId(value.title || "collection", guideCollections.map((collection) => collection.id));
+        setGuideCollections((current) => [...current, {
+          id,
+          title: value.title,
+          description: value.description,
+          sourceSectionId: value.sourceSectionId,
+          hiddenSourceItemIds: [],
+          pages: []
+        }]);
+        setCollapsedLibrarySections((current) => current.filter((sectionId) => sectionId !== id));
+      }
+      setStoryGuideEditorTarget(null);
+      return;
+    }
+
+    const collection = guideCollections.find((item) => item.id === target.collectionId);
+    if (!collection) return;
+    const now = new Date().toISOString();
+    let nextPageId = target.pageId || "";
+    setGuideCollections((current) => current.map((item) => {
+      if (item.id !== target.collectionId) return item;
+      if (target.pageId) {
+        return {
+          ...item,
+          pages: item.pages.map((page) => page.id === target.pageId
+            ? normalizeStoryJourneyGuidePage({
+                ...page,
+                title: value.title,
+                eyebrow: value.eyebrow,
+                summary: value.summary,
+                fullText: value.fullText,
+                tags: value.tags,
+                updatedAt: now
+              }, page.id)
+            : page)
+        };
+      }
+      nextPageId = uniqueStoryGuideId(value.title || "page", item.pages.map((page) => page.id));
+      return {
+        ...item,
+        pages: [...item.pages, normalizeStoryJourneyGuidePage({
+          id: nextPageId,
+          title: value.title,
+          eyebrow: value.eyebrow || item.title,
+          summary: value.summary,
+          fullText: value.fullText,
+          tags: value.tags,
+          createdAt: now,
+          updatedAt: now
+        }, nextPageId)]
+      };
+    }));
+    setCollapsedLibrarySections((current) => current.filter((sectionId) => sectionId !== target.collectionId));
+    setSelectedLibraryItemId(`guide:${target.collectionId}:${nextPageId}`);
+    setStoryGuideEditorTarget(null);
+    window.setTimeout(() => document.querySelector(".story-library-reader")?.scrollIntoView({ behavior: "smooth", block: "start" }), 40);
+  };
+
+  const deleteStoryGuideCollection = (collection: StoryJourneyGuideCollectionRecord) => {
+    if (!canEditStory || !window.confirm(`Remove the “${collection.title}” collection from the Story Journey? Existing Cookbook source records will not be deleted.`)) return;
+    setGuideCollections((current) => current.filter((item) => item.id !== collection.id));
+    if (librarySections.find((section) => section.id === collection.id)?.items.some((item) => item.id === selectedLibraryItemId)) {
+      setSelectedLibraryItemId("");
+    }
+  };
+
+  const deleteStoryGuideItem = (collectionId: string, item: StoryLibraryItem) => {
+    if (!canEditStory || !window.confirm(`Remove “${item.title}” from this Story Journey collection?${item.sourceType === "custom" ? "" : " Its original source module will remain unchanged."}`)) return;
+    setGuideCollections((current) => current.map((collection) => {
+      if (collection.id !== collectionId) return collection;
+      if (item.customPage) {
+        return { ...collection, pages: collection.pages.filter((page) => page.id !== item.customPage?.id) };
+      }
+      return {
+        ...collection,
+        hiddenSourceItemIds: Array.from(new Set([...collection.hiddenSourceItemIds, item.id]))
+      };
+    }));
+    if (selectedLibraryItemId === item.id) setSelectedLibraryItemId("");
+  };
+
+  const restoreStoryGuideSourceItems = (collectionId: string) => {
+    if (!canEditStory) return;
+    setGuideCollections((current) => current.map((collection) => collection.id === collectionId
+      ? { ...collection, hiddenSourceItemIds: [] }
+      : collection));
   };
 
   const openGeneralHistoryFaithTopic = (topicId: string) => {
@@ -3149,11 +3295,21 @@ export function StoryJourneyPage({
             <span style={{ width: `${selectedLibraryItem ? 100 : readingProgress}%` }} />
           </div>
 
-          <div className={`story-treatment-layout ${storyInspectorCollapsed ? "story-inspector-is-collapsed" : ""}`}>
-            <aside className="story-treatment-navigator">
+          <div className={`story-treatment-layout ${storyInspectorCollapsed ? "story-inspector-is-collapsed" : ""} ${storyNavigatorCollapsed ? "story-navigator-is-collapsed" : ""}`}>
+            <aside className={`story-treatment-navigator ${storyNavigatorCollapsed ? "collapsed" : ""}`}>
+              {storyNavigatorCollapsed ? (
+                <button type="button" className="story-navigator-expand" onClick={() => setStoryNavigatorCollapsed(false)} title="Open Story & World Navigator" aria-label="Open Story & World Navigator">
+                  <Icon name="Eye" className="h-4 w-4" />
+                </button>
+              ) : (<>
               <div className="story-treatment-navigator-heading">
-                <p>Story &amp; World Navigator</p>
-                <strong>{selectedLibraryItem ? selectedLibraryItem.eyebrow : `${readingChapters.length ? activeReaderIndex + 1 : 0} of ${readingChapters.length} chapters`}</strong>
+                <div>
+                  <p>Story &amp; World Navigator</p>
+                  <strong>{selectedLibraryItem ? selectedLibraryItem.eyebrow : `${readingChapters.length ? activeReaderIndex + 1 : 0} of ${readingChapters.length} chapters`}</strong>
+                </div>
+                <button type="button" onClick={() => setStoryNavigatorCollapsed(true)} title="Collapse Story & World Navigator" aria-label="Collapse Story & World Navigator">
+                  <Icon name="ChevronLeft" className="h-4 w-4" />
+                </button>
               </div>
               <section className="story-navigator-collection chronology">
                 <button className="story-treatment-act-toggle story-navigator-collection-toggle" onClick={() => setChronologyCollapsed((current) => !current)}>
@@ -3184,29 +3340,72 @@ export function StoryJourneyPage({
                 })}
               </section>
 
-              <p className="story-navigator-divider">World Guide</p>
+              <div className="story-navigator-divider-row">
+                <p className="story-navigator-divider">World Guide</p>
+                {canEditStory && (
+                  <button type="button" onClick={() => setStoryGuideEditorTarget({ kind: "collection" })} title="Add guide collection">
+                    <Icon name="Plus" className="h-3.5 w-3.5" /> Collection
+                  </button>
+                )}
+              </div>
               {filteredLibrarySections.map((section) => {
                 const collapsed = collapsedLibrarySections.includes(section.id) && !normalizedStorySearch;
+                const collection = guideCollections.find((item) => item.id === section.id);
                 return (
                   <section key={section.id} className="story-navigator-collection">
-                    <button className="story-treatment-act-toggle story-navigator-collection-toggle" onClick={() => setCollapsedLibrarySections((current) => current.includes(section.id) ? current.filter((id) => id !== section.id) : [...current, section.id])}>
-                      <span>{section.label}</span>
-                      <b>{section.items.length}</b>
-                      <Icon name={collapsed ? "ChevronRight" : "ChevronDown"} className="h-4 w-4" />
-                    </button>
+                    <div className="story-navigator-collection-header">
+                      <button className="story-treatment-act-toggle story-navigator-collection-toggle" onClick={() => setCollapsedLibrarySections((current) => current.includes(section.id) ? current.filter((id) => id !== section.id) : [...current, section.id])}>
+                        <span>{section.label}</span>
+                        <b>{section.items.length}</b>
+                        <Icon name={collapsed ? "ChevronRight" : "ChevronDown"} className="h-4 w-4" />
+                      </button>
+                      {canEditStory && collection && (
+                        <div className="story-navigator-collection-actions">
+                          <button type="button" onClick={() => setStoryGuideEditorTarget({ kind: "page", collectionId: collection.id })} title={`Add page to ${collection.title}`} aria-label={`Add page to ${collection.title}`}>
+                            <Icon name="Plus" className="h-3.5 w-3.5" />
+                          </button>
+                          <button type="button" onClick={() => setStoryGuideEditorTarget({ kind: "collection", collectionId: collection.id })} title={`Edit ${collection.title}`} aria-label={`Edit ${collection.title}`}>
+                            <Icon name="Edit3" className="h-3.5 w-3.5" />
+                          </button>
+                          {collection.hiddenSourceItemIds.length > 0 && (
+                            <button type="button" onClick={() => restoreStoryGuideSourceItems(collection.id)} title={`Restore hidden pages in ${collection.title}`} aria-label={`Restore hidden pages in ${collection.title}`}>
+                              <Icon name="Undo2" className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                          <button type="button" onClick={() => deleteStoryGuideCollection(collection)} title={`Delete ${collection.title}`} aria-label={`Delete ${collection.title}`}>
+                            <Icon name="Trash2" className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
                     {!collapsed && (
                       <div className="story-library-nav-items">
                         {section.items.length ? section.items.map((item) => (
-                          <button key={item.id} className={selectedLibraryItemId === item.id ? "active" : ""} onClick={() => openLibraryItem(item)}>
-                            <span>{item.title}</span>
-                            <small>{item.eyebrow}</small>
-                          </button>
+                          <div key={item.id} className={`story-library-nav-row ${selectedLibraryItemId === item.id ? "active" : ""}`}>
+                            <button className="story-library-nav-open" onClick={() => openLibraryItem(item)}>
+                              <span>{item.title}</span>
+                              <small>{item.eyebrow}</small>
+                            </button>
+                            {canEditStory && (
+                              <div className="story-library-nav-actions">
+                                {item.customPage && (
+                                  <button type="button" onClick={() => setStoryGuideEditorTarget({ kind: "page", collectionId: section.id, pageId: item.customPage?.id })} title={`Edit ${item.title}`} aria-label={`Edit ${item.title}`}>
+                                    <Icon name="Edit3" className="h-3.5 w-3.5" />
+                                  </button>
+                                )}
+                                <button type="button" onClick={() => deleteStoryGuideItem(section.id, item)} title={`Remove ${item.title}`} aria-label={`Remove ${item.title}`}>
+                                  <Icon name="Trash2" className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         )) : <span className="story-library-no-results">No matches</span>}
                       </div>
                     )}
                   </section>
                 );
               })}
+              </>)}
             </aside>
 
             <LoreKeywordHoverBoundary
@@ -3288,7 +3487,19 @@ export function StoryJourneyPage({
                   <footer className="story-library-footer">
                     <p>{selectedLibraryItem.id.startsWith("history-faith:")
                       ? "This topic is linked to General Note on Other Faiths in the General History Timeline."
-                      : "This reading page is generated from the existing Cookbook record. Editing its source updates this guide."}</p>
+                      : selectedLibraryItem.customPage
+                        ? "This page belongs directly to the Story Journey World Guide."
+                        : "This reading page is generated from the existing Cookbook record. Editing its source updates this guide."}</p>
+                    {canEditStory && selectedLibraryItem.customPage && (
+                      <button className="button-frame" onClick={() => setStoryGuideEditorTarget({
+                        kind: "page",
+                        collectionId: selectedLibraryItem.sectionId,
+                        pageId: selectedLibraryItem.customPage?.id
+                      })}>
+                        <Icon name="Edit3" className="h-4 w-4" />
+                        Edit Guide Page
+                      </button>
+                    )}
                     {(selectedLibraryItem.entry || selectedLibraryItem.worldEntry || selectedLibraryItem.creature) && (
                       <button className="button-frame" onClick={() => openLibrarySource(selectedLibraryItem)}>
                         <Icon name="ExternalLink" className="h-4 w-4" />
@@ -3437,6 +3648,18 @@ export function StoryJourneyPage({
           </section>
         </div>
       )}
+      {storyGuideEditorTarget && canEditStory && (
+        <StoryGuideEditorModal
+          key={`${storyGuideEditorTarget.kind}:${storyGuideEditorTarget.collectionId || "new"}:${storyGuideEditorTarget.kind === "page" ? storyGuideEditorTarget.pageId || "new" : ""}`}
+          target={storyGuideEditorTarget}
+          collection={guideCollections.find((collection) => collection.id === storyGuideEditorTarget.collectionId)}
+          page={storyGuideEditorTarget.kind === "page"
+            ? guideCollections.find((collection) => collection.id === storyGuideEditorTarget.collectionId)?.pages.find((page) => page.id === storyGuideEditorTarget.pageId)
+            : undefined}
+          onSave={saveStoryGuideEditor}
+          onClose={() => setStoryGuideEditorTarget(null)}
+        />
+      )}
       {storyScribeOpen && storyScribeTarget && canEditStory && (
         <div className="story-scribe-backdrop" role="presentation" onMouseDown={() => setStoryScribeOpen(false)}>
           <div className="story-scribe-dialog" role="dialog" aria-modal="true" aria-label="Tavern Scribe for Story Journey" onMouseDown={(event) => event.stopPropagation()}>
@@ -3566,6 +3789,125 @@ function findDialogueSpriteSelection(
   const chapter = chapters.find((item) => item.id === target.chapterId);
   const page = chapter?.pages.find((item, index) => (item.id || `${chapter.id}-page-${index + 1}`) === target.pageId);
   return page?.dialogueSpriteOverrides?.[target.dialogueKey];
+}
+
+function StoryGuideEditorModal({
+  target,
+  collection,
+  page,
+  onSave,
+  onClose
+}: {
+  target: StoryGuideEditorTarget;
+  collection?: StoryJourneyGuideCollectionRecord;
+  page?: StoryJourneyGuidePageRecord;
+  onSave: (value: StoryGuideEditorValue) => void;
+  onClose: () => void;
+}) {
+  const isCollection = target.kind === "collection";
+  const editing = isCollection ? Boolean(target.collectionId) : Boolean(target.pageId);
+  const [title, setTitle] = useState(isCollection ? collection?.title || "" : page?.title || "");
+  const [description, setDescription] = useState(isCollection ? collection?.description || "" : "");
+  const [sourceSectionId, setSourceSectionId] = useState<StoryJourneyGuideSourceSection | "">(isCollection ? collection?.sourceSectionId || "" : "");
+  const [eyebrow, setEyebrow] = useState(isCollection ? "" : page?.eyebrow || collection?.title || "World Guide");
+  const [summary, setSummary] = useState(isCollection ? "" : page?.summary || "");
+  const [fullText, setFullText] = useState(isCollection ? "" : page?.fullText || "");
+  const [manualTags, setManualTags] = useState(isCollection ? "" : (page?.tags || []).join(", "));
+  const suggestedTags = useMemo(
+    () => isCollection ? [] : suggestStoryGuideTags(title, summary, collection?.title || ""),
+    [collection?.title, isCollection, summary, title]
+  );
+
+  const submit = () => {
+    const cleanTitle = title.trim();
+    if (!cleanTitle) return;
+    onSave({
+      title: cleanTitle,
+      description: description.trim(),
+      sourceSectionId: sourceSectionId || undefined,
+      eyebrow: eyebrow.trim() || collection?.title || "World Guide",
+      summary: summary.trim(),
+      fullText: fullText || plainTextToRichHtml(summary.trim()),
+      tags: Array.from(new Set([
+        ...manualTags.split(",").map((tag) => tag.trim()).filter(Boolean),
+        ...suggestedTags
+      ]))
+    });
+  };
+
+  return (
+    <div className="story-guide-editor-backdrop" role="presentation" onMouseDown={onClose}>
+      <section className="story-guide-editor" role="dialog" aria-modal="true" aria-label={isCollection ? "World Guide collection editor" : "World Guide page editor"} onMouseDown={(event) => event.stopPropagation()}>
+        <header>
+          <div>
+            <span>{isCollection ? "World Guide Collection" : collection?.title || "World Guide"}</span>
+            <h2 className="font-display">{editing ? "Edit" : "Add"} {isCollection ? "Collection" : "Guide Page"}</h2>
+            <p>{isCollection
+              ? "Collections organize related reading pages in the left navigator."
+              : "Create a readable guide page that lives directly inside Story Journey."}</p>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Close guide editor"><Icon name="X" className="h-5 w-5" /></button>
+        </header>
+
+        <div className="story-guide-editor-fields">
+          <label>
+            <span>{isCollection ? "Collection title" : "Page title"}</span>
+            <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder={isCollection ? "Peoples & Realms" : "Fairies"} autoFocus />
+          </label>
+
+          {isCollection ? (
+            <>
+              <label>
+                <span>Description</span>
+                <textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="What belongs in this collection?" />
+              </label>
+              <label>
+                <span>Connected Cookbook pages</span>
+                <select value={sourceSectionId} onChange={(event) => setSourceSectionId(event.target.value as StoryJourneyGuideSourceSection | "")}>
+                  <option value="">Custom pages only</option>
+                  {storyGuideSourceOptions.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
+                </select>
+                <small>Connect an existing source to automatically include its current pages. This never duplicates or deletes their original records.</small>
+              </label>
+            </>
+          ) : (
+            <>
+              <label>
+                <span>Page label</span>
+                <input value={eyebrow} onChange={(event) => setEyebrow(event.target.value)} placeholder={collection?.title || "World Guide"} />
+              </label>
+              <label>
+                <span>Introduction</span>
+                <textarea value={summary} onChange={(event) => setSummary(event.target.value)} placeholder="The people of the Faery Kingdom retain their own culture..." />
+              </label>
+              <div className="story-guide-rich-field">
+                <span>Full guide text</span>
+                <RichTextEditor value={fullText} onChange={setFullText} placeholder="Write the full guide page here." tall />
+              </div>
+              <label>
+                <span>Manual tags</span>
+                <input value={manualTags} onChange={(event) => setManualTags(event.target.value)} placeholder="Culture, Faery Kingdom, Traditions" />
+              </label>
+              {suggestedTags.length > 0 && (
+                <div className="story-guide-suggested-tags">
+                  <span><Icon name="Sparkles" className="h-3.5 w-3.5" /> Suggested from this page</span>
+                  <div>{suggestedTags.map((tag) => <strong key={tag}>{tag}</strong>)}</div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        <footer>
+          <button type="button" onClick={onClose}>Cancel</button>
+          <button type="button" className="primary" onClick={submit} disabled={!title.trim()}>
+            <Icon name={editing ? "Save" : "Plus"} className="h-4 w-4" />
+            {editing ? "Save Changes" : isCollection ? "Add Collection" : "Add Guide Page"}
+          </button>
+        </footer>
+      </section>
+    </div>
+  );
 }
 
 function StoryContextInspector({
@@ -5395,21 +5737,11 @@ function chapterContainsTerm(chapter: StoryChapter, term: string) {
   return new RegExp(`\\b${escapeRegExp(normalized)}\\b`, "i").test(haystack);
 }
 
-const storyLibrarySectionDefinitions: Array<Omit<StoryLibrarySection, "items">> = [
-  { id: "peoples", label: "Peoples & Realms", description: "Cultures, kingdoms, peoples, and the traditions that distinguish them." },
-  { id: "characters", label: "Characters", description: "The people whose choices move the story." },
-  { id: "places", label: "Places", description: "Regions, settlements, landmarks, and important story spaces." },
-  { id: "factions", label: "Factions & Faiths", description: "Organizations, alliances, religions, and competing beliefs." },
-  { id: "magic", label: "Magic, Meals & Artifacts", description: "Food magic, recipes, ingredients, relics, and important objects." },
-  { id: "creatures", label: "Creatures & Threats", description: "Wildlife, enemies, bosses, and corrupted beings." },
-  { id: "quests", label: "Quests & Storylines", description: "Objectives and playable story threads." },
-  { id: "lore", label: "Lore & Mysteries", description: "Myths, secrets, rules, unresolved questions, and glossary concepts." }
-];
-
 function buildStoryLibrarySections(
   entries: LoreEntry[],
   bestiary: BestiaryCreature[],
-  worldBuilding: WorldBuildingData
+  worldBuilding: WorldBuildingData,
+  guideCollections: StoryJourneyGuideCollectionRecord[]
 ): StoryLibrarySection[] {
   const items: StoryLibraryItem[] = [];
 
@@ -5518,13 +5850,36 @@ function buildStoryLibrarySections(
     });
   });
 
-  return storyLibrarySectionDefinitions.map((definition) => ({
-    ...definition,
-    items: deduplicateStoryLibraryItems(items.filter((item) => item.sectionId === definition.id))
-  }));
+  return guideCollections.map((collection) => {
+    const hiddenSourceItems = new Set(collection.hiddenSourceItemIds);
+    const sourceItems = collection.sourceSectionId
+      ? deduplicateStoryLibraryItems(items.filter((item) => item.sectionId === collection.sourceSectionId))
+        .filter((item) => !hiddenSourceItems.has(item.id))
+      : [];
+    const customItems: StoryLibraryItem[] = collection.pages.map((page) => ({
+      id: `guide:${collection.id}:${page.id}`,
+      title: page.title,
+      sectionId: collection.id,
+      sourceType: "custom",
+      eyebrow: page.eyebrow || collection.title,
+      summary: plainStoryText(page.summary),
+      fullText: page.fullText || page.summary,
+      tags: page.tags,
+      facts: [],
+      linkedStoryReferenceIds: [],
+      customPage: page
+    }));
+    return {
+      id: collection.id,
+      label: collection.title,
+      description: collection.description,
+      sourceSectionId: collection.sourceSectionId,
+      items: [...customItems, ...sourceItems]
+    };
+  });
 }
 
-function classifyLoreEntryForStoryLibrary(entry: LoreEntry): StoryLibrarySectionId | null {
+function classifyLoreEntryForStoryLibrary(entry: LoreEntry): BuiltInStoryLibrarySectionId | null {
   const haystack = normalizeTerm([entry.title, entry.category, entry.type, ...entry.tags].join(" "));
   const identity = normalizeTerm(`${entry.title} ${entry.type}`);
   if (/cauldron|dragon knife|recipe book|magical meal|food essence|artifact/.test(identity)) return "magic";
@@ -5539,7 +5894,7 @@ function classifyLoreEntryForStoryLibrary(entry: LoreEntry): StoryLibrarySection
   return null;
 }
 
-function classifyWorldEntryForStoryLibrary(entry: WorldBuildingEntry): StoryLibrarySectionId {
+function classifyWorldEntryForStoryLibrary(entry: WorldBuildingEntry): BuiltInStoryLibrarySectionId {
   if (entry.category === "cultures") return "peoples";
   if (entry.category === "characterLinks") return "characters";
   if (entry.category === "locations") return "places";
@@ -6617,6 +6972,42 @@ function uniqueId(base: string, existingIds: string[]) {
     counter += 1;
   }
   return id;
+}
+
+function uniqueStoryGuideId(value: string, existingIds: string[]) {
+  return uniqueId(slugify(value).replace(/^story-chapter$/, "guide-page"), existingIds);
+}
+
+function suggestStoryGuideTags(title: string, summary: string, collectionTitle: string) {
+  const tags: string[] = [];
+  const add = (value: string) => {
+    const clean = value.trim();
+    if (clean && !tags.some((tag) => normalizeTerm(tag) === normalizeTerm(clean))) tags.push(clean);
+  };
+  add(title);
+  add(collectionTitle);
+
+  const source = `${title} ${summary}`.toLowerCase();
+  const knownTags: Array<[RegExp, string]> = [
+    [/faer(?:y|ie|ies)/, "Faery"],
+    [/whisken|wiscan/, "Whisken"],
+    [/dwar(?:f|ves|ven)/, "Dwarven"],
+    [/human/, "Human"],
+    [/culture|tradition|people/, "Culture"],
+    [/kingdom|realm|nation/, "Realm"],
+    [/faith|religion|worship|triad/, "Faith"],
+    [/character|person|leader|queen|king|princess/, "Character"],
+    [/location|island|woods|village|city|mountain/, "Location"],
+    [/magic|magical|spell/, "Magic"],
+    [/meal|recipe|cook|food|ingredient/, "Food Magic"],
+    [/creature|enemy|boss|wildlife|insect/, "Creature"],
+    [/quest|mission|objective/, "Quest"],
+    [/history|ancient|timeline|war/, "History"]
+  ];
+  knownTags.forEach(([pattern, tag]) => {
+    if (pattern.test(source)) add(tag);
+  });
+  return tags.slice(0, 8);
 }
 
 function clamp(value: number, min: number, max: number) {
