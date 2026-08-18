@@ -498,6 +498,7 @@ export default function App() {
   const freelancerMode = currentRole === "freelancer";
   const canEdit = roleCanEdit(currentRole);
   const canAccessSettings = roleCanAccessSettings(currentRole);
+  const canAdministerStory = currentRole === "admin" && !forcedReadOnly;
   const canUseTavernScribe = !freelancerMode && canEdit;
   const canWriteTeamDatabase = LIVE_TEAM_SYNC && canEdit;
   const realtimeActive = Boolean(currentUser && !hostedViewer && appSessionReady && realtimeReady);
@@ -3188,7 +3189,7 @@ export default function App() {
                     updatedAt: ""
                   }}
                   readOnly={readOnly}
-                  canEditStory={currentRole === "admin" && !readOnly}
+                  canEditStory={canAdministerStory}
                   onOpenEntry={openEntry}
                   onOpenCreature={openBestiaryCreature}
                   onOpenWorldEntry={openWorldBuildingEntry}
@@ -3204,7 +3205,7 @@ export default function App() {
                   database={database}
                   entries={visibleEntries}
                   worldBuilding={database.worldBuilding}
-                  readOnly={readOnly || currentRole !== "admin"}
+                  readOnly={!canAdministerStory}
                   onNavigate={navigate}
                   onOpenEntry={openEntry}
                   onOpenWorldEntry={openWorldBuildingEntry}

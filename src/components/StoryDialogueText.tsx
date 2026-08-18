@@ -137,7 +137,7 @@ function StoryDialogueBubble({
             data-story-narration-ignore
           >
             <Icon name="Image" className="h-4 w-4" />
-            Edit Sprite
+            Choose Sprite
           </button>
         )}
       </div>
