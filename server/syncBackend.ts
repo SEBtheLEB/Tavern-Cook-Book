@@ -1,5 +1,5 @@
 import type { IncomingHttpHeaders } from "node:http";
-import { verifyRequestIdentity } from "./authSession.ts";
+import { verifyRequestIdentity } from "./authSession.js";
 
 type SyncScope = "published" | "user" | "settings" | "health";
 type SyncProvider = "supabase" | "github" | "none";

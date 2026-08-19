@@ -1,11 +1,11 @@
 import "dotenv/config";
 import express from "express";
-import { getAssistantHealth, handleAssistantRequest } from "./assistantBackend.ts";
-import { handleDriveListRequest } from "./driveListBackend.ts";
-import { getSyncHealth, handleSyncRequest } from "./syncBackend.ts";
-import { getStoryScribeHealth, handleStoryScribeRequest } from "./storyScribeBackend.ts";
-import { getSpeechifyHealth, handleSpeechifyPost, listSpeechifyVoices } from "./speechifyBackend.ts";
-import { clearSessionCookie, createSessionCookie, isSessionConfigured, readSession, verifyGoogleIdToken } from "./authSession.ts";
+import { getAssistantHealth, handleAssistantRequest } from "./assistantBackend.js";
+import { handleDriveListRequest } from "./driveListBackend.js";
+import { getSyncHealth, handleSyncRequest } from "./syncBackend.js";
+import { getStoryScribeHealth, handleStoryScribeRequest } from "./storyScribeBackend.js";
+import { getSpeechifyHealth, handleSpeechifyPost, listSpeechifyVoices } from "./speechifyBackend.js";
+import { clearSessionCookie, createSessionCookie, isSessionConfigured, readSession, verifyGoogleIdToken } from "./authSession.js";
 
 const app = express();
 const port = Number(process.env.PORT || 5174);

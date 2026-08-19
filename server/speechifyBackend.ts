@@ -1,6 +1,6 @@
 import type { IncomingHttpHeaders } from "node:http";
 import { createHash } from "node:crypto";
-import { verifyRequestIdentity } from "./authSession.ts";
+import { verifyRequestIdentity } from "./authSession.js";
 
 const SPEECHIFY_API_BASE = "https://api.speechify.ai/v1";
 const DEFAULT_MODEL = "simba-3.0";
