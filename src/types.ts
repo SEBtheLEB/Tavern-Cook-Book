@@ -1021,6 +1021,7 @@ export interface StoryJourneyData {
   readerAppearance?: StoryJourneyReaderAppearance;
   chapters: StoryJourneyChapterRecord[];
   guideCollections?: StoryJourneyGuideCollectionRecord[];
+  contentMigrations?: string[];
   updatedAt: string;
 }
 

@@ -15,6 +15,7 @@ import type {
   StoryJourneyScope,
   StoryJourneySourceRecord
 } from "../types";
+import { ACADEMY_PLACE_MIGRATION_ID, ACADEMY_PLACE_PAGE } from "../data/academyPlacePage";
 import { normalizeImageFit } from "./imageFit";
 
 const revealLevels = new Set<StoryJourneyRevealLevel>([
@@ -399,6 +400,31 @@ export const normalizeStoryJourneyChapter = (
 
 export const normalizeStoryJourneyData = (value: Partial<StoryJourneyData> | undefined): StoryJourneyData => {
   const description = String(value?.description || "The complete story of Tales of the Tavern in chronological order.");
+  const contentMigrations = cleanList(value?.contentMigrations);
+  const guideCollections = normalizeStoryJourneyGuideCollections(value?.guideCollections);
+
+  if (!contentMigrations.includes(ACADEMY_PLACE_MIGRATION_ID)) {
+    const academyTitle = ACADEMY_PLACE_PAGE.title.trim().toLowerCase();
+    const placesCollection = guideCollections.find((collection) => collection.sourceSectionId === "places" || collection.id === "places");
+    const academyExists = guideCollections.some((collection) => collection.pages.some((page) => (
+      page.id === ACADEMY_PLACE_PAGE.id || page.title.trim().toLowerCase() === academyTitle
+    )));
+
+    if (!academyExists) {
+      if (placesCollection) {
+        placesCollection.pages.push(normalizeStoryJourneyGuidePage(ACADEMY_PLACE_PAGE, ACADEMY_PLACE_PAGE.id));
+      } else {
+        const defaultPlacesCollection = createDefaultStoryJourneyGuideCollections().find((collection) => collection.id === "places");
+        if (defaultPlacesCollection) {
+          defaultPlacesCollection.pages.push(normalizeStoryJourneyGuidePage(ACADEMY_PLACE_PAGE, ACADEMY_PLACE_PAGE.id));
+          guideCollections.push(defaultPlacesCollection);
+        }
+      }
+    }
+
+    contentMigrations.push(ACADEMY_PLACE_MIGRATION_ID);
+  }
+
   return {
     title: String(value?.title || "The Story of Tales of the Tavern"),
     description: /chronological narrative treatment assembled from the tavern cookbook's existing canon/i.test(description)
@@ -410,7 +436,8 @@ export const normalizeStoryJourneyData = (value: Partial<StoryJourneyData> | und
     chapters: Array.isArray(value?.chapters)
       ? value.chapters.map((chapter, index) => normalizeStoryJourneyChapter(chapter, `story-chapter-${index + 1}`))
       : [],
-    guideCollections: normalizeStoryJourneyGuideCollections(value?.guideCollections),
+    guideCollections,
+    contentMigrations,
     updatedAt: String(value?.updatedAt || new Date().toISOString())
   };
 };
