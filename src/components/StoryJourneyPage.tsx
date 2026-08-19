@@ -1,5 +1,5 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
-import type { MouseEvent as ReactMouseEvent } from "react";
+import type { CSSProperties, MouseEvent as ReactMouseEvent } from "react";
 import type {
   ArtVaultImageMetadata,
   BestiaryCreature,
@@ -15,6 +15,8 @@ import type {
   StoryJourneyGuidePageRecord,
   StoryJourneyGuideSourceSection,
   StoryJourneyPageRecord,
+  StoryJourneyReaderAppearance,
+  StoryJourneyReaderFont,
   StoryJourneyScope,
   WorldBuildingCategoryId,
   WorldBuildingData,
@@ -31,6 +33,8 @@ import {
 import { normalizeArtVault } from "../utils/entries";
 import { normalizeCreatureArtVault } from "../utils/bestiary";
 import {
+  DEFAULT_STORY_READER_APPEARANCE,
+  normalizeStoryReaderAppearance,
   normalizeStoryJourneyGuideCollections,
   normalizeStoryJourneyGuidePage
 } from "../utils/storyJourneyData";
@@ -119,6 +123,7 @@ interface StoryJourneyState {
 
 type StoryScribeScope = "currentPage" | "wholeChapter" | "wholeJourney";
 type StoryReadingDepth = "overview" | "standard" | "detailed";
+type StoryToolsTab = "review" | "appearance";
 type BuiltInStoryLibrarySectionId = StoryJourneyGuideSourceSection;
 type StoryLibrarySectionId = string;
 
@@ -1235,6 +1240,7 @@ export function StoryJourneyPage({
   const [collapsedReaderChapterIds, setCollapsedReaderChapterIds] = useState<string[]>([]);
   const [chronologyCollapsed, setChronologyCollapsed] = useState(false);
   const [storyToolsOpen, setStoryToolsOpen] = useState(false);
+  const [storyToolsTab, setStoryToolsTab] = useState<StoryToolsTab>("review");
   const [storyScribeOpen, setStoryScribeOpen] = useState(false);
   const [storyScribeTarget, setStoryScribeTarget] = useState<{ chapterId: string; pageIndex: number; scope: StoryScribeScope } | null>(null);
   const storyTreatmentReaderRef = useRef<HTMLElement | null>(null);
@@ -1385,6 +1391,14 @@ export function StoryJourneyPage({
   const storyInspectorManagerSlot = useMemo(
     () => storyInspectorEditSubject ? buildStoryInspectorManagerSlot(storyInspectorEditSubject) : null,
     [storyInspectorEditSubject]
+  );
+  const readerAppearance = useMemo(
+    () => normalizeStoryReaderAppearance(storyJourney.readerAppearance),
+    [storyJourney.readerAppearance]
+  );
+  const readerAppearanceStyle = useMemo(
+    () => storyReaderAppearanceCssVariables(readerAppearance),
+    [readerAppearance]
   );
 
   useEffect(() => {
@@ -1623,6 +1637,16 @@ export function StoryJourneyPage({
       });
     }
     setDialogueArtEntry(undefined);
+  };
+
+  const saveReaderAppearance = (appearance: StoryJourneyReaderAppearance) => {
+    onStoryJourneyChange({
+      ...storyJourney,
+      readerAppearance: normalizeStoryReaderAppearance(appearance),
+      chapters,
+      guideCollections,
+      updatedAt: new Date().toISOString()
+    });
   };
 
   const saveDialogueSpriteSelection = (selection: DialogueSpriteOption | null) => {
@@ -3548,6 +3572,7 @@ export function StoryJourneyPage({
               <main
                 ref={storyTreatmentReaderRef}
                 className={`story-treatment-reader depth-${readingDepth} ${speechifyReadAllMode ? "narration-following" : ""}`}
+                style={readerAppearanceStyle}
                 onClickCapture={handleStoryNarrationWordClick}
               >
               {selectedLibraryItem ? (
@@ -3771,11 +3796,24 @@ export function StoryJourneyPage({
             <header>
               <div>
                 <p>Story Tools</p>
-                <h2 className="font-display">Canon Review</h2>
-                <span>Questions and contradictions found across the current Cookbook. These are kept out of the clean reader until canon is confirmed.</span>
+                <h2 className="font-display">{storyToolsTab === "appearance" ? "Reader Appearance" : "Canon Review"}</h2>
+                <span>{storyToolsTab === "appearance"
+                  ? "Control the shared look of every Story Journey chapter, sequence, link, highlight, and paragraph."
+                  : "Questions and contradictions found across the current Cookbook. These are kept out of the clean reader until canon is confirmed."}</span>
               </div>
               <button onClick={() => setStoryToolsOpen(false)} aria-label="Close story tools">×</button>
             </header>
+            <div className="story-tools-tabs" role="tablist" aria-label="Story tool sections">
+              <button type="button" role="tab" aria-selected={storyToolsTab === "review"} className={storyToolsTab === "review" ? "active" : ""} onClick={() => setStoryToolsTab("review")}>
+                <Icon name="ListChecks" className="h-4 w-4" /> Canon Review
+              </button>
+              {canEditStory && (
+                <button type="button" role="tab" aria-selected={storyToolsTab === "appearance"} className={storyToolsTab === "appearance" ? "active" : ""} onClick={() => setStoryToolsTab("appearance")}>
+                  <Icon name="Palette" className="h-4 w-4" /> Reader Appearance
+                </button>
+              )}
+            </div>
+            {storyToolsTab === "review" ? (<>
             <div className="story-tools-summary">
               <strong>{canonReviewItems.length} review items</strong>
               <span>{canonReviewItems.filter((item) => item.severity === "gap").length} missing story connections</span>
@@ -3796,6 +3834,16 @@ export function StoryJourneyPage({
                 </article>
               ))}
             </div>
+            </>) : canEditStory ? (
+              <StoryReaderAppearanceEditor
+                key={JSON.stringify(readerAppearance)}
+                appearance={readerAppearance}
+                onSave={(appearance) => {
+                  saveReaderAppearance(appearance);
+                  setStoryToolsOpen(false);
+                }}
+              />
+            ) : null}
           </section>
         </div>
       )}
@@ -3921,6 +3969,126 @@ export function StoryJourneyPage({
         />
       )}
     </section>
+  );
+}
+
+const storyReaderFontFamilies: Record<StoryJourneyReaderFont, string> = {
+  classic: 'Georgia, Cambria, "Times New Roman", serif',
+  book: '"Palatino Linotype", Palatino, "Book Antiqua", serif',
+  clean: 'Inter, ui-sans-serif, system-ui, sans-serif'
+};
+
+function storyReaderAppearanceCssVariables(appearance: StoryJourneyReaderAppearance): CSSProperties {
+  return {
+    "--story-reader-chapter-indicator": appearance.chapterIndicatorColor,
+    "--story-reader-sequence-indicator": appearance.sequenceIndicatorColor,
+    "--story-reader-accent": appearance.accentColor,
+    "--story-reader-highlight": appearance.highlightedTextColor,
+    "--story-reader-link": appearance.linkColor,
+    "--story-reader-heading": appearance.headingTextColor,
+    "--story-reader-body": appearance.bodyTextColor,
+    "--story-reader-heading-font": storyReaderFontFamilies[appearance.headingFont],
+    "--story-reader-body-font": storyReaderFontFamilies[appearance.bodyFont],
+    "--story-reader-body-size": `${appearance.bodyFontSize}px`,
+    "--story-reader-line-height": String(appearance.lineHeight),
+    "--story-reader-content-width": `${appearance.contentWidth}px`
+  } as CSSProperties;
+}
+
+function StoryReaderAppearanceEditor({
+  appearance,
+  onSave
+}: {
+  appearance: StoryJourneyReaderAppearance;
+  onSave: (appearance: StoryJourneyReaderAppearance) => void;
+}) {
+  const [draft, setDraft] = useState(() => normalizeStoryReaderAppearance(appearance));
+  const update = <Key extends keyof StoryJourneyReaderAppearance>(key: Key, value: StoryJourneyReaderAppearance[Key]) => {
+    setDraft((current) => normalizeStoryReaderAppearance({ ...current, [key]: value }));
+  };
+
+  return (
+    <div className="story-reader-appearance-editor">
+      <div className="story-reader-appearance-colors">
+        <StoryReaderColorControl label="Chapter indicators" value={draft.chapterIndicatorColor} onChange={(value) => update("chapterIndicatorColor", value)} />
+        <StoryReaderColorControl label="Sequence indicators" value={draft.sequenceIndicatorColor} onChange={(value) => update("sequenceIndicatorColor", value)} />
+        <StoryReaderColorControl label="Dividers and labels" value={draft.accentColor} onChange={(value) => update("accentColor", value)} />
+        <StoryReaderColorControl label="Highlighted terms" value={draft.highlightedTextColor} onChange={(value) => update("highlightedTextColor", value)} />
+        <StoryReaderColorControl label="Clickable lore links" value={draft.linkColor} onChange={(value) => update("linkColor", value)} />
+        <StoryReaderColorControl label="Headings" value={draft.headingTextColor} onChange={(value) => update("headingTextColor", value)} />
+        <StoryReaderColorControl label="Body text" value={draft.bodyTextColor} onChange={(value) => update("bodyTextColor", value)} />
+      </div>
+
+      <div className="story-reader-appearance-type-grid">
+        <label>
+          <span>Heading font</span>
+          <select value={draft.headingFont} onChange={(event) => update("headingFont", event.target.value as StoryJourneyReaderFont)}>
+            <option value="classic">Classic Serif</option>
+            <option value="book">Storybook Serif</option>
+            <option value="clean">Clean Sans</option>
+          </select>
+        </label>
+        <label>
+          <span>Body font</span>
+          <select value={draft.bodyFont} onChange={(event) => update("bodyFont", event.target.value as StoryJourneyReaderFont)}>
+            <option value="classic">Classic Serif</option>
+            <option value="book">Storybook Serif</option>
+            <option value="clean">Clean Sans</option>
+          </select>
+        </label>
+        <label>
+          <span>Body size <strong>{draft.bodyFontSize}px</strong></span>
+          <input type="range" min="14" max="24" step="1" value={draft.bodyFontSize} onChange={(event) => update("bodyFontSize", Number(event.target.value))} />
+        </label>
+        <label>
+          <span>Line spacing <strong>{draft.lineHeight.toFixed(2)}</strong></span>
+          <input type="range" min="1.35" max="2.2" step="0.05" value={draft.lineHeight} onChange={(event) => update("lineHeight", Number(event.target.value))} />
+        </label>
+        <label className="wide">
+          <span>Reading column <strong>{draft.contentWidth}px</strong></span>
+          <input type="range" min="580" max="980" step="20" value={draft.contentWidth} onChange={(event) => update("contentWidth", Number(event.target.value))} />
+        </label>
+      </div>
+
+      <div className="story-reader-appearance-preview" style={storyReaderAppearanceCssVariables(draft)}>
+        <div className="preview-marker">I</div>
+        <div>
+          <small>CHAPTER I</small>
+          <h3>The Three-Hundred-Year War</h3>
+          <p><strong>Ovenhold</strong> and the <button type="button">Faery Realm</button> stood as two powerful civilizations whose differences shaped the world.</p>
+        </div>
+      </div>
+
+      <footer>
+        <button type="button" onClick={() => setDraft({ ...DEFAULT_STORY_READER_APPEARANCE })}>
+          <Icon name="Undo2" className="h-4 w-4" /> Restore Default
+        </button>
+        <button type="button" className="primary" onClick={() => onSave(draft)}>
+          <Icon name="Save" className="h-4 w-4" /> Save Reader Appearance
+        </button>
+      </footer>
+    </div>
+  );
+}
+
+function StoryReaderColorControl({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  return (
+    <label className="story-reader-color-control">
+      <span>{label}</span>
+      <div>
+        <input type="color" value={value} onChange={(event) => onChange(event.target.value)} aria-label={`${label} color`} />
+        <input
+          key={value}
+          defaultValue={value}
+          maxLength={7}
+          onBlur={(event) => {
+            if (/^#[0-9a-f]{6}$/i.test(event.target.value.trim())) onChange(event.target.value.trim());
+            else event.target.value = value;
+          }}
+          aria-label={`${label} hex color`}
+        />
+      </div>
+    </label>
   );
 }
 

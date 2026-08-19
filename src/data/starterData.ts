@@ -3735,6 +3735,20 @@ export const createStarterDatabase = (): LoreDatabase => {
     storyJourney: {
       title: "The Story of Tales of the Tavern",
       description: "The complete story of Tales of the Tavern in chronological order.",
+      readerAppearance: {
+        chapterIndicatorColor: "#d6a447",
+        sequenceIndicatorColor: "#c99442",
+        accentColor: "#c99442",
+        highlightedTextColor: "#e4ba68",
+        linkColor: "#e4ba68",
+        headingTextColor: "#f5e7cf",
+        bodyTextColor: "#eadfce",
+        headingFont: "classic",
+        bodyFont: "classic",
+        bodyFontSize: 17,
+        lineHeight: 1.78,
+        contentWidth: 760
+      },
       chapters: [],
       updatedAt: "2026-08-16T00:00:00.000Z"
     },

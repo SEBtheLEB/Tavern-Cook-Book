@@ -921,11 +921,29 @@ export interface StoryJourneyGuideCollectionRecord {
   pages: StoryJourneyGuidePageRecord[];
 }
 
+export type StoryJourneyReaderFont = "classic" | "book" | "clean";
+
+export interface StoryJourneyReaderAppearance {
+  chapterIndicatorColor: string;
+  sequenceIndicatorColor: string;
+  accentColor: string;
+  highlightedTextColor: string;
+  linkColor: string;
+  headingTextColor: string;
+  bodyTextColor: string;
+  headingFont: StoryJourneyReaderFont;
+  bodyFont: StoryJourneyReaderFont;
+  bodyFontSize: number;
+  lineHeight: number;
+  contentWidth: number;
+}
+
 export interface StoryJourneyData {
   title: string;
   description: string;
   dialogueBubbleImageUrl?: string;
   dialogueBubbleImageFit?: ImageFitSettings;
+  readerAppearance?: StoryJourneyReaderAppearance;
   chapters: StoryJourneyChapterRecord[];
   guideCollections?: StoryJourneyGuideCollectionRecord[];
   updatedAt: string;

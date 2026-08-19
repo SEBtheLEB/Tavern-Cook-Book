@@ -6,6 +6,8 @@ import type {
   StoryJourneyGuidePageRecord,
   StoryJourneyGuideSourceSection,
   StoryJourneyPageRecord,
+  StoryJourneyReaderAppearance,
+  StoryJourneyReaderFont,
   StoryJourneyRevealLevel,
   StoryJourneyScope,
   StoryJourneySourceRecord
@@ -22,6 +24,47 @@ const revealLevels = new Set<StoryJourneyRevealLevel>([
 ]);
 
 const scopes = new Set<StoryJourneyScope>(["history", "act1", "act2", "act3"]);
+const readerFonts = new Set<StoryJourneyReaderFont>(["classic", "book", "clean"]);
+
+export const DEFAULT_STORY_READER_APPEARANCE: StoryJourneyReaderAppearance = {
+  chapterIndicatorColor: "#d6a447",
+  sequenceIndicatorColor: "#c99442",
+  accentColor: "#c99442",
+  highlightedTextColor: "#e4ba68",
+  linkColor: "#e4ba68",
+  headingTextColor: "#f5e7cf",
+  bodyTextColor: "#eadfce",
+  headingFont: "classic",
+  bodyFont: "classic",
+  bodyFontSize: 17,
+  lineHeight: 1.78,
+  contentWidth: 760
+};
+
+const normalizeHexColor = (value: unknown, fallback: string) => {
+  const color = String(value || "").trim();
+  return /^#[0-9a-f]{6}$/i.test(color) ? color.toLowerCase() : fallback;
+};
+
+const clampNumber = (value: unknown, minimum: number, maximum: number, fallback: number) => {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.min(maximum, Math.max(minimum, number)) : fallback;
+};
+
+export const normalizeStoryReaderAppearance = (value: Partial<StoryJourneyReaderAppearance> | undefined): StoryJourneyReaderAppearance => ({
+  chapterIndicatorColor: normalizeHexColor(value?.chapterIndicatorColor, DEFAULT_STORY_READER_APPEARANCE.chapterIndicatorColor),
+  sequenceIndicatorColor: normalizeHexColor(value?.sequenceIndicatorColor, DEFAULT_STORY_READER_APPEARANCE.sequenceIndicatorColor),
+  accentColor: normalizeHexColor(value?.accentColor, DEFAULT_STORY_READER_APPEARANCE.accentColor),
+  highlightedTextColor: normalizeHexColor(value?.highlightedTextColor, DEFAULT_STORY_READER_APPEARANCE.highlightedTextColor),
+  linkColor: normalizeHexColor(value?.linkColor, DEFAULT_STORY_READER_APPEARANCE.linkColor),
+  headingTextColor: normalizeHexColor(value?.headingTextColor, DEFAULT_STORY_READER_APPEARANCE.headingTextColor),
+  bodyTextColor: normalizeHexColor(value?.bodyTextColor, DEFAULT_STORY_READER_APPEARANCE.bodyTextColor),
+  headingFont: readerFonts.has(value?.headingFont as StoryJourneyReaderFont) ? value?.headingFont as StoryJourneyReaderFont : DEFAULT_STORY_READER_APPEARANCE.headingFont,
+  bodyFont: readerFonts.has(value?.bodyFont as StoryJourneyReaderFont) ? value?.bodyFont as StoryJourneyReaderFont : DEFAULT_STORY_READER_APPEARANCE.bodyFont,
+  bodyFontSize: clampNumber(value?.bodyFontSize, 14, 24, DEFAULT_STORY_READER_APPEARANCE.bodyFontSize),
+  lineHeight: clampNumber(value?.lineHeight, 1.35, 2.2, DEFAULT_STORY_READER_APPEARANCE.lineHeight),
+  contentWidth: clampNumber(value?.contentWidth, 580, 980, DEFAULT_STORY_READER_APPEARANCE.contentWidth)
+});
 
 const guideSourceSections = new Set<StoryJourneyGuideSourceSection>([
   "peoples",
@@ -219,6 +262,7 @@ export const normalizeStoryJourneyData = (value: Partial<StoryJourneyData> | und
       : description,
     dialogueBubbleImageUrl: value?.dialogueBubbleImageUrl ? String(value.dialogueBubbleImageUrl) : "",
     dialogueBubbleImageFit: normalizeImageFit(value?.dialogueBubbleImageFit),
+    readerAppearance: normalizeStoryReaderAppearance(value?.readerAppearance),
     chapters: Array.isArray(value?.chapters)
       ? value.chapters.map((chapter, index) => normalizeStoryJourneyChapter(chapter, `story-chapter-${index + 1}`))
       : [],
