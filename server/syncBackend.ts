@@ -246,7 +246,6 @@ export function preserveStructuredStoryGuidePages(incomingPayload: unknown, exis
       const previous = existingPages.get(String(page.id || "").trim());
       if (!previous || previous.pageType !== "place" || !objectRecord(previous.place)) return page;
       if (page.pageType === "place" && objectRecord(page.place)) return page;
-      if (page.pageType !== undefined) return page;
       changed = true;
       return {
         ...page,
@@ -254,6 +253,15 @@ export function preserveStructuredStoryGuidePages(incomingPayload: unknown, exis
         place: previous.place
       };
     });
+
+    if (collection.id === "places") {
+      const academyPage = existingPages.get(ACADEMY_PLACE_PAGE.id);
+      const includesAcademy = pages.some((page) => page.id === ACADEMY_PLACE_PAGE.id);
+      if (academyPage?.pageType === "place" && objectRecord(academyPage.place) && !includesAcademy) {
+        pages.push(academyPage);
+        changed = true;
+      }
+    }
     return { ...collection, pages };
   });
 
