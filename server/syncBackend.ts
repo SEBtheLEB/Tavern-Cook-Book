@@ -1,6 +1,5 @@
 import type { IncomingHttpHeaders } from "node:http";
-import { ACADEMY_PLACE_MIGRATION_ID } from "../src/data/academyPlacePage.js";
-import { normalizeStoryJourneyData } from "../src/utils/storyJourneyData.js";
+import { ACADEMY_PLACE_MIGRATION_ID, ACADEMY_PLACE_PAGE } from "../src/data/academyPlacePage.js";
 import { verifyRequestIdentity } from "./authSession.js";
 
 type SyncScope = "published" | "user" | "settings" | "health";
@@ -152,6 +151,21 @@ export function repairPublishedStoryJourney(value: unknown): { changed: boolean;
     };
   }
 
+  const guideCollections = recordArray(storyJourney.guideCollections).map((collection) => {
+    const pages = recordArray(collection.pages);
+    const academyIndex = pages.findIndex((page) => (
+      page.id === ACADEMY_PLACE_PAGE.id
+      || String(page.title || "").trim().toLowerCase() === ACADEMY_PLACE_PAGE.title.toLowerCase()
+    ));
+    if (academyIndex < 0 && collection.id !== "places") return collection;
+
+    const nextPages = [...pages];
+    if (academyIndex >= 0) nextPages[academyIndex] = structuredClone(ACADEMY_PLACE_PAGE) as unknown as Record<string, unknown>;
+    else nextPages.push(structuredClone(ACADEMY_PLACE_PAGE) as unknown as Record<string, unknown>);
+    return { ...collection, pages: nextPages };
+  });
+  const contentMigrations = [...new Set([...migrations, ACADEMY_PLACE_MIGRATION_ID])];
+
   return {
     changed: true,
     envelope: {
@@ -161,7 +175,11 @@ export function repairPublishedStoryJourney(value: unknown): { changed: boolean;
         ...payload,
         database: {
           ...database,
-          storyJourney: normalizeStoryJourneyData(storyJourney)
+          storyJourney: {
+            ...storyJourney,
+            guideCollections,
+            contentMigrations
+          }
         }
       }
     }
