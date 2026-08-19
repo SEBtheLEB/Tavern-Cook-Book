@@ -27,23 +27,41 @@ const scopes = new Set<StoryJourneyScope>(["history", "act1", "act2", "act3"]);
 const readerFonts = new Set<StoryJourneyReaderFont>(["classic", "book", "clean"]);
 
 export const DEFAULT_STORY_READER_APPEARANCE: StoryJourneyReaderAppearance = {
+  backgroundColor: "#020b18",
+  chapterIndicatorColor: "#deaa5e",
+  sequenceIndicatorColor: "#deaa5e",
+  accentColor: "#deaa5e",
+  highlightedTextColor: "#deaa5e",
+  linkColor: "#deaa5e",
+  headingTextColor: "#f3e4ca",
+  bodyTextColor: "#e3dbd1",
+  mutedTextColor: "#c3bab6",
+  headingFont: "classic",
+  bodyFont: "classic",
+  bodyFontSize: 17,
+  lineHeight: 1.78,
+  contentWidth: 760,
+  grainStrength: 7
+};
+
+const LEGACY_STORY_READER_COLORS = {
   chapterIndicatorColor: "#d6a447",
   sequenceIndicatorColor: "#c99442",
   accentColor: "#c99442",
   highlightedTextColor: "#e4ba68",
   linkColor: "#e4ba68",
   headingTextColor: "#f5e7cf",
-  bodyTextColor: "#eadfce",
-  headingFont: "classic",
-  bodyFont: "classic",
-  bodyFontSize: 17,
-  lineHeight: 1.78,
-  contentWidth: 760
-};
+  bodyTextColor: "#eadfce"
+} as const;
 
 const normalizeHexColor = (value: unknown, fallback: string) => {
   const color = String(value || "").trim();
   return /^#[0-9a-f]{6}$/i.test(color) ? color.toLowerCase() : fallback;
+};
+
+const normalizeMigratedReaderColor = (value: unknown, legacy: string, fallback: string) => {
+  const color = normalizeHexColor(value, fallback);
+  return color === legacy ? fallback : color;
 };
 
 const clampNumber = (value: unknown, minimum: number, maximum: number, fallback: number) => {
@@ -52,18 +70,21 @@ const clampNumber = (value: unknown, minimum: number, maximum: number, fallback:
 };
 
 export const normalizeStoryReaderAppearance = (value: Partial<StoryJourneyReaderAppearance> | undefined): StoryJourneyReaderAppearance => ({
-  chapterIndicatorColor: normalizeHexColor(value?.chapterIndicatorColor, DEFAULT_STORY_READER_APPEARANCE.chapterIndicatorColor),
-  sequenceIndicatorColor: normalizeHexColor(value?.sequenceIndicatorColor, DEFAULT_STORY_READER_APPEARANCE.sequenceIndicatorColor),
-  accentColor: normalizeHexColor(value?.accentColor, DEFAULT_STORY_READER_APPEARANCE.accentColor),
-  highlightedTextColor: normalizeHexColor(value?.highlightedTextColor, DEFAULT_STORY_READER_APPEARANCE.highlightedTextColor),
-  linkColor: normalizeHexColor(value?.linkColor, DEFAULT_STORY_READER_APPEARANCE.linkColor),
-  headingTextColor: normalizeHexColor(value?.headingTextColor, DEFAULT_STORY_READER_APPEARANCE.headingTextColor),
-  bodyTextColor: normalizeHexColor(value?.bodyTextColor, DEFAULT_STORY_READER_APPEARANCE.bodyTextColor),
+  backgroundColor: normalizeHexColor(value?.backgroundColor, DEFAULT_STORY_READER_APPEARANCE.backgroundColor),
+  chapterIndicatorColor: normalizeMigratedReaderColor(value?.chapterIndicatorColor, LEGACY_STORY_READER_COLORS.chapterIndicatorColor, DEFAULT_STORY_READER_APPEARANCE.chapterIndicatorColor),
+  sequenceIndicatorColor: normalizeMigratedReaderColor(value?.sequenceIndicatorColor, LEGACY_STORY_READER_COLORS.sequenceIndicatorColor, DEFAULT_STORY_READER_APPEARANCE.sequenceIndicatorColor),
+  accentColor: normalizeMigratedReaderColor(value?.accentColor, LEGACY_STORY_READER_COLORS.accentColor, DEFAULT_STORY_READER_APPEARANCE.accentColor),
+  highlightedTextColor: normalizeMigratedReaderColor(value?.highlightedTextColor, LEGACY_STORY_READER_COLORS.highlightedTextColor, DEFAULT_STORY_READER_APPEARANCE.highlightedTextColor),
+  linkColor: normalizeMigratedReaderColor(value?.linkColor, LEGACY_STORY_READER_COLORS.linkColor, DEFAULT_STORY_READER_APPEARANCE.linkColor),
+  headingTextColor: normalizeMigratedReaderColor(value?.headingTextColor, LEGACY_STORY_READER_COLORS.headingTextColor, DEFAULT_STORY_READER_APPEARANCE.headingTextColor),
+  bodyTextColor: normalizeMigratedReaderColor(value?.bodyTextColor, LEGACY_STORY_READER_COLORS.bodyTextColor, DEFAULT_STORY_READER_APPEARANCE.bodyTextColor),
+  mutedTextColor: normalizeHexColor(value?.mutedTextColor, DEFAULT_STORY_READER_APPEARANCE.mutedTextColor),
   headingFont: readerFonts.has(value?.headingFont as StoryJourneyReaderFont) ? value?.headingFont as StoryJourneyReaderFont : DEFAULT_STORY_READER_APPEARANCE.headingFont,
   bodyFont: readerFonts.has(value?.bodyFont as StoryJourneyReaderFont) ? value?.bodyFont as StoryJourneyReaderFont : DEFAULT_STORY_READER_APPEARANCE.bodyFont,
   bodyFontSize: clampNumber(value?.bodyFontSize, 14, 24, DEFAULT_STORY_READER_APPEARANCE.bodyFontSize),
   lineHeight: clampNumber(value?.lineHeight, 1.35, 2.2, DEFAULT_STORY_READER_APPEARANCE.lineHeight),
-  contentWidth: clampNumber(value?.contentWidth, 580, 980, DEFAULT_STORY_READER_APPEARANCE.contentWidth)
+  contentWidth: clampNumber(value?.contentWidth, 580, 980, DEFAULT_STORY_READER_APPEARANCE.contentWidth),
+  grainStrength: clampNumber(value?.grainStrength, 0, 20, DEFAULT_STORY_READER_APPEARANCE.grainStrength)
 });
 
 const guideSourceSections = new Set<StoryJourneyGuideSourceSection>([

@@ -3134,7 +3134,7 @@ export function StoryJourneyPage({
           )}
         </>
       ) : (
-        <section className="story-treatment-shell">
+        <section className="story-treatment-shell" style={readerAppearanceStyle}>
           <header className="story-treatment-toolbar">
             <button className="story-reader-exit" onClick={openStoryOverview}>
               <Icon name="BookOpen" className="h-4 w-4" />
@@ -3572,7 +3572,6 @@ export function StoryJourneyPage({
               <main
                 ref={storyTreatmentReaderRef}
                 className={`story-treatment-reader depth-${readingDepth} ${speechifyReadAllMode ? "narration-following" : ""}`}
-                style={readerAppearanceStyle}
                 onClickCapture={handleStoryNarrationWordClick}
               >
               {selectedLibraryItem ? (
@@ -3980,6 +3979,7 @@ const storyReaderFontFamilies: Record<StoryJourneyReaderFont, string> = {
 
 function storyReaderAppearanceCssVariables(appearance: StoryJourneyReaderAppearance): CSSProperties {
   return {
+    "--story-reader-background": appearance.backgroundColor,
     "--story-reader-chapter-indicator": appearance.chapterIndicatorColor,
     "--story-reader-sequence-indicator": appearance.sequenceIndicatorColor,
     "--story-reader-accent": appearance.accentColor,
@@ -3987,11 +3987,13 @@ function storyReaderAppearanceCssVariables(appearance: StoryJourneyReaderAppeara
     "--story-reader-link": appearance.linkColor,
     "--story-reader-heading": appearance.headingTextColor,
     "--story-reader-body": appearance.bodyTextColor,
+    "--story-reader-muted": appearance.mutedTextColor,
     "--story-reader-heading-font": storyReaderFontFamilies[appearance.headingFont],
     "--story-reader-body-font": storyReaderFontFamilies[appearance.bodyFont],
     "--story-reader-body-size": `${appearance.bodyFontSize}px`,
     "--story-reader-line-height": String(appearance.lineHeight),
-    "--story-reader-content-width": `${appearance.contentWidth}px`
+    "--story-reader-content-width": `${appearance.contentWidth}px`,
+    "--story-reader-grain-opacity": String(appearance.grainStrength / 100)
   } as CSSProperties;
 }
 
@@ -4010,6 +4012,7 @@ function StoryReaderAppearanceEditor({
   return (
     <div className="story-reader-appearance-editor">
       <div className="story-reader-appearance-colors">
+        <StoryReaderColorControl label="Reader background" value={draft.backgroundColor} onChange={(value) => update("backgroundColor", value)} />
         <StoryReaderColorControl label="Chapter indicators" value={draft.chapterIndicatorColor} onChange={(value) => update("chapterIndicatorColor", value)} />
         <StoryReaderColorControl label="Sequence indicators" value={draft.sequenceIndicatorColor} onChange={(value) => update("sequenceIndicatorColor", value)} />
         <StoryReaderColorControl label="Dividers and labels" value={draft.accentColor} onChange={(value) => update("accentColor", value)} />
@@ -4017,6 +4020,7 @@ function StoryReaderAppearanceEditor({
         <StoryReaderColorControl label="Clickable lore links" value={draft.linkColor} onChange={(value) => update("linkColor", value)} />
         <StoryReaderColorControl label="Headings" value={draft.headingTextColor} onChange={(value) => update("headingTextColor", value)} />
         <StoryReaderColorControl label="Body text" value={draft.bodyTextColor} onChange={(value) => update("bodyTextColor", value)} />
+        <StoryReaderColorControl label="Muted descriptions" value={draft.mutedTextColor} onChange={(value) => update("mutedTextColor", value)} />
       </div>
 
       <div className="story-reader-appearance-type-grid">
@@ -4047,6 +4051,10 @@ function StoryReaderAppearanceEditor({
         <label className="wide">
           <span>Reading column <strong>{draft.contentWidth}px</strong></span>
           <input type="range" min="580" max="980" step="20" value={draft.contentWidth} onChange={(event) => update("contentWidth", Number(event.target.value))} />
+        </label>
+        <label className="wide">
+          <span>Background grain <strong>{draft.grainStrength}%</strong></span>
+          <input type="range" min="0" max="20" step="1" value={draft.grainStrength} onChange={(event) => update("grainStrength", Number(event.target.value))} />
         </label>
       </div>
 

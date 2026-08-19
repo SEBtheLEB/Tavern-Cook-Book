@@ -17692,13 +17692,30 @@ button,
 }
 
 .story-reader-appearance-preview {
+  position: relative;
   display: grid;
   grid-template-columns: 52px minmax(0, 1fr);
   gap: 18px;
+  overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--story-reader-accent) 46%, var(--panel-border));
   border-radius: 8px;
   padding: 18px;
-  background: color-mix(in srgb, var(--app-bg) 86%, #071424);
+  background-color: var(--story-reader-background, #020b18);
+}
+
+.story-reader-appearance-preview::before {
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180' viewBox='0 0 180 180'%3E%3Cfilter id='grain'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23grain)' opacity='.72'/%3E%3C/svg%3E");
+  content: "";
+  mix-blend-mode: soft-light;
+  opacity: var(--story-reader-grain-opacity, 0.07);
+  pointer-events: none;
+}
+
+.story-reader-appearance-preview > * {
+  position: relative;
+  z-index: 1;
 }
 
 .story-reader-appearance-preview .preview-marker {
@@ -19889,6 +19906,35 @@ button,
 }
 
 /* Shared Story Reader appearance variables, saved once for the complete reader. */
+.story-journey-page.reading > .story-treatment-shell {
+  position: relative;
+  isolation: isolate;
+  background-color: var(--story-reader-background, #020b18);
+}
+
+.story-journey-page.reading > .story-treatment-shell::before {
+  position: fixed;
+  z-index: 0;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180' viewBox='0 0 180 180'%3E%3Cfilter id='grain'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23grain)' opacity='.72'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 180px 180px;
+  content: "";
+  mix-blend-mode: soft-light;
+  opacity: var(--story-reader-grain-opacity, 0.07);
+  pointer-events: none;
+}
+
+.story-treatment-shell > .story-treatment-toolbar,
+.story-treatment-shell > .story-treatment-progress {
+  z-index: 2;
+}
+
+.story-treatment-shell > .story-treatment-layout {
+  position: relative;
+  z-index: 1;
+}
+
 .story-treatment-reader .story-treatment-titlepage h1,
 .story-treatment-reader .story-library-titlepage h1,
 .story-treatment-reader .story-treatment-act > header h2,
@@ -19896,7 +19942,7 @@ button,
 .story-treatment-reader .story-treatment-beat h3,
 .story-treatment-reader .story-library-prose h2,
 .story-treatment-reader .story-library-connections h2 {
-  color: var(--story-reader-heading, #f5e7cf);
+  color: var(--story-reader-heading, #f3e4ca);
   font-family: var(--story-reader-heading-font, Georgia, Cambria, "Times New Roman", serif);
 }
 
@@ -19910,8 +19956,18 @@ button,
 .story-treatment-reader .story-treatment-chapter-heading p,
 .story-treatment-reader .story-treatment-callout span,
 .story-treatment-reader .story-treatment-gap span {
-  color: var(--story-reader-body, #eadfce);
+  color: var(--story-reader-body, #e3dbd1);
   font-family: var(--story-reader-body-font, Georgia, Cambria, "Times New Roman", serif);
+}
+
+.story-treatment-reader .story-treatment-lede,
+.story-treatment-reader .story-library-titlepage > p,
+.story-treatment-reader .story-treatment-titlepage > span,
+.story-treatment-reader .story-treatment-act > header p,
+.story-treatment-reader .story-treatment-chapter-heading p,
+.story-treatment-reader .story-treatment-callout span,
+.story-treatment-reader .story-treatment-gap span {
+  color: var(--story-reader-muted, #c3bab6);
 }
 
 .story-treatment-reader .story-treatment-prose,
@@ -19935,22 +19991,22 @@ button,
 }
 
 .story-treatment-reader .story-treatment-chapter-marker {
-  border-color: var(--story-reader-chapter-indicator, #d6a447);
-  color: var(--story-reader-chapter-indicator, #d6a447);
+  border-color: var(--story-reader-chapter-indicator, #deaa5e);
+  color: var(--story-reader-chapter-indicator, #deaa5e);
   font-family: var(--story-reader-heading-font, Georgia, Cambria, "Times New Roman", serif);
 }
 
 .story-treatment-reader .story-treatment-chapter-marker:hover,
 .story-treatment-reader .story-treatment-chapter-marker:focus-visible,
 .story-treatment-reader .story-treatment-chapter.is-collapsed .story-treatment-chapter-marker {
-  border-color: var(--story-reader-chapter-indicator, #d6a447);
-  color: var(--story-reader-chapter-indicator, #d6a447);
-  background: color-mix(in srgb, var(--story-reader-chapter-indicator, #d6a447) 12%, var(--app-bg));
+  border-color: var(--story-reader-chapter-indicator, #deaa5e);
+  color: var(--story-reader-chapter-indicator, #deaa5e);
+  background: color-mix(in srgb, var(--story-reader-chapter-indicator, #deaa5e) 12%, var(--story-reader-background, #020b18));
 }
 
 .story-treatment-reader .story-treatment-beat::before {
-  border-color: var(--story-reader-sequence-indicator, #c99442);
-  color: var(--story-reader-sequence-indicator, #c99442);
+  border-color: var(--story-reader-sequence-indicator, #deaa5e);
+  color: var(--story-reader-sequence-indicator, #deaa5e);
   font-family: var(--story-reader-heading-font, Georgia, Cambria, "Times New Roman", serif);
 }
 
@@ -19961,34 +20017,34 @@ button,
 .story-treatment-reader .story-treatment-chapter-heading > div:first-child > span::before,
 .story-treatment-reader .story-treatment-beat-heading > span::before,
 .story-treatment-reader.depth-standard .story-treatment-beat-heading > span::before {
-  color: var(--story-reader-accent, #c99442);
+  color: var(--story-reader-accent, #deaa5e);
 }
 
 .story-treatment-reader .story-treatment-act > header::after,
 .story-treatment-reader .story-treatment-beat h3::after,
 .story-treatment-reader.depth-standard .story-treatment-beat h3::after {
-  background-color: var(--story-reader-accent, #c99442);
+  background-color: var(--story-reader-accent, #deaa5e);
 }
 
 .story-treatment-reader .story-treatment-prose strong,
 .story-treatment-reader .story-treatment-lede strong,
 .story-treatment-reader .story-library-prose strong {
-  color: var(--story-reader-highlight, #e4ba68);
+  color: var(--story-reader-highlight, #deaa5e);
 }
 
 .story-treatment-reader .story-inline-lore-link,
 .story-treatment-reader .rich-lore-text a,
 .story-treatment-reader .story-library-prose button {
-  color: var(--story-reader-link, #e4ba68);
+  color: var(--story-reader-link, #deaa5e);
 }
 
 .story-treatment-reader .story-inline-lore-link:hover,
 .story-treatment-reader .story-inline-lore-link:focus-visible,
 .story-treatment-reader .rich-lore-text a:hover,
 .story-treatment-reader .rich-lore-text a:focus-visible {
-  border-bottom-color: color-mix(in srgb, var(--story-reader-link, #e4ba68) 62%, transparent);
-  color: var(--story-reader-link, #e4ba68);
-  background: color-mix(in srgb, var(--story-reader-link, #e4ba68) 7%, transparent);
+  border-bottom-color: color-mix(in srgb, var(--story-reader-link, #deaa5e) 62%, transparent);
+  color: var(--story-reader-link, #deaa5e);
+  background: color-mix(in srgb, var(--story-reader-link, #deaa5e) 7%, transparent);
 }
 
 @media (max-width: 680px) {

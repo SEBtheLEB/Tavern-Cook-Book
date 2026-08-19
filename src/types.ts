@@ -924,6 +924,7 @@ export interface StoryJourneyGuideCollectionRecord {
 export type StoryJourneyReaderFont = "classic" | "book" | "clean";
 
 export interface StoryJourneyReaderAppearance {
+  backgroundColor: string;
   chapterIndicatorColor: string;
   sequenceIndicatorColor: string;
   accentColor: string;
@@ -931,11 +932,13 @@ export interface StoryJourneyReaderAppearance {
   linkColor: string;
   headingTextColor: string;
   bodyTextColor: string;
+  mutedTextColor: string;
   headingFont: StoryJourneyReaderFont;
   bodyFont: StoryJourneyReaderFont;
   bodyFontSize: number;
   lineHeight: number;
   contentWidth: number;
+  grainStrength: number;
 }
 
 export interface StoryJourneyData {
