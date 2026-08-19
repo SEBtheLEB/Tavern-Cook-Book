@@ -13,7 +13,10 @@ import type {
   StoryJourneyDialogueSpriteSelection,
   StoryJourneyGuideCollectionRecord,
   StoryJourneyGuidePageRecord,
+  StoryJourneyGuidePageType,
   StoryJourneyGuideSourceSection,
+  StoryJourneyPlacePageData,
+  StoryJourneyPlaceSectionId,
   StoryJourneyPageRecord,
   StoryJourneyReaderAppearance,
   StoryJourneyReaderFont,
@@ -34,9 +37,11 @@ import { normalizeArtVault } from "../utils/entries";
 import { normalizeCreatureArtVault } from "../utils/bestiary";
 import {
   DEFAULT_STORY_READER_APPEARANCE,
+  createDefaultStoryJourneyPlaceData,
   normalizeStoryReaderAppearance,
   normalizeStoryJourneyGuideCollections,
-  normalizeStoryJourneyGuidePage
+  normalizeStoryJourneyGuidePage,
+  normalizeStoryJourneyPlaceData
 } from "../utils/storyJourneyData";
 import { resolveArtVaultDriveFolder } from "../utils/artVaultDriveFolders";
 import { isRichText, plainTextToRichHtml, richTextToPlainText } from "../utils/richText";
@@ -132,6 +137,7 @@ interface StoryLibraryItem {
   title: string;
   sectionId: StoryLibrarySectionId;
   sourceType: "entry" | "world" | "creature" | "custom";
+  pageType?: StoryJourneyGuidePageType;
   eyebrow: string;
   summary: string;
   fullText: string;
@@ -142,6 +148,7 @@ interface StoryLibraryItem {
   worldEntry?: WorldBuildingEntry;
   creature?: BestiaryCreature;
   customPage?: StoryJourneyGuidePageRecord;
+  place?: StoryJourneyPlacePageData;
 }
 
 interface StoryLibrarySection {
@@ -157,6 +164,7 @@ type StoryGuideEditorTarget =
   | { kind: "page"; collectionId: string; pageId?: string };
 
 interface StoryGuideEditorValue {
+  pageType: StoryJourneyGuidePageType;
   title: string;
   description: string;
   sourceSectionId?: StoryJourneyGuideSourceSection;
@@ -164,6 +172,7 @@ interface StoryGuideEditorValue {
   summary: string;
   fullText: string;
   tags: string[];
+  place?: StoryJourneyPlacePageData;
 }
 
 interface StoryChronologyEditorValue {
@@ -185,6 +194,25 @@ const storyGuideSourceOptions: Array<{ id: StoryJourneyGuideSourceSection; label
   { id: "creatures", label: "Creature & Threat source pages" },
   { id: "quests", label: "Quest & Storyline source pages" },
   { id: "lore", label: "Lore & Mystery source pages" }
+];
+
+const storyPlaceSectionDefinitions: Array<{
+  id: StoryJourneyPlaceSectionId;
+  label: string;
+  description: string;
+}> = [
+  { id: "generalFacts", label: "General Facts", description: "The essential truths and defining traits of this place." },
+  { id: "environment", label: "Environment", description: "Climate, terrain, atmosphere, and physical character." },
+  { id: "habitats", label: "Habitats", description: "Distinct ecosystems and living environments within the place." },
+  { id: "settlements", label: "Settlements", description: "Villages, districts, camps, institutions, and inhabited areas." },
+  { id: "landmarks", label: "Landmarks", description: "Recognizable sites, structures, routes, and natural wonders." },
+  { id: "inhabitants", label: "Inhabitants", description: "The peoples, communities, and species who live here." },
+  { id: "flora", label: "Flora", description: "Plants, vegetation, cultivated growth, and rare botanical life." },
+  { id: "ingredients", label: "Ingredients", description: "Foods, herbs, harvests, and culinary resources found here." },
+  { id: "creatures", label: "Creatures", description: "Wildlife and notable beings associated with the place." },
+  { id: "threats", label: "Threats & Dangers", description: "Hazards, enemies, corruption, and environmental risks." },
+  { id: "culture", label: "Culture & Daily Life", description: "Traditions, routines, values, and lived experience." },
+  { id: "narrativeRole", label: "Role in the Narrative", description: "Why the place matters to the game and its story." }
 ];
 
 interface StoryNarrationWordTarget {
@@ -323,6 +351,8 @@ interface StoryInspectorSubject {
   creature?: BestiaryCreature;
   worldEntry?: WorldBuildingEntry;
   chapter?: StoryChapter;
+  guidePage?: StoryJourneyGuidePageRecord;
+  guideCollectionId?: string;
 }
 
 const timelineLabels = [
@@ -1321,8 +1351,9 @@ export function StoryJourneyPage({
     ...linkableTerms,
     ...entries.map((entry) => entry.title),
     ...bestiary.map((creature) => creature.name),
-    ...Object.values(worldBuilding).flat().map((entry) => entry.title)
-  ].map((term) => term.trim()).filter((term) => term.length >= 3))).sort((left, right) => right.length - left.length), [bestiary, entries, linkableTerms, worldBuilding]);
+    ...Object.values(worldBuilding).flat().map((entry) => entry.title),
+    ...guideCollections.flatMap((collection) => collection.pages.flatMap((page) => [page.title, page.place?.placeName || ""]))
+  ].map((term) => term.trim()).filter((term) => term.length >= 3))).sort((left, right) => right.length - left.length), [bestiary, entries, guideCollections, linkableTerms, worldBuilding]);
   const pageImageUrl = currentPage?.imageUrl ? resolveImageSourceUrl(currentPage.imageUrl) : "";
   const coverImageUrl = selectedChapter.coverImageUrl ? resolveImageSourceUrl(selectedChapter.coverImageUrl) : "";
   const storyThreads = useMemo(() => Array.from(new Set(chapters.flatMap((chapter) => [
@@ -1382,10 +1413,15 @@ export function StoryJourneyPage({
     [activeReaderChapter, entries, selectedLibraryItem]
   );
   const storyInspectorHoverSubject = useMemo(
-    () => hoveredLoreTerm
-      ? storyInspectorSubjectFromLorePreview(resolveLorePreview(hoveredLoreTerm, entries, bestiary, worldBuilding), entries)
-      : null,
-    [bestiary, entries, hoveredLoreTerm, worldBuilding]
+    () => {
+      if (!hoveredLoreTerm) return null;
+      const guideItem = librarySections.flatMap((section) => section.items)
+        .find((item) => normalizeTerm(item.title) === normalizeTerm(hoveredLoreTerm));
+      return guideItem
+        ? storyInspectorSubjectFromLibraryItem(guideItem, entries)
+        : storyInspectorSubjectFromLorePreview(resolveLorePreview(hoveredLoreTerm, entries, bestiary, worldBuilding), entries);
+    },
+    [bestiary, entries, hoveredLoreTerm, librarySections, worldBuilding]
   );
   const storyInspectorSubject = storyInspectorHoverSubject || storyInspectorBaseSubject;
   const storyInspectorManagerSlot = useMemo(
@@ -2023,12 +2059,14 @@ export function StoryJourneyPage({
           ...item,
           pages: item.pages.map((page) => page.id === target.pageId
             ? normalizeStoryJourneyGuidePage({
-                ...page,
+              ...page,
+                pageType: value.pageType,
                 title: value.title,
                 eyebrow: value.eyebrow,
                 summary: value.summary,
                 fullText: value.fullText,
                 tags: value.tags,
+                place: value.pageType === "place" ? value.place : undefined,
                 updatedAt: now
               }, page.id)
             : page)
@@ -2039,11 +2077,13 @@ export function StoryJourneyPage({
         ...item,
         pages: [...item.pages, normalizeStoryJourneyGuidePage({
           id: nextPageId,
+          pageType: value.pageType,
           title: value.title,
           eyebrow: value.eyebrow || item.title,
           summary: value.summary,
           fullText: value.fullText,
           tags: value.tags,
+          place: value.pageType === "place" ? value.place : undefined,
           createdAt: now,
           updatedAt: now
         }, nextPageId)]
@@ -2099,7 +2139,8 @@ export function StoryJourneyPage({
   };
 
   const openStoryInspectorSource = (subject: StoryInspectorSubject) => {
-    if (subject.entry) onOpenEntry(subject.entry);
+    if (subject.guidePage && subject.guideCollectionId) setStoryGuideEditorTarget({ kind: "page", collectionId: subject.guideCollectionId, pageId: subject.guidePage.id });
+    else if (subject.entry) onOpenEntry(subject.entry);
     else if (subject.creature) onOpenCreature(subject.creature);
     else if (subject.worldEntry) onOpenWorldEntry(subject.worldEntry.category, subject.worldEntry.id);
     else if (subject.chapter) scrollToStorySection(subject.chapter.id);
@@ -2114,6 +2155,37 @@ export function StoryJourneyPage({
     const subject = storyInspectorEditSubject;
     const draft = slots[0];
     if (!subject || !draft?.imageUrl) {
+      setStoryInspectorEditSubject(null);
+      return;
+    }
+
+    if (subject.guidePage?.pageType === "place" && subject.guideCollectionId) {
+      const createdAt = new Date().toISOString();
+      setGuideCollections((current) => current.map((collection) => collection.id === subject.guideCollectionId
+        ? {
+            ...collection,
+            pages: collection.pages.map((page) => page.id === subject.guidePage?.id
+              ? normalizeStoryJourneyGuidePage({
+                  ...page,
+                  place: {
+                    ...normalizeStoryJourneyPlaceData(page.place, page.title),
+                    referenceArt: [
+                      ...normalizeStoryJourneyPlaceData(page.place, page.title).referenceArt,
+                      {
+                        id: `place-reference-art-${Date.now()}`,
+                        label: draft.label || `${page.title} reference art`,
+                        imageUrl: draft.imageUrl,
+                        webViewLink: draft.webViewLink,
+                        imageFit: normalizeImageFit(draft.imageFit),
+                        createdAt
+                      }
+                    ]
+                  },
+                  updatedAt: createdAt
+                }, page.id)
+              : page)
+          }
+        : collection));
       setStoryInspectorEditSubject(null);
       return;
     }
@@ -3517,7 +3589,7 @@ export function StoryJourneyPage({
                       </button>
                       {canEditStory && collection && (
                         <div className="story-navigator-collection-actions">
-                          <button type="button" onClick={() => setStoryGuideEditorTarget({ kind: "page", collectionId: collection.id })} title={`Add page to ${collection.title}`} aria-label={`Add page to ${collection.title}`}>
+                          <button type="button" onClick={() => setStoryGuideEditorTarget({ kind: "page", collectionId: collection.id })} title={collection.sourceSectionId === "places" ? "Add Place" : `Add page to ${collection.title}`} aria-label={collection.sourceSectionId === "places" ? "Add Place" : `Add page to ${collection.title}`}>
                             <Icon name="Plus" className="h-3.5 w-3.5" />
                           </button>
                           <button type="button" onClick={() => setStoryGuideEditorTarget({ kind: "collection", collectionId: collection.id })} title={`Edit ${collection.title}`} aria-label={`Edit ${collection.title}`}>
@@ -3575,6 +3647,32 @@ export function StoryJourneyPage({
                 onClickCapture={handleStoryNarrationWordClick}
               >
               {selectedLibraryItem ? (
+                selectedLibraryItem.place ? (
+                  <StoryPlaceReader
+                    item={selectedLibraryItem}
+                    entries={entries}
+                    readingDepth={readingDepth}
+                    relatedChapters={selectedLibraryChapters}
+                    relatedReferences={selectedLibraryReferences}
+                    canEdit={canEditStory}
+                    onEdit={() => setStoryGuideEditorTarget({
+                      kind: "page",
+                      collectionId: selectedLibraryItem.sectionId,
+                      pageId: selectedLibraryItem.customPage?.id
+                    })}
+                    onOpenEntry={onOpenEntry}
+                    onOpenChapter={openLibraryChronologyChapter}
+                    onOpenRelated={(name) => {
+                      const relatedItem = librarySections.flatMap((section) => section.items)
+                        .find((candidate) => normalizeTerm(candidate.title) === normalizeTerm(name));
+                      if (relatedItem) openLibraryItem(relatedItem);
+                      else {
+                        const entry = entries.find((candidate) => normalizeTerm(candidate.title) === normalizeTerm(name));
+                        if (entry) onOpenEntry(entry);
+                      }
+                    }}
+                  />
+                ) : (
                 <article className="story-library-reader">
                   <header className="story-library-titlepage" data-story-narration-block>
                     <span>{selectedLibraryItem.eyebrow}</span>
@@ -3664,6 +3762,7 @@ export function StoryJourneyPage({
                     )}
                   </footer>
                 </article>
+                )
               ) : (
                 <>
               <header className="story-treatment-titlepage" data-story-narration-block>
@@ -3854,6 +3953,7 @@ export function StoryJourneyPage({
           page={storyGuideEditorTarget.kind === "page"
             ? guideCollections.find((collection) => collection.id === storyGuideEditorTarget.collectionId)?.pages.find((page) => page.id === storyGuideEditorTarget.pageId)
             : undefined}
+          entries={entries}
           onSave={saveStoryGuideEditor}
           onClose={() => setStoryGuideEditorTarget(null)}
         />
@@ -4227,17 +4327,22 @@ function StoryGuideEditorModal({
   target,
   collection,
   page,
+  entries,
   onSave,
   onClose
 }: {
   target: StoryGuideEditorTarget;
   collection?: StoryJourneyGuideCollectionRecord;
   page?: StoryJourneyGuidePageRecord;
+  entries: LoreEntry[];
   onSave: (value: StoryGuideEditorValue) => void;
   onClose: () => void;
 }) {
   const isCollection = target.kind === "collection";
   const editing = isCollection ? Boolean(target.collectionId) : Boolean(target.pageId);
+  const [pageType, setPageType] = useState<StoryJourneyGuidePageType>(
+    isCollection ? "generic" : page?.pageType || (collection?.sourceSectionId === "places" ? "place" : "generic")
+  );
   const [title, setTitle] = useState(isCollection ? collection?.title || "" : page?.title || "");
   const [description, setDescription] = useState(isCollection ? collection?.description || "" : "");
   const [sourceSectionId, setSourceSectionId] = useState<StoryJourneyGuideSourceSection | "">(isCollection ? collection?.sourceSectionId || "" : "");
@@ -4245,6 +4350,10 @@ function StoryGuideEditorModal({
   const [summary, setSummary] = useState(isCollection ? "" : page?.summary || "");
   const [fullText, setFullText] = useState(isCollection ? "" : page?.fullText || "");
   const [manualTags, setManualTags] = useState(isCollection ? "" : (page?.tags || []).join(", "));
+  const [placeDraft, setPlaceDraft] = useState<StoryJourneyPlacePageData>(() => normalizeStoryJourneyPlaceData(
+    page?.place || createDefaultStoryJourneyPlaceData(page?.title || "Untitled Place"),
+    page?.title || "Untitled Place"
+  ));
   const suggestedTags = useMemo(
     () => isCollection ? [] : suggestStoryGuideTags(title, summary, collection?.title || ""),
     [collection?.title, isCollection, summary, title]
@@ -4254,6 +4363,7 @@ function StoryGuideEditorModal({
     const cleanTitle = title.trim();
     if (!cleanTitle) return;
     onSave({
+      pageType: isCollection ? "generic" : pageType,
       title: cleanTitle,
       description: description.trim(),
       sourceSectionId: sourceSectionId || undefined,
@@ -4263,20 +4373,31 @@ function StoryGuideEditorModal({
       tags: Array.from(new Set([
         ...manualTags.split(",").map((tag) => tag.trim()).filter(Boolean),
         ...suggestedTags
-      ]))
+      ])),
+      place: pageType === "place" ? normalizeStoryJourneyPlaceData({
+        ...placeDraft,
+        placeName: cleanTitle,
+        summary: placeDraft.summary || summary.trim(),
+        notableFigures: placeDraft.notableFigures.map((figure) => ({
+          ...figure,
+          entryId: entries.find((entry) => normalizeTerm(entry.title) === normalizeTerm(figure.name))?.id || figure.entryId
+        }))
+      }, cleanTitle) : undefined
     });
   };
 
   return (
     <div className="story-guide-editor-backdrop" role="presentation" onMouseDown={onClose}>
-      <section className="story-guide-editor" role="dialog" aria-modal="true" aria-label={isCollection ? "World Guide collection editor" : "World Guide page editor"} onMouseDown={(event) => event.stopPropagation()}>
+      <section className={`story-guide-editor ${!isCollection && pageType === "place" ? "story-place-editor" : ""}`} role="dialog" aria-modal="true" aria-label={isCollection ? "World Guide collection editor" : "World Guide page editor"} onMouseDown={(event) => event.stopPropagation()}>
         <header>
           <div>
             <span>{isCollection ? "World Guide Collection" : collection?.title || "World Guide"}</span>
-            <h2 className="font-display">{editing ? "Edit" : "Add"} {isCollection ? "Collection" : "Guide Page"}</h2>
+            <h2 className="font-display">{editing ? "Edit" : "Add"} {isCollection ? "Collection" : pageType === "place" ? "Place" : "Guide Page"}</h2>
             <p>{isCollection
               ? "Collections organize related reading pages in the left navigator."
-              : "Create a readable guide page that lives directly inside Story Journey."}</p>
+              : pageType === "place"
+                ? "Create a structured location entry with origins, facts, modular lore, reference art, and notable figures."
+                : "Create a readable guide page that lives directly inside Story Journey."}</p>
           </div>
           <button type="button" onClick={onClose} aria-label="Close guide editor"><Icon name="X" className="h-5 w-5" /></button>
         </header>
@@ -4284,8 +4405,33 @@ function StoryGuideEditorModal({
         <div className="story-guide-editor-fields">
           <label>
             <span>{isCollection ? "Collection title" : "Page title"}</span>
-            <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder={isCollection ? "Peoples & Realms" : "Fairies"} autoFocus />
+            <input value={title} onChange={(event) => {
+              const nextTitle = event.target.value;
+              setTitle(nextTitle);
+              if (pageType === "place") setPlaceDraft((current) => ({
+                ...current,
+                placeName: nextTitle,
+                formalTitle: !current.formalTitle || current.formalTitle === "Untitled Place" || current.formalTitle === title ? nextTitle : current.formalTitle
+              }));
+            }} placeholder={isCollection ? "Peoples & Realms" : pageType === "place" ? "Whisker Woods" : "Fairies"} autoFocus />
           </label>
+
+          {!isCollection && (
+            <label>
+              <span>Page type</span>
+              <select value={pageType} disabled={editing} onChange={(event) => {
+                const nextType = event.target.value as StoryJourneyGuidePageType;
+                setPageType(nextType);
+                if (nextType === "place" && !page?.place) setPlaceDraft(createDefaultStoryJourneyPlaceData(title || "Untitled Place"));
+              }}>
+                <option value="generic">Generic Guide Page</option>
+                <option value="place">Place</option>
+              </select>
+              <small>{editing
+                ? "The page type is fixed after creation so changing a template cannot discard structured content."
+                : "Place pages use the built-in location profile, facts, lore sections, reference art, and notable-figures layout."}</small>
+            </label>
+          )}
 
           {isCollection ? (
             <>
@@ -4302,6 +4448,151 @@ function StoryGuideEditorModal({
                 <small>Connect an existing source to automatically include its current pages. This never duplicates or deletes their original records.</small>
               </label>
             </>
+          ) : pageType === "place" ? (
+            <div className="story-place-editor-fields">
+              <section className="story-place-editor-group">
+                <header>
+                  <span>Place Profile</span>
+                  <p>The title above is also used as the place name throughout the reader.</p>
+                </header>
+                <div className="story-place-editor-grid">
+                  <label>
+                    <span>Place type</span>
+                    <input value={placeDraft.placeType} onChange={(event) => setPlaceDraft((current) => ({ ...current, placeType: event.target.value }))} placeholder="Forest, village, academy, cavern..." />
+                  </label>
+                  <label>
+                    <span>Formal title</span>
+                    <input value={placeDraft.formalTitle} onChange={(event) => setPlaceDraft((current) => ({ ...current, formalTitle: event.target.value }))} placeholder="The Great Forest of Whisker Woods" />
+                  </label>
+                  <label className="wide">
+                    <span>Tagline</span>
+                    <textarea value={placeDraft.subtitle} onChange={(event) => setPlaceDraft((current) => ({ ...current, subtitle: event.target.value }))} placeholder="An ancient forest where roots remember..." />
+                  </label>
+                  <label className="wide">
+                    <span>Overview</span>
+                    <textarea value={placeDraft.summary} onChange={(event) => {
+                      setPlaceDraft((current) => ({ ...current, summary: event.target.value }));
+                      setSummary(event.target.value);
+                    }} placeholder="Introduce the place and explain what distinguishes it." />
+                  </label>
+                </div>
+              </section>
+
+              <section className="story-place-editor-group">
+                <header><span>Founding &amp; Origins</span><p>Leave fields empty when they do not apply to a natural place.</p></header>
+                <div className="story-place-editor-grid three">
+                  <label><span>Founded</span><input value={placeDraft.founded} onChange={(event) => setPlaceDraft((current) => ({ ...current, founded: event.target.value }))} placeholder="Year, era, or unknown" /></label>
+                  <label><span>Founder / Founders</span><input value={placeDraft.founder} onChange={(event) => setPlaceDraft((current) => ({ ...current, founder: event.target.value }))} placeholder="Founder names" /></label>
+                  <label><span>Origin type</span><input value={placeDraft.originType} onChange={(event) => setPlaceDraft((current) => ({ ...current, originType: event.target.value }))} placeholder="Natural, ancient, reclaimed..." /></label>
+                </div>
+                <div className="story-guide-rich-field">
+                  <span>Historical notes / origins</span>
+                  <RichTextEditor value={placeDraft.historicalNotes} onChange={(historicalNotes) => setPlaceDraft((current) => ({ ...current, historicalNotes }))} placeholder="Explain how this place began or came to be known." />
+                </div>
+              </section>
+
+              <section className="story-place-editor-group">
+                <header>
+                  <span>At a Glance</span>
+                  <button type="button" onClick={() => setPlaceDraft((current) => ({
+                    ...current,
+                    quickFacts: [...current.quickFacts, { id: `place-fact-${Date.now()}`, label: "", value: "" }]
+                  }))}><Icon name="Plus" className="h-3.5 w-3.5" /> Fact</button>
+                </header>
+                <div className="story-place-fact-editor">
+                  {placeDraft.quickFacts.length ? placeDraft.quickFacts.map((fact) => (
+                    <div key={fact.id}>
+                      <input value={fact.label} onChange={(event) => setPlaceDraft((current) => ({ ...current, quickFacts: current.quickFacts.map((item) => item.id === fact.id ? { ...item, label: event.target.value } : item) }))} placeholder="Climate" />
+                      <input value={fact.value} onChange={(event) => setPlaceDraft((current) => ({ ...current, quickFacts: current.quickFacts.map((item) => item.id === fact.id ? { ...item, value: event.target.value } : item) }))} placeholder="Temperate and misty" />
+                      <button type="button" onClick={() => setPlaceDraft((current) => ({ ...current, quickFacts: current.quickFacts.filter((item) => item.id !== fact.id) }))} aria-label={`Remove ${fact.label || "fact"}`}><Icon name="Trash2" className="h-4 w-4" /></button>
+                    </div>
+                  )) : <p>Add only the facts that matter for this place.</p>}
+                </div>
+              </section>
+
+              <section className="story-place-editor-group">
+                <header><span>Lore Sections</span><p>Hidden sections stay saved and can be shown again later.</p></header>
+                <div className="story-place-section-editors">
+                  {storyPlaceSectionDefinitions.map((section) => {
+                    const hidden = placeDraft.hiddenSections.includes(section.id);
+                    return (
+                      <article key={section.id} className={hidden ? "hidden-section" : ""}>
+                        <header>
+                          <div><strong>{section.label}</strong><small>{section.description}</small></div>
+                          <label><input type="checkbox" checked={!hidden} onChange={(event) => setPlaceDraft((current) => ({
+                            ...current,
+                            hiddenSections: event.target.checked
+                              ? current.hiddenSections.filter((id) => id !== section.id)
+                              : Array.from(new Set([...current.hiddenSections, section.id]))
+                          }))} /> Show</label>
+                        </header>
+                        <RichTextEditor
+                          value={placeDraft[section.id]}
+                          onChange={(value) => setPlaceDraft((current) => ({ ...current, [section.id]: value }))}
+                          placeholder={`Write ${section.label.toLowerCase()} for this place.`}
+                        />
+                      </article>
+                    );
+                  })}
+                </div>
+              </section>
+
+              <section className="story-place-editor-group">
+                <header><span>Connections</span><p>Comma-separated names become links and help the app relate this page to other records.</p></header>
+                <div className="story-place-editor-grid three">
+                  <label><span>Related characters</span><textarea value={placeDraft.relatedCharacters.join(", ")} onChange={(event) => setPlaceDraft((current) => ({ ...current, relatedCharacters: splitCommaList(event.target.value) }))} placeholder="Gwen, Tohm Kyatt" /></label>
+                  <label><span>Related places</span><textarea value={placeDraft.relatedLocations.join(", ")} onChange={(event) => setPlaceDraft((current) => ({ ...current, relatedLocations: splitCommaList(event.target.value) }))} placeholder="Whiskin Village, Moonrest Vale" /></label>
+                  <label><span>Related quests</span><textarea value={placeDraft.relatedQuests.join(", ")} onChange={(event) => setPlaceDraft((current) => ({ ...current, relatedQuests: splitCommaList(event.target.value) }))} placeholder="The Road Home" /></label>
+                </div>
+              </section>
+
+              {placeDraft.referenceArt.length > 0 && (
+                <section className="story-place-editor-group">
+                  <header><span>Reference Art</span><p>New images are added from the Story &amp; Art Viewer on the Place page.</p></header>
+                  <div className="story-place-reference-art-editor">
+                    {placeDraft.referenceArt.map((art) => (
+                      <article key={art.id}>
+                        <DriveAwareImage src={art.imageUrl} alt="" loading="lazy" draggable={false} style={imageFitToStyle(art.imageFit)} />
+                        <span>{art.label}</span>
+                        <button type="button" onClick={() => setPlaceDraft((current) => ({ ...current, referenceArt: current.referenceArt.filter((item) => item.id !== art.id) }))} aria-label={`Remove ${art.label}`}><Icon name="Trash2" className="h-4 w-4" /></button>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              <section className="story-place-editor-group">
+                <header>
+                  <span>Bottom Showcase</span>
+                  <button type="button" onClick={() => setPlaceDraft((current) => ({
+                    ...current,
+                    notableFigures: [...current.notableFigures, { id: `place-figure-${Date.now()}`, name: "", role: "" }]
+                  }))}><Icon name="Plus" className="h-3.5 w-3.5" /> Figure</button>
+                </header>
+                <label><span>Showcase title</span><input value={placeDraft.showcaseTitle} onChange={(event) => setPlaceDraft((current) => ({ ...current, showcaseTitle: event.target.value }))} placeholder="Notable Figures of Whisker Woods" /></label>
+                <datalist id="story-place-character-options">{entries.map((entry) => <option key={entry.id} value={entry.title} />)}</datalist>
+                <div className="story-place-figure-editor">
+                  {placeDraft.notableFigures.map((figure) => (
+                    <div key={figure.id}>
+                      <input list="story-place-character-options" value={figure.name} onChange={(event) => setPlaceDraft((current) => ({ ...current, notableFigures: current.notableFigures.map((item) => item.id === figure.id ? { ...item, name: event.target.value } : item) }))} placeholder="Character name" />
+                      <input value={figure.role} onChange={(event) => setPlaceDraft((current) => ({ ...current, notableFigures: current.notableFigures.map((item) => item.id === figure.id ? { ...item, role: event.target.value } : item) }))} placeholder="Resident, founder, graduate..." />
+                      <button type="button" onClick={() => setPlaceDraft((current) => ({ ...current, notableFigures: current.notableFigures.filter((item) => item.id !== figure.id) }))} aria-label={`Remove ${figure.name || "figure"}`}><Icon name="Trash2" className="h-4 w-4" /></button>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <label>
+                <span>Manual tags</span>
+                <input value={manualTags} onChange={(event) => setManualTags(event.target.value)} placeholder="Forest, Whisker Woods, Ancient" />
+              </label>
+              {suggestedTags.length > 0 && (
+                <div className="story-guide-suggested-tags">
+                  <span><Icon name="Sparkles" className="h-3.5 w-3.5" /> Suggested from this page</span>
+                  <div>{suggestedTags.map((tag) => <strong key={tag}>{tag}</strong>)}</div>
+                </div>
+              )}
+            </div>
           ) : (
             <>
               <label>
@@ -4334,11 +4625,150 @@ function StoryGuideEditorModal({
           <button type="button" onClick={onClose}>Cancel</button>
           <button type="button" className="primary" onClick={submit} disabled={!title.trim()}>
             <Icon name={editing ? "Save" : "Plus"} className="h-4 w-4" />
-            {editing ? "Save Changes" : isCollection ? "Add Collection" : "Add Guide Page"}
+            {editing ? "Save Changes" : isCollection ? "Add Collection" : pageType === "place" ? "Add Place" : "Add Guide Page"}
           </button>
         </footer>
       </section>
     </div>
+  );
+}
+
+function StoryPlaceReader({
+  item,
+  entries,
+  readingDepth,
+  relatedChapters,
+  relatedReferences,
+  canEdit,
+  onEdit,
+  onOpenEntry,
+  onOpenChapter,
+  onOpenRelated
+}: {
+  item: StoryLibraryItem;
+  entries: LoreEntry[];
+  readingDepth: StoryReadingDepth;
+  relatedChapters: StoryChapter[];
+  relatedReferences: StoryReference[];
+  canEdit: boolean;
+  onEdit: () => void;
+  onOpenEntry: (entry: LoreEntry) => void;
+  onOpenChapter: (chapterId: string) => void;
+  onOpenRelated: (name: string) => void;
+}) {
+  const place = normalizeStoryJourneyPlaceData(item.place, item.title);
+  const visibleSections = storyPlaceSectionDefinitions.filter((section) => !place.hiddenSections.includes(section.id));
+  const origins = [
+    { label: "Founded", value: place.founded },
+    { label: "Founder / Founders", value: place.founder },
+    { label: "Origin Type", value: place.originType }
+  ].filter((fact) => fact.value.trim());
+  const carouselId = `place-showcase-${item.customPage?.id || slugify(item.title)}`;
+  const scrollShowcase = (direction: -1 | 1) => {
+    document.getElementById(carouselId)?.scrollBy({ left: direction * 380, behavior: "smooth" });
+  };
+
+  return (
+    <article className="story-library-reader story-place-reader">
+      <header className="story-place-titlepage" data-story-narration-block>
+        <div className="story-place-title-row">
+          <div>
+            <span>Place Entry</span>
+            <h1 className="font-display">{place.placeName || item.title}</h1>
+            <p>{place.subtitle || item.summary || "A place awaiting its story."}</p>
+          </div>
+          {canEdit && <button type="button" className="button-frame" onClick={onEdit}><Icon name="Edit3" className="h-4 w-4" /> Edit Place</button>}
+        </div>
+        <div className="story-place-title-tags">
+          {[place.placeType, ...item.tags].filter(Boolean).slice(0, 8).map((tag) => <strong key={tag}>{tag}</strong>)}
+        </div>
+      </header>
+
+      <section className="story-place-profile" data-story-narration-block>
+        <div className="story-place-emblem" aria-hidden="true"><Icon name="MapPinned" className="h-8 w-8" /></div>
+        <div>
+          <span>Region Profile</span>
+          <h2 className="font-display">{place.formalTitle || place.placeName || item.title}</h2>
+          <RichLoreText text={place.summary || item.summary || "This place has not yet received an overview."} />
+        </div>
+      </section>
+
+      {readingDepth !== "overview" && origins.length > 0 && (
+        <section className="story-place-origins" data-story-narration-block>
+          <header><span>Founding &amp; Origins</span><h2 className="font-display">How this place began</h2></header>
+          <dl>{origins.map((fact) => <div key={fact.label}><dt>{fact.label}</dt><dd>{fact.value}</dd></div>)}</dl>
+          {place.historicalNotes && <RichLoreText text={place.historicalNotes} />}
+        </section>
+      )}
+
+      {place.quickFacts.length > 0 && (
+        <section className="story-place-glance" data-story-narration-block>
+          <header><span>At a Glance</span><h2 className="font-display">Place profile</h2></header>
+          <dl>{place.quickFacts.map((fact) => <div key={fact.id}><dt>{fact.label}</dt><dd>{fact.value}</dd></div>)}</dl>
+        </section>
+      )}
+
+      {readingDepth !== "overview" && (
+        <section className="story-place-lore-grid">
+          {visibleSections.map((section) => {
+            const value = place[section.id];
+            if (!value && !canEdit) return null;
+            return (
+              <article key={section.id} data-story-narration-block>
+                <span>{section.label}</span>
+                <h2 className="font-display">{section.label}</h2>
+                {value ? <RichLoreText text={value} /> : <p className="story-place-empty-copy">Not documented yet.</p>}
+              </article>
+            );
+          })}
+        </section>
+      )}
+
+      {(place.relatedCharacters.length > 0 || place.relatedLocations.length > 0 || place.relatedQuests.length > 0) && (
+        <section className="story-place-related">
+          <header><span>Connected Lore</span><h2 className="font-display">Open related</h2></header>
+          <div>
+            {[...place.relatedCharacters, ...place.relatedLocations, ...place.relatedQuests].map((name) => <button key={name} type="button" onClick={() => onOpenRelated(name)}>{name}</button>)}
+          </div>
+        </section>
+      )}
+
+      {readingDepth === "detailed" && (relatedChapters.length > 0 || relatedReferences.length > 0) && (
+        <section className="story-place-story-links">
+          <header><span>Story Connections</span><h2 className="font-display">Where this place matters</h2></header>
+          <div>
+            {relatedChapters.map((chapter) => <button key={chapter.id} type="button" onClick={() => onOpenChapter(chapter.id)}><small>{chapter.era}</small><strong>{chapter.title}</strong><p>{chapter.shortDescription}</p></button>)}
+            {relatedReferences.map((reference) => <article key={reference.id}><small>{reference.canonStatus} · {reference.spoilerLevel}</small><strong>{reference.title}</strong><p>{reference.shortSummary}</p></article>)}
+          </div>
+        </section>
+      )}
+
+      {place.notableFigures.length > 0 && (
+        <section className="story-place-showcase">
+          <header>
+            <div><span>People of the Place</span><h2 className="font-display">{place.showcaseTitle || "Notable Figures"}</h2></div>
+            <div>
+              <button type="button" onClick={() => scrollShowcase(-1)} aria-label="Scroll notable figures left"><Icon name="ChevronLeft" className="h-4 w-4" /></button>
+              <button type="button" onClick={() => scrollShowcase(1)} aria-label="Scroll notable figures right"><Icon name="ChevronRight" className="h-4 w-4" /></button>
+            </div>
+          </header>
+          <div id={carouselId} className="story-place-showcase-track">
+            {place.notableFigures.map((figure) => {
+              const entry = entries.find((candidate) => candidate.id === figure.entryId)
+                || entries.find((candidate) => normalizeTerm(candidate.title) === normalizeTerm(figure.name));
+              const portrait = entry?.media.characterPortrait || entry?.media.mainImage || entry?.media.iconImage || "";
+              return (
+                <button key={figure.id} type="button" onClick={() => entry && onOpenEntry(entry)} disabled={!entry}>
+                  <div>{portrait ? <DriveAwareImage src={portrait} alt="" loading="lazy" draggable={false} /> : <Icon name="UserRound" className="h-8 w-8" />}</div>
+                  <strong>{figure.name}</strong>
+                  {figure.role && <span>{figure.role}</span>}
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
+    </article>
   );
 }
 
@@ -5800,16 +6230,27 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function storyInspectorSubjectFromLibraryItem(item: StoryLibraryItem, entries: LoreEntry[]): StoryInspectorSubject {
   const linkedEntry = item.entry || findStoryInspectorEntry(item.title, entries);
+  const images = collectStoryInspectorImages({ entry: linkedEntry, creature: item.creature, worldEntry: item.worldEntry });
+  item.place?.referenceArt.forEach((art) => pushStoryInspectorImage(images, {
+    id: art.id,
+    label: art.label,
+    url: art.imageUrl,
+    webViewLink: art.webViewLink,
+    imageFit: art.imageFit,
+    source: "Place Reference Art"
+  }));
   return {
     id: item.id,
     title: item.title,
     type: item.eyebrow,
     summary: item.summary,
     tags: item.tags,
-    images: collectStoryInspectorImages({ entry: linkedEntry, creature: item.creature, worldEntry: item.worldEntry }),
+    images: images.slice(0, 6),
     entry: linkedEntry,
     creature: item.creature,
-    worldEntry: item.worldEntry
+    worldEntry: item.worldEntry,
+    guidePage: item.customPage,
+    guideCollectionId: item.sectionId
   };
 }
 
@@ -6030,6 +6471,15 @@ function storyInspectorDriveContext(subject: StoryInspectorSubject) {
       subjectHabitat: subject.creature.habitat,
       subjectBehavior: subject.creature.behavior,
       subjectStatus: subject.creature.status,
+      subjectName: subject.title,
+      categoryName: "Story Reference Art"
+    };
+  }
+  if (subject.guidePage?.pageType === "place") {
+    return {
+      sourceType: "Place",
+      groupName: "Places",
+      subjectType: subject.guidePage.place?.placeType || subject.type,
       subjectName: subject.title,
       categoryName: "Story Reference Art"
     };
@@ -6312,16 +6762,18 @@ function buildStoryLibrarySections(
       : [];
     const customItems: StoryLibraryItem[] = collection.pages.map((page) => ({
       id: `guide:${collection.id}:${page.id}`,
-      title: page.title,
+      title: page.place?.placeName || page.title,
       sectionId: collection.id,
       sourceType: "custom",
-      eyebrow: page.eyebrow || collection.title,
-      summary: plainStoryText(page.summary),
-      fullText: page.fullText || page.summary,
+      pageType: page.pageType || "generic",
+      eyebrow: page.pageType === "place" ? "Place Entry" : page.eyebrow || collection.title,
+      summary: plainStoryText(page.place?.summary || page.summary),
+      fullText: page.place ? storyPlaceSearchText(page.place) : page.fullText || page.summary,
       tags: page.tags,
-      facts: [],
+      facts: page.place?.quickFacts || [],
       linkedStoryReferenceIds: [],
-      customPage: page
+      customPage: page,
+      place: page.place
     }));
     return {
       id: collection.id,
@@ -7447,6 +7899,28 @@ function uniqueId(base: string, existingIds: string[]) {
 
 function uniqueStoryGuideId(value: string, existingIds: string[]) {
   return uniqueId(slugify(value).replace(/^story-chapter$/, "guide-page"), existingIds);
+}
+
+function splitCommaList(value: string) {
+  return Array.from(new Set(value.split(",").map((item) => item.trim()).filter(Boolean)));
+}
+
+function storyPlaceSearchText(place: StoryJourneyPlacePageData) {
+  return [
+    place.subtitle,
+    place.summary,
+    place.formalTitle,
+    place.founded,
+    place.founder,
+    place.originType,
+    place.historicalNotes,
+    ...place.quickFacts.flatMap((fact) => [fact.label, fact.value]),
+    ...storyPlaceSectionDefinitions.map((section) => place[section.id]),
+    ...place.relatedCharacters,
+    ...place.relatedLocations,
+    ...place.relatedQuests,
+    ...place.notableFigures.flatMap((figure) => [figure.name, figure.role])
+  ].filter(Boolean).join(" ");
 }
 
 function suggestStoryGuideTags(title: string, summary: string, collectionTitle: string) {

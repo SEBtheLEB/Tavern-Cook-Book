@@ -901,13 +901,85 @@ export type StoryJourneyGuideSourceSection =
   | "quests"
   | "lore";
 
+export type StoryJourneyGuidePageType = "generic" | "place";
+
+export type StoryJourneyPlaceSectionId =
+  | "generalFacts"
+  | "environment"
+  | "habitats"
+  | "settlements"
+  | "landmarks"
+  | "inhabitants"
+  | "flora"
+  | "ingredients"
+  | "creatures"
+  | "threats"
+  | "culture"
+  | "narrativeRole";
+
+export interface StoryJourneyPlaceQuickFact {
+  id: string;
+  label: string;
+  value: string;
+}
+
+export interface StoryJourneyPlaceReferenceArt {
+  id: string;
+  label: string;
+  imageUrl: string;
+  webViewLink?: string;
+  imageFit?: ImageFitSettings;
+  createdAt: string;
+}
+
+export interface StoryJourneyPlaceNotableFigure {
+  id: string;
+  entryId?: string;
+  name: string;
+  role: string;
+}
+
+export interface StoryJourneyPlacePageData {
+  placeName: string;
+  placeType: string;
+  subtitle: string;
+  summary: string;
+  formalTitle: string;
+  founded: string;
+  founder: string;
+  originType: string;
+  historicalNotes: string;
+  quickFacts: StoryJourneyPlaceQuickFact[];
+  generalFacts: string;
+  environment: string;
+  habitats: string;
+  settlements: string;
+  landmarks: string;
+  inhabitants: string;
+  flora: string;
+  ingredients: string;
+  creatures: string;
+  threats: string;
+  culture: string;
+  narrativeRole: string;
+  hiddenSections: StoryJourneyPlaceSectionId[];
+  referenceArt: StoryJourneyPlaceReferenceArt[];
+  relatedCharacters: string[];
+  notableFigures: StoryJourneyPlaceNotableFigure[];
+  relatedLocations: string[];
+  relatedQuests: string[];
+  showcaseTitle: string;
+}
+
 export interface StoryJourneyGuidePageRecord {
   id: string;
+  pageType?: StoryJourneyGuidePageType;
   title: string;
   eyebrow: string;
   summary: string;
   fullText: string;
   tags: string[];
+  place?: StoryJourneyPlacePageData;
   createdAt: string;
   updatedAt: string;
 }

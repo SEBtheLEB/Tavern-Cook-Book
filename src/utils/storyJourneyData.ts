@@ -4,7 +4,10 @@ import type {
   StoryJourneyData,
   StoryJourneyGuideCollectionRecord,
   StoryJourneyGuidePageRecord,
+  StoryJourneyGuidePageType,
   StoryJourneyGuideSourceSection,
+  StoryJourneyPlacePageData,
+  StoryJourneyPlaceSectionId,
   StoryJourneyPageRecord,
   StoryJourneyReaderAppearance,
   StoryJourneyReaderFont,
@@ -97,6 +100,21 @@ const guideSourceSections = new Set<StoryJourneyGuideSourceSection>([
   "quests",
   "lore"
 ]);
+const guidePageTypes = new Set<StoryJourneyGuidePageType>(["generic", "place"]);
+const placeSectionIds = new Set<StoryJourneyPlaceSectionId>([
+  "generalFacts",
+  "environment",
+  "habitats",
+  "settlements",
+  "landmarks",
+  "inhabitants",
+  "flora",
+  "ingredients",
+  "creatures",
+  "threats",
+  "culture",
+  "narrativeRole"
+]);
 
 const defaultGuideCollectionDefinitions: Array<{
   id: StoryJourneyGuideSourceSection;
@@ -116,6 +134,105 @@ const defaultGuideCollectionDefinitions: Array<{
 const cleanList = (value: unknown) => Array.isArray(value)
   ? value.map((item) => String(item || "").trim()).filter(Boolean)
   : [];
+
+export const createDefaultStoryJourneyPlaceData = (placeName = "Untitled Place"): StoryJourneyPlacePageData => ({
+  placeName,
+  placeType: "Region",
+  subtitle: "A place whose paths, people, and history shape the world around it.",
+  summary: "",
+  formalTitle: placeName,
+  founded: "",
+  founder: "",
+  originType: "",
+  historicalNotes: "",
+  quickFacts: [],
+  generalFacts: "",
+  environment: "",
+  habitats: "",
+  settlements: "",
+  landmarks: "",
+  inhabitants: "",
+  flora: "",
+  ingredients: "",
+  creatures: "",
+  threats: "",
+  culture: "",
+  narrativeRole: "",
+  hiddenSections: [],
+  referenceArt: [],
+  relatedCharacters: [],
+  notableFigures: [],
+  relatedLocations: [],
+  relatedQuests: [],
+  showcaseTitle: "Notable Figures"
+});
+
+export const normalizeStoryJourneyPlaceData = (
+  value: Partial<StoryJourneyPlacePageData> | undefined,
+  fallbackName: string
+): StoryJourneyPlacePageData => {
+  const source = value || {};
+  const defaults = createDefaultStoryJourneyPlaceData(fallbackName);
+  const now = new Date().toISOString();
+  return {
+    ...defaults,
+    placeName: String(source.placeName || fallbackName),
+    placeType: String(source.placeType || defaults.placeType),
+    subtitle: String(source.subtitle || ""),
+    summary: String(source.summary || ""),
+    formalTitle: String(source.formalTitle || source.placeName || fallbackName),
+    founded: String(source.founded || ""),
+    founder: String(source.founder || ""),
+    originType: String(source.originType || ""),
+    historicalNotes: String(source.historicalNotes || ""),
+    quickFacts: Array.isArray(source.quickFacts) ? source.quickFacts.flatMap((fact, index) => {
+      if (!fact || typeof fact !== "object") return [];
+      const label = String(fact.label || "").trim();
+      const factValue = String(fact.value || "").trim();
+      if (!label && !factValue) return [];
+      return [{ id: String(fact.id || `place-fact-${index + 1}`), label, value: factValue }];
+    }) : [],
+    generalFacts: String(source.generalFacts || ""),
+    environment: String(source.environment || ""),
+    habitats: String(source.habitats || ""),
+    settlements: String(source.settlements || ""),
+    landmarks: String(source.landmarks || ""),
+    inhabitants: String(source.inhabitants || ""),
+    flora: String(source.flora || ""),
+    ingredients: String(source.ingredients || ""),
+    creatures: String(source.creatures || ""),
+    threats: String(source.threats || ""),
+    culture: String(source.culture || ""),
+    narrativeRole: String(source.narrativeRole || ""),
+    hiddenSections: cleanList(source.hiddenSections).filter((id): id is StoryJourneyPlaceSectionId => placeSectionIds.has(id as StoryJourneyPlaceSectionId)),
+    referenceArt: Array.isArray(source.referenceArt) ? source.referenceArt.flatMap((art, index) => {
+      if (!art || typeof art !== "object" || !art.imageUrl) return [];
+      return [{
+        id: String(art.id || `place-reference-art-${index + 1}`),
+        label: String(art.label || `${fallbackName} reference art`),
+        imageUrl: String(art.imageUrl),
+        webViewLink: art.webViewLink ? String(art.webViewLink) : undefined,
+        imageFit: normalizeImageFit(art.imageFit),
+        createdAt: String(art.createdAt || now)
+      }];
+    }) : [],
+    relatedCharacters: cleanList(source.relatedCharacters),
+    notableFigures: Array.isArray(source.notableFigures) ? source.notableFigures.flatMap((figure, index) => {
+      if (!figure || typeof figure !== "object") return [];
+      const name = String(figure.name || "").trim();
+      if (!name) return [];
+      return [{
+        id: String(figure.id || `place-figure-${index + 1}`),
+        entryId: figure.entryId ? String(figure.entryId) : undefined,
+        name,
+        role: String(figure.role || "")
+      }];
+    }) : [],
+    relatedLocations: cleanList(source.relatedLocations),
+    relatedQuests: cleanList(source.relatedQuests),
+    showcaseTitle: String(source.showcaseTitle || defaults.showcaseTitle)
+  };
+};
 
 const normalizeSourceRecords = (value: unknown): StoryJourneySourceRecord[] => Array.isArray(value)
   ? value.flatMap((item) => {
@@ -160,13 +277,19 @@ export const normalizeStoryJourneyGuidePage = (
   fallbackId: string
 ): StoryJourneyGuidePageRecord => {
   const now = new Date().toISOString();
+  const pageType = guidePageTypes.has(value.pageType as StoryJourneyGuidePageType)
+    ? value.pageType as StoryJourneyGuidePageType
+    : value.place ? "place" : "generic";
+  const title = String(value.title || "Untitled Guide Page");
   return {
     id: String(value.id || fallbackId),
-    title: String(value.title || "Untitled Guide Page"),
+    pageType,
+    title,
     eyebrow: String(value.eyebrow || "World Guide"),
     summary: String(value.summary || ""),
     fullText: String(value.fullText || value.summary || ""),
     tags: cleanList(value.tags),
+    place: pageType === "place" ? normalizeStoryJourneyPlaceData(value.place, title) : undefined,
     createdAt: String(value.createdAt || now),
     updatedAt: String(value.updatedAt || value.createdAt || now)
   };
