@@ -1,4 +1,6 @@
 import type { IncomingHttpHeaders } from "node:http";
+import { ACADEMY_PLACE_MIGRATION_ID } from "../src/data/academyPlacePage.js";
+import { normalizeStoryJourneyData } from "../src/utils/storyJourneyData.js";
 import { verifyRequestIdentity } from "./authSession.js";
 
 type SyncScope = "published" | "user" | "settings" | "health";
@@ -111,7 +113,14 @@ async function handleGet(scope: SyncScope, url: URL, signedInEmail: string): Pro
     return json(403, { error: "You can only read your own draft sync file." });
   }
 
-  const file = await readSyncJson(scope, email);
+  let file = await readSyncJson(scope, email);
+  if (scope === "published" && file?.data) {
+    const repaired = repairPublishedStoryJourney(file.data);
+    if (repaired.changed) {
+      const result = await writeSyncJson(scope, email, repaired.envelope, "Repair structured Story Journey Place pages");
+      file = { data: repaired.envelope, version: result.version };
+    }
+  }
   return json(200, {
     ok: true,
     configured: true,
@@ -119,6 +128,44 @@ async function handleGet(scope: SyncScope, url: URL, signedInEmail: string): Pro
     provider: syncProvider(),
     sha: file?.version || ""
   });
+}
+
+export function repairPublishedStoryJourney(value: unknown): { changed: boolean; envelope: SyncEnvelope } {
+  const envelope = objectRecord(value);
+  const payload = objectRecord(envelope?.payload);
+  const database = objectRecord(payload?.database);
+  const storyJourney = objectRecord(database?.storyJourney);
+  const migrations = stringArray(storyJourney?.contentMigrations);
+  const academyPage = recordArray(storyJourney?.guideCollections)
+    .flatMap((collection) => recordArray(collection.pages))
+    .find((page) => page.id === "place-imperial-culinary-academy-of-ovenhold");
+  const academyIsStructured = academyPage?.pageType === "place" && Boolean(objectRecord(academyPage.place));
+
+  if (!envelope || !payload || !database || !storyJourney || (migrations.includes(ACADEMY_PLACE_MIGRATION_ID) && academyIsStructured)) {
+    return {
+      changed: false,
+      envelope: {
+        updatedAt: String(envelope?.updatedAt || ""),
+        updatedBy: String(envelope?.updatedBy || ""),
+        payload: payload || {}
+      }
+    };
+  }
+
+  return {
+    changed: true,
+    envelope: {
+      updatedAt: new Date().toISOString(),
+      updatedBy: "system-story-migration",
+      payload: {
+        ...payload,
+        database: {
+          ...database,
+          storyJourney: normalizeStoryJourneyData(storyJourney)
+        }
+      }
+    }
+  };
 }
 
 async function handlePost(scope: SyncScope, body: unknown, signedInEmail: string): Promise<SyncResult> {
