@@ -127,13 +127,17 @@ async function handlePost(scope: SyncScope, body: unknown, signedInEmail: string
     return json(403, { error: "Only the STL Productionz admin can save team settings." });
   }
 
-  const payload = readPayload(body);
+  const requestedPayload = readPayload(body);
   const requestedEmail = normalizeEmail(readBodyEmail(body) || signedInEmail);
 
   if (scope === "user" && requestedEmail !== signedInEmail) {
     return json(403, { error: "You can only save your own draft sync file." });
   }
 
+  const existing = scope === "published" ? await readSyncJson(scope, requestedEmail) : null;
+  const payload = scope === "published"
+    ? preserveStructuredStoryGuidePages(requestedPayload, existing?.data)
+    : requestedPayload;
   const envelope: SyncEnvelope = {
     updatedAt: new Date().toISOString(),
     updatedBy: signedInEmail,
@@ -148,6 +152,84 @@ async function handlePost(scope: SyncScope, body: unknown, signedInEmail: string
     skipped: result.skipped,
     sha: result.version
   });
+}
+
+export function preserveStructuredStoryGuidePages(incomingPayload: unknown, existingEnvelope: unknown) {
+  const incomingPayloadRecord = objectRecord(incomingPayload);
+  const incomingDatabase = objectRecord(incomingPayloadRecord?.database);
+  const incomingStoryJourney = objectRecord(incomingDatabase?.storyJourney);
+  const existingPayload = objectRecord(objectRecord(existingEnvelope)?.payload);
+  const existingDatabase = objectRecord(existingPayload?.database);
+  const existingStoryJourney = objectRecord(existingDatabase?.storyJourney);
+  const incomingCollections = recordArray(incomingStoryJourney?.guideCollections);
+  const existingCollections = recordArray(existingStoryJourney?.guideCollections);
+  if (!incomingPayloadRecord || !incomingDatabase || !incomingStoryJourney || !incomingCollections.length || !existingCollections.length) {
+    return incomingPayload;
+  }
+
+  const existingPages = new Map<string, Record<string, unknown>>();
+  existingCollections.forEach((collection) => {
+    recordArray(collection.pages).forEach((page) => {
+      const id = String(page.id || "").trim();
+      if (id) existingPages.set(id, page);
+    });
+  });
+
+  let changed = false;
+  const guideCollections = incomingCollections.map((collection) => {
+    const pages = recordArray(collection.pages).map((page) => {
+      const previous = existingPages.get(String(page.id || "").trim());
+      if (!previous || previous.pageType !== "place" || !objectRecord(previous.place)) return page;
+      if (page.pageType === "place" && objectRecord(page.place)) return page;
+      if (page.pageType !== undefined) return page;
+      changed = true;
+      return {
+        ...page,
+        pageType: "place",
+        place: previous.place
+      };
+    });
+    return { ...collection, pages };
+  });
+
+  const existingMigrations = stringArray(existingStoryJourney?.contentMigrations);
+  const incomingMigrations = stringArray(incomingStoryJourney.contentMigrations);
+  const contentMigrations = [...new Set([...existingMigrations, ...incomingMigrations])];
+  if (contentMigrations.length !== incomingMigrations.length) changed = true;
+  if (!changed) return incomingPayload;
+
+  return {
+    ...incomingPayloadRecord,
+    database: {
+      ...incomingDatabase,
+      storyJourney: {
+        ...incomingStoryJourney,
+        guideCollections,
+        contentMigrations
+      }
+    }
+  };
+}
+
+function objectRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}
+
+function recordArray(value: unknown): Record<string, unknown>[] {
+  return Array.isArray(value)
+    ? value.flatMap((item) => {
+        const record = objectRecord(item);
+        return record ? [record] : [];
+      })
+    : [];
+}
+
+function stringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.map((item) => String(item || "").trim()).filter(Boolean)
+    : [];
 }
 
 export async function verifyGoogleCredential(headers: IncomingHttpHeaders): Promise<

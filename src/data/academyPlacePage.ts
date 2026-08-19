@@ -1,6 +1,6 @@
 import type { StoryJourneyGuidePageRecord } from "../types";
 
-export const ACADEMY_PLACE_MIGRATION_ID = "place-imperial-culinary-academy-v1";
+export const ACADEMY_PLACE_MIGRATION_ID = "place-imperial-culinary-academy-v2";
 
 const createdAt = "2026-08-18T00:00:00.000Z";
 

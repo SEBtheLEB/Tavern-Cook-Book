@@ -406,11 +406,19 @@ export const normalizeStoryJourneyData = (value: Partial<StoryJourneyData> | und
   if (!contentMigrations.includes(ACADEMY_PLACE_MIGRATION_ID)) {
     const academyTitle = ACADEMY_PLACE_PAGE.title.trim().toLowerCase();
     const placesCollection = guideCollections.find((collection) => collection.sourceSectionId === "places" || collection.id === "places");
-    const academyExists = guideCollections.some((collection) => collection.pages.some((page) => (
-      page.id === ACADEMY_PLACE_PAGE.id || page.title.trim().toLowerCase() === academyTitle
-    )));
+    const academyLocation = guideCollections.flatMap((collection) => collection.pages.map((page, pageIndex) => ({
+      collection,
+      page,
+      pageIndex
+    }))).find(({ page }) => page.id === ACADEMY_PLACE_PAGE.id || page.title.trim().toLowerCase() === academyTitle);
 
-    if (!academyExists) {
+    if (academyLocation && (academyLocation.page.pageType !== "place" || !academyLocation.page.place)) {
+      academyLocation.collection.pages[academyLocation.pageIndex] = normalizeStoryJourneyGuidePage({
+        ...ACADEMY_PLACE_PAGE,
+        createdAt: academyLocation.page.createdAt || ACADEMY_PLACE_PAGE.createdAt,
+        updatedAt: ACADEMY_PLACE_PAGE.updatedAt
+      }, ACADEMY_PLACE_PAGE.id);
+    } else if (!academyLocation) {
       if (placesCollection) {
         placesCollection.pages.push(normalizeStoryJourneyGuidePage(ACADEMY_PLACE_PAGE, ACADEMY_PLACE_PAGE.id));
       } else {
