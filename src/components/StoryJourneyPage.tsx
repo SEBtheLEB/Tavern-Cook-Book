@@ -4601,14 +4601,16 @@ function StoryTreatmentChapter({
           <span>{scopeLabel} · Chapter {chapterIndex + 1}</span>
           {editing ? (
             <>
-              <input
+              <textarea
                 className="story-inline-title-input font-display"
+                rows={1}
                 value={visibleChapter.title}
                 onChange={(event) => onDraftChange({ title: event.target.value })}
                 aria-label="Chapter title"
               />
-              <input
+              <textarea
                 className="story-inline-subtitle-input"
+                rows={1}
                 value={visibleChapter.subtitle}
                 onChange={(event) => onDraftChange({ subtitle: event.target.value })}
                 placeholder="Chapter subtitle"
@@ -4721,8 +4723,9 @@ function StoryTreatmentChapter({
             )}
           </div>
           {editing ? (
-            <input
+            <textarea
               className="story-inline-beat-title"
+              rows={1}
               value={page.title}
               onChange={(event) => onPageChange(page.id || `${visibleChapter.id}-page-${pageIndex + 1}`, { title: event.target.value })}
               aria-label={`Sequence ${pageIndex + 1} title`}

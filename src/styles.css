@@ -20641,24 +20641,35 @@ button,
 }
 
 .story-treatment-chapter.inline-editing {
-  width: 100%;
-  max-width: none !important;
-  border: 1px solid color-mix(in srgb, var(--gold) 42%, var(--panel-border));
-  border-radius: 8px;
-  padding: 18px;
-  background: color-mix(in srgb, var(--field-bg) 42%, transparent);
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.16);
+  /* Editing stays on the reading page instead of turning the chapter into a form card. */
+  width: auto;
+  max-width: none;
+  border: 0;
+  border-radius: 0;
+  padding: 0 0 76px 104px;
+  background: transparent;
+  box-shadow: none;
 }
 
 .story-treatment-chapter.inline-editing .story-treatment-chapter-heading {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
   width: 100%;
 }
 
 .story-treatment-chapter.inline-editing .story-treatment-chapter-heading > div:first-child {
+  order: 2;
   width: 100%;
   min-width: 0;
+  max-width: 760px;
+}
+
+.story-treatment-chapter.inline-editing .story-treatment-chapter-actions {
+  order: 1;
+  width: 100%;
+  justify-content: flex-end;
+  margin: 0 0 18px;
 }
 
 .story-inline-title-input,
@@ -20666,40 +20677,55 @@ button,
 .story-inline-beat-title {
   width: 100%;
   min-width: 0;
+  field-sizing: content;
+  overflow: hidden;
+  resize: none;
   box-sizing: border-box;
-  border: 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--gold) 38%, var(--panel-border));
-  border-radius: 0;
+  border: 1px solid color-mix(in srgb, var(--story-reader-accent, var(--gold)) 22%, transparent);
+  border-radius: 5px;
   outline: 0;
   color: var(--app-ink);
-  background: transparent;
+  background: color-mix(in srgb, var(--story-reader-background, #020b18) 78%, transparent);
+  transition: border-color 140ms ease, background-color 140ms ease, box-shadow 140ms ease;
 }
 
 .story-inline-title-input {
   margin-top: 5px;
-  padding: 4px 2px 7px;
-  font-size: 2.25rem;
-  line-height: 1.08;
+  padding: 3px 5px 6px;
+  color: var(--story-reader-heading, #f3e4ca);
+  font-family: var(--story-reader-heading-font, Georgia, Cambria, "Times New Roman", serif);
+  font-size: clamp(2.45rem, 4vw, 3.45rem);
+  font-weight: 500;
+  line-height: 1.03;
 }
 
 .story-inline-subtitle-input {
-  padding: 7px 2px;
-  color: var(--muted-ink);
-  font-size: 0.9rem;
+  padding: 7px 5px;
+  color: var(--story-reader-muted, #c3bab6);
+  font-family: var(--story-reader-body-font, Georgia, Cambria, "Times New Roman", serif);
+  font-size: 0.96rem;
+  font-style: italic;
+  font-weight: 400;
+  line-height: 1.55;
 }
 
 .story-inline-beat-title {
-  margin: 5px 0 12px;
-  padding: 4px 1px 7px;
-  font-size: 1.68rem;
-  font-weight: 680;
+  max-width: 760px;
+  margin: 3px 0 26px;
+  padding: 3px 5px 15px;
+  color: var(--story-reader-heading, #f3e4ca);
+  font-family: var(--story-reader-heading-font, Georgia, Cambria, "Times New Roman", serif);
+  font-size: clamp(2rem, 3.2vw, 2.75rem);
+  font-weight: 500;
+  line-height: 1.08;
 }
 
 .story-inline-title-input:focus,
 .story-inline-subtitle-input:focus,
 .story-inline-beat-title:focus {
-  border-bottom-color: var(--gold);
-  box-shadow: 0 2px 0 color-mix(in srgb, var(--gold) 24%, transparent);
+  border-color: color-mix(in srgb, var(--story-reader-accent, var(--gold)) 72%, transparent);
+  background: color-mix(in srgb, var(--story-reader-background, #020b18) 90%, var(--field-bg));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--story-reader-accent, var(--gold)) 20%, transparent);
 }
 
 .story-inline-rich-field {
@@ -20716,18 +20742,22 @@ button,
 }
 
 .story-inline-overview-field {
-  width: 100%;
-  max-width: 1020px;
-  margin-bottom: 34px;
+  width: min(100%, 760px);
+  max-width: 760px;
+  margin: 0 0 54px;
 }
 
 .story-inline-overview-field .rich-text-editable {
-  min-height: 104px;
+  min-height: 3.4em;
+  color: var(--story-reader-muted, #c3bab6);
+  font-size: 1.14rem;
+  font-style: italic;
+  line-height: 1.7;
 }
 
 .story-treatment-beat.inline-editing {
-  border-left: 2px solid color-mix(in srgb, var(--gold) 48%, var(--panel-border));
-  padding-left: 16px;
+  border-left: 0;
+  padding-left: 0;
 }
 
 .story-treatment-beat-heading {
@@ -20745,11 +20775,31 @@ button,
 }
 
 .story-inline-rich-field .rich-text-editable {
-  border-color: color-mix(in srgb, var(--gold) 28%, var(--panel-border));
-  background: color-mix(in srgb, var(--panel-bg) 62%, var(--field-bg));
-  font-family: Georgia, Cambria, "Times New Roman", serif;
-  font-size: 1rem;
-  line-height: 1.72;
+  min-height: 3.6em;
+  overflow: visible;
+  border-color: color-mix(in srgb, var(--story-reader-accent, var(--gold)) 24%, transparent);
+  border-radius: 5px;
+  color: var(--story-reader-body, #e3dbd1);
+  background: color-mix(in srgb, var(--story-reader-background, #020b18) 78%, transparent);
+  font-family: var(--story-reader-body-font, Georgia, Cambria, "Times New Roman", serif);
+  font-size: clamp(1.02rem, 1.15vw, 1.1rem);
+  font-weight: 400;
+  line-height: 1.78;
+  padding: 8px 9px;
+}
+
+.story-inline-rich-field .rich-text-editable.tall {
+  min-height: 4.8em;
+}
+
+.story-inline-rich-field .rich-text-editable:hover {
+  border-color: color-mix(in srgb, var(--story-reader-accent, var(--gold)) 42%, transparent);
+}
+
+.story-inline-rich-field .rich-text-editable:focus {
+  border-color: color-mix(in srgb, var(--story-reader-accent, var(--gold)) 72%, transparent);
+  background: color-mix(in srgb, var(--story-reader-background, #020b18) 90%, var(--field-bg));
+  outline: 1px solid color-mix(in srgb, var(--story-reader-accent, var(--gold)) 24%, transparent);
 }
 
 .story-inline-detailed-editor {
@@ -20796,6 +20846,31 @@ button,
 
 .story-inline-delete:disabled {
   opacity: 0.38;
+}
+
+@media (max-width: 1100px) {
+  .story-treatment-chapter.inline-editing {
+    padding-left: 88px;
+  }
+}
+
+@media (max-width: 680px) {
+  .story-treatment-chapter.inline-editing {
+    padding: 0 0 54px 54px;
+  }
+
+  .story-treatment-chapter.inline-editing .story-treatment-chapter-actions {
+    justify-content: flex-start;
+    margin-bottom: 14px;
+  }
+
+  .story-inline-title-input {
+    font-size: 2rem;
+  }
+
+  .story-inline-beat-title {
+    font-size: 1.75rem;
+  }
 }
 
 .story-treatment-chapter-actions .story-inline-save {
