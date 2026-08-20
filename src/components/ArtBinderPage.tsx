@@ -2086,9 +2086,25 @@ export interface DriveImageRecoveryResult {
 }
 
 export function recoverArtBinderImagesFromDrive(database: LoreDatabase, files: DriveBrowserItem[]): DriveImageRecoveryResult {
-  const cards = buildArtBinderSubjects(database).flatMap((subject) =>
+  const artBinderCards = buildArtBinderSubjects(database).flatMap((subject) =>
     subject.sections.flatMap((section) => section.slots.map((slot) => ({ subject, section, slot })))
   );
+  const gwenToolCards = database.entries
+    .filter((entry) => isCharacterEntry(entry) && /\bgwen\b/i.test(entry.title))
+    .flatMap((entry) => {
+      const subject: ArtBinderSubject = {
+        id: entry.id,
+        kind: "character",
+        source: "character",
+        title: entry.title,
+        subtitle: entry.type || "Character",
+        groupKey: "character-all",
+        groupLabel: "Characters",
+        sections: normalizeArtVault(entry.artVault).sections.filter(isGwenToolArtVaultSection)
+      };
+      return subject.sections.flatMap((section) => section.slots.map((slot) => ({ subject, section, slot })));
+    });
+  const cards = [...artBinderCards, ...gwenToolCards];
   const fileIndex = buildDriveRecoveryFileIndex(files);
   const usedFileIds = new Set<string>();
   let nextDatabase = database;
