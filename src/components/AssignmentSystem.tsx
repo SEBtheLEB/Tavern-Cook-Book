@@ -739,6 +739,8 @@ export function profileForAssignmentUser(user: GoogleAccountUser, members: TeamM
 }
 
 function defaultAssignmentCategory(module: AssignableModuleInfo, categories: QuestCategory[]) {
-  const preferred = module.moduleType.includes("art-vault") ? "Art Work" : "Text Work";
+  const preferred = module.moduleType.includes("art-vault") || module.moduleType.includes("art-binder")
+    ? "Art Work"
+    : "Text Work";
   return categories.find((category) => category.name === preferred)?.name || categories[0]?.name || preferred;
 }
