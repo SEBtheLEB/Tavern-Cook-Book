@@ -1050,7 +1050,7 @@ function IngredientEditForm({
     onChange(next);
     onPersist(next);
   };
-  const saveImageManager = (slots: ImageManagerSlotDraft[]) => {
+  const persistImageManager = (slots: ImageManagerSlotDraft[]) => {
     const imageSlot = slots[0];
     if (!imageSlot) return;
     commitMediaDraft({
@@ -1059,6 +1059,9 @@ function IngredientEditForm({
       imageDriveFileId: imageSlot.imageUrl.match(/[?&]id=([^&#]+)/i)?.[1] || draft.imageDriveFileId,
       imageDriveViewLink: imageSlot.webViewLink || draft.imageDriveViewLink
     });
+  };
+  const saveImageManager = (slots: ImageManagerSlotDraft[]) => {
+    persistImageManager(slots);
     setImageManagerOpen(false);
   };
   const inheritedFolderId = draft.driveFolderId || pantryDriveFolder.id;
@@ -1190,6 +1193,7 @@ function IngredientEditForm({
           }]}
           onClose={() => setImageManagerOpen(false)}
           onSave={saveImageManager}
+          onAutoSave={persistImageManager}
         />
       )}
     </section>

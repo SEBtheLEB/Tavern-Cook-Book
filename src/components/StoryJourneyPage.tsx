@@ -1643,7 +1643,7 @@ export function StoryJourneyPage({
     });
   };
 
-  const saveStoryImageManager = (slots: ImageManagerSlotDraft[]) => {
+  const persistStoryImageManager = (slots: ImageManagerSlotDraft[]) => {
     const chapterCover = slots.find((slot) => slot.id === "chapterCover");
     const pageImage = slots.find((slot) => slot.id === "pageImage");
     if (chapterCover) {
@@ -1658,10 +1658,14 @@ export function StoryJourneyPage({
         imageFit: normalizeImageFit(pageImage.imageFit)
       });
     }
+  };
+
+  const saveStoryImageManager = (slots: ImageManagerSlotDraft[]) => {
+    persistStoryImageManager(slots);
     setImageManagerOpen(false);
   };
 
-  const saveDialogueArt = (slots: ImageManagerSlotDraft[]) => {
+  const persistDialogueArt = (slots: ImageManagerSlotDraft[]) => {
     const bubbleFrame = slots.find((slot) => slot.id === "dialogueBubbleFrame");
     if (bubbleFrame) {
       onStoryJourneyChange({
@@ -1672,6 +1676,10 @@ export function StoryJourneyPage({
         updatedAt: new Date().toISOString()
       });
     }
+  };
+
+  const saveDialogueArt = (slots: ImageManagerSlotDraft[]) => {
+    persistDialogueArt(slots);
     setDialogueArtEntry(undefined);
   };
 
@@ -2151,13 +2159,10 @@ export function StoryJourneyPage({
     setStoryInspectorEditSubject(subject);
   };
 
-  const saveStoryInspectorArt = (slots: ImageManagerSlotDraft[]) => {
+  const persistStoryInspectorArt = (slots: ImageManagerSlotDraft[]) => {
     const subject = storyInspectorEditSubject;
     const draft = slots[0];
-    if (!subject || !draft?.imageUrl) {
-      setStoryInspectorEditSubject(null);
-      return;
-    }
+    if (!subject || !draft?.imageUrl) return;
 
     if (subject.guidePage?.pageType === "place" && subject.guideCollectionId) {
       const createdAt = new Date().toISOString();
@@ -2169,24 +2174,22 @@ export function StoryJourneyPage({
                   ...page,
                   place: {
                     ...normalizeStoryJourneyPlaceData(page.place, page.title),
-                    referenceArt: [
-                      ...normalizeStoryJourneyPlaceData(page.place, page.title).referenceArt,
-                      {
+                    referenceArt: normalizeStoryJourneyPlaceData(page.place, page.title).referenceArt.some((art) => art.imageUrl === draft.imageUrl)
+                      ? normalizeStoryJourneyPlaceData(page.place, page.title).referenceArt
+                      : [...normalizeStoryJourneyPlaceData(page.place, page.title).referenceArt, {
                         id: `place-reference-art-${Date.now()}`,
                         label: draft.label || `${page.title} reference art`,
                         imageUrl: draft.imageUrl,
                         webViewLink: draft.webViewLink,
                         imageFit: normalizeImageFit(draft.imageFit),
                         createdAt
-                      }
-                    ]
+                      }]
                   },
                   updatedAt: createdAt
                 }, page.id)
               : page)
           }
         : collection));
-      setStoryInspectorEditSubject(null);
       return;
     }
 
@@ -2209,6 +2212,10 @@ export function StoryJourneyPage({
         coverImageFit: normalizeImageFit(draft.imageFit)
       }));
     }
+  };
+
+  const saveStoryInspectorArt = (slots: ImageManagerSlotDraft[]) => {
+    persistStoryInspectorArt(slots);
     setStoryInspectorEditSubject(null);
   };
 
@@ -4016,6 +4023,7 @@ export function StoryJourneyPage({
           ]}
           onClose={() => setImageManagerOpen(false)}
           onSave={saveStoryImageManager}
+          onAutoSave={persistStoryImageManager}
         />
       )}
       {storyInspectorEditSubject && storyInspectorManagerSlot && (
@@ -4025,6 +4033,7 @@ export function StoryJourneyPage({
           slots={[storyInspectorManagerSlot]}
           onClose={() => setStoryInspectorEditSubject(null)}
           onSave={saveStoryInspectorArt}
+          onAutoSave={persistStoryInspectorArt}
         />
       )}
       {dialogueArtEntry !== undefined && (
@@ -4050,6 +4059,7 @@ export function StoryJourneyPage({
           ]}
           onClose={() => setDialogueArtEntry(undefined)}
           onSave={saveDialogueArt}
+          onAutoSave={persistDialogueArt}
         />
       )}
       {dialogueSpritePickerTarget && (

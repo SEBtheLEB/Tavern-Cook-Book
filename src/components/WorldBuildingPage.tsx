@@ -329,13 +329,17 @@ export function WorldBuildingPage({
     setEntryDraft(normalized);
   };
 
-  const saveWorldImageManager = (slots: ImageManagerSlotDraft[]) => {
+  const persistWorldImageManager = (slots: ImageManagerSlotDraft[]) => {
     const imageSlot = slots[0];
     if (!imageSlot) return;
     persistEntryDraftPatch({
       image: imageSlot.imageUrl,
       imageFit: normalizeImageFit(imageSlot.imageFit)
     });
+  };
+
+  const saveWorldImageManager = (slots: ImageManagerSlotDraft[]) => {
+    persistWorldImageManager(slots);
     setImageManagerOpen(false);
   };
 
@@ -836,6 +840,7 @@ export function WorldBuildingPage({
           }]}
           onClose={() => setImageManagerOpen(false)}
           onSave={saveWorldImageManager}
+          onAutoSave={persistWorldImageManager}
         />
       )}
     </>

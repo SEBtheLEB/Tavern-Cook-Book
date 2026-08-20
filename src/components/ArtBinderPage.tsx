@@ -145,6 +145,8 @@ export function ArtBinderPage({
   onOpenEntry,
   onOpenGwenToolBinder
 }: ArtBinderPageProps) {
+  const databaseRef = useRef(database);
+  databaseRef.current = database;
   const canEditStructure = !readOnly && canManageStructure;
   const assignmentContext = useAssignments();
   const subjects = useMemo(() => buildArtBinderSubjects(database), [database]);
@@ -310,7 +312,9 @@ export function ArtBinderPage({
     if (!editingCard) return;
     const imageSlot = slots[0];
     if (!imageSlot) return;
-    onDatabaseChange(updateDatabaseSlotImage(database, editingCard, imageSlot));
+    const nextDatabase = updateDatabaseSlotImage(databaseRef.current, editingCard, imageSlot);
+    databaseRef.current = nextDatabase;
+    onDatabaseChange(nextDatabase);
     setEditingCard((current) => current ? artBinderCardWithImageSlot(current, imageSlot) : current);
   };
 

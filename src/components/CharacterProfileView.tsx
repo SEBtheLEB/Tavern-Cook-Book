@@ -957,7 +957,7 @@ export function CharacterProfileView({
     } as Partial<EntryMedia>);
   };
 
-  const saveCharacterImageManager = (slots: ImageManagerSlotDraft[]) => {
+  const persistCharacterImageManager = (slots: ImageManagerSlotDraft[]) => {
     const nextMedia: EntryMedia = {
       ...entry.media,
       imageFits: { ...(entry.media.imageFits || {}) }
@@ -971,6 +971,10 @@ export function CharacterProfileView({
       };
     });
     commitCharacterPatch({ media: nextMedia });
+  };
+
+  const saveCharacterImageManager = (slots: ImageManagerSlotDraft[]) => {
+    persistCharacterImageManager(slots);
     setImageManagerOpen(false);
   };
 
@@ -1619,6 +1623,7 @@ export function CharacterProfileView({
           slots={characterImageManagerSlots(entry, imageFitForSlot)}
           onClose={() => setImageManagerOpen(false)}
           onSave={saveCharacterImageManager}
+          onAutoSave={persistCharacterImageManager}
         />
       )}
     </article>

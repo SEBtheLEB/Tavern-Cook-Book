@@ -446,13 +446,17 @@ export function BestiaryPage({
     setImageAdjustTarget(null);
   };
 
-  const saveCreatureImageManager = (slots: ImageManagerSlotDraft[]) => {
+  const persistCreatureImageManager = (slots: ImageManagerSlotDraft[]) => {
     const patch = slots.reduce<Partial<BestiaryCreature>>((nextPatch, slot) => ({
       ...nextPatch,
       ...creatureImagePatchForSlot(slot.id as CreatureImageAdjustSlot, slot.imageUrl, slot.imageFit)
     }), {});
     updateDraft(patch);
     persistCreaturePatch(patch);
+  };
+
+  const saveCreatureImageManager = (slots: ImageManagerSlotDraft[]) => {
+    persistCreatureImageManager(slots);
     setImageManagerOpen(false);
   };
 
@@ -806,6 +810,7 @@ export function BestiaryPage({
           slots={creatureImageManagerSlots(displayCreature, categoryFolderForCreature(displayCreature))}
           onClose={() => setImageManagerOpen(false)}
           onSave={saveCreatureImageManager}
+          onAutoSave={persistCreatureImageManager}
         />
       )}
     </div>

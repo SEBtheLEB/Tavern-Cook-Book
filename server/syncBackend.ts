@@ -201,7 +201,10 @@ async function handlePost(scope: SyncScope, body: unknown, signedInEmail: string
 
   const existing = scope === "published" ? await readSyncJson(scope, requestedEmail) : null;
   const payload = scope === "published"
-    ? preserveStructuredStoryGuidePages(requestedPayload, existing?.data)
+    ? preserveNewerDatabaseRecords(
+        preserveStructuredStoryGuidePages(requestedPayload, existing?.data),
+        existing?.data
+      )
     : requestedPayload;
   const envelope: SyncEnvelope = {
     updatedAt: new Date().toISOString(),
@@ -282,6 +285,49 @@ export function preserveStructuredStoryGuidePages(incomingPayload: unknown, exis
       }
     }
   };
+}
+
+export function preserveNewerDatabaseRecords(incomingPayload: unknown, existingEnvelope: unknown) {
+  const incomingPayloadRecord = objectRecord(incomingPayload);
+  const incomingDatabase = objectRecord(incomingPayloadRecord?.database);
+  const existingPayload = objectRecord(objectRecord(existingEnvelope)?.payload);
+  const existingDatabase = objectRecord(existingPayload?.database);
+  if (!incomingPayloadRecord || !incomingDatabase || !existingDatabase) return incomingPayload;
+
+  const mergeRecordArray = (incomingValue: unknown, existingValue: unknown) => {
+    const existingById = new Map(recordArray(existingValue).map((record) => [String(record.id || ""), record]));
+    return recordArray(incomingValue).map((record) => {
+      const previous = existingById.get(String(record.id || ""));
+      return previous && recordUpdatedAt(previous) > recordUpdatedAt(record) ? previous : record;
+    });
+  };
+
+  const incomingWorldBuilding = objectRecord(incomingDatabase.worldBuilding);
+  const existingWorldBuilding = objectRecord(existingDatabase.worldBuilding);
+  const worldBuilding: Record<string, unknown> = { ...(incomingWorldBuilding || {}) };
+  if (existingWorldBuilding) {
+    Object.keys(worldBuilding).forEach((category) => {
+      if (Array.isArray(worldBuilding[category])) {
+        worldBuilding[category] = mergeRecordArray(worldBuilding[category], existingWorldBuilding[category]);
+      }
+    });
+  }
+
+  return {
+    ...incomingPayloadRecord,
+    database: {
+      ...incomingDatabase,
+      entries: mergeRecordArray(incomingDatabase.entries, existingDatabase.entries),
+      bestiary: mergeRecordArray(incomingDatabase.bestiary, existingDatabase.bestiary),
+      bestiaryCategoryVaults: mergeRecordArray(incomingDatabase.bestiaryCategoryVaults, existingDatabase.bestiaryCategoryVaults),
+      worldBuilding
+    }
+  };
+}
+
+function recordUpdatedAt(record: Record<string, unknown>) {
+  const timestamp = Date.parse(String(record.updatedAt || ""));
+  return Number.isFinite(timestamp) ? timestamp : 0;
 }
 
 function objectRecord(value: unknown): Record<string, unknown> | null {
