@@ -2180,11 +2180,15 @@ function bestDriveRecoveryMatch(card: ArtBinderSlotCard, index: DriveRecoveryFil
   const subjectToken = uploadNameToken(card.subject.title).toLowerCase();
   const categoryToken = uploadNameToken(card.section.title).toLowerCase();
   const slotToken = uploadNameToken(card.slot.label).toLowerCase();
+  const categoryTokens = driveRecoveryCategoryTokens(categoryToken);
+  const slotTokens = driveRecoverySlotTokens(slotToken);
   const folderId = card.section.driveFolderId?.trim() || "";
   const candidates = new Map<string, IndexedDriveRecoveryFile>();
 
-  for (const indexedFile of index.bySegment.get(slotToken) || []) {
-    candidates.set(indexedFile.file.id, indexedFile);
+  for (const token of slotTokens) {
+    for (const indexedFile of index.bySegment.get(token) || []) {
+      candidates.set(indexedFile.file.id, indexedFile);
+    }
   }
   for (const indexedFile of folderId ? index.byParent.get(folderId) || [] : []) {
     candidates.set(indexedFile.file.id, indexedFile);
@@ -2194,8 +2198,8 @@ function bestDriveRecoveryMatch(card: ArtBinderSlotCard, index: DriveRecoveryFil
     .filter(({ file }) => !usedFileIds.has(file.id))
     .map(({ file, segments, modifiedAt }) => {
       const hasSubject = Boolean(subjectToken && segments.some((segment) => segment === subjectToken || segment.startsWith(subjectToken)));
-      const hasCategory = Boolean(categoryToken && segments.some((segment) => segment === categoryToken || segment.startsWith(categoryToken)));
-      const hasSlot = Boolean(slotToken && segments.some((segment) => segment === slotToken || segment.startsWith(slotToken)));
+      const hasCategory = categoryTokens.some((token) => segments.some((segment) => segment === token || segment.startsWith(token)));
+      const hasSlot = slotTokens.some((token) => segments.some((segment) => segment === token || segment.startsWith(token)));
       const sameFolder = Boolean(folderId && file.parents?.includes(folderId));
       const confident = hasSlot && (hasSubject || sameFolder) && (hasCategory || sameFolder);
       const score = (sameFolder ? 20 : 0) + (hasSubject ? 12 : 0) + (hasSlot ? 12 : 0) + (hasCategory ? 6 : 0) + (segments.includes("final") ? 2 : 0);
@@ -2203,6 +2207,22 @@ function bestDriveRecoveryMatch(card: ArtBinderSlotCard, index: DriveRecoveryFil
     })
     .filter((candidate) => candidate.confident)
     .sort((left, right) => right.score - left.score || right.modifiedAt - left.modifiedAt)[0]?.file || null;
+}
+
+function driveRecoveryCategoryTokens(categoryToken: string) {
+  const tokens = new Set([categoryToken].filter(Boolean));
+  if (categoryToken === "spritesheet") tokens.add("corecreatureart");
+  return [...tokens];
+}
+
+function driveRecoverySlotTokens(slotToken: string) {
+  const tokens = new Set([slotToken].filter(Boolean));
+  if (slotToken.endsWith("spritesheet")) {
+    const baseToken = slotToken.slice(0, -"spritesheet".length);
+    if (baseToken) tokens.add(baseToken);
+    if (baseToken === "movecrawl") tokens.add("movecrawlcycle");
+  }
+  return [...tokens];
 }
 
 function stripDriveExtension(name: string) {
