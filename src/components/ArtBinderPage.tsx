@@ -18,9 +18,12 @@ import {
 } from "../utils/artVaultDriveFolders";
 import {
   googleDriveFolderLink,
+  listAllGoogleDriveImages,
   openGoogleDriveFolderPicker,
   renameGoogleDriveFilesInFolderBySegments,
   renameGoogleDriveItem,
+  uploadNameToken,
+  type DriveBrowserItem,
   type GoogleDriveFolder
 } from "../utils/googlePicker";
 import { googleDriveThumbnailUrl, googleDriveWebViewLink, imageFitToStyle, normalizeImageFit, resolveImageSourceUrl } from "../utils/imageFit";
@@ -170,6 +173,7 @@ export function ArtBinderPage({
   const [renameDraft, setRenameDraft] = useState<{ group: ArtBinderFolderGroup; title: string } | null>(null);
   const [slotEditDraft, setSlotEditDraft] = useState<{ card: ArtBinderSlotCard; label: string; requirementType: string; notes: string } | null>(null);
   const [folderActionBusy, setFolderActionBusy] = useState<string | null>(null);
+  const [driveRecoveryBusy, setDriveRecoveryBusy] = useState(false);
   const [highlightedModuleId, setHighlightedModuleId] = useState("");
   const handledFocusSignatureRef = useRef("");
 
@@ -652,6 +656,28 @@ export function ArtBinderPage({
     });
   };
 
+  const recoverImagesFromDrive = async () => {
+    if (readOnly || driveRecoveryBusy) return;
+    setDriveRecoveryBusy(true);
+    try {
+      const files = await listAllGoogleDriveImages();
+      const result = recoverArtBinderImagesFromDrive(databaseRef.current, files);
+      if (result.recoveredCount) {
+        databaseRef.current = result.database;
+        onDatabaseChange(result.database);
+      }
+      window.alert(
+        result.recoveredCount
+          ? `Recovered ${result.recoveredCount} image assignment${result.recoveredCount === 1 ? "" : "s"} from Google Drive and saved them to the shared app. ${result.unmatchedFileCount} Drive image${result.unmatchedFileCount === 1 ? " was" : "s were"} left untouched because there was no confident empty-slot match.`
+          : `No confident empty-slot matches were found. Scanned ${files.length} Google Drive image${files.length === 1 ? "" : "s"}; existing app assignments were left untouched.`
+      );
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Could not recover images from Google Drive.");
+    } finally {
+      setDriveRecoveryBusy(false);
+    }
+  };
+
   return (
     <section className="art-binder-page">
       <header className="art-binder-hero">
@@ -680,6 +706,10 @@ export function ArtBinderPage({
             <button className="button-frame" onClick={addCategoryToVisibleSubjects} disabled={!editableVisibleSubjects.length}>
               <Icon name="Plus" className="h-4 w-4" />
               Add Category
+            </button>
+            <button className="button-frame" onClick={() => void recoverImagesFromDrive()} disabled={driveRecoveryBusy}>
+              <Icon name="RefreshCw" className={`h-4 w-4${driveRecoveryBusy ? " animate-spin" : ""}`} />
+              {driveRecoveryBusy ? "Scanning Drive..." : "Recover from Drive"}
             </button>
           </div>
         )}
@@ -2046,6 +2076,75 @@ function normalizeArtBinderOrders<T extends { order: number }>(items: T[]) {
   return [...items]
     .sort((left, right) => left.order - right.order)
     .map((item, order) => ({ ...item, order }));
+}
+
+export interface DriveImageRecoveryResult {
+  database: LoreDatabase;
+  recoveredCount: number;
+  scannedFileCount: number;
+  unmatchedFileCount: number;
+}
+
+export function recoverArtBinderImagesFromDrive(database: LoreDatabase, files: DriveBrowserItem[]): DriveImageRecoveryResult {
+  const cards = buildArtBinderSubjects(database).flatMap((subject) =>
+    subject.sections.flatMap((section) => section.slots.map((slot) => ({ subject, section, slot })))
+  );
+  const usedFileIds = new Set<string>();
+  let nextDatabase = database;
+  let recoveredCount = 0;
+
+  for (const card of cards) {
+    if (artBinderImagePreviewSource(card.slot.image)) continue;
+    const match = bestDriveRecoveryMatch(card, files, usedFileIds);
+    if (!match) continue;
+
+    const managerSlot = artBinderImageManagerSlot(card);
+    const folderId = card.section.driveFolderId || match.parents?.[0] || managerSlot.defaultFolderId || "";
+    nextDatabase = updateDatabaseSlotImage(nextDatabase, card, {
+      ...managerSlot,
+      imageUrl: googleDriveThumbnailUrl(match.id),
+      webViewLink: match.webViewLink || googleDriveWebViewLink(match.id),
+      imageFit: normalizeImageFit(managerSlot.imageFit),
+      defaultFolderId: folderId,
+      defaultFolderLink: managerSlot.defaultFolderLink || (folderId ? googleDriveFolderLink(folderId) : ""),
+      assetState: /(?:^|_)FINAL(?:_|$)/i.test(stripDriveExtension(match.name)) ? "final" : "wip"
+    });
+    usedFileIds.add(match.id);
+    recoveredCount += 1;
+  }
+
+  return {
+    database: nextDatabase,
+    recoveredCount,
+    scannedFileCount: files.length,
+    unmatchedFileCount: Math.max(0, files.length - usedFileIds.size)
+  };
+}
+
+function bestDriveRecoveryMatch(card: ArtBinderSlotCard, files: DriveBrowserItem[], usedFileIds: Set<string>) {
+  const subjectToken = uploadNameToken(card.subject.title).toLowerCase();
+  const categoryToken = uploadNameToken(card.section.title).toLowerCase();
+  const slotToken = uploadNameToken(card.slot.label).toLowerCase();
+  const folderId = card.section.driveFolderId?.trim() || "";
+
+  return files
+    .filter((file) => file.id && !usedFileIds.has(file.id) && file.mimeType?.startsWith("image/"))
+    .map((file) => {
+      const segments = stripDriveExtension(file.name).split("_").map((segment) => segment.toLowerCase()).filter(Boolean);
+      const hasSubject = Boolean(subjectToken && segments.some((segment) => segment === subjectToken || segment.startsWith(subjectToken)));
+      const hasCategory = Boolean(categoryToken && segments.some((segment) => segment === categoryToken || segment.startsWith(categoryToken)));
+      const hasSlot = Boolean(slotToken && segments.some((segment) => segment === slotToken || segment.startsWith(slotToken)));
+      const sameFolder = Boolean(folderId && file.parents?.includes(folderId));
+      const confident = hasSlot && (hasSubject || sameFolder) && (hasCategory || sameFolder);
+      const score = (sameFolder ? 20 : 0) + (hasSubject ? 12 : 0) + (hasSlot ? 12 : 0) + (hasCategory ? 6 : 0) + (segments.includes("final") ? 2 : 0);
+      return { file, confident, score, modifiedAt: Date.parse(file.modifiedTime || "") || 0 };
+    })
+    .filter((candidate) => candidate.confident)
+    .sort((left, right) => right.score - left.score || right.modifiedAt - left.modifiedAt)[0]?.file || null;
+}
+
+function stripDriveExtension(name: string) {
+  return String(name || "").replace(/\.[a-z0-9]+$/i, "").trim();
 }
 
 export function updateDatabaseSlotImage(database: LoreDatabase, card: ArtBinderSlotCard, imageSlot: ImageManagerSlotDraft): LoreDatabase {

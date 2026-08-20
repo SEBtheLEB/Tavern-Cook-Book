@@ -134,7 +134,7 @@ interface GoogleApiLoader {
 
 type DriveBrowserMode = "image" | "folder";
 
-interface DriveBrowserItem {
+export interface DriveBrowserItem {
   id: string;
   name: string;
   mimeType: string;
@@ -142,6 +142,19 @@ interface DriveBrowserItem {
   webViewLink?: string;
   iconLink?: string;
   modifiedTime?: string;
+  parents?: string[];
+}
+
+export async function listAllGoogleDriveImages(): Promise<DriveBrowserItem[]> {
+  const token = await authenticateGoogleDrive();
+  const files: DriveBrowserItem[] = [];
+  let pageToken = "";
+  do {
+    const result = await fetchDriveBrowserItems("image", token, "", pageToken);
+    files.push(...result.files);
+    pageToken = result.nextPageToken;
+  } while (pageToken);
+  return files;
 }
 
 interface DriveBrowserListResponse {
@@ -941,7 +954,7 @@ async function fetchDriveBrowserItems(
     supportsAllDrives: "true",
     spaces: "drive",
     pageSize: "60",
-    fields: "nextPageToken,files(id,name,mimeType,thumbnailLink,webViewLink,iconLink,modifiedTime)",
+    fields: "nextPageToken,files(id,name,mimeType,thumbnailLink,webViewLink,iconLink,modifiedTime,parents)",
     orderBy: mode === "folder" ? "name_natural" : "modifiedTime desc,name_natural"
   });
 
@@ -1331,7 +1344,7 @@ function stripFileExtension(name: string) {
   return String(name || "").replace(/\.[a-z0-9]+$/i, "").trim();
 }
 
-function uploadNameToken(value: unknown) {
+export function uploadNameToken(value: unknown) {
   const raw = String(value || "").trim();
   if (!raw) return "";
   const normalized = raw

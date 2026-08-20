@@ -17,6 +17,7 @@ interface DriveListItem {
   webViewLink?: string;
   iconLink?: string;
   modifiedTime?: string;
+  parents?: string[];
 }
 
 interface DriveListResponse {
@@ -47,7 +48,7 @@ export async function handleDriveListRequest(request: DriveListRequest) {
     supportsAllDrives: "true",
     spaces: "drive",
     pageSize: "60",
-    fields: "nextPageToken,files(id,name,mimeType,thumbnailLink,webViewLink,iconLink,modifiedTime)",
+    fields: "nextPageToken,files(id,name,mimeType,thumbnailLink,webViewLink,iconLink,modifiedTime,parents)",
     orderBy: mode === "folder" ? "name_natural" : "modifiedTime desc,name_natural",
     q: buildDriveListQuery(mode, search)
   });
