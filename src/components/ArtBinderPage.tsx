@@ -8,7 +8,7 @@ import {
   normalizeBestiaryCategoryArtVault,
   normalizeCreatureArtVault
 } from "../utils/bestiary";
-import { createBlankEntry, isGwenToolArtVaultSection, normalizeArtVault } from "../utils/entries";
+import { createBlankEntry, ensureGwenToolArtVault, isGwenToolArtVaultSection, normalizeArtVault } from "../utils/entries";
 import { buildPantryModel, type PantryIngredient, type PantryPrepVariant } from "../utils/pantry";
 import {
   artVaultDriveFolderPathLabel,
@@ -2100,7 +2100,7 @@ export function recoverArtBinderImagesFromDrive(database: LoreDatabase, files: D
         subtitle: entry.type || "Character",
         groupKey: "character-all",
         groupLabel: "Characters",
-        sections: normalizeArtVault(entry.artVault).sections.filter(isGwenToolArtVaultSection)
+        sections: ensureGwenToolArtVault(entry.artVault).sections.filter(isGwenToolArtVaultSection)
       };
       return subject.sections.flatMap((section) => section.slots.map((slot) => ({ subject, section, slot })));
     });
