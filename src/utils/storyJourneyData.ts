@@ -3,6 +3,7 @@ import type {
   StoryJourneyChapterRecord,
   StoryJourneyData,
   StoryJourneyGuideCollectionRecord,
+  StoryJourneyGuideNarrativeData,
   StoryJourneyGuidePageRecord,
   StoryJourneyGuidePageType,
   StoryJourneyGuideSourceSection,
@@ -16,6 +17,10 @@ import type {
   StoryJourneySourceRecord
 } from "../types";
 import { ACADEMY_PLACE_MIGRATION_ID, ACADEMY_PLACE_PAGE } from "../data/academyPlacePage";
+import {
+  MASEEL_CULT_LEADER_NARRATIVE_MIGRATION_ID,
+  MASEEL_CULT_LEADER_NARRATIVE_PAGE
+} from "../data/maseelCultLeaderNarrative";
 import { normalizeImageFit } from "./imageFit";
 
 const revealLevels = new Set<StoryJourneyRevealLevel>([
@@ -101,7 +106,7 @@ const guideSourceSections = new Set<StoryJourneyGuideSourceSection>([
   "quests",
   "lore"
 ]);
-const guidePageTypes = new Set<StoryJourneyGuidePageType>(["generic", "place"]);
+const guidePageTypes = new Set<StoryJourneyGuidePageType>(["generic", "place", "narrative"]);
 const placeSectionIds = new Set<StoryJourneyPlaceSectionId>([
   "generalFacts",
   "environment",
@@ -280,7 +285,7 @@ export const normalizeStoryJourneyGuidePage = (
   const now = new Date().toISOString();
   const pageType = guidePageTypes.has(value.pageType as StoryJourneyGuidePageType)
     ? value.pageType as StoryJourneyGuidePageType
-    : value.place ? "place" : "generic";
+    : value.place ? "place" : value.narrative ? "narrative" : "generic";
   const title = String(value.title || "Untitled Guide Page");
   return {
     id: String(value.id || fallbackId),
@@ -291,10 +296,23 @@ export const normalizeStoryJourneyGuidePage = (
     fullText: String(value.fullText || value.summary || ""),
     tags: cleanList(value.tags),
     place: pageType === "place" ? normalizeStoryJourneyPlaceData(value.place, title) : undefined,
+    narrative: pageType === "narrative" ? normalizeStoryJourneyGuideNarrative(value.narrative, title) : undefined,
     createdAt: String(value.createdAt || now),
     updatedAt: String(value.updatedAt || value.createdAt || now)
   };
 };
+
+const normalizeStoryJourneyGuideNarrative = (
+  value: Partial<StoryJourneyGuideNarrativeData> | undefined,
+  fallbackTitle: string
+): StoryJourneyGuideNarrativeData => ({
+  title: String(value?.title || fallbackTitle),
+  subtitle: String(value?.subtitle || ""),
+  eyebrow: String(value?.eyebrow || "People Narrative"),
+  chapters: Array.isArray(value?.chapters)
+    ? value.chapters.map((chapter, index) => normalizeStoryJourneyChapter(chapter, `${fallbackTitle}-chapter-${index + 1}`))
+    : []
+});
 
 export const normalizeStoryJourneyGuideCollections = (
   value: unknown
@@ -431,6 +449,38 @@ export const normalizeStoryJourneyData = (value: Partial<StoryJourneyData> | und
     }
 
     contentMigrations.push(ACADEMY_PLACE_MIGRATION_ID);
+  }
+
+  if (!contentMigrations.includes(MASEEL_CULT_LEADER_NARRATIVE_MIGRATION_ID)) {
+    const peoplesCollection = guideCollections.find((collection) => collection.sourceSectionId === "peoples" || collection.id === "peoples");
+    const existingNarrative = guideCollections.flatMap((collection) => collection.pages.map((page, pageIndex) => ({
+      collection,
+      page,
+      pageIndex
+    }))).find(({ page }) => page.id === MASEEL_CULT_LEADER_NARRATIVE_PAGE.id);
+
+    if (existingNarrative) {
+      existingNarrative.collection.pages[existingNarrative.pageIndex] = normalizeStoryJourneyGuidePage({
+        ...MASEEL_CULT_LEADER_NARRATIVE_PAGE,
+        createdAt: existingNarrative.page.createdAt || MASEEL_CULT_LEADER_NARRATIVE_PAGE.createdAt
+      }, MASEEL_CULT_LEADER_NARRATIVE_PAGE.id);
+    } else if (peoplesCollection) {
+      peoplesCollection.pages.push(normalizeStoryJourneyGuidePage(
+        MASEEL_CULT_LEADER_NARRATIVE_PAGE,
+        MASEEL_CULT_LEADER_NARRATIVE_PAGE.id
+      ));
+    } else {
+      const defaultPeoplesCollection = createDefaultStoryJourneyGuideCollections().find((collection) => collection.id === "peoples");
+      if (defaultPeoplesCollection) {
+        defaultPeoplesCollection.pages.push(normalizeStoryJourneyGuidePage(
+          MASEEL_CULT_LEADER_NARRATIVE_PAGE,
+          MASEEL_CULT_LEADER_NARRATIVE_PAGE.id
+        ));
+        guideCollections.push(defaultPeoplesCollection);
+      }
+    }
+
+    contentMigrations.push(MASEEL_CULT_LEADER_NARRATIVE_MIGRATION_ID);
   }
 
   return {

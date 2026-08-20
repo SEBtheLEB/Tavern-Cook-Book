@@ -22097,6 +22097,47 @@ button,
   background: transparent;
 }
 
+.story-guide-narrative-reader {
+  width: min(100%, 980px);
+  margin-inline: auto;
+}
+
+.story-guide-narrative-titlepage {
+  min-height: min(58vh, 610px);
+}
+
+.story-guide-narrative-chapters {
+  counter-reset: story-reader-chapter;
+  padding-top: 28px;
+}
+
+.story-treatment-reader .story-guide-narrative-chapter:last-child::after {
+  bottom: 22px;
+}
+
+.story-treatment-reader .story-guide-narrative-prose,
+.story-treatment-reader.depth-standard .story-guide-narrative-prose {
+  max-width: 790px;
+  margin-bottom: 0;
+}
+
+.story-treatment-reader .story-guide-narrative-prose::before {
+  display: none;
+}
+
+.story-treatment-reader .story-guide-narrative-prose .story-treatment-prose {
+  max-width: 790px;
+  color: var(--story-reader-body, var(--app-ink));
+  font-family: var(--story-reader-body-font, Georgia, Cambria, "Times New Roman", serif);
+  font-size: var(--story-reader-body-size, 17px);
+  font-weight: 400;
+  line-height: var(--story-reader-line-height, 1.78);
+}
+
+.story-treatment-reader .story-guide-narrative-prose .rich-lore-text p {
+  margin: 0 0 1.25em;
+}
+
 .story-guide-editor-backdrop {
   position: fixed;
   z-index: 360;

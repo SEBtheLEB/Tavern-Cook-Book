@@ -12,6 +12,7 @@ import type {
   StoryJourneyData,
   StoryJourneyDialogueSpriteSelection,
   StoryJourneyGuideCollectionRecord,
+  StoryJourneyGuideNarrativeData,
   StoryJourneyGuidePageRecord,
   StoryJourneyGuidePageType,
   StoryJourneyGuideSourceSection,
@@ -149,6 +150,7 @@ interface StoryLibraryItem {
   creature?: BestiaryCreature;
   customPage?: StoryJourneyGuidePageRecord;
   place?: StoryJourneyPlacePageData;
+  narrative?: StoryJourneyGuideNarrativeData;
 }
 
 interface StoryLibrarySection {
@@ -3621,16 +3623,23 @@ export function StoryJourneyPage({
                               <span>{item.title}</span>
                               <small>{item.eyebrow}</small>
                             </button>
-                            {canEditStory && (
+                            {(item.narrative || canEditStory) && (
                               <div className="story-library-nav-actions">
-                                {item.customPage && (
-                                  <button type="button" onClick={() => setStoryGuideEditorTarget({ kind: "page", collectionId: section.id, pageId: item.customPage?.id })} title={`Edit ${item.title}`} aria-label={`Edit ${item.title}`}>
-                                    <Icon name="Edit3" className="h-3.5 w-3.5" />
+                                {item.narrative && (
+                                  <button type="button" onClick={() => openLibraryItem(item)} title={`Read ${item.narrative.title}`} aria-label={`Read the ${item.title} narrative`}>
+                                    <Icon name="BookOpen" className="h-3.5 w-3.5" />
                                   </button>
                                 )}
-                                <button type="button" onClick={() => deleteStoryGuideItem(section.id, item)} title={`Remove ${item.title}`} aria-label={`Remove ${item.title}`}>
-                                  <Icon name="Trash2" className="h-3.5 w-3.5" />
-                                </button>
+                                {canEditStory && (<>
+                                  {item.customPage && (
+                                    <button type="button" onClick={() => setStoryGuideEditorTarget({ kind: "page", collectionId: section.id, pageId: item.customPage?.id })} title={`Edit ${item.title}`} aria-label={`Edit ${item.title}`}>
+                                      <Icon name="Edit3" className="h-3.5 w-3.5" />
+                                    </button>
+                                  )}
+                                  <button type="button" onClick={() => deleteStoryGuideItem(section.id, item)} title={`Remove ${item.title}`} aria-label={`Remove ${item.title}`}>
+                                    <Icon name="Trash2" className="h-3.5 w-3.5" />
+                                  </button>
+                                </>)}
                               </div>
                             )}
                           </div>
@@ -3678,6 +3687,11 @@ export function StoryJourneyPage({
                         if (entry) onOpenEntry(entry);
                       }
                     }}
+                  />
+                ) : selectedLibraryItem.narrative ? (
+                  <StoryGuideNarrativeReader
+                    item={selectedLibraryItem}
+                    readingDepth={readingDepth}
                   />
                 ) : (
                 <article className="story-library-reader">
@@ -4402,7 +4416,7 @@ function StoryGuideEditorModal({
         <header>
           <div>
             <span>{isCollection ? "World Guide Collection" : collection?.title || "World Guide"}</span>
-            <h2 className="font-display">{editing ? "Edit" : "Add"} {isCollection ? "Collection" : pageType === "place" ? "Place" : "Guide Page"}</h2>
+            <h2 className="font-display">{editing ? "Edit" : "Add"} {isCollection ? "Collection" : pageType === "place" ? "Place" : pageType === "narrative" ? "People Narrative" : "Guide Page"}</h2>
             <p>{isCollection
               ? "Collections organize related reading pages in the left navigator."
               : pageType === "place"
@@ -4436,6 +4450,7 @@ function StoryGuideEditorModal({
               }}>
                 <option value="generic">Generic Guide Page</option>
                 <option value="place">Place</option>
+                {page?.narrative && <option value="narrative">People Narrative</option>}
               </select>
               <small>{editing
                 ? "The page type is fixed after creation so changing a template cannot discard structured content."
@@ -4640,6 +4655,72 @@ function StoryGuideEditorModal({
         </footer>
       </section>
     </div>
+  );
+}
+
+function StoryGuideNarrativeReader({
+  item,
+  readingDepth
+}: {
+  item: StoryLibraryItem;
+  readingDepth: StoryReadingDepth;
+}) {
+  const narrative = item.narrative;
+  const [collapsedChapterIds, setCollapsedChapterIds] = useState<string[]>([]);
+  if (!narrative) return null;
+
+  return (
+    <article className="story-library-reader story-guide-narrative-reader">
+      <header className="story-treatment-titlepage story-guide-narrative-titlepage" data-story-narration-block>
+        <p>{narrative.eyebrow} · {item.title}</p>
+        <h1 className="font-display">{narrative.title}</h1>
+        <span>{narrative.subtitle}</span>
+        <div>
+          <strong>{narrative.chapters.length} chapters</strong>
+          {item.tags.slice(0, 4).map((tag) => <strong key={tag}>{tag}</strong>)}
+        </div>
+      </header>
+
+      <section className="story-guide-narrative-chapters" aria-label={`${item.title} narrative chapters`}>
+        {narrative.chapters.map((chapter, chapterIndex) => {
+          const collapsed = collapsedChapterIds.includes(chapter.id);
+          return (
+            <article
+              key={chapter.id}
+              className={`story-treatment-chapter story-guide-narrative-chapter ${collapsed ? "is-collapsed" : ""}`}
+              data-story-reader-chapter={chapter.id}
+            >
+              <button
+                type="button"
+                className="story-treatment-chapter-marker"
+                onClick={() => setCollapsedChapterIds((current) => current.includes(chapter.id)
+                  ? current.filter((id) => id !== chapter.id)
+                  : [...current, chapter.id])}
+                aria-expanded={!collapsed}
+                aria-label={`${collapsed ? "Expand" : "Collapse"} chapter ${chapterIndex + 1}: ${chapter.title}`}
+                title={`${collapsed ? "Expand" : "Collapse"} ${chapter.title}`}
+              >
+                {storyReaderRomanNumeral(chapterIndex + 1)}
+              </button>
+              <header className="story-treatment-chapter-heading" data-story-narration-block>
+                <div>
+                  <span>{item.title} · Chapter {chapterIndex + 1}</span>
+                  <h2 className="font-display">{chapter.title}</h2>
+                </div>
+              </header>
+
+              {!collapsed && readingDepth !== "overview" && chapter.pages.map((page) => (
+                <section key={page.id} className="story-treatment-beat story-guide-narrative-prose">
+                  <div className="story-treatment-prose" data-story-narration-block>
+                    <RichLoreText text={page.text} />
+                  </div>
+                </section>
+              ))}
+            </article>
+          );
+        })}
+      </section>
+    </article>
   );
 }
 
@@ -6776,14 +6857,19 @@ function buildStoryLibrarySections(
       sectionId: collection.id,
       sourceType: "custom",
       pageType: page.pageType || "generic",
-      eyebrow: page.pageType === "place" ? "Place Entry" : page.eyebrow || collection.title,
+      eyebrow: page.pageType === "place" ? "Place Entry" : page.pageType === "narrative" ? "People Narrative" : page.eyebrow || collection.title,
       summary: plainStoryText(page.place?.summary || page.summary),
-      fullText: page.place ? storyPlaceSearchText(page.place) : page.fullText || page.summary,
+      fullText: page.place
+        ? storyPlaceSearchText(page.place)
+        : page.narrative
+          ? page.narrative.chapters.flatMap((chapter) => chapter.pages.map((storyPage) => storyPage.text)).join(" ")
+          : page.fullText || page.summary,
       tags: page.tags,
       facts: page.place?.quickFacts || [],
       linkedStoryReferenceIds: [],
       customPage: page,
-      place: page.place
+      place: page.place,
+      narrative: page.narrative
     }));
     return {
       id: collection.id,

@@ -902,7 +902,7 @@ export type StoryJourneyGuideSourceSection =
   | "quests"
   | "lore";
 
-export type StoryJourneyGuidePageType = "generic" | "place";
+export type StoryJourneyGuidePageType = "generic" | "place" | "narrative";
 
 export type StoryJourneyPlaceSectionId =
   | "generalFacts"
@@ -972,6 +972,13 @@ export interface StoryJourneyPlacePageData {
   showcaseTitle: string;
 }
 
+export interface StoryJourneyGuideNarrativeData {
+  title: string;
+  subtitle: string;
+  eyebrow: string;
+  chapters: StoryJourneyChapterRecord[];
+}
+
 export interface StoryJourneyGuidePageRecord {
   id: string;
   pageType?: StoryJourneyGuidePageType;
@@ -981,6 +988,7 @@ export interface StoryJourneyGuidePageRecord {
   fullText: string;
   tags: string[];
   place?: StoryJourneyPlacePageData;
+  narrative?: StoryJourneyGuideNarrativeData;
   createdAt: string;
   updatedAt: string;
 }
