@@ -149,11 +149,16 @@ export async function listAllGoogleDriveImages(): Promise<DriveBrowserItem[]> {
   const token = await authenticateGoogleDrive();
   const files: DriveBrowserItem[] = [];
   let pageToken = "";
+  const seenPageTokens = new Set<string>();
+  let pageCount = 0;
   do {
-    const result = await fetchDriveBrowserItems("image", token, "", pageToken);
+    const result = await fetchDriveBrowserItems("image", token, "", pageToken, 1000);
     files.push(...result.files);
+    if (!result.nextPageToken || seenPageTokens.has(result.nextPageToken)) break;
+    seenPageTokens.add(result.nextPageToken);
     pageToken = result.nextPageToken;
-  } while (pageToken);
+    pageCount += 1;
+  } while (pageToken && pageCount < 25);
   return files;
 }
 
@@ -943,9 +948,10 @@ async function fetchDriveBrowserItems(
   mode: DriveBrowserMode,
   token: string,
   search: string,
-  pageToken: string
+  pageToken: string,
+  pageSize = 60
 ) {
-  const proxied = await fetchDriveBrowserItemsFromApp(mode, token, search, pageToken);
+  const proxied = await fetchDriveBrowserItemsFromApp(mode, token, search, pageToken, pageSize);
   if (proxied) return proxied;
 
   const params = new URLSearchParams({
@@ -953,7 +959,7 @@ async function fetchDriveBrowserItems(
     includeItemsFromAllDrives: "true",
     supportsAllDrives: "true",
     spaces: "drive",
-    pageSize: "60",
+    pageSize: String(pageSize),
     fields: "nextPageToken,files(id,name,mimeType,thumbnailLink,webViewLink,iconLink,modifiedTime,parents)",
     orderBy: mode === "folder" ? "name_natural" : "modifiedTime desc,name_natural"
   });
@@ -979,9 +985,10 @@ async function fetchDriveBrowserItemsFromApp(
   mode: DriveBrowserMode,
   token: string,
   search: string,
-  pageToken: string
+  pageToken: string,
+  pageSize = 60
 ) {
-  const params = new URLSearchParams({ mode });
+  const params = new URLSearchParams({ mode, pageSize: String(pageSize) });
   if (search.trim()) params.set("search", search.trim());
   if (pageToken) params.set("pageToken", pageToken);
 

@@ -42,12 +42,14 @@ export async function handleDriveListRequest(request: DriveListRequest) {
   const mode = requestUrl.searchParams.get("mode") === "folder" ? "folder" : "image";
   const search = requestUrl.searchParams.get("search") || "";
   const pageToken = requestUrl.searchParams.get("pageToken") || "";
+  const requestedPageSize = Number(requestUrl.searchParams.get("pageSize") || 60);
+  const pageSize = Number.isFinite(requestedPageSize) ? Math.min(1000, Math.max(1, Math.floor(requestedPageSize))) : 60;
   const params = new URLSearchParams({
     corpora: "user",
     includeItemsFromAllDrives: "true",
     supportsAllDrives: "true",
     spaces: "drive",
-    pageSize: "60",
+    pageSize: String(pageSize),
     fields: "nextPageToken,files(id,name,mimeType,thumbnailLink,webViewLink,iconLink,modifiedTime,parents)",
     orderBy: mode === "folder" ? "name_natural" : "modifiedTime desc,name_natural",
     q: buildDriveListQuery(mode, search)
