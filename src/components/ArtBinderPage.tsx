@@ -2089,13 +2089,14 @@ export function recoverArtBinderImagesFromDrive(database: LoreDatabase, files: D
   const cards = buildArtBinderSubjects(database).flatMap((subject) =>
     subject.sections.flatMap((section) => section.slots.map((slot) => ({ subject, section, slot })))
   );
+  const fileIndex = buildDriveRecoveryFileIndex(files);
   const usedFileIds = new Set<string>();
   let nextDatabase = database;
   let recoveredCount = 0;
 
   for (const card of cards) {
     if (artBinderImagePreviewSource(card.slot.image)) continue;
-    const match = bestDriveRecoveryMatch(card, files, usedFileIds);
+    const match = bestDriveRecoveryMatch(card, fileIndex, usedFileIds);
     if (!match) continue;
 
     const managerSlot = artBinderImageManagerSlot(card);
@@ -2121,23 +2122,68 @@ export function recoverArtBinderImagesFromDrive(database: LoreDatabase, files: D
   };
 }
 
-function bestDriveRecoveryMatch(card: ArtBinderSlotCard, files: DriveBrowserItem[], usedFileIds: Set<string>) {
+interface IndexedDriveRecoveryFile {
+  file: DriveBrowserItem;
+  segments: string[];
+  modifiedAt: number;
+}
+
+interface DriveRecoveryFileIndex {
+  bySegment: Map<string, IndexedDriveRecoveryFile[]>;
+  byParent: Map<string, IndexedDriveRecoveryFile[]>;
+}
+
+function buildDriveRecoveryFileIndex(files: DriveBrowserItem[]): DriveRecoveryFileIndex {
+  const bySegment = new Map<string, IndexedDriveRecoveryFile[]>();
+  const byParent = new Map<string, IndexedDriveRecoveryFile[]>();
+
+  for (const file of files) {
+    if (!file.id || !file.mimeType?.startsWith("image/")) continue;
+    const indexedFile: IndexedDriveRecoveryFile = {
+      file,
+      segments: stripDriveExtension(file.name).split("_").map((segment) => segment.toLowerCase()).filter(Boolean),
+      modifiedAt: Date.parse(file.modifiedTime || "") || 0
+    };
+    for (const segment of new Set(indexedFile.segments)) {
+      const matches = bySegment.get(segment) || [];
+      matches.push(indexedFile);
+      bySegment.set(segment, matches);
+    }
+    for (const parentId of new Set(file.parents || [])) {
+      if (!parentId) continue;
+      const matches = byParent.get(parentId) || [];
+      matches.push(indexedFile);
+      byParent.set(parentId, matches);
+    }
+  }
+
+  return { bySegment, byParent };
+}
+
+function bestDriveRecoveryMatch(card: ArtBinderSlotCard, index: DriveRecoveryFileIndex, usedFileIds: Set<string>) {
   const subjectToken = uploadNameToken(card.subject.title).toLowerCase();
   const categoryToken = uploadNameToken(card.section.title).toLowerCase();
   const slotToken = uploadNameToken(card.slot.label).toLowerCase();
   const folderId = card.section.driveFolderId?.trim() || "";
+  const candidates = new Map<string, IndexedDriveRecoveryFile>();
 
-  return files
-    .filter((file) => file.id && !usedFileIds.has(file.id) && file.mimeType?.startsWith("image/"))
-    .map((file) => {
-      const segments = stripDriveExtension(file.name).split("_").map((segment) => segment.toLowerCase()).filter(Boolean);
+  for (const indexedFile of index.bySegment.get(slotToken) || []) {
+    candidates.set(indexedFile.file.id, indexedFile);
+  }
+  for (const indexedFile of folderId ? index.byParent.get(folderId) || [] : []) {
+    candidates.set(indexedFile.file.id, indexedFile);
+  }
+
+  return [...candidates.values()]
+    .filter(({ file }) => !usedFileIds.has(file.id))
+    .map(({ file, segments, modifiedAt }) => {
       const hasSubject = Boolean(subjectToken && segments.some((segment) => segment === subjectToken || segment.startsWith(subjectToken)));
       const hasCategory = Boolean(categoryToken && segments.some((segment) => segment === categoryToken || segment.startsWith(categoryToken)));
       const hasSlot = Boolean(slotToken && segments.some((segment) => segment === slotToken || segment.startsWith(slotToken)));
       const sameFolder = Boolean(folderId && file.parents?.includes(folderId));
       const confident = hasSlot && (hasSubject || sameFolder) && (hasCategory || sameFolder);
       const score = (sameFolder ? 20 : 0) + (hasSubject ? 12 : 0) + (hasSlot ? 12 : 0) + (hasCategory ? 6 : 0) + (segments.includes("final") ? 2 : 0);
-      return { file, confident, score, modifiedAt: Date.parse(file.modifiedTime || "") || 0 };
+      return { file, confident, score, modifiedAt };
     })
     .filter((candidate) => candidate.confident)
     .sort((left, right) => right.score - left.score || right.modifiedAt - left.modifiedAt)[0]?.file || null;
