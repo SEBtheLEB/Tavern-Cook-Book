@@ -810,6 +810,7 @@ function SidebarNavItem({
 
 function countForItem(item: ViewConfig, database: LoreDatabase) {
   if (item.id === "bestiary") return database.bestiary?.length || 0;
+  if (item.id === "combat") return database.combat?.bosses.length || 0;
   if (item.id === "developmentBoard") return database.developmentBoard?.nodes.length || 0;
   return item.category
     ? database.entries.filter((entry) => entry.category === item.category).length
