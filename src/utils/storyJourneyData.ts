@@ -19,6 +19,7 @@ import type {
 import { ACADEMY_PLACE_MIGRATION_ID, ACADEMY_PLACE_PAGE } from "../data/academyPlacePage";
 import {
   MASEEL_CULT_LEADER_NARRATIVE_MIGRATION_ID,
+  MASEEL_CULT_LEADER_PROFILE_LINK_MIGRATION_ID,
   MASEEL_CULT_LEADER_NARRATIVE_PAGE
 } from "../data/maseelCultLeaderNarrative";
 import { normalizeImageFit } from "./imageFit";
@@ -127,9 +128,9 @@ const defaultGuideCollectionDefinitions: Array<{
   title: string;
   description: string;
 }> = [
-  { id: "peoples", title: "Peoples & Realms", description: "Cultures, kingdoms, peoples, and the traditions that distinguish them." },
-  { id: "characters", title: "Characters", description: "The people whose choices move the story." },
-  { id: "places", title: "Places", description: "Regions, settlements, landmarks, and important story spaces." },
+  { id: "characters", title: "Characters", description: "Individual character profiles, relationships, and personal narrative books." },
+  { id: "peoples", title: "Peoples & Cultures", description: "Cultures, communities, and the traditions that distinguish them." },
+  { id: "places", title: "Places & Realms", description: "Realms, regions, settlements, landmarks, and important story spaces." },
   { id: "factions", title: "Factions & Faiths", description: "Organizations, alliances, religions, and competing beliefs." },
   { id: "magic", title: "Magic, Meals & Artifacts", description: "Food magic, recipes, ingredients, relics, and important objects." },
   { id: "creatures", title: "Creatures & Threats", description: "Wildlife, enemies, bosses, and corrupted beings." },
@@ -290,6 +291,7 @@ export const normalizeStoryJourneyGuidePage = (
   return {
     id: String(value.id || fallbackId),
     pageType,
+    linkedEntryId: value.linkedEntryId ? String(value.linkedEntryId) : undefined,
     title,
     eyebrow: String(value.eyebrow || "World Guide"),
     summary: String(value.summary || ""),
@@ -328,9 +330,15 @@ export const normalizeStoryJourneyGuideCollections = (
       ? defaultGuideCollectionDefinitions.find((definition) => definition.id === sourceSectionId)
       : undefined;
     const id = String(collection.id || `guide-collection-${collectionIndex + 1}`);
+    const legacyTitle = String(collection.title || fallbackDefinition?.title || "Untitled Collection");
+    const title = sourceSectionId === "peoples" && legacyTitle === "Peoples & Realms"
+      ? "Peoples & Cultures"
+      : sourceSectionId === "places" && legacyTitle === "Places"
+        ? "Places & Realms"
+        : legacyTitle;
     return [{
       id,
-      title: String(collection.title || fallbackDefinition?.title || "Untitled Collection"),
+      title,
       description: String(collection.description || fallbackDefinition?.description || ""),
       sourceSectionId,
       hiddenSourceItemIds: cleanList(collection.hiddenSourceItemIds),
@@ -481,6 +489,43 @@ export const normalizeStoryJourneyData = (value: Partial<StoryJourneyData> | und
     }
 
     contentMigrations.push(MASEEL_CULT_LEADER_NARRATIVE_MIGRATION_ID);
+  }
+
+  if (!contentMigrations.includes(MASEEL_CULT_LEADER_PROFILE_LINK_MIGRATION_ID)) {
+    const charactersCollection = guideCollections.find((collection) => collection.sourceSectionId === "characters" || collection.id === "characters")
+      || createDefaultStoryJourneyGuideCollections().find((collection) => collection.id === "characters");
+    const existingNarrative = guideCollections.flatMap((collection) => collection.pages)
+      .find((page) => page.id === MASEEL_CULT_LEADER_NARRATIVE_PAGE.id);
+
+    guideCollections.forEach((collection) => {
+      collection.pages = collection.pages.filter((page) => page.id !== MASEEL_CULT_LEADER_NARRATIVE_PAGE.id);
+    });
+
+    if (charactersCollection) {
+      charactersCollection.pages.push(normalizeStoryJourneyGuidePage({
+        ...MASEEL_CULT_LEADER_NARRATIVE_PAGE,
+        createdAt: existingNarrative?.createdAt || MASEEL_CULT_LEADER_NARRATIVE_PAGE.createdAt
+      }, MASEEL_CULT_LEADER_NARRATIVE_PAGE.id));
+      if (!guideCollections.includes(charactersCollection)) guideCollections.unshift(charactersCollection);
+    }
+
+    const builtInOrder: StoryJourneyGuideSourceSection[] = [
+      "characters",
+      "peoples",
+      "places",
+      "factions",
+      "magic",
+      "creatures",
+      "quests",
+      "lore"
+    ];
+    guideCollections.sort((left, right) => {
+      const leftIndex = left.sourceSectionId ? builtInOrder.indexOf(left.sourceSectionId) : builtInOrder.length;
+      const rightIndex = right.sourceSectionId ? builtInOrder.indexOf(right.sourceSectionId) : builtInOrder.length;
+      return leftIndex - rightIndex;
+    });
+
+    contentMigrations.push(MASEEL_CULT_LEADER_PROFILE_LINK_MIGRATION_ID);
   }
 
   return {

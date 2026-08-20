@@ -982,6 +982,7 @@ export interface StoryJourneyGuideNarrativeData {
 export interface StoryJourneyGuidePageRecord {
   id: string;
   pageType?: StoryJourneyGuidePageType;
+  linkedEntryId?: string;
   title: string;
   eyebrow: string;
   summary: string;

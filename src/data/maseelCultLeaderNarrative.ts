@@ -2,6 +2,7 @@ import type { StoryJourneyChapterRecord, StoryJourneyGuidePageRecord } from "../
 import source from "./storySources/maseel-cult-leader.txt?raw";
 
 export const MASEEL_CULT_LEADER_NARRATIVE_MIGRATION_ID = "story-guide-maseel-cult-leader-narrative-v1";
+export const MASEEL_CULT_LEADER_PROFILE_LINK_MIGRATION_ID = "story-guide-maseel-cult-leader-profile-link-v2";
 export const MASEEL_CULT_LEADER_NARRATIVE_PAGE_ID = "maseel-cult-leader-narrative";
 
 const title = source.match(/^#\s+(.+)$/m)?.[1]?.trim() || "The Merchant Beneath the Earth";
@@ -51,6 +52,7 @@ const chapters = chapterMatches.map((match, index) => {
 export const MASEEL_CULT_LEADER_NARRATIVE_PAGE: StoryJourneyGuidePageRecord = {
   id: MASEEL_CULT_LEADER_NARRATIVE_PAGE_ID,
   pageType: "narrative",
+  linkedEntryId: "masil-cult-leader",
   title: "Mas'eel Cult Leader",
   eyebrow: "People Narrative",
   summary: subtitle,

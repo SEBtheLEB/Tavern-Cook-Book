@@ -149,6 +149,7 @@ interface StoryLibraryItem {
   worldEntry?: WorldBuildingEntry;
   creature?: BestiaryCreature;
   customPage?: StoryJourneyGuidePageRecord;
+  narrativePage?: StoryJourneyGuidePageRecord;
   place?: StoryJourneyPlacePageData;
   narrative?: StoryJourneyGuideNarrativeData;
 }
@@ -3623,13 +3624,8 @@ export function StoryJourneyPage({
                               <span>{item.title}</span>
                               <small>{item.eyebrow}</small>
                             </button>
-                            {(item.narrative || canEditStory) && (
+                            {canEditStory && (
                               <div className="story-library-nav-actions">
-                                {item.narrative && (
-                                  <button type="button" onClick={() => openLibraryItem(item)} title={`Read ${item.narrative.title}`} aria-label={`Read the ${item.title} narrative`}>
-                                    <Icon name="BookOpen" className="h-3.5 w-3.5" />
-                                  </button>
-                                )}
                                 {canEditStory && (<>
                                   {item.customPage && (
                                     <button type="button" onClick={() => setStoryGuideEditorTarget({ kind: "page", collectionId: section.id, pageId: item.customPage?.id })} title={`Edit ${item.title}`} aria-label={`Edit ${item.title}`}>
@@ -3687,6 +3683,15 @@ export function StoryJourneyPage({
                         if (entry) onOpenEntry(entry);
                       }
                     }}
+                  />
+                ) : selectedLibraryItem.entry && selectedLibraryItem.sectionId === "characters" ? (
+                  <StoryCharacterGuideReader
+                    key={selectedLibraryItem.id}
+                    item={selectedLibraryItem}
+                    entries={entries}
+                    readingDepth={readingDepth}
+                    onOpenEntry={onOpenEntry}
+                    onOpenSource={() => openLibrarySource(selectedLibraryItem)}
                   />
                 ) : selectedLibraryItem.narrative ? (
                   <StoryGuideNarrativeReader
@@ -4655,6 +4660,149 @@ function StoryGuideEditorModal({
         </footer>
       </section>
     </div>
+  );
+}
+
+function StoryCharacterGuideReader({
+  item,
+  entries,
+  readingDepth,
+  onOpenEntry,
+  onOpenSource
+}: {
+  item: StoryLibraryItem;
+  entries: LoreEntry[];
+  readingDepth: StoryReadingDepth;
+  onOpenEntry: (entry: LoreEntry) => void;
+  onOpenSource: () => void;
+}) {
+  const [showNarrative, setShowNarrative] = useState(false);
+  const entry = item.entry;
+  if (!entry) return null;
+
+  if (showNarrative && item.narrative) {
+    return (
+      <div className="story-character-book-reader">
+        <div className="story-character-book-toolbar">
+          <button type="button" className="button-frame" onClick={() => setShowNarrative(false)}>
+            <Icon name="ArrowLeft" className="h-4 w-4" />
+            Character Profile
+          </button>
+          <span>{entry.title}'s narrative book</span>
+        </div>
+        <StoryGuideNarrativeReader item={item} readingDepth={readingDepth} />
+      </div>
+    );
+  }
+
+  const portrait = entry.media.characterPortrait || entry.media.mainImage || entry.media.iconImage || "";
+  const profileFields = Object.entries(entry.fields || {}).flatMap(([label, raw]) => {
+    if (item.narrative && normalizeTerm(label) === "full story") return [];
+    const value = typeof raw === "string" || typeof raw === "number" ? plainStoryText(String(raw)) : "";
+    return value ? [{ label, value }] : [];
+  });
+  const relationshipGroups = [
+    ["Characters", entry.connections.characters],
+    ["Places", entry.connections.locations],
+    ["Factions & Faiths", entry.connections.factions],
+    ["Quests", entry.connections.quests],
+    ["Items & Artifacts", entry.connections.items],
+    ["Meals & Recipes", entry.connections.recipes]
+  ] as Array<[string, string[]]>;
+
+  const openRelatedEntry = (name: string) => {
+    const related = entries.find((candidate) => normalizeTerm(candidate.title) === normalizeTerm(name));
+    if (related) onOpenEntry(related);
+  };
+
+  return (
+    <article className="story-library-reader story-character-profile-reader">
+      <header className="story-character-profile-header" data-story-narration-block>
+        {portrait ? <img src={portrait} alt="" /> : (
+          <div className="story-character-profile-placeholder" aria-hidden="true">
+            <Icon name="UserRound" className="h-10 w-10" />
+          </div>
+        )}
+        <div>
+          <span>Character Profile</span>
+          <h1 className="font-display">{entry.title}</h1>
+          <p>{entry.summary || entry.publicDescription}</p>
+          <div className="story-character-profile-tags">
+            {[entry.type, entry.status, entry.spoilerLevel, ...entry.tags].filter(Boolean).slice(0, 8).map((tag) => <strong key={tag}>{tag}</strong>)}
+          </div>
+        </div>
+        {item.narrative && (
+          <button type="button" className="story-character-book-button" onClick={() => setShowNarrative(true)} title={`Read ${entry.title}'s story`}>
+            <Icon name="BookOpen" className="h-5 w-5" />
+            <span>Story Mode</span>
+          </button>
+        )}
+      </header>
+
+      {readingDepth !== "overview" && (
+        <section className="story-library-prose story-character-profile-overview" data-story-narration-block>
+          <span>Character Lore</span>
+          <h2>Profile</h2>
+          <RichLoreText text={entry.publicDescription || entry.summary} />
+          {!item.narrative && entry.internalLore && <RichLoreText text={entry.internalLore} />}
+        </section>
+      )}
+
+      {profileFields.length > 0 && (
+        <section className="story-library-facts story-character-profile-facts">
+          <span>Character Details</span>
+          <h2>At a glance</h2>
+          <dl>
+            {profileFields.map((field) => (
+              <div key={field.label}>
+                <dt>{field.label}</dt>
+                <dd>{field.value}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      )}
+
+      <section className="story-character-relationships">
+        <span>Connections</span>
+        <h2>Relationships &amp; story ties</h2>
+        {entry.characterRelationships.length > 0 && (
+          <div className="story-character-relationship-notes">
+            {entry.characterRelationships.map((relationship) => {
+              const related = entries.find((candidate) => candidate.id === relationship.characterId);
+              return (
+                <button type="button" key={relationship.id} onClick={() => related && onOpenEntry(related)} disabled={!related}>
+                  <strong>{related?.title || "Character relationship"}</strong>
+                  <p>{relationship.description}</p>
+                </button>
+              );
+            })}
+          </div>
+        )}
+        <div className="story-character-relationship-groups">
+          {relationshipGroups.filter(([, names]) => names.length > 0).map(([label, names]) => (
+            <section key={label}>
+              <h3>{label}</h3>
+              <div>
+                {names.map((name) => (
+                  <button type="button" key={name} onClick={() => openRelatedEntry(name)} className={entries.some((candidate) => normalizeTerm(candidate.title) === normalizeTerm(name)) ? "linked" : ""}>
+                    {name}
+                  </button>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+      </section>
+
+      <footer className="story-library-footer">
+        <p>This profile uses the existing character record. Its narrative book is available only through Story Mode above.</p>
+        <button className="button-frame" onClick={onOpenSource}>
+          <Icon name="ExternalLink" className="h-4 w-4" />
+          Open Full Character Module
+        </button>
+      </footer>
+    </article>
   );
 }
 
@@ -6739,6 +6887,9 @@ function buildStoryLibrarySections(
   guideCollections: StoryJourneyGuideCollectionRecord[]
 ): StoryLibrarySection[] {
   const items: StoryLibraryItem[] = [];
+  const linkedNarratives = new Map(guideCollections.flatMap((collection) => collection.pages)
+    .filter((page) => page.pageType === "narrative" && page.narrative && page.linkedEntryId)
+    .map((page) => [page.linkedEntryId as string, page]));
 
   entries.forEach((entry) => {
     if (normalizeTerm(entry.category) === "archive") return;
@@ -6850,8 +7001,19 @@ function buildStoryLibrarySections(
     const sourceItems = collection.sourceSectionId
       ? deduplicateStoryLibraryItems(items.filter((item) => item.sectionId === collection.sourceSectionId))
         .filter((item) => !hiddenSourceItems.has(item.id))
+        .filter(isFinishedStoryLibraryItem)
+        .map((item) => {
+          const narrativePage = item.entry ? linkedNarratives.get(item.entry.id) : undefined;
+          return narrativePage ? {
+            ...item,
+            narrativePage,
+            narrative: narrativePage.narrative
+          } : item;
+        })
       : [];
-    const customItems: StoryLibraryItem[] = collection.pages.map((page) => ({
+    const customItems: StoryLibraryItem[] = collection.pages
+      .filter((page) => !page.linkedEntryId)
+      .map((page) => ({
       id: `guide:${collection.id}:${page.id}`,
       title: page.place?.placeName || page.title,
       sectionId: collection.id,
@@ -6909,8 +7071,8 @@ function classifyWorldEntryForStoryLibrary(entry: WorldBuildingEntry): BuiltInSt
 
 function storyWorldCategoryLabel(category: WorldBuildingCategoryId) {
   const labels: Partial<Record<WorldBuildingCategoryId, string>> = {
-    locations: "Places",
-    cultures: "Peoples & Realms",
+    locations: "Places & Realms",
+    cultures: "Peoples & Cultures",
     factions: "Factions & Faiths",
     timeline: "Timeline",
     magicSystems: "Magic Systems",
@@ -6925,6 +7087,15 @@ function storyWorldCategoryLabel(category: WorldBuildingCategoryId) {
     glossary: "Glossary"
   };
   return labels[category] || category;
+}
+
+function isFinishedStoryLibraryItem(item: StoryLibraryItem) {
+  if (item.sourceType === "custom" || item.id.startsWith("history-faith:")) return true;
+  if (item.entry?.id === "masil-cult-leader") return true;
+  const text = plainStoryText(`${item.summary} ${item.fullText}`)
+    .replace(/\b(needs story information|placeholder|to be decided|tbd)\b/gi, "")
+    .trim();
+  return text.length >= 500;
 }
 
 function deduplicateStoryLibraryItems(items: StoryLibraryItem[]) {
