@@ -136,6 +136,9 @@ import {
 const DevelopmentBoardPage = lazy(() =>
   import("./components/DevelopmentBoardPage").then((module) => ({ default: module.DevelopmentBoardPage }))
 );
+const CombatPage = lazy(() =>
+  import("./components/CombatPage").then((module) => ({ default: module.CombatPage }))
+);
 
 const extraViews: ViewConfig[] = [
   {
@@ -2391,6 +2394,8 @@ export default function App() {
             ? "artVault"
             : assignment.targetRoute.startsWith("roadmap:")
               ? "roadmap"
+              : assignment.targetRoute.startsWith("combat:")
+                ? "combat"
               : null;
     if (targetView && !ensureViewAccess(targetView)) return;
 
@@ -2444,6 +2449,13 @@ export default function App() {
       setActiveView("roadmap");
       window.setTimeout(() => scrollToRoadmapItem(itemId || assignment.entryId), 350);
       window.setTimeout(() => scrollToRoadmapItem(itemId || assignment.entryId), 900);
+    } else if (assignment.targetRoute.startsWith("combat:")) {
+      setSelectedEntry(null);
+      setSelectedReferenceKeyword("");
+      setSelectedBestiaryCreatureId("");
+      setArtBinderOpen(false);
+      setArtVaultDashboardOpen(false);
+      setActiveView("combat");
     }
 
     window.setTimeout(() => scrollToAssignmentModule(assignment.moduleId), 350);
@@ -2488,6 +2500,10 @@ export default function App() {
   const updateStoryJourney = useCallback((storyJourney: NonNullable<LoreDatabase["storyJourney"]>) => {
     setDatabase((current) => ({ ...current, storyJourney }));
   }, [setDatabase]);
+  const updateCombat = useCallback((combat: NonNullable<LoreDatabase["combat"]>) => {
+    if (readOnly) return;
+    setDatabase((current) => ({ ...current, combat }));
+  }, [readOnly, setDatabase]);
 
   const createLinkedStoryReference = (input: StoryReferenceDraftInput): StoryReference => {
     const reference = createStoryReference(input, databaseRef.current.storyReferences.map((item) => item.id));
@@ -3321,6 +3337,18 @@ export default function App() {
                 />
               )}
 
+              {activeView === "combat" && (
+                <Suspense fallback={<div className="p-8 text-sm text-[var(--muted-ink)]">Opening Combat...</div>}>
+                  <CombatPage
+                    combat={database.combat}
+                    readOnly={readOnly}
+                    currentUser={currentUser}
+                    focusRoute={focusedAssignment?.targetRoute || ""}
+                    onCombatChange={updateCombat}
+                  />
+                </Suspense>
+              )}
+
               {activeView === "bestiary" && (
                 <BestiaryPage
                   creatures={database.bestiary || []}
@@ -3374,7 +3402,7 @@ export default function App() {
                 />
               )}
 
-              {!["dashboard", "storyJourney", "story", "spriteAnimator", "search", "timeline", "secrets", "settings", "bestiary", "world", "food", "ingredients", "recipes", "artVault", "artDirection", "developmentBoard", "roadmap"].includes(activeView) && (
+              {!["dashboard", "storyJourney", "story", "spriteAnimator", "search", "timeline", "secrets", "settings", "bestiary", "world", "food", "ingredients", "recipes", "artVault", "artDirection", "developmentBoard", "roadmap", "combat"].includes(activeView) && (
                 <HubPage
                   view={activeConfig}
                   entries={viewEntries}

@@ -39,6 +39,7 @@ export type ActiveView =
   | "story"
   | "quests"
   | "gameplay"
+  | "combat"
   | "food"
   | "characters"
   | "world"
@@ -1039,6 +1040,163 @@ export interface LoreBackup {
   roadmap?: RoadmapData;
   developmentBoard?: DevelopmentBoardData;
   storyJourney?: StoryJourneyData;
+  combat?: CombatData;
+}
+
+export type CombatBossType = "Main Boss" | "Mini Boss" | "Elite Encounter" | "Tutorial Boss";
+export type CombatProductionStatus = "Not Started" | "In Progress" | "Review" | "Approved" | "Complete" | "Blocked";
+export type CombatDiscipline = "design" | "code" | "animation" | "vfx" | "audio" | "balance";
+export type CombatMediaKind = "Rough Sketch" | "Storyboard" | "Keyframe" | "Animation Reference" | "Final Animation" | "VFX Reference" | "In-Game Capture" | "Hitbox Reference";
+
+export interface CombatProductionState {
+  design: CombatProductionStatus;
+  code: CombatProductionStatus;
+  animation: CombatProductionStatus;
+  vfx: CombatProductionStatus;
+  audio: CombatProductionStatus;
+  balance: CombatProductionStatus;
+}
+
+export interface CombatMediaReference {
+  id: string;
+  kind: CombatMediaKind;
+  label: string;
+  imageUrl: string;
+  webViewLink?: string;
+  imageFit?: ImageFitSettings;
+  timestamp?: string;
+  notes: string;
+  order: number;
+}
+
+export interface CombatTimelineEvent {
+  id: string;
+  timestamp: number;
+  label: string;
+  eventType: string;
+  notes: string;
+}
+
+export interface CombatComment {
+  id: string;
+  author: string;
+  authorEmail: string;
+  text: string;
+  createdAt: string;
+}
+
+export interface CombatHistoryEntry {
+  id: string;
+  message: string;
+  createdAt: string;
+}
+
+export interface CombatAttack {
+  id: string;
+  internalId: string;
+  name: string;
+  order: number;
+  summary: string;
+  purpose: string;
+  playerRead: string;
+  expectedResponses: string[];
+  customResponse: string;
+  damage?: number;
+  startup?: number;
+  activeTime?: number;
+  recovery?: number;
+  cooldown?: number;
+  range: string;
+  knockback: string;
+  stagger: string;
+  damageType: string;
+  blockable?: boolean;
+  dodgeable?: boolean;
+  parryable?: boolean;
+  interruptible?: boolean;
+  production: CombatProductionState;
+  media: CombatMediaReference[];
+  timeline: CombatTimelineEvent[];
+  animation: {
+    assetName: string;
+    requiredClips: string[];
+    keyPoses: string;
+    rootMotion: string;
+    looping: string;
+    notes: string;
+  };
+  vfx: {
+    windup: string;
+    attack: string;
+    projectile: string;
+    impact: string;
+    environmental: string;
+    notes: string;
+  };
+  audio: {
+    charge: string;
+    swing: string;
+    projectile: string;
+    impact: string;
+    vocalization: string;
+    environmental: string;
+    notes: string;
+  };
+  developer: {
+    blueprint: string;
+    abilityClass: string;
+    aiBehavior: string;
+    selectionConditions: string[];
+    minimumDistance?: number;
+    maximumDistance?: number;
+    attackWeight?: number;
+    phaseAvailability: string;
+    notes: string;
+  };
+  comments: CombatComment[];
+  history: CombatHistoryEntry[];
+  updatedAt: string;
+}
+
+export interface CombatPhase {
+  id: string;
+  name: string;
+  order: number;
+  healthRange: string;
+  behavior: string;
+  arenaNotes: string;
+  designNotes: string;
+  artwork?: CombatMediaReference;
+  attacks: CombatAttack[];
+}
+
+export interface CombatBoss {
+  id: string;
+  name: string;
+  classification: CombatBossType;
+  act: string;
+  location: string;
+  health?: number;
+  difficulty: string;
+  primaryDamageType: string;
+  summary: string;
+  overview: string;
+  status: CombatProductionStatus;
+  artwork?: CombatMediaReference;
+  phases: CombatPhase[];
+  animationNotes: string;
+  balanceNotes: string;
+  references: CombatMediaReference[];
+  tags: string[];
+  updatedAt: string;
+}
+
+export interface CombatData {
+  bosses: CombatBoss[];
+  enemiesNotes: string;
+  playerCombatNotes: string;
+  combatSystemsNotes: string;
+  updatedAt: string;
 }
 
 export interface LoreDatabase {
@@ -1053,6 +1211,7 @@ export interface LoreDatabase {
   roadmap: RoadmapData;
   developmentBoard?: DevelopmentBoardData;
   storyJourney?: StoryJourneyData;
+  combat?: CombatData;
   assignments: AssignmentRecord[];
   teamMembers: TeamMember[];
   userProfiles: UserProfile[];

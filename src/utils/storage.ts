@@ -48,6 +48,7 @@ import {
 } from "./storyReferences";
 import { createStarterWorldBuilding, normalizeWorldBuilding, sanitizeWorldBuildingForPersistence } from "./worldBuilding";
 import { normalizeStoryJourneyData } from "./storyJourneyData";
+import { createStarterCombatData, normalizeCombatData } from "./combat";
 import {
   mergeActOneCanonBestiary,
   mergeActOneCanonEntries,
@@ -61,7 +62,7 @@ export const DATABASE_KEY = "tavern-cook-book:data";
 export const THEME_KEY = "tavern-cook-book:theme";
 const LEGACY_MODE_KEY = "tavern-cook-book:mode";
 
-export const currentSchemaVersion = 19;
+export const currentSchemaVersion = 20;
 const loreExpansionSchemaVersion = 2;
 const magicalMealCanonSchemaVersion = 3;
 const storyReferenceSchemaVersion = 4;
@@ -283,6 +284,7 @@ export const migrateDatabase = (value: unknown): LoreDatabase => {
     : normalizeGlossaryTerms(starter.glossaryTerms);
   const artDirection = normalizeArtDirectionBoard(incoming.artDirection || starter.artDirection || createStarterArtDirectionBoard());
   let roadmap = normalizeRoadmapData(incoming.roadmap || starter.roadmap || createStarterRoadmapData());
+  const combat = normalizeCombatData(incoming.combat || starter.combat || createStarterCombatData());
 
   if (needsLoreExpansion) {
     entries = mergeLoreExpansionEntries(entries, starter.entries);
@@ -344,6 +346,7 @@ export const migrateDatabase = (value: unknown): LoreDatabase => {
     roadmap,
     developmentBoard,
     storyJourney,
+    combat,
     assignments,
     teamMembers,
     userProfiles,
@@ -384,6 +387,9 @@ export const migrateDatabase = (value: unknown): LoreDatabase => {
               : undefined,
             storyJourney: (backup as LoreBackup).storyJourney
               ? normalizeStoryJourneyData((backup as LoreBackup).storyJourney)
+              : undefined,
+            combat: (backup as LoreBackup).combat
+              ? normalizeCombatData((backup as LoreBackup).combat)
               : undefined
           }))
           .slice(0, 12)
@@ -723,6 +729,7 @@ export const sanitizeDatabaseForPersistence = (database: LoreDatabase): LoreData
   roadmap: sanitizeRoadmapForPersistence(database.roadmap),
   developmentBoard: sanitizeDevelopmentBoardForPersistence(database.developmentBoard),
   storyJourney: normalizeStoryJourneyData(database.storyJourney),
+  combat: normalizeCombatData(database.combat || createStarterCombatData()),
   assignments: normalizeAssignments(database.assignments || []),
   teamMembers: normalizeTeamMembers(database.teamMembers || []),
   userProfiles: normalizeUserProfiles(database.userProfiles || []),
@@ -773,6 +780,10 @@ export const sanitizeDatabaseForPersistence = (database: LoreDatabase): LoreData
 
     if (backup.storyJourney) {
       sanitizedBackup.storyJourney = normalizeStoryJourneyData(backup.storyJourney);
+    }
+
+    if (backup.combat) {
+      sanitizedBackup.combat = normalizeCombatData(backup.combat);
     }
 
     return sanitizedBackup;

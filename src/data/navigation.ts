@@ -35,6 +35,14 @@ export const mainNavigation: ViewConfig[] = [
     icon: "Cog"
   },
   {
+    id: "combat",
+    label: "Combat",
+    description: "Bosses, enemies, player combat, attacks, balance, animation, VFX, and audio requirements.",
+    tooltip: "Design and produce bosses, phases, attacks, combat values, references, and implementation notes.",
+    category: "Gameplay Systems",
+    icon: "Swords"
+  },
+  {
     id: "food",
     label: "The Pantry",
     description: "Food inventory, menu items, ingredients, meals, recipes, and cooking magic.",
@@ -183,7 +191,7 @@ export const hubSections: Record<string, { title: string; view: ActiveView; desc
 
 export const dashboardBoxes: ViewConfig[] = [
   ...mainNavigation.filter((item) =>
-    ["storyJourney", "characters", "world", "bestiary", "quests", "food", "gameplay", "artDirection", "developmentBoard", "roadmap", "marketing", "archive", "settings"].includes(
+    ["storyJourney", "characters", "world", "bestiary", "quests", "food", "gameplay", "combat", "artDirection", "developmentBoard", "roadmap", "marketing", "archive", "settings"].includes(
       item.id
     )
   ),

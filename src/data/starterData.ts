@@ -1,6 +1,7 @@
 import type { BestiaryCategoryArtVault, BestiaryCreature, LoreDatabase, LoreEntry } from "../types";
 import { normalizeEntry, slugify } from "../utils/entries";
 import { createBestiaryCategoryArtVaultRecord, normalizeBestiaryCreature } from "../utils/bestiary";
+import { createStarterCombatData } from "../utils/combat";
 import { createStarterWorldBuilding } from "../utils/worldBuilding";
 import { createStarterGlossaryTerms, createStarterStoryReferences, masilCultLeaderStoryHtml } from "../utils/storyReferences";
 import { defaultQuestCategories, defaultTeamMembers } from "../utils/assignments";
@@ -3722,7 +3723,7 @@ export const createStarterDatabase = (): LoreDatabase => {
   const worldBuilding = mergeActOneCanonWorldBuilding(createStarterWorldBuilding(entries, bestiary));
   const storyReferences = createStarterStoryReferences();
   return {
-    schemaVersion: 19,
+    schemaVersion: 20,
     entries,
     bestiary,
     bestiaryCategoryVaults: starterBestiaryCategoryVaults.map((item) => JSON.parse(JSON.stringify(item)) as BestiaryCategoryArtVault),
@@ -3755,6 +3756,7 @@ export const createStarterDatabase = (): LoreDatabase => {
       chapters: [],
       updatedAt: "2026-08-16T00:00:00.000Z"
     },
+    combat: createStarterCombatData(),
     assignments: [],
     teamMembers: defaultTeamMembers.map((item) => JSON.parse(JSON.stringify(item))),
     userProfiles: [],
