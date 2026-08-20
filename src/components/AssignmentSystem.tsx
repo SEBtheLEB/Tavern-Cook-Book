@@ -40,6 +40,20 @@ interface AssignmentContextValue {
   assignmentForModule: (moduleId: string) => AssignmentRecord | null;
   setAssignmentStatus: (assignmentId: string, status: AssignmentStatus) => void;
   openQuestDashboard: () => void;
+  openContextMenu: (
+    event: MouseEvent<HTMLElement>,
+    module?: AssignableModuleInfo,
+    actions?: AssignmentContextMenuAction[]
+  ) => void;
+}
+
+export interface AssignmentContextMenuAction {
+  id: string;
+  label: string;
+  icon?: string;
+  disabled?: boolean;
+  danger?: boolean;
+  onSelect: () => void;
 }
 
 interface AssignmentProviderProps {
@@ -63,6 +77,18 @@ interface AssignPopupState {
   selectedModuleIds: string[];
 }
 
+interface AssignmentContextMenuState {
+  x: number;
+  y: number;
+  module?: AssignableModuleInfo;
+  actions: AssignmentContextMenuAction[];
+}
+
+interface AssignmentShareState {
+  assignments: AssignmentRecord[];
+  teammate: TeamMember;
+}
+
 const AssignmentContext = createContext<AssignmentContextValue | null>(null);
 
 export function AssignmentProvider({
@@ -77,6 +103,8 @@ export function AssignmentProvider({
   children
 }: AssignmentProviderProps) {
   const [popup, setPopup] = useState<AssignPopupState | null>(null);
+  const [shareResult, setShareResult] = useState<AssignmentShareState | null>(null);
+  const [contextMenu, setContextMenu] = useState<AssignmentContextMenuState | null>(null);
   const [selectedModulesById, setSelectedModulesById] = useState<Record<string, AssignableModuleInfo>>({});
   const currentTeamMember = useMemo(
     () => getTeamMemberForGoogleUser(currentUser, teamMembers),
@@ -87,6 +115,36 @@ export function AssignmentProvider({
   useEffect(() => {
     if (!assignMode) setSelectedModulesById({});
   }, [assignMode]);
+
+  useEffect(() => {
+    const closeMenu = () => setContextMenu(null);
+    const openGenericMenu = (event: globalThis.MouseEvent) => {
+      if (event.defaultPrevented) return;
+      const target = event.target instanceof Element ? event.target : null;
+      if (target?.closest("input, textarea, [contenteditable='true']")) return;
+      event.preventDefault();
+      setContextMenu({
+        x: event.clientX,
+        y: event.clientY,
+        actions: genericContextMenuActions()
+      });
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeMenu();
+    };
+    document.addEventListener("contextmenu", openGenericMenu);
+    document.addEventListener("click", closeMenu);
+    window.addEventListener("blur", closeMenu);
+    window.addEventListener("resize", closeMenu);
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("contextmenu", openGenericMenu);
+      document.removeEventListener("click", closeMenu);
+      window.removeEventListener("blur", closeMenu);
+      window.removeEventListener("resize", closeMenu);
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, []);
 
   const updateAssignments = (next: AssignmentRecord[]) => {
     saveAssignments(next);
@@ -131,6 +189,7 @@ export function AssignmentProvider({
       dueDate: popup.dueDate
     }));
     updateAssignments([...nextAssignments, ...assignments]);
+    setShareResult({ assignments: nextAssignments, teammate });
     const assignedModuleIds = new Set(assignableModules.map((module) => module.moduleId));
     setSelectedModulesById((current) => {
       const next = { ...current };
@@ -173,6 +232,39 @@ export function AssignmentProvider({
     });
   };
 
+  const openContextMenu = (
+    event: MouseEvent<HTMLElement>,
+    module?: AssignableModuleInfo,
+    actions: AssignmentContextMenuAction[] = []
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const assignment = module ? getAssignmentForModule(assignments, module.moduleId) : null;
+    const moduleActions: AssignmentContextMenuAction[] = [];
+    if (module && (canSelfAssign(currentTeamMember.permission) || canAssignToOthers(currentTeamMember.permission))) {
+      moduleActions.push({
+        id: "assign",
+        label: assignment ? "Assign Again" : "Assign",
+        icon: "Users",
+        onSelect: () => openAssignPopup(module)
+      });
+    }
+    if (module) {
+      moduleActions.push({
+        id: "copy-module-name",
+        label: "Copy Slot Name",
+        icon: "Copy",
+        onSelect: () => void navigator.clipboard.writeText(module.moduleTitle)
+      });
+    }
+    setContextMenu({
+      x: event.clientX,
+      y: event.clientY,
+      module,
+      actions: uniqueContextMenuActions([...actions, ...moduleActions])
+    });
+  };
+
   const value: AssignmentContextValue = {
     assignMode,
     assignments,
@@ -190,7 +282,8 @@ export function AssignmentProvider({
     clearSelectedModules: () => setSelectedModulesById({}),
     assignmentForModule: (moduleId) => getAssignmentForModule(assignments, moduleId),
     setAssignmentStatus,
-    openQuestDashboard: onOpenQuestDashboard || (() => {})
+    openQuestDashboard: onOpenQuestDashboard || (() => {}),
+    openContextMenu
   };
 
   return (
@@ -206,6 +299,12 @@ export function AssignmentProvider({
           onAssign={assignTo}
           onClose={() => setPopup(null)}
         />
+      )}
+      {shareResult && (
+        <AssignmentShareModal share={shareResult} onClose={() => setShareResult(null)} />
+      )}
+      {contextMenu && (
+        <AssignmentContextMenu menu={contextMenu} onClose={() => setContextMenu(null)} />
       )}
     </AssignmentContext.Provider>
   );
@@ -228,6 +327,7 @@ export function AssignableModule({
   const focused = Boolean(context?.focusedAssignment?.moduleId === module.moduleId);
   const selected = Boolean(context?.isModuleSelected(module.moduleId));
   const Component = as;
+  const suppliedContextMenu = surfaceProps.onContextMenu;
 
   return (
     <Component
@@ -236,6 +336,17 @@ export function AssignableModule({
       data-module-id={module.moduleId}
       data-module-title={module.moduleTitle}
       data-module-type={module.moduleType}
+      onContextMenu={(event: MouseEvent<HTMLElement>) => {
+        suppliedContextMenu?.(event);
+        if (event.defaultPrevented) return;
+        const surface = event.currentTarget;
+        context?.openContextMenu(event, module, [{
+          id: "open-module",
+          label: "Open Slot Actions",
+          icon: "Focus",
+          onSelect: () => surface.click()
+        }]);
+      }}
     >
       {assignment && <AssignmentBadge assignment={assignment} />}
       {context?.assignMode && (
@@ -440,6 +551,163 @@ function AssignmentPopup({
       </section>
     </div>
   );
+}
+
+function AssignmentShareModal({
+  share,
+  onClose
+}: {
+  share: AssignmentShareState;
+  onClose: () => void;
+}) {
+  const [copied, setCopied] = useState(false);
+  const shareUrl = assignmentShareUrl(share.assignments);
+  const assignmentCount = share.assignments.length;
+
+  const copyLink = async () => {
+    await copyText(shareUrl);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1800);
+  };
+
+  return (
+    <div className="assignment-popup-backdrop assignment-share-backdrop" role="dialog" aria-modal="true" aria-label="Assignment ready to share">
+      <section className="assignment-share-modal modal-frame">
+        <header>
+          <span className="assignment-share-icon"><Icon name="UploadCloud" className="h-6 w-6" /></span>
+          <div>
+            <p>Assignment Ready</p>
+            <h2 className="font-display">Send {share.teammate.name} the upload link</h2>
+            <span>
+              The link opens a focused page containing only the {assignmentCount === 1 ? "assigned slot" : `${assignmentCount} assigned slots`}.
+            </span>
+          </div>
+          <button className="assignment-icon-button" onClick={onClose} aria-label="Close share link popup">
+            <Icon name="X" className="h-5 w-5" />
+          </button>
+        </header>
+
+        <div className="assignment-share-link-row">
+          <input readOnly value={shareUrl} onFocus={(event) => event.currentTarget.select()} />
+          <button className="button-frame primary" onClick={() => void copyLink()}>
+            <Icon name={copied ? "CircleCheck" : "Copy"} className="h-4 w-4" />
+            {copied ? "Copied" : "Copy Link"}
+          </button>
+        </div>
+
+        <div className="assignment-share-slot-list">
+          {share.assignments.map((assignment) => (
+            <span key={assignment.id}>
+              <Icon name="Image" className="h-4 w-4" />
+              {assignment.moduleTitle}
+            </span>
+          ))}
+        </div>
+
+        <footer>
+          <small>They must sign in with the account assigned to this work.</small>
+          <button className="button-frame subtle" onClick={onClose}>Done</button>
+        </footer>
+      </section>
+    </div>
+  );
+}
+
+function AssignmentContextMenu({
+  menu,
+  onClose
+}: {
+  menu: AssignmentContextMenuState;
+  onClose: () => void;
+}) {
+  const width = 230;
+  const estimatedHeight = 54 + Math.max(1, menu.actions.length) * 42;
+  const x = Math.max(8, Math.min(menu.x, window.innerWidth - width - 8));
+  const y = Math.max(8, Math.min(menu.y, window.innerHeight - estimatedHeight - 8));
+
+  return (
+    <div
+      className="tavern-context-menu"
+      style={{ left: x, top: y }}
+      role="menu"
+      aria-label={menu.module ? `${menu.module.moduleTitle} actions` : "Page actions"}
+      onClick={(event) => event.stopPropagation()}
+    >
+      <header>
+        <span>{menu.module ? "Slot Actions" : "Cook Book"}</span>
+        <strong>{menu.module?.moduleTitle || "Page Actions"}</strong>
+      </header>
+      <div>
+        {menu.actions.map((action) => (
+          <button
+            type="button"
+            key={action.id}
+            className={action.danger ? "danger" : ""}
+            disabled={action.disabled}
+            role="menuitem"
+            onClick={() => {
+              onClose();
+              action.onSelect();
+            }}
+          >
+            <Icon name={action.icon || "ChevronRight"} className="h-4 w-4" />
+            <span>{action.label}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function assignmentShareUrl(assignments: AssignmentRecord[]) {
+  const url = new URL(window.location.origin + window.location.pathname);
+  url.searchParams.set("assignment", assignments.map((assignment) => assignment.id).join(","));
+  return url.toString();
+}
+
+function genericContextMenuActions(): AssignmentContextMenuAction[] {
+  return [
+    {
+      id: "back",
+      label: "Back",
+      icon: "ChevronLeft",
+      disabled: window.history.length <= 1,
+      onSelect: () => window.history.back()
+    },
+    {
+      id: "refresh",
+      label: "Refresh",
+      icon: "RefreshCw",
+      onSelect: () => window.location.reload()
+    },
+    {
+      id: "copy-page-link",
+      label: "Copy Page Link",
+      icon: "Link2",
+      onSelect: () => void copyText(window.location.href)
+    }
+  ];
+}
+
+function uniqueContextMenuActions(actions: AssignmentContextMenuAction[]) {
+  const byId = new Map<string, AssignmentContextMenuAction>();
+  actions.forEach((action) => byId.set(action.id, action));
+  return [...byId.values()];
+}
+
+async function copyText(value: string) {
+  try {
+    await navigator.clipboard.writeText(value);
+  } catch {
+    const input = document.createElement("textarea");
+    input.value = value;
+    input.style.position = "fixed";
+    input.style.opacity = "0";
+    document.body.appendChild(input);
+    input.select();
+    document.execCommand("copy");
+    input.remove();
+  }
 }
 
 function assignmentPopupTitle(modules: AssignableModuleInfo[]) {

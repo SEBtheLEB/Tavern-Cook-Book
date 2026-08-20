@@ -53,9 +53,10 @@ interface ImageManagerModalProps {
   onClose: () => void;
   onSave: (slots: ImageManagerSlotDraft[]) => void;
   onAutoSave?: (slots: ImageManagerSlotDraft[]) => void;
+  simpleUpload?: boolean;
 }
 
-export function ImageManagerModal({ title, subtitle, slots, onClose, onSave, onAutoSave }: ImageManagerModalProps) {
+export function ImageManagerModal({ title, subtitle, slots, onClose, onSave, onAutoSave, simpleUpload = false }: ImageManagerModalProps) {
   const portalTarget = document.querySelector(".app-shell") || document.body;
   const initialDraftSlots = useMemo(() => slots.map(normalizeSlot), [slots]);
   const draftSlotsRef = useRef<ImageManagerSlotDraft[]>(initialDraftSlots);
@@ -119,7 +120,7 @@ export function ImageManagerModal({ title, subtitle, slots, onClose, onSave, onA
           </button>
         </header>
 
-        <section className="image-manager-bulk-link" aria-label="Apply one image link to all image slots">
+        {!simpleUpload && <section className="image-manager-bulk-link" aria-label="Apply one image link to all image slots">
           <div>
             <strong>Use one image for every slot</strong>
             <span>Paste a Google Drive image link or image URL, then apply it to all modules currently open here.</span>
@@ -138,11 +139,11 @@ export function ImageManagerModal({ title, subtitle, slots, onClose, onSave, onA
             </button>
           </div>
           {bulkMessage && <small>{bulkMessage}</small>}
-        </section>
+        </section>}
 
         <div className="image-manager-slot-list">
           {draftSlots.map((slot) => (
-            <ManagedImageSlotCard key={slot.id} slot={slot} onChange={(patch, options) => updateSlot(slot.id, patch, options)} onOpenSpriteCutter={() => setSpriteSlotId(slot.id)} />
+            <ManagedImageSlotCard key={slot.id} slot={slot} simpleUpload={simpleUpload} onChange={(patch, options) => updateSlot(slot.id, patch, options)} onOpenSpriteCutter={() => setSpriteSlotId(slot.id)} />
           ))}
         </div>
 
@@ -159,10 +160,10 @@ export function ImageManagerModal({ title, subtitle, slots, onClose, onSave, onA
         )}
 
         <footer className="image-manager-footer">
-          <button className="character-codex-action-button" onClick={onClose}>Cancel</button>
+          <button className="character-codex-action-button" onClick={onClose}>{simpleUpload ? "Close" : "Cancel"}</button>
           <button className="button-frame character-codex-action-button" onClick={() => onSave(draftSlots)}>
             <Icon name="Save" className="h-4 w-4" />
-            Save All Images
+            {simpleUpload ? "Save Upload" : "Save All Images"}
           </button>
         </footer>
       </section>
@@ -173,10 +174,12 @@ export function ImageManagerModal({ title, subtitle, slots, onClose, onSave, onA
 
 function ManagedImageSlotCard({
   slot,
+  simpleUpload,
   onChange,
   onOpenSpriteCutter
 }: {
   slot: ImageManagerSlotDraft;
+  simpleUpload: boolean;
   onChange: (patch: Partial<ImageManagerSlotDraft>, options?: { autoSave?: boolean }) => void;
   onOpenSpriteCutter: () => void;
 }) {
@@ -246,7 +249,7 @@ function ManagedImageSlotCard({
             <h3>{slot.label}</h3>
             {slot.description && <p>{slot.description}</p>}
           </div>
-          <div className="image-manager-slot-actions">
+          {!simpleUpload && <div className="image-manager-slot-actions">
             <button
               className="character-codex-action-button"
               disabled={!driveLink}
@@ -271,7 +274,7 @@ function ManagedImageSlotCard({
             <button className="character-codex-action-button character-codex-danger-button" disabled={!slot.imageUrl} onClick={() => onChange({ imageUrl: "", webViewLink: "", imageFit: defaultImageFit, spriteAnimation: undefined }, { autoSave: true })}>
               Remove
             </button>
-          </div>
+          </div>}
         </div>
 
         <DriveImageSourceControls
@@ -321,7 +324,7 @@ function ManagedImageSlotCard({
           }, { autoSave: true })}
         />
 
-        <div className="image-manager-fit-grid">
+        {!simpleUpload && <div className="image-manager-fit-grid">
           <label className="image-manager-field">
             <span>Fit</span>
             <CustomSelect
@@ -338,7 +341,7 @@ function ManagedImageSlotCard({
           <button className="character-codex-action-button" onClick={() => onChange({ imageFit: defaultImageFit }, { autoSave: true })}>
             Reset Fit
           </button>
-        </div>
+        </div>}
       </div>
     </article>
   );

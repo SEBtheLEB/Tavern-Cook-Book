@@ -41,6 +41,7 @@ import {
   type StoryReferenceDraftInput
 } from "./utils/storyReferences";
 import { AssignmentProvider } from "./components/AssignmentSystem";
+import { AssignmentHandoffPage } from "./components/AssignmentHandoffPage";
 import { ArtDirectionPage } from "./components/ArtDirectionPage";
 import { ArtVaultDashboard } from "./components/ArtVaultDashboard";
 import type { ArtBinderInitialFilter, ArtBinderKind, ArtBinderSessionState } from "./components/ArtBinderPage";
@@ -2951,6 +2952,8 @@ export default function App() {
   const themeClassName = theme === "dream" ? "theme-dream" : "theme-light";
   const desktopBrowserAuthMode = isDesktopBrowserAuthRequest();
   const storyFocusMode = activeView === "storyJourney";
+  const sharedAssignmentIds = assignmentIdsFromLocation();
+  const assignmentShareMode = sharedAssignmentIds.length > 0;
 
   if (!currentUser || desktopBrowserAuthMode) {
     return (
@@ -2987,7 +2990,7 @@ export default function App() {
         }}
       />
       <div className="app-shell flex min-h-screen">
-        {storyFocusMode && !storySidebarOpen && (
+        {!assignmentShareMode && storyFocusMode && !storySidebarOpen && (
           <button
             className="story-sidebar-peek"
             onClick={() => {
@@ -3000,10 +3003,10 @@ export default function App() {
             <Icon name="ChefHat" className="h-5 w-5" />
           </button>
         )}
-        {storyFocusMode && storySidebarOpen && (
+        {!assignmentShareMode && storyFocusMode && storySidebarOpen && (
           <button className="story-sidebar-backdrop" onClick={() => setStorySidebarOpen(false)} aria-label="Close Cook Book navigation" />
         )}
-        {(!storyFocusMode || storySidebarOpen) && (
+        {!assignmentShareMode && (!storyFocusMode || storySidebarOpen) && (
           <div className={storyFocusMode ? "story-focus-sidebar" : ""}>
             <Sidebar
               database={database}
@@ -3050,6 +3053,18 @@ export default function App() {
             onAssignmentsChange={setAssignments}
             onOpenQuestDashboard={freelancerMode ? undefined : openQuestDashboard}
           >
+          {assignmentShareMode ? (
+            <AssignmentHandoffPage
+              assignmentIds={sharedAssignmentIds}
+              assignments={assignments}
+              teamMembers={teamMembers}
+              currentUser={currentUser}
+              database={database}
+              ready={appSessionReady && publishedReady}
+              onDatabaseChange={updateDatabase}
+              onOpenAssignment={openQuestAssignment}
+            />
+          ) : (
           <div className={assignMode ? "assign-mode" : ""}>
           {storyFocusMode ? (
             <StoryFocusMenu
@@ -3375,10 +3390,11 @@ export default function App() {
           )}
 
           </div>
+          )}
           </AssignmentProvider>
         </main>
 
-        {canUseTavernScribe && (
+        {!assignmentShareMode && canUseTavernScribe && (
           <AssistantPanel
             database={database}
             onDatabaseChange={updateDatabase}
@@ -3389,7 +3405,7 @@ export default function App() {
           />
         )}
 
-        {!LIVE_TEAM_SYNC && pushReviewOpen && (
+        {!assignmentShareMode && !LIVE_TEAM_SYNC && pushReviewOpen && (
           <SyncPublishModal
             changes={publishChanges}
             publishing={cloudSync.phase === "publishing"}
@@ -3401,7 +3417,7 @@ export default function App() {
           />
         )}
 
-        {syncConflictReview && (
+        {!assignmentShareMode && syncConflictReview && (
           <SyncConflictModal
             conflicts={syncConflictReview.conflicts}
             onUseTeam={() => resolveSyncConflicts("team")}
@@ -3410,7 +3426,7 @@ export default function App() {
           />
         )}
 
-        {adminBaselineReview && (
+        {!assignmentShareMode && adminBaselineReview && (
           <AdminBaselineModal
             review={adminBaselineReview}
             saving={adminBaselineSaving}
@@ -3420,7 +3436,7 @@ export default function App() {
           />
         )}
 
-        {lockedAccessNotice && (
+        {!assignmentShareMode && lockedAccessNotice && (
           <LockedAccessModal
             notice={lockedAccessNotice}
             onClose={() => setLockedAccessNotice(null)}
@@ -3433,7 +3449,7 @@ export default function App() {
           onCredential={reconnectGoogleSession}
         />
 
-        {selectedEntry && !selectedCharacterEntry && (
+        {!assignmentShareMode && selectedEntry && !selectedCharacterEntry && (
           <EntryModal
             entry={selectedEntry}
             readOnly={readOnly}
@@ -3453,7 +3469,7 @@ export default function App() {
           />
         )}
 
-        {keywordPopup && (
+        {!assignmentShareMode && keywordPopup && (
           <KeywordReferencePopup
             keyword={keywordPopup}
             entries={visibleEntries}
@@ -4260,6 +4276,11 @@ function getEntryKeywordAliases(entry: LoreEntry) {
 
 function normalizeKeyword(value: string) {
   return value.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function assignmentIdsFromLocation() {
+  const raw = new URLSearchParams(window.location.search).get("assignment") || "";
+  return [...new Set(raw.split(",").map((value) => value.trim()).filter(Boolean))];
 }
 
 function selectEntriesForView(entries: LoreEntry[], view: ActiveView) {

@@ -26,7 +26,8 @@ import {
   type DriveBrowserItem,
   type GoogleDriveFolder
 } from "../utils/googlePicker";
-import { googleDriveThumbnailUrl, googleDriveWebViewLink, imageFitToStyle, normalizeImageFit, resolveImageSourceUrl } from "../utils/imageFit";
+import { extractGoogleDriveFileId, googleDriveThumbnailUrl, googleDriveWebViewLink, imageFitToStyle, normalizeImageFit, resolveImageSourceUrl } from "../utils/imageFit";
+import { saveImageSourceAsFile } from "../utils/downloads";
 import { normalizeSpriteAnimationSlotReference, resolveSpriteAnimationSlot } from "../utils/spriteAnimationSlots";
 import { CustomSelect } from "./CustomSelect";
 import { DriveAwareImage } from "./DriveAwareImage";
@@ -1029,6 +1030,7 @@ function ArtBinderCard({
   onOpenSubject: (subject: ArtBinderSubject) => void;
 }) {
   const module = artBinderSlotModule(card);
+  const assignmentContext = useAssignments();
   const realtime = useRealtimeCollaboration();
   const realtimeTarget = {
     type: "art-slot" as const,
@@ -1038,6 +1040,19 @@ function ArtBinderCard({
   };
   const hoveringUsers = realtime.usersHoveringTarget(realtimeTarget);
   const previewImageSrc = artBinderImagePreviewSource(card.slot.image);
+  const driveLink = card.slot.image?.webViewLink || "";
+  const downloadSlotImage = async () => {
+    if (!previewImageSrc && !driveLink) return;
+    try {
+      await saveImageSourceAsFile({
+        url: previewImageSrc || driveLink,
+        driveFileId: extractGoogleDriveFileId(driveLink || previewImageSrc),
+        fileName: card.slot.label || card.subject.title
+      });
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Could not download this image.");
+    }
+  };
 
   return (
     <article
@@ -1051,6 +1066,50 @@ function ArtBinderCard({
       data-module-title={module.moduleTitle}
       data-module-type={module.moduleType}
       onClick={() => onActivate(card)}
+      onContextMenu={(event) => assignmentContext.openContextMenu(event, module, [
+        {
+          id: "open-slot-actions",
+          label: "Open Slot Actions",
+          icon: "Settings",
+          onSelect: () => onActivate(card)
+        },
+        {
+          id: "download-slot",
+          label: "Download",
+          icon: "Download",
+          disabled: !previewImageSrc && !driveLink,
+          onSelect: () => void downloadSlotImage()
+        },
+        {
+          id: "open-drive-file",
+          label: "Open in Google Drive",
+          icon: "ExternalLink",
+          disabled: !driveLink,
+          onSelect: () => driveLink && window.open(driveLink, "_blank", "noopener,noreferrer")
+        },
+        {
+          id: "edit-slot",
+          label: "Edit Slot",
+          icon: "Edit3",
+          disabled: !canManageStructure,
+          onSelect: () => onEditSlot(card)
+        },
+        {
+          id: "open-source",
+          label: "Open Source Page",
+          icon: "BookOpen",
+          disabled: !canOpenSource,
+          onSelect: () => onOpenSubject(card.subject)
+        },
+        {
+          id: "delete-slot",
+          label: "Delete Slot",
+          icon: "Trash2",
+          danger: true,
+          disabled: !canManageStructure,
+          onSelect: () => onDeleteSlot(card)
+        }
+      ])}
       onMouseEnter={() => realtime.setHoverTarget(realtimeTarget)}
       onMouseLeave={() => realtime.setHoverTarget(null)}
       onKeyDown={(event) => {

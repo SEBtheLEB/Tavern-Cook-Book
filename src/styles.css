@@ -14174,6 +14174,445 @@ button,
   align-items: center;
 }
 
+.assignment-share-backdrop {
+  z-index: 145;
+}
+
+.assignment-share-modal {
+  width: min(680px, 100%);
+  display: grid;
+  gap: 1rem;
+  border: 1px solid var(--modal-frame);
+  border-radius: 8px;
+  padding: 1.15rem;
+  color: var(--app-ink);
+  background: var(--modal-bg);
+  box-shadow: var(--panel-shadow);
+}
+
+.assignment-share-modal > header,
+.assignment-share-modal > footer {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.assignment-share-modal > header > div {
+  min-width: 0;
+  flex: 1;
+}
+
+.assignment-share-modal header p,
+.assignment-share-modal header h2,
+.assignment-share-modal header span {
+  margin: 0;
+}
+
+.assignment-share-modal header p {
+  color: var(--gold);
+  font-size: 0.68rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.assignment-share-modal header span,
+.assignment-share-modal footer small {
+  color: var(--muted-ink);
+}
+
+.assignment-share-icon {
+  display: grid;
+  width: 46px;
+  height: 46px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid rgba(216, 168, 93, 0.42);
+  border-radius: 8px;
+  color: var(--gold);
+  background: rgba(216, 168, 93, 0.1);
+}
+
+.assignment-share-link-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.65rem;
+}
+
+.assignment-share-link-row input {
+  min-width: 0;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  padding: 0.72rem 0.8rem;
+  color: var(--app-ink);
+  background: var(--field-bg);
+}
+
+.assignment-share-slot-list {
+  display: grid;
+  gap: 0.4rem;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.assignment-share-slot-list span {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-left: 2px solid rgba(216, 168, 93, 0.6);
+  padding: 0.48rem 0.65rem;
+  color: var(--app-ink);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.assignment-share-modal > footer {
+  justify-content: space-between;
+}
+
+.tavern-context-menu {
+  position: fixed;
+  z-index: 1000;
+  width: 230px;
+  overflow: hidden;
+  border: 1px solid rgba(216, 168, 93, 0.5);
+  border-radius: 8px;
+  color: var(--app-ink);
+  background: color-mix(in srgb, var(--modal-bg) 96%, transparent);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.46);
+  backdrop-filter: blur(16px);
+}
+
+.tavern-context-menu header {
+  display: grid;
+  gap: 0.12rem;
+  padding: 0.65rem 0.75rem;
+  border-bottom: 1px solid rgba(216, 168, 93, 0.22);
+}
+
+.tavern-context-menu header span {
+  color: var(--gold);
+  font-size: 0.62rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.tavern-context-menu header strong {
+  overflow: hidden;
+  font-size: 0.76rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tavern-context-menu > div {
+  display: grid;
+  padding: 0.28rem;
+}
+
+.tavern-context-menu button {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  align-items: center;
+  gap: 0.45rem;
+  border: 0;
+  border-radius: 6px;
+  padding: 0.58rem 0.62rem;
+  color: var(--app-ink);
+  background: transparent;
+  text-align: left;
+}
+
+.tavern-context-menu button:hover:not(:disabled),
+.tavern-context-menu button:focus-visible {
+  color: var(--app-ink);
+  background: rgba(216, 168, 93, 0.13);
+  outline: none;
+}
+
+.tavern-context-menu button.danger {
+  color: var(--danger-ink);
+}
+
+.tavern-context-menu button:disabled {
+  opacity: 0.38;
+}
+
+.assignment-handoff-page {
+  min-height: 100vh;
+  padding: clamp(1rem, 3vw, 2.25rem);
+  color: var(--app-ink);
+  background:
+    linear-gradient(rgba(4, 10, 22, 0.54), rgba(4, 10, 22, 0.9)),
+    radial-gradient(circle at 50% 0%, rgba(216, 168, 93, 0.09), transparent 46%),
+    var(--app-bg);
+}
+
+.assignment-handoff-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(216, 168, 93, 0.28);
+}
+
+.assignment-handoff-brand > div:nth-child(2) {
+  display: grid;
+  min-width: 0;
+}
+
+.assignment-handoff-brand span {
+  color: var(--gold);
+  font-size: 0.65rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.assignment-handoff-brand strong {
+  font-size: 1.15rem;
+}
+
+.assignment-handoff-brand > button {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: auto;
+  border: 1px solid rgba(216, 168, 93, 0.36);
+  border-radius: 8px;
+  padding: 0.55rem 0.7rem;
+  color: var(--app-ink);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.assignment-handoff-logo {
+  width: 46px;
+  height: 46px;
+  flex: 0 0 auto;
+  overflow: hidden;
+  border: 1px solid rgba(216, 168, 93, 0.4);
+  border-radius: 8px;
+  background: #101729;
+}
+
+.assignment-handoff-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.assignment-handoff-intro {
+  display: grid;
+  justify-items: center;
+  max-width: 760px;
+  margin: clamp(2rem, 6vh, 4.5rem) auto clamp(1.4rem, 4vh, 2.5rem);
+  text-align: center;
+}
+
+.assignment-handoff-kicker {
+  color: var(--gold);
+  font-size: 0.7rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.assignment-handoff-intro h1 {
+  margin: 0.35rem 0 0.55rem;
+  font-size: clamp(2rem, 5vw, 3.6rem);
+  line-height: 1.02;
+}
+
+.assignment-handoff-intro p {
+  max-width: 620px;
+  margin: 0;
+  color: var(--muted-ink);
+  line-height: 1.6;
+}
+
+.assignment-handoff-intro > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.55rem;
+  margin-top: 1rem;
+}
+
+.assignment-handoff-intro > div span,
+.assignment-handoff-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid rgba(216, 168, 93, 0.28);
+  border-radius: 999px;
+  padding: 0.34rem 0.58rem;
+  color: var(--muted-ink);
+  background: rgba(255, 255, 255, 0.035);
+  font-size: 0.72rem;
+}
+
+.assignment-handoff-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+  gap: 0.85rem;
+  max-width: 1120px;
+  margin: 0 auto;
+}
+
+.assignment-handoff-card {
+  overflow: hidden;
+  border: 1px solid rgba(216, 168, 93, 0.28);
+  border-radius: 8px;
+  background: rgba(8, 15, 29, 0.82);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.18);
+  transition: border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+}
+
+.assignment-handoff-card:hover {
+  border-color: rgba(255, 215, 126, 0.72);
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.28);
+  transform: translateY(-2px);
+}
+
+.assignment-handoff-card-main {
+  display: grid;
+  width: 100%;
+  grid-template-columns: 104px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.9rem;
+  border: 0;
+  padding: 0.85rem;
+  color: var(--app-ink);
+  background: transparent;
+  text-align: left;
+}
+
+.assignment-handoff-preview {
+  display: grid;
+  width: 104px;
+  aspect-ratio: 1;
+  place-items: center;
+  overflow: hidden;
+  border: 1px dashed rgba(216, 168, 93, 0.4);
+  border-radius: 6px;
+  color: var(--gold);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.assignment-handoff-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.assignment-handoff-copy {
+  display: grid;
+  gap: 0.32rem;
+  min-width: 0;
+}
+
+.assignment-handoff-copy small {
+  color: var(--gold);
+  font-size: 0.64rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.assignment-handoff-copy strong {
+  font-family: var(--font-display);
+  font-size: 1.22rem;
+}
+
+.assignment-handoff-copy em {
+  color: var(--muted-ink);
+  font-size: 0.78rem;
+  font-style: normal;
+}
+
+.assignment-handoff-status {
+  width: fit-content;
+  margin-top: 0.15rem;
+}
+
+.assignment-handoff-upload-button {
+  display: grid;
+  justify-items: center;
+  gap: 0.25rem;
+  min-width: 68px;
+  color: var(--gold);
+  font-size: 0.72rem;
+  font-weight: 850;
+}
+
+.assignment-handoff-state {
+  display: grid;
+  justify-items: center;
+  gap: 0.55rem;
+  max-width: 620px;
+  margin: 3rem auto;
+  border: 1px solid rgba(216, 168, 93, 0.26);
+  border-radius: 8px;
+  padding: 2rem;
+  color: var(--muted-ink);
+  background: rgba(8, 15, 29, 0.76);
+  text-align: center;
+}
+
+.assignment-handoff-state strong {
+  color: var(--app-ink);
+}
+
+.assignment-handoff-spinner {
+  animation: assignment-handoff-spin 900ms linear infinite;
+}
+
+.assignment-handoff-footer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.4rem;
+  max-width: 1120px;
+  margin: 1.5rem auto 0;
+  color: var(--muted-ink);
+  font-size: 0.72rem;
+}
+
+@keyframes assignment-handoff-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 640px) {
+  .assignment-share-link-row {
+    grid-template-columns: 1fr;
+  }
+
+  .assignment-handoff-page {
+    padding: 0.85rem;
+  }
+
+  .assignment-handoff-brand > button {
+    width: 42px;
+    height: 42px;
+    justify-content: center;
+    padding: 0;
+    font-size: 0;
+  }
+
+  .assignment-handoff-card-main {
+    grid-template-columns: 78px minmax(0, 1fr);
+  }
+
+  .assignment-handoff-preview {
+    width: 78px;
+  }
+
+  .assignment-handoff-upload-button {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    border-top: 1px solid rgba(216, 168, 93, 0.18);
+    padding-top: 0.65rem;
+  }
+}
+
 .profile-panel-header span {
   display: block;
   max-width: 680px;
