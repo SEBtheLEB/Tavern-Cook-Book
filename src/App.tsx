@@ -467,11 +467,11 @@ export default function App() {
   const [realtimeStatus, setRealtimeStatus] = useState("initial");
   const [realtimeReady, setRealtimeReady] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [storySidebarOpen, setStorySidebarOpen] = useState(false);
+  const [focusSidebarOpen, setFocusSidebarOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   useEffect(() => {
-    setStorySidebarOpen(false);
+    setFocusSidebarOpen(false);
   }, [activeView]);
   const [storageWarning, setStorageWarning] = useState("");
   const databaseRef = useRef(database);
@@ -2312,7 +2312,7 @@ export default function App() {
     setFavoritesOpen(false);
     setQuestDashboardOpen(false);
     setProfileOpen(false);
-    if (view === "storyJourney") setStorySidebarOpen(false);
+    if (view === "storyJourney" || view === "combat") setFocusSidebarOpen(false);
     if (view !== "bestiary") setSelectedBestiaryCreatureId("");
     if (view !== "world") setWorldBuildingFocus(null);
     setActiveView(view);
@@ -2967,7 +2967,8 @@ export default function App() {
   }, [ensureViewAccess]);
   const themeClassName = theme === "dream" ? "theme-dream" : "theme-light";
   const desktopBrowserAuthMode = isDesktopBrowserAuthRequest();
-  const storyFocusMode = activeView === "storyJourney";
+  const workspaceFocusMode = activeView === "storyJourney" || activeView === "combat";
+  const focusContext = activeView === "combat" ? "combat" : "story";
   const sharedAssignmentIds = assignmentIdsFromLocation();
   const assignmentShareMode = sharedAssignmentIds.length > 0;
 
@@ -3005,12 +3006,12 @@ export default function App() {
           }
         }}
       />
-      <div className="app-shell flex min-h-screen">
-        {!assignmentShareMode && storyFocusMode && !storySidebarOpen && (
+      <div className={`app-shell flex min-h-screen ${workspaceFocusMode ? "workspace-focus-mode" : ""} ${activeView === "combat" ? "combat-focus-mode" : ""}`}>
+        {!assignmentShareMode && workspaceFocusMode && !focusSidebarOpen && (
           <button
             className="story-sidebar-peek"
             onClick={() => {
-              setStorySidebarOpen(true);
+              setFocusSidebarOpen(true);
               if (window.innerWidth < 1024) setMobileNavOpen(true);
             }}
             title="Open Cook Book navigation"
@@ -3019,21 +3020,21 @@ export default function App() {
             <Icon name="ChefHat" className="h-5 w-5" />
           </button>
         )}
-        {!assignmentShareMode && storyFocusMode && storySidebarOpen && (
-          <button className="story-sidebar-backdrop" onClick={() => setStorySidebarOpen(false)} aria-label="Close Cook Book navigation" />
+        {!assignmentShareMode && workspaceFocusMode && focusSidebarOpen && (
+          <button className="story-sidebar-backdrop" onClick={() => setFocusSidebarOpen(false)} aria-label="Close Cook Book navigation" />
         )}
-        {!assignmentShareMode && (!storyFocusMode || storySidebarOpen) && (
-          <div className={storyFocusMode ? "story-focus-sidebar" : ""}>
+        {!assignmentShareMode && (!workspaceFocusMode || focusSidebarOpen) && (
+          <div className={workspaceFocusMode ? "story-focus-sidebar" : ""}>
             <Sidebar
               database={database}
               activeView={activeView}
-              collapsed={storyFocusMode ? false : sidebarCollapsed}
+              collapsed={workspaceFocusMode ? false : sidebarCollapsed}
               mobileOpen={mobileNavOpen}
               onNavigate={navigate}
-              onToggleCollapsed={() => storyFocusMode ? setStorySidebarOpen(false) : setSidebarCollapsed((value) => !value)}
+              onToggleCollapsed={() => workspaceFocusMode ? setFocusSidebarOpen(false) : setSidebarCollapsed((value) => !value)}
               onCloseMobile={() => {
                 setMobileNavOpen(false);
-                if (storyFocusMode) setStorySidebarOpen(false);
+                if (workspaceFocusMode) setFocusSidebarOpen(false);
               }}
               readOnly={readOnly}
               storageWarning={storageWarning}
@@ -3082,8 +3083,9 @@ export default function App() {
             />
           ) : (
           <div className={assignMode ? "assign-mode" : ""}>
-          {storyFocusMode ? (
+          {workspaceFocusMode ? (
             <StoryFocusMenu
+              focusContext={focusContext}
               theme={theme}
               activeView={activeView}
               hiddenViewIds={hiddenViewIds}

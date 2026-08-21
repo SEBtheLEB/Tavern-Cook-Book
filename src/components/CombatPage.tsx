@@ -68,6 +68,17 @@ export function CombatPage({ combat, readOnly, currentUser, onCombatChange, focu
     setBossTab("Moveset");
   }, [focusRoute]);
 
+  useEffect(() => {
+    const openCombatHome = () => {
+      setSection("home");
+      setSelectedBossId("");
+      setSelectedAttack(null);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    };
+    window.addEventListener("tavern:combat-home", openCombatHome);
+    return () => window.removeEventListener("tavern:combat-home", openCombatHome);
+  }, []);
+
   const selectedBoss = normalized.bosses.find((boss) => boss.id === selectedBossId) || null;
   const selectedPhase = selectedBoss && selectedAttack ? selectedBoss.phases.find((phase) => phase.id === selectedAttack.phaseId) || null : null;
   const attack = selectedPhase && selectedAttack ? selectedPhase.attacks.find((item) => item.id === selectedAttack.attackId) || null : null;

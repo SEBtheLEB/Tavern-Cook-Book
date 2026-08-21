@@ -5,6 +5,7 @@ import { useOptionalAssignments } from "./AssignmentSystem";
 import { Icon } from "./Icon";
 
 interface StoryFocusMenuProps {
+  focusContext?: "story" | "combat";
   theme: ThemeMode;
   activeView: ActiveView;
   hiddenViewIds: ActiveView[];
@@ -21,6 +22,7 @@ interface StoryFocusMenuProps {
 
 const quickAccessIds: ActiveView[] = [
   "storyJourney",
+  "combat",
   "dashboard",
   "characters",
   "world",
@@ -31,6 +33,7 @@ const quickAccessIds: ActiveView[] = [
 ];
 
 export function StoryFocusMenu({
+  focusContext = "story",
   theme,
   activeView,
   hiddenViewIds,
@@ -98,7 +101,7 @@ export function StoryFocusMenu({
       {open && (
         <section className="story-focus-menu-panel" aria-label="Cook Book quick menu">
           <header>
-            <span>Cook Book Menu</span>
+            <span>{focusContext === "combat" ? "Combat Workspace" : "Cook Book Menu"}</span>
             <strong>Quick Access</strong>
           </header>
 
@@ -117,10 +120,17 @@ export function StoryFocusMenu({
 
           <div className="story-focus-menu-section">
             <span>Tools</span>
-            <button onClick={() => runAndClose(() => window.dispatchEvent(new Event("tavern:story-search")))}>
-              <Icon name="Search" className="h-4 w-4" />
-              <span>Search Story</span>
-            </button>
+            {focusContext === "story" ? (
+              <button onClick={() => runAndClose(() => window.dispatchEvent(new Event("tavern:story-search")))}>
+                <Icon name="Search" className="h-4 w-4" />
+                <span>Search Story</span>
+              </button>
+            ) : (
+              <button onClick={() => runAndClose(() => window.dispatchEvent(new Event("tavern:combat-home")))}>
+                <Icon name="Swords" className="h-4 w-4" />
+                <span>Combat Home</span>
+              </button>
+            )}
             {onOpenFavorites && (
               <button className={favoritesOpen ? "active" : ""} onClick={() => runAndClose(onOpenFavorites)}>
                 <Icon name="Star" className="h-4 w-4" />
