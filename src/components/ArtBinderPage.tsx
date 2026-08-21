@@ -933,6 +933,7 @@ export function ArtBinderPage({
                       targeted={highlightedModuleId === artBinderSlotModule(card).moduleId}
                       canManageStructure={canEditStructure}
                       onActivate={activateCard}
+                      onRepositionImage={openSlotManager}
                       onEditSlot={requestEditSlot}
                       onDeleteSlot={deleteSlot}
                       onOpenSubject={openSubject}
@@ -1011,6 +1012,7 @@ function ArtBinderCard({
   canManageStructure,
   canOpenSource,
   onActivate,
+  onRepositionImage,
   onEditSlot,
   onDeleteSlot,
   onOpenSubject
@@ -1025,6 +1027,7 @@ function ArtBinderCard({
   canManageStructure: boolean;
   canOpenSource: boolean;
   onActivate: (card: ArtBinderSlotCard) => void;
+  onRepositionImage: (card: ArtBinderSlotCard) => void;
   onEditSlot: (card: ArtBinderSlotCard) => void;
   onDeleteSlot: (card: ArtBinderSlotCard) => void;
   onOpenSubject: (subject: ArtBinderSubject) => void;
@@ -1072,6 +1075,13 @@ function ArtBinderCard({
           label: "Open Slot Actions",
           icon: "Settings",
           onSelect: () => onActivate(card)
+        },
+        {
+          id: "reposition-image",
+          label: "Reposition Image",
+          icon: "Move",
+          disabled: readOnly || !previewImageSrc,
+          onSelect: () => onRepositionImage(card)
         },
         {
           id: "download-slot",
@@ -1139,7 +1149,7 @@ function ArtBinderCard({
         {card.slot.image?.spriteAnimation ? (
           <ArtBinderSpriteAnimation reference={card.slot.image.spriteAnimation} imageFit={card.slot.image.imageFit} fallbackImageSrc={previewImageSrc} />
         ) : previewImageSrc ? (
-          <DriveAwareImage src={previewImageSrc} alt="" />
+          <DriveAwareImage src={previewImageSrc} alt="" style={imageFitToStyle(card.slot.image?.imageFit)} />
         ) : (
           <Icon name="Image" className="h-8 w-8" />
         )}

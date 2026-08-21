@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import type { BestiaryCreature, LoreEntry } from "../types";
+import type { BestiaryCreature, ImageFitSettings, LoreEntry } from "../types";
 import {
   buildPantryModel,
   pantryMealGroups,
@@ -12,12 +12,13 @@ import {
 } from "../utils/pantry";
 import { createBlankEntry } from "../utils/entries";
 import { googleDriveFolderLink, openGoogleDriveFolderPicker, type GoogleDriveFolder } from "../utils/googlePicker";
-import { googleDriveWebViewLink, resolveImageSourceUrl } from "../utils/imageFit";
+import { googleDriveWebViewLink, normalizeImageFit, resolveImageSourceUrl } from "../utils/imageFit";
 import { CustomSelect } from "./CustomSelect";
 import { DriveAwareImage } from "./DriveAwareImage";
 import { DriveImageSourceControls } from "./DriveImageSourceControls";
 import { Icon } from "./Icon";
 import { ImageManagerModal, type ImageManagerSlotDraft } from "./ImageManagerModal";
+import { RepositionableImage } from "./RepositionableImage";
 import { useRealtimeCollaboration } from "./RealtimeCollaborationContext";
 
 interface PantryPageProps {
@@ -320,6 +321,31 @@ export function PantryPage({
     setMealDraft(null);
   };
 
+  const saveIngredientImagePlacement = (ingredient: PantryIngredient, next: { imageUrl: string; imageFit: ImageFitSettings }) => {
+    if (readOnly || !onSaveEntry) return;
+    const entry = buildIngredientEntry(ingredient, { ...makeIngredientDraft(ingredient), imageUrl: next.imageUrl });
+    onSaveEntry({
+      ...entry,
+      media: {
+        ...entry.media,
+        iconImage: next.imageUrl,
+        imageFits: { ...entry.media.imageFits, iconImage: normalizeImageFit(next.imageFit) }
+      }
+    });
+  };
+
+  const saveMealImagePlacement = (meal: PantryMeal, next: { imageUrl: string; imageFit: ImageFitSettings }) => {
+    if (readOnly || !onSaveEntry) return;
+    onSaveEntry({
+      ...meal.entry,
+      media: {
+        ...meal.entry.media,
+        iconImage: next.imageUrl,
+        imageFits: { ...meal.entry.media.imageFits, iconImage: normalizeImageFit(next.imageFit) }
+      }
+    });
+  };
+
   const pantryTabs = (
     <div className="pantry-tabs">
       <button className={tab === "pantry" ? "active" : ""} onClick={() => setTab("pantry")}>
@@ -430,6 +456,8 @@ export function PantryPage({
                   key={ingredient.id}
                   ingredient={ingredient}
                   selected={selectedIngredient?.id === ingredient.id}
+                  readOnly={readOnly}
+                  onSaveImage={(next) => saveIngredientImagePlacement(ingredient, next)}
                   onSelect={() => selectIngredient(ingredient)}
                 />
               ))}
@@ -515,6 +543,8 @@ export function PantryPage({
                             meal={meal}
                             groupIcon={group.icon}
                             selected={selectedMeal?.id === meal.id}
+                            readOnly={readOnly}
+                            onSaveImage={(next) => saveMealImagePlacement(meal, next)}
                             onSelect={() => selectMeal(meal)}
                           />
                         )) : (
@@ -566,10 +596,14 @@ export function PantryPage({
 function PantryIngredientCard({
   ingredient,
   selected,
+  readOnly,
+  onSaveImage,
   onSelect
 }: {
   ingredient: PantryIngredient;
   selected: boolean;
+  readOnly: boolean;
+  onSaveImage: (next: { imageUrl: string; imageFit: ImageFitSettings }) => void;
   onSelect: () => void;
 }) {
   const realtime = useRealtimeCollaboration();
@@ -593,7 +627,7 @@ function PantryIngredientCard({
           {hoveringUsers.length === 1 ? `${hoveringUsers[0].name} is here` : `${hoveringUsers.length} people here`}
         </span>
       )}
-      <IngredientImage ingredient={ingredient} />
+      <IngredientImage ingredient={ingredient} canReposition={!readOnly} onSave={onSaveImage} />
       <strong>{ingredient.name}</strong>
       <small>{ingredient.category}</small>
       <footer>
@@ -607,11 +641,15 @@ function PantryMealCard({
   meal,
   groupIcon,
   selected,
+  readOnly,
+  onSaveImage,
   onSelect
 }: {
   meal: PantryMeal;
   groupIcon: string;
   selected: boolean;
+  readOnly: boolean;
+  onSaveImage: (next: { imageUrl: string; imageFit: ImageFitSettings }) => void;
   onSelect: () => void;
 }) {
   const realtime = useRealtimeCollaboration();
@@ -636,7 +674,7 @@ function PantryMealCard({
           {hoveringUsers.length === 1 ? `${hoveringUsers[0].name} is here` : `${hoveringUsers.length} people here`}
         </span>
       )}
-      {imageUrl ? <MealImage imageUrl={imageUrl} /> : (
+      {imageUrl ? <MealImage imageUrl={imageUrl} imageFit={mealImageFit(meal.entry)} canReposition={!readOnly} onSave={onSaveImage} /> : (
         <span className="pantry-card-icon">
           <Icon name={groupIcon} className="h-5 w-5" />
         </span>
@@ -1275,11 +1313,11 @@ function MealEditForm({
   );
 }
 
-function IngredientImage({ ingredient }: { ingredient: PantryIngredient }) {
+function IngredientImage({ ingredient, canReposition = false, onSave }: { ingredient: PantryIngredient; canReposition?: boolean; onSave?: (next: { imageUrl: string; imageFit: ImageFitSettings }) => void }) {
   return (
     <span className={`pantry-ingredient-image ${ingredient.imageUrl ? "has-image" : ""}`}>
       {ingredient.imageUrl ? (
-        <DriveAwareImage src={ingredient.imageUrl} alt="" loading="lazy" />
+        <RepositionableImage src={ingredient.imageUrl} alt={ingredient.name} label={`${ingredient.name} pantry image`} imageFit={ingredient.imageFit} aspectRatio="1 / 1" loading="lazy" canReposition={canReposition} onSave={onSave} />
       ) : (
         <Icon name={ingredientIcon(ingredient)} className="h-6 w-6" />
       )}
@@ -1287,10 +1325,10 @@ function IngredientImage({ ingredient }: { ingredient: PantryIngredient }) {
   );
 }
 
-function MealImage({ imageUrl }: { imageUrl: string }) {
+function MealImage({ imageUrl, imageFit, canReposition = false, onSave }: { imageUrl: string; imageFit?: ImageFitSettings; canReposition?: boolean; onSave?: (next: { imageUrl: string; imageFit: ImageFitSettings }) => void }) {
   return (
     <span className="pantry-ingredient-image has-image">
-      <DriveAwareImage src={imageUrl} alt="" loading="lazy" />
+      <RepositionableImage src={imageUrl} alt="" label="Meal or recipe image" imageFit={imageFit} aspectRatio="1 / 1" loading="lazy" canReposition={canReposition} onSave={onSave} />
     </span>
   );
 }
@@ -1304,6 +1342,10 @@ function mealImageUrl(entry: LoreEntry) {
     entry.fields?.thumbnailUrl ||
     ""
   ));
+}
+
+function mealImageFit(entry: LoreEntry) {
+  return entry.media.imageFits?.iconImage || entry.media.imageFits?.mainImage;
 }
 
 function EmptyPantryDetail() {

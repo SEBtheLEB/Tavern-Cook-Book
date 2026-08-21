@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { CSSProperties, MouseEvent, ReactNode } from "react";
 import type { ImageFitSettings } from "../types";
 import { imageFitToStyle } from "../utils/imageFit";
+import { useOptionalAssignments } from "./AssignmentSystem";
 import { DriveAwareImage } from "./DriveAwareImage";
 import { ImageAdjustModal } from "./ImageAdjustModal";
 
@@ -44,6 +45,7 @@ export function AdjustableImage({
 }: AdjustableImageProps) {
   const [open, setOpen] = useState(false);
   const [previewFrame, setPreviewFrame] = useState<{ width: number; height: number } | undefined>();
+  const assignments = useOptionalAssignments();
 
   if (!src) return <>{fallback}</>;
 
@@ -59,15 +61,36 @@ export function AdjustableImage({
 
   if (!canAdjust || !onSave) return image;
 
-  const stopAndOpen = (event: MouseEvent<HTMLButtonElement>) => {
-    event.preventDefault();
-    event.stopPropagation();
-    const rect = event.currentTarget.getBoundingClientRect();
+  const openFromElement = (element: HTMLElement) => {
+    const rect = element.getBoundingClientRect();
     setPreviewFrame({
       width: Math.max(1, rect.width),
       height: Math.max(1, rect.height)
     });
     setOpen(true);
+  };
+
+  const stopAndOpen = (event: MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    openFromElement(event.currentTarget);
+  };
+
+  const openContextMenu = (event: MouseEvent<HTMLButtonElement>) => {
+    const trigger = event.currentTarget;
+    const action = {
+      id: `reposition-image-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+      label: "Reposition Image",
+      icon: "Move",
+      onSelect: () => openFromElement(trigger)
+    };
+    if (assignments) {
+      assignments.openContextMenu(event, undefined, [action]);
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    action.onSelect();
   };
 
   return (
@@ -79,6 +102,7 @@ export function AdjustableImage({
         title={`Adjust ${label}`}
         aria-label={`Adjust ${label}`}
         onClick={stopAndOpen}
+        onContextMenu={openContextMenu}
       >
         {image}
         <span className="adjustable-image-trigger-label">{overlayLabel}</span>

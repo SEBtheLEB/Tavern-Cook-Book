@@ -3348,6 +3348,7 @@ export default function App() {
                     currentUser={currentUser}
                     focusRoute={focusedAssignment?.targetRoute || ""}
                     onCombatChange={updateCombat}
+                    onSaveCreature={upsertCreature}
                   />
                 </Suspense>
               )}

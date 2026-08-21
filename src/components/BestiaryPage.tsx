@@ -48,6 +48,7 @@ import type { AssignableModuleInfo, AssignmentRecord } from "../utils/assignment
 import type { StoryReferenceDraftInput } from "../utils/storyReferences";
 import type { ArtBinderInitialFilter } from "./ArtBinderPage";
 import { AssignableModule } from "./AssignmentSystem";
+import { AdjustableImage } from "./AdjustableImage";
 import { CustomSelect } from "./CustomSelect";
 import { DriveAwareImage } from "./DriveAwareImage";
 import { DriveImageSourceControls } from "./DriveImageSourceControls";
@@ -702,10 +703,16 @@ export function BestiaryPage({
                     selected={isSelectedCreature}
                     isFavorite={Boolean(isCreatureFavorite?.(creature))}
                     onToggleFavorite={() => onToggleCreatureFavorite?.(creature)}
-                    canAdjustImage={Boolean(editing && isSelectedCreature && !readOnly)}
-                    onAdjustImage={(previewFrame) =>
-                      openCreatureImageAdjuster("slotImage", "Creature Archive Slot Image", previewFrame)
-                    }
+                    canAdjustImage={!readOnly}
+                    onSaveImage={({ imageUrl, imageFit }) => {
+                      const normalized = normalizeBestiaryCreature({
+                        ...cardCreature,
+                        ...creatureImagePatchForSlot("slotImage", imageUrl, imageFit),
+                        updatedAt: nowIso()
+                      });
+                      onSaveCreature(normalized);
+                      if (isSelectedCreature) setDraft(normalized);
+                    }}
                     onClick={() => {
                       setSelectedId(creature.id);
                       setEditing(false);
@@ -902,7 +909,7 @@ function CreatureCard({
   isFavorite,
   onToggleFavorite,
   canAdjustImage,
-  onAdjustImage,
+  onSaveImage,
   onClick
 }: {
   creature: BestiaryCreature;
@@ -910,7 +917,7 @@ function CreatureCard({
   isFavorite: boolean;
   onToggleFavorite?: () => void;
   canAdjustImage?: boolean;
-  onAdjustImage?: (previewFrame?: ImagePreviewFrame) => void;
+  onSaveImage?: (next: { imageUrl: string; imageFit: ImageFitSettings }) => void;
   onClick: () => void;
 }) {
   const image = creatureImageForSlot(creature, "slotImage");
@@ -948,22 +955,15 @@ function CreatureCard({
         )}
         <div className="bestiary-card-image">
           {image ? (
-            canAdjustImage ? (
-              <button
-                className="editable-image-trigger bestiary-image-adjust-trigger"
-                onClick={(event) => {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  onAdjustImage?.(frameFromElement(event.currentTarget));
-                }}
-                title={`Adjust ${creature.name} archive image`}
-              >
-                <DriveAwareImage src={image} alt="" style={imageFitToStyle(imageFit)} />
-                <span>Adjust</span>
-              </button>
-            ) : (
-              <DriveAwareImage src={image} alt="" style={imageFitToStyle(imageFit)} />
-            )
+            <AdjustableImage
+              src={image}
+              label={`${creature.name} archive image`}
+              imageFit={imageFit}
+              aspectRatio="1 / 1"
+              canAdjust={Boolean(canAdjustImage && onSaveImage)}
+              className="editable-image-trigger bestiary-image-adjust-trigger"
+              onSave={onSaveImage}
+            />
           ) : <CreaturePlaceholder />}
           {!image && <span className="bestiary-card-art-badge">Needs Art</span>}
         </div>
@@ -1058,14 +1058,15 @@ function CreatureDetails({
       <header className="bestiary-detail-header">
         <div className="bestiary-detail-image">
           {detailImage ? (
-            editing ? (
-              <button className="editable-image-trigger bestiary-image-adjust-trigger" onClick={(event) => onAdjustImage(frameFromElement(event.currentTarget), expanded)}>
-                <DriveAwareImage src={detailImage} alt="" style={imageFitToStyle(detailImageFit)} />
-                <span>Adjust</span>
-              </button>
-            ) : (
-              <DriveAwareImage src={detailImage} alt="" style={imageFitToStyle(detailImageFit)} />
-            )
+            <AdjustableImage
+              src={detailImage}
+              label={`${creature.name} ${expanded ? "expanded" : "detail"} image`}
+              imageFit={detailImageFit}
+              aspectRatio={creatureImageAspectForSlot(detailImageSlot)}
+              canAdjust={!readOnly}
+              className="editable-image-trigger bestiary-image-adjust-trigger"
+              onSave={({ imageUrl, imageFit }) => onPersistChange(creatureImagePatchForSlot(detailImageSlot, imageUrl, imageFit))}
+            />
           ) : <CreaturePlaceholder />}
         </div>
         <div className="bestiary-detail-title">

@@ -1,4 +1,4 @@
-import type { BestiaryCreature, LoreEntry } from "../types";
+import type { BestiaryCreature, ImageFitSettings, LoreEntry } from "../types";
 import { resolveImageSourceUrl } from "./imageFit";
 
 export type PantryTab = "pantry" | "meals";
@@ -35,6 +35,7 @@ export interface PantryIngredient {
   baseName: string;
   category: string;
   imageUrl: string;
+  imageFit?: ImageFitSettings;
   rarity: string;
   summary: string;
   tags: string[];
@@ -210,6 +211,7 @@ export function buildPantryModel(entries: LoreEntry[], bestiary: BestiaryCreatur
       entry,
       category: inferIngredientCategory(entry.title, entry),
       imageUrl: getEntryImage(entry),
+      imageFit: entry.media.imageFits?.iconImage || entry.media.imageFits?.mainImage,
       rarity: String(entry.fields?.rarity || entry.status || "Unknown"),
       summary: entry.summary || entry.publicDescription || entry.internalLore,
       tags: entry.tags || [],
