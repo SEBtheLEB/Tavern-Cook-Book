@@ -1053,6 +1053,7 @@ export interface LoreBackup {
 }
 
 export type CombatBossType = "Main Boss" | "Mini Boss" | "Elite Encounter" | "Tutorial Boss";
+export type CombatEnemyTier = "Standard" | "Elite";
 export type CombatProductionStatus = "Not Started" | "In Progress" | "Review" | "Approved" | "Complete" | "Blocked";
 export type CombatDiscipline = "design" | "code" | "animation" | "vfx" | "audio" | "balance";
 export type CombatMediaKind = "Rough Sketch" | "Storyboard" | "Keyframe" | "Animation Reference" | "Final Animation" | "VFX Reference" | "In-Game Capture" | "Hitbox Reference";
@@ -1200,8 +1201,32 @@ export interface CombatBoss {
   updatedAt: string;
 }
 
+export interface CombatEnemy {
+  id: string;
+  bestiaryCreatureId: string;
+  name: string;
+  family: string;
+  tier: CombatEnemyTier;
+  role: string;
+  act: string;
+  location: string;
+  threatLevel: string;
+  summary: string;
+  behavior: string;
+  teamSynergy: string;
+  status: CombatProductionStatus;
+  artwork?: CombatMediaReference;
+  attacks: CombatAttack[];
+  animationNotes: string;
+  references: CombatMediaReference[];
+  tags: string[];
+  updatedAt: string;
+}
+
 export interface CombatData {
+  schemaVersion: number;
   bosses: CombatBoss[];
+  enemies: CombatEnemy[];
   enemiesNotes: string;
   playerCombatNotes: string;
   combatSystemsNotes: string;

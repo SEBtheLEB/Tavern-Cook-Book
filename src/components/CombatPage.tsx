@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import type {
   CombatAttack,
+  BestiaryCreature,
   CombatBoss,
   CombatBossType,
   CombatData,
+  CombatEnemy,
   CombatMediaKind,
   CombatMediaReference,
   CombatPhase,
@@ -32,13 +34,14 @@ import { ImageManagerModal, type ImageManagerSlotDraft } from "./ImageManagerMod
 
 interface CombatPageProps {
   combat?: CombatData;
+  bestiary: BestiaryCreature[];
   readOnly: boolean;
   currentUser: GoogleAccountUser;
   onCombatChange: (combat: CombatData) => void;
   focusRoute?: string;
 }
 
-type CombatSection = "home" | "bosses";
+type CombatSection = "home" | "bosses" | "enemies";
 type BossTab = "Overview" | "Moveset" | "Animation" | "Balance" | "References";
 type ModalState = { type: "boss"; draft: CombatBoss } | { type: "phase"; bossId: string; draft: CombatPhase } | { type: "attack"; bossId: string; phaseId: string; draft: CombatAttack } | null;
 type MediaTarget = { type: "boss"; bossId: string } | { type: "phase"; bossId: string; phaseId: string } | { type: "attack"; bossId: string; phaseId: string; attackId: string } | null;
@@ -48,20 +51,30 @@ const bossTabs: BossTab[] = ["Overview", "Moveset", "Animation", "Balance", "Ref
 const responseOptions = ["Jump", "Dodge", "Block", "Parry", "Move behind boss", "Leave marked area"];
 const mediaKinds: CombatMediaKind[] = ["Rough Sketch", "Storyboard", "Keyframe", "Animation Reference", "Final Animation", "VFX Reference", "In-Game Capture", "Hitbox Reference"];
 
-export function CombatPage({ combat, readOnly, currentUser, onCombatChange, focusRoute = "" }: CombatPageProps) {
+export function CombatPage({ combat, bestiary, readOnly, currentUser, onCombatChange, focusRoute = "" }: CombatPageProps) {
   const normalized = useMemo(() => normalizeCombatData(combat), [combat]);
   const [section, setSection] = useState<CombatSection>("home");
   const [selectedBossId, setSelectedBossId] = useState("");
+  const [selectedEnemyId, setSelectedEnemyId] = useState("");
   const [selectedAttack, setSelectedAttack] = useState<{ phaseId: string; attackId: string } | null>(null);
   const [bossTab, setBossTab] = useState<BossTab>("Moveset");
   const [filter, setFilter] = useState("All");
   const [query, setQuery] = useState("");
+  const [enemyFilter, setEnemyFilter] = useState("All Insects");
+  const [enemyQuery, setEnemyQuery] = useState("");
   const [modal, setModal] = useState<ModalState>(null);
   const [mediaTarget, setMediaTarget] = useState<MediaTarget>(null);
 
   useEffect(() => {
     if (!focusRoute.startsWith("combat:")) return;
     const [, bossId, phaseId, attackId] = focusRoute.split(":");
+    if (bossId === "enemy") {
+      setSection("enemies");
+      setSelectedEnemyId(phaseId || "");
+      setSelectedBossId("");
+      setSelectedAttack(null);
+      return;
+    }
     setSection("bosses");
     setSelectedBossId(bossId || "");
     setSelectedAttack(phaseId && attackId ? { phaseId, attackId } : null);
@@ -72,6 +85,7 @@ export function CombatPage({ combat, readOnly, currentUser, onCombatChange, focu
     const openCombatHome = () => {
       setSection("home");
       setSelectedBossId("");
+      setSelectedEnemyId("");
       setSelectedAttack(null);
       window.scrollTo({ top: 0, behavior: "smooth" });
     };
@@ -80,6 +94,7 @@ export function CombatPage({ combat, readOnly, currentUser, onCombatChange, focu
   }, []);
 
   const selectedBoss = normalized.bosses.find((boss) => boss.id === selectedBossId) || null;
+  const selectedEnemy = normalized.enemies.find((enemy) => enemy.id === selectedEnemyId) || null;
   const selectedPhase = selectedBoss && selectedAttack ? selectedBoss.phases.find((phase) => phase.id === selectedAttack.phaseId) || null : null;
   const attack = selectedPhase && selectedAttack ? selectedPhase.attacks.find((item) => item.id === selectedAttack.attackId) || null : null;
 
@@ -108,6 +123,7 @@ export function CombatPage({ combat, readOnly, currentUser, onCombatChange, focu
   };
 
   const openBoss = (bossId: string) => { setSelectedBossId(bossId); setSelectedAttack(null); setBossTab("Moveset"); window.scrollTo({ top: 0, behavior: "smooth" }); };
+  const openEnemy = (enemyId: string) => { setSelectedEnemyId(enemyId); setSelectedBossId(""); setSelectedAttack(null); window.scrollTo({ top: 0, behavior: "smooth" }); };
 
   return (
     <div className="combat-page">
@@ -115,10 +131,14 @@ export function CombatPage({ combat, readOnly, currentUser, onCombatChange, focu
         <AttackWorkspace attack={attack} boss={selectedBoss} phase={selectedPhase} readOnly={readOnly} currentUser={currentUser} onBack={() => setSelectedAttack(null)} onOpenBossTab={(tab) => { setSelectedAttack(null); setBossTab(tab); }} onOpenAttack={(phaseId, attackId) => setSelectedAttack({ phaseId, attackId })} onEdit={() => setModal({ type: "attack", bossId: selectedBoss.id, phaseId: selectedPhase.id, draft: structuredClone(attack) })} onManageMedia={() => setMediaTarget({ type: "attack", bossId: selectedBoss.id, phaseId: selectedPhase.id, attackId: attack.id })} onSave={(next) => updateAttack(selectedBoss.id, selectedPhase.id, next)} />
       ) : selectedBoss ? (
         <BossWorkspace boss={selectedBoss} tab={bossTab} readOnly={readOnly} onBack={() => setSelectedBossId("")} onTabChange={setBossTab} onEdit={() => setModal({ type: "boss", draft: structuredClone(selectedBoss) })} onManageMedia={() => setMediaTarget({ type: "boss", bossId: selectedBoss.id })} onAddPhase={() => setModal({ type: "phase", bossId: selectedBoss.id, draft: createBlankPhase(selectedBoss.phases.length) })} onEditPhase={(phase) => setModal({ type: "phase", bossId: selectedBoss.id, draft: structuredClone(phase) })} onManagePhaseMedia={(phase) => setMediaTarget({ type: "phase", bossId: selectedBoss.id, phaseId: phase.id })} onDeletePhase={(phaseId) => deletePhase(selectedBoss, phaseId, updateBoss)} onMovePhase={(phaseId, direction) => updateBoss({ ...selectedBoss, phases: reorder(selectedBoss.phases, phaseId, direction) })} onAddAttack={(phase) => setModal({ type: "attack", bossId: selectedBoss.id, phaseId: phase.id, draft: createBlankAttack(phase.attacks.length) })} onEditAttack={(phase, item) => setModal({ type: "attack", bossId: selectedBoss.id, phaseId: phase.id, draft: structuredClone(item) })} onOpenAttack={(phaseId, attackId) => setSelectedAttack({ phaseId, attackId })} onDeleteAttack={(phase, attackId) => deleteAttack(selectedBoss.id, phase, attackId, updatePhase)} onMoveAttack={(phase, attackId, direction) => updatePhase(selectedBoss.id, { ...phase, attacks: reorder(phase.attacks, attackId, direction) })} />
+      ) : selectedEnemy ? (
+        <EnemyWorkspace enemy={selectedEnemy} bestiary={bestiary} onBack={() => setSelectedEnemyId("")} />
       ) : section === "home" ? (
-        <CombatHome bosses={normalized.bosses} onOpen={(next) => setSection(next)} onOpenBoss={openBoss} />
-      ) : (
+        <CombatHome bosses={normalized.bosses} enemies={normalized.enemies} bestiary={bestiary} onOpen={(next) => setSection(next)} onOpenBoss={openBoss} onOpenEnemy={openEnemy} />
+      ) : section === "bosses" ? (
         <BossLibrary bosses={normalized.bosses} readOnly={readOnly} filter={filter} query={query} onFilter={setFilter} onQuery={setQuery} onBack={() => setSection("home")} onOpen={openBoss} onAdd={() => setModal({ type: "boss", draft: createBlankBoss() })} onDelete={(boss) => deleteBoss(boss, normalized, saveCombat)} />
+      ) : (
+        <EnemyLibrary enemies={normalized.enemies} bestiary={bestiary} filter={enemyFilter} query={enemyQuery} onFilter={setEnemyFilter} onQuery={setEnemyQuery} onBack={() => setSection("home")} onOpen={openEnemy} />
       )}
 
       {modal?.type === "boss" && <BossEditor draft={modal.draft} onChange={(draft) => setModal({ type: "boss", draft })} onCancel={() => setModal(null)} onSave={() => { updateBoss(modal.draft); setModal(null); openBoss(modal.draft.id); }} />}
@@ -129,7 +149,7 @@ export function CombatPage({ combat, readOnly, currentUser, onCombatChange, focu
   );
 }
 
-function CombatHome({ bosses, onOpen, onOpenBoss }: { bosses: CombatBoss[]; onOpen: (section: CombatSection) => void; onOpenBoss: (id: string) => void }) {
+function CombatHome({ bosses, enemies, bestiary, onOpen, onOpenBoss, onOpenEnemy }: { bosses: CombatBoss[]; enemies: CombatEnemy[]; bestiary: BestiaryCreature[]; onOpen: (section: CombatSection) => void; onOpenBoss: (id: string) => void; onOpenEnemy: (id: string) => void }) {
   const bossCount = bosses.length;
   const bossAttacks = bosses.flatMap((boss) => boss.phases.flatMap((phase) => phase.attacks));
   const aggregate = bossAttacks.length
@@ -137,11 +157,14 @@ function CombatHome({ bosses, onOpen, onOpenBoss }: { bosses: CombatBoss[]; onOp
     : 0;
   const categories = [
     { title: "Bosses", icon: "Crown", count: bossCount, description: "Encounter chapters, phases, movesets, production status, and implementation handoff.", action: () => onOpen("bosses"), image: bosses.find((boss) => boss.artwork?.imageUrl)?.artwork?.imageUrl, meta: `${aggregate}% production health` },
-    { title: "Enemies", icon: "Skull", count: 0, description: "Regular enemy kits, behaviors, encounter roles, and combat values.", meta: "Combat discipline" },
+    { title: "Enemies", icon: "Skull", count: enemies.length, description: "Enemy families, elites, coordinated behaviors, attack kits, and production requirements.", action: () => onOpen("enemies"), image: enemies.map((enemy) => enemyCoverImage(enemy, bestiary)).find(Boolean), meta: `${enemies.filter((enemy) => enemy.tier === "Elite").length} elite` },
     { title: "Player Combat", icon: "ShieldAlert", count: 0, description: "Gwen's weapons, defense, movement, meals, tools, and player-facing rules.", meta: "Player discipline" },
     { title: "Combat Systems", icon: "Cog", count: 0, description: "Damage, stagger, hit reactions, targeting, AI selection, and elemental interactions.", meta: "Systems discipline" }
   ];
-  const recent = [...bosses].sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt)).slice(0, 4);
+  const recent = [
+    ...bosses.map((boss) => ({ id: boss.id, name: boss.name, kind: boss.classification, updatedAt: boss.updatedAt, image: boss.artwork?.imageUrl || "", onOpen: () => onOpenBoss(boss.id), icon: "Crown" })),
+    ...enemies.map((enemy) => ({ id: enemy.id, name: enemy.name, kind: `${enemy.family} · ${enemy.tier}`, updatedAt: enemy.updatedAt, image: enemyCoverImage(enemy, bestiary), onOpen: () => onOpenEnemy(enemy.id), icon: enemy.tier === "Elite" ? "ShieldAlert" : "Bug" }))
+  ].sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt)).slice(0, 6);
   return <>
     <CombatHeader eyebrow="Production Library" title="Combat" description="Design and produce every combat encounter through one shared Cookbook workspace." icon="Swords" />
     <section className="combat-category-grid">
@@ -152,9 +175,103 @@ function CombatHome({ bosses, onOpen, onOpenBoss }: { bosses: CombatBoss[]; onOp
     </section>
     <section className="combat-recent-section">
       <SectionHeading eyebrow="Shared Production Activity" title="Recently Edited" />
-      <div className="combat-recent-grid">{recent.map((boss) => <button key={boss.id} onClick={() => onOpenBoss(boss.id)}><span>{boss.artwork?.imageUrl ? <DriveAwareImage src={boss.artwork.imageUrl} alt="" /> : <Icon name="Crown" className="h-5 w-5" />}</span><div><b>{boss.name}</b><small>{boss.classification} · {formatUpdatedAt(boss.updatedAt)}</small></div><Icon name="ChevronRight" className="h-4 w-4" /></button>)}{!recent.length && <p className="combat-muted">Boss activity will appear here as the library grows.</p>}</div>
+      <div className="combat-recent-grid">{recent.map((item) => <button key={`${item.kind}-${item.id}`} onClick={item.onOpen}><span>{item.image ? <DriveAwareImage src={item.image} alt="" /> : <Icon name={item.icon} className="h-5 w-5" />}</span><div><b>{item.name}</b><small>{item.kind} · {formatUpdatedAt(item.updatedAt)}</small></div><Icon name="ChevronRight" className="h-4 w-4" /></button>)}{!recent.length && <p className="combat-muted">Combat activity will appear here as the library grows.</p>}</div>
     </section>
   </>;
+}
+
+function EnemyLibrary({ enemies, bestiary, filter, query, onFilter, onQuery, onBack, onOpen }: { enemies: CombatEnemy[]; bestiary: BestiaryCreature[]; filter: string; query: string; onFilter: (value: string) => void; onQuery: (value: string) => void; onBack: () => void; onOpen: (id: string) => void }) {
+  const filters = ["All Insects", "Standard", "Elite", "In Development", "Complete"];
+  const visible = enemies.filter((enemy) => {
+    const matchesQuery = !query.trim() || `${enemy.name} ${enemy.family} ${enemy.tier} ${enemy.role} ${enemy.tags.join(" ")}`.toLowerCase().includes(query.trim().toLowerCase());
+    const matchesFilter = filter === "All Insects" || filter === enemy.tier || (filter === "In Development" && enemy.status !== "Complete") || (filter === "Complete" && enemy.status === "Complete");
+    return enemy.family === "Insects" && matchesQuery && matchesFilter;
+  });
+  return <>
+    <div className="combat-library-heading">
+      <button className="combat-icon-button" onClick={onBack} title="Back to Combat"><Icon name="ChevronLeft" className="h-5 w-5" /></button>
+      <div><small>Enemy Family · Insects</small><h1 className="font-display">Insect Enemies</h1><p>Ground pressure, aerial teamwork, and elite encounter kits for Whisker Woods.</p></div>
+    </div>
+    <div className="combat-filter-bar">
+      <label><Icon name="Search" className="h-4 w-4" /><input value={query} onChange={(event) => onQuery(event.target.value)} placeholder="Search insect enemies" /></label>
+      <div className="combat-filter-tabs">{filters.map((item) => <button key={item} className={filter === item ? "active" : ""} onClick={() => onFilter(item)}>{item}</button>)}</div>
+    </div>
+    <section className="combat-enemy-grid">{visible.map((enemy) => <EnemyCard key={enemy.id} enemy={enemy} bestiary={bestiary} onOpen={() => onOpen(enemy.id)} />)}</section>
+    {!visible.length && <EmptyState title="No insect enemies match this view" description="Change the search or selected production filter." />}
+  </>;
+}
+
+function EnemyCard({ enemy, bestiary, onOpen }: { enemy: CombatEnemy; bestiary: BestiaryCreature[]; onOpen: () => void }) {
+  const image = enemyCoverImage(enemy, bestiary);
+  const average = enemy.attacks.length ? Math.round(enemy.attacks.reduce((total, attack) => total + combatDisciplines.reduce((sum, discipline) => sum + productionStatusPercent(attack.production[discipline]), 0) / combatDisciplines.length, 0) / enemy.attacks.length) : 0;
+  return <AssignableModule as="article" className={`combat-enemy-card lore-card-frame ${enemy.tier === "Elite" ? "elite" : ""}`} module={{ moduleId: `combat-enemy:${enemy.id}`, moduleTitle: enemy.name, moduleType: "combat-enemy", entryId: enemy.id, entryTitle: enemy.name, entryCategory: `Combat / Enemies / ${enemy.family}`, targetRoute: `combat:enemy:${enemy.id}` }}>
+    <button onClick={onOpen}>
+      <span className="combat-enemy-art">{image ? <DriveAwareImage src={image} alt={enemy.name} /> : <Icon name={enemy.tier === "Elite" ? "ShieldAlert" : "Bug"} className="h-11 w-11" />}</span>
+      <span className="combat-enemy-card-copy"><small>{enemy.family} · {enemy.tier}</small><strong className="font-display">{enemy.name}</strong><em>{enemy.role}</em><p>{enemy.summary}</p></span>
+      <span className="combat-card-stats"><span><b>{enemy.attacks.length}</b> moves</span><span><b>{enemy.threatLevel || "—"}</b> threat</span><span><b>{average}%</b> production</span></span>
+      <span className="combat-card-progress"><i style={{ width: `${average}%` }} /></span>
+    </button>
+  </AssignableModule>;
+}
+
+function EnemyWorkspace({ enemy, bestiary, onBack }: { enemy: CombatEnemy; bestiary: BestiaryCreature[]; onBack: () => void }) {
+  const creature = linkedBestiaryCreature(enemy, bestiary);
+  const cover = enemyCoverImage(enemy, bestiary);
+  const assets = creatureArtAssets(creature);
+  return <main className="combat-enemy-workspace">
+    <CombatBreadcrumbs items={[{ label: "Combat", onClick: onBack }, { label: "Enemies", onClick: onBack }, { label: enemy.family }, { label: enemy.name }]} />
+    <header className={`combat-enemy-hero ${enemy.tier === "Elite" ? "elite" : ""}`}>
+      <div className="combat-enemy-hero-art">{cover ? <DriveAwareImage src={cover} alt={enemy.name} /> : <Icon name={enemy.tier === "Elite" ? "ShieldAlert" : "Bug"} className="h-16 w-16" />}</div>
+      <div><small>{enemy.family} · {enemy.tier} {enemy.tier === "Elite" ? "Encounter" : "Enemy"}</small><h1 className="font-display">{enemy.name}</h1><p>{enemy.summary}</p><div className="combat-hero-facts"><span>Role <b>{enemy.role}</b></span><span>Threat <b>{enemy.threatLevel}</b></span><span>Moves <b>{enemy.attacks.length}</b></span><span>Location <b>{enemy.location}</b></span><span>Status <b>{enemy.status}</b></span></div></div>
+      <span className="combat-enemy-tier-seal"><Icon name={enemy.tier === "Elite" ? "ShieldAlert" : "Bug"} className="h-5 w-5" />{enemy.tier}</span>
+    </header>
+    <section className="combat-enemy-overview-grid">
+      <article className="combat-reading-panel"><SectionHeading eyebrow="Combat Behavior" title="How It Fights" /><p>{enemy.behavior}</p></article>
+      <article className="combat-reading-panel"><SectionHeading eyebrow="Encounter Ecology" title="Team Synergy" /><p>{enemy.teamSynergy}</p></article>
+    </section>
+    <section className="combat-workspace-section combat-enemy-moves"><SectionHeading eyebrow={`${enemy.tier} Kit`} title="Moveset" /><div className="combat-enemy-move-grid">{enemy.attacks.map((attack, index) => <EnemyMoveCard key={attack.id} attack={attack} index={index} />)}</div></section>
+    <section className="combat-enemy-overview-grid">
+      <article className="combat-reading-panel"><SectionHeading eyebrow="Animation Handoff" title="Required Motion" /><p>{enemy.animationNotes}</p><div className="combat-clip-list">{enemy.attacks.flatMap((attack) => attack.animation.requiredClips).map((clip) => <code key={clip}>{clip}</code>)}</div></article>
+      <article className="combat-reading-panel"><SectionHeading eyebrow="Cookbook Source" title="Bestiary Link" />{creature ? <><p>{creature.description || creature.overview || `${enemy.name} is linked to its Bestiary record.`}</p><div className="combat-tag-row"><span>{creature.category}</span><span>{creature.type}</span><span>{creature.status}</span>{assets.length > 0 && <span>{assets.length} linked art assets</span>}</div></> : <p className="combat-muted">No matching Bestiary record is available yet. Combat art will connect automatically when one is added under this name.</p>}</article>
+    </section>
+    <section className="combat-workspace-section"><SectionHeading eyebrow="Bestiary & Art Binder" title="Linked Visuals" /><div className="combat-enemy-media-grid">{assets.map((asset) => <article key={asset.id}><span><DriveAwareImage src={asset.imageUrl} alt={asset.label} /></span><small>{asset.section}</small><b>{asset.label}</b>{asset.animated && <em>Animated sprite</em>}</article>)}{!assets.length && <div className="combat-empty-inline">Images and sprite sheets uploaded to {enemy.name}'s Bestiary or Art Binder will appear here automatically.</div>}</div></section>
+  </main>;
+}
+
+function EnemyMoveCard({ attack, index }: { attack: CombatAttack; index: number }) {
+  return <article className="combat-enemy-move-card">
+    <header><span>{String(index + 1).padStart(2, "0")}</span><div><small>{attack.damageType || "Combat move"}</small><h3 className="font-display">{attack.name}</h3><code>{attack.internalId}</code></div></header>
+    <p>{attack.summary}</p>
+    <div className="combat-enemy-move-values"><span><small>Startup</small><b>{formatSeconds(attack.startup)}</b></span><span><small>Cooldown</small><b>{formatSeconds(attack.cooldown)}</b></span><span><small>Range</small><b>{attack.range}</b></span><span><small>Response</small><b>{[...attack.expectedResponses, attack.customResponse].filter(Boolean).join(" · ")}</b></span></div>
+    <details><summary>Design intent and implementation</summary><div><span><b>Purpose</b>{attack.purpose}</span><span><b>Player read</b>{attack.playerRead}</span><span><b>AI conditions</b>{attack.developer.selectionConditions.join(" · ")}</span></div></details>
+    <div className="combat-status-strip">{combatDisciplines.map((discipline) => <i key={discipline} className={`status-${slug(attack.production[discipline])}`} title={`${titleCase(discipline)}: ${attack.production[discipline]}`} />)}</div>
+  </article>;
+}
+
+function linkedBestiaryCreature(enemy: CombatEnemy, bestiary: BestiaryCreature[]) {
+  const normalizedName = normalizedCreatureName(enemy.name);
+  return bestiary.find((creature) => creature.id === enemy.bestiaryCreatureId)
+    || bestiary.find((creature) => normalizedCreatureName(creature.name) === normalizedName)
+    || null;
+}
+
+function normalizedCreatureName(value: string) {
+  return String(value || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function creatureArtAssets(creature: BestiaryCreature | null) {
+  if (!creature) return [];
+  return (creature.artVault?.sections || []).flatMap((section) => section.slots.flatMap((slot) => {
+    const image = slot.image;
+    const imageUrl = image?.thumbnailUrl || image?.downloadUrl || "";
+    return imageUrl ? [{ id: image?.id || `${section.id}-${slot.id}`, label: slot.label, section: section.title, imageUrl, animated: Boolean(image?.spriteAnimation) }] : [];
+  }));
+}
+
+function enemyCoverImage(enemy: CombatEnemy, bestiary: BestiaryCreature[]) {
+  if (enemy.artwork?.imageUrl) return enemy.artwork.imageUrl;
+  const creature = linkedBestiaryCreature(enemy, bestiary);
+  return creature?.slotImage || creature?.image || creature?.expandedImage || creature?.hoverImage || creatureArtAssets(creature)[0]?.imageUrl || "";
 }
 
 function BossLibrary({ bosses, readOnly, filter, query, onFilter, onQuery, onBack, onOpen, onAdd, onDelete }: { bosses: CombatBoss[]; readOnly: boolean; filter: string; query: string; onFilter: (value: string) => void; onQuery: (value: string) => void; onBack: () => void; onOpen: (id: string) => void; onAdd: () => void; onDelete: (boss: CombatBoss) => void }) {

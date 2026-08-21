@@ -37,7 +37,7 @@ export function Dashboard({ database, onNavigate, onOpenEntry, hiddenViewIds = [
 
   const countForBox = (view: ActiveView) => {
     if (view === "bestiary") return database.bestiary?.length || 0;
-    if (view === "combat") return database.combat?.bosses.length || 0;
+    if (view === "combat") return (database.combat?.bosses.length || 0) + (database.combat?.enemies.length || 0);
     if (view === "developmentBoard") return database.developmentBoard?.nodes.length || 0;
     if (view === "recipes") {
       return entries.filter((entry) => /recipe|meal|menu|dish|broth|tonic|ale|drink|consumable|food magic|food item/i.test(entry.type)).length;

@@ -3343,6 +3343,7 @@ export default function App() {
                 <Suspense fallback={<div className="p-8 text-sm text-[var(--muted-ink)]">Opening Combat...</div>}>
                   <CombatPage
                     combat={database.combat}
+                    bestiary={database.bestiary || []}
                     readOnly={readOnly}
                     currentUser={currentUser}
                     focusRoute={focusedAssignment?.targetRoute || ""}
