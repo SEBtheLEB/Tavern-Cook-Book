@@ -961,8 +961,9 @@ textarea {
 .combat-form-grid.compact { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .combat-field { display: grid; align-content: start; gap: 6px; }.combat-field.wide { grid-column: 1 / -1; }
 .combat-field input,
-.combat-field textarea { width: 100%; border: 1px solid var(--card-border); border-radius: 6px; background: var(--field-bg); padding: 9px 10px; color: var(--app-ink); outline: none; }
-.combat-field textarea { min-height: 94px; }.combat-field input:focus,.combat-field textarea:focus { border-color: var(--gold); }
+.combat-field textarea,
+.combat-field select { width: 100%; border: 1px solid var(--card-border); border-radius: 6px; background: var(--field-bg); padding: 9px 10px; color: var(--app-ink); outline: none; }
+.combat-field textarea { min-height: 94px; }.combat-field input:focus,.combat-field textarea:focus,.combat-field select:focus { border-color: var(--gold); }
 .combat-choice-row { display: flex; flex-wrap: wrap; gap: 6px; }.combat-choice-row label { border: 1px solid var(--card-border); border-radius: 5px; background: var(--field-bg); padding: 6px 8px; font-size: 0.72rem; }
 .combat-editor-section { margin-top: 18px; border-top: 1px solid var(--panel-border); padding-top: 13px; }.combat-editor-section > h3 { margin: 0 0 10px; font-size: 1.25rem; }
 .combat-editor-list { display: grid; gap: 7px; }.combat-editor-list-row { display: grid; grid-template-columns: 190px 1fr 100px 1.4fr 36px; gap: 6px; }.combat-editor-list-row.timeline { grid-template-columns: 90px 1fr 130px 1.4fr 36px; }
@@ -1182,6 +1183,11 @@ textarea {
   backdrop-filter: blur(10px);
 }
 
+.combat-enemy-hero-actions {
+  justify-content: flex-start;
+  margin-top: 14px;
+}
+
 .combat-enemy-overview-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1198,6 +1204,18 @@ textarea {
   gap: 10px;
 }
 
+.combat-enemy-moves-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.combat-enemy-moves-heading .combat-section-heading {
+  margin-bottom: 0;
+}
+
 .combat-enemy-move-card {
   display: grid;
   align-content: start;
@@ -1211,11 +1229,23 @@ textarea {
 
 .combat-enemy-move-card > header {
   display: grid;
-  grid-template-columns: 42px minmax(0, 1fr);
+  grid-template-columns: 42px minmax(0, 1fr) auto;
   gap: 10px;
   align-items: center;
   border-bottom: 1px solid var(--card-border);
   padding-bottom: 10px;
+}
+
+.combat-enemy-move-actions {
+  flex-wrap: nowrap;
+  align-self: start;
+}
+
+.combat-enemy-move-actions button {
+  width: 30px;
+  height: 30px;
+  justify-content: center;
+  padding: 0;
 }
 
 .combat-enemy-move-card > header > span {
