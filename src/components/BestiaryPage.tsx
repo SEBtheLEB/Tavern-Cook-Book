@@ -59,6 +59,7 @@ import { LinkedStoryReferencesSection } from "./LinkedStoryReferences";
 import { Icon } from "./Icon";
 import { useRealtimeCollaboration } from "./RealtimeCollaborationContext";
 import { StoryReaderModal, type StoryReaderSection, type StoryReaderStep } from "./StoryReaderModal";
+import { SpriteAwareImage } from "./SpriteAwareImage";
 
 interface BestiaryPageProps {
   creatures: BestiaryCreature[];
@@ -2234,8 +2235,8 @@ function CreatureArtVaultPage({
                       )}
                       <button className="character-art-vault-slot-main" onClick={() => openSlotEditor(ref)}>
                         <div className="character-art-vault-slot-preview">
-                          {slot.image?.thumbnailUrl ? (
-                            <DriveAwareImage src={slot.image.thumbnailUrl} alt="" />
+                          {slot.image?.thumbnailUrl || slot.image?.spriteAnimation ? (
+                            <SpriteAwareImage src={slot.image?.thumbnailUrl} spriteAnimation={slot.image?.spriteAnimation} imageFit={slot.image?.imageFit} alt={`${slot.label} preview`} />
                           ) : (
                             <div className="character-art-vault-slot-placeholder">
                               <span className="character-art-vault-linework" />
@@ -2291,7 +2292,7 @@ function CreatureArtVaultPage({
             </header>
             <div className="character-art-vault-slot-modal-body">
               <div className="character-art-vault-slot-modal-preview">
-                {slotDraft.image?.thumbnailUrl ? <DriveAwareImage src={slotDraft.image.thumbnailUrl} alt="" /> : <CreaturePlaceholder />}
+                {slotDraft.image?.thumbnailUrl || slotDraft.image?.spriteAnimation ? <SpriteAwareImage src={slotDraft.image?.thumbnailUrl} spriteAnimation={slotDraft.image?.spriteAnimation} imageFit={slotDraft.image?.imageFit} alt={`${slotDraft.label} preview`} /> : <CreaturePlaceholder />}
                 <span className={`character-art-vault-status ${slotDraft.status || "empty"}`}>{artVaultStatusText(slotDraft.status)}</span>
               </div>
               <div className="character-art-vault-slot-modal-fields">

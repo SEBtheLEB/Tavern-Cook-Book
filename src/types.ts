@@ -1074,6 +1074,7 @@ export interface CombatMediaReference {
   imageUrl: string;
   webViewLink?: string;
   imageFit?: ImageFitSettings;
+  spriteAnimation?: SpriteAnimationSlotReference;
   timestamp?: string;
   notes: string;
   order: number;
@@ -1116,6 +1117,7 @@ export interface CombatAttack {
   activeTime?: number;
   recovery?: number;
   cooldown?: number;
+  movementSpeed?: number;
   range: string;
   knockback: string;
   stagger: string;

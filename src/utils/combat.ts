@@ -9,6 +9,7 @@ import type {
   CombatProductionStatus
 } from "../types";
 import { defaultImageFit, normalizeImageFit } from "./imageFit";
+import { normalizeSpriteAnimationSlotReference } from "./spriteAnimationSlots";
 
 const productionStatuses: CombatProductionStatus[] = ["Not Started", "In Progress", "Review", "Approved", "Complete", "Blocked"];
 
@@ -123,12 +124,37 @@ function starterEnemyAttack(value: Partial<CombatAttack>): CombatAttack {
   });
 }
 
+function createCrayhuskRunMove(): CombatAttack {
+  return starterEnemyAttack({
+    id: "crayhusk-run",
+    internalId: "CH_Run",
+    name: "Run",
+    order: 0,
+    summary: "The Crayhusk runs quickly across the ground to pursue, reposition around, or close distance with the player.",
+    purpose: "Defines the creature's core movement speed and gives its melee pressure a readable approach state.",
+    playerRead: "Its legs spread into a low, rapid gait while the shell leans toward its travel direction.",
+    expectedResponses: ["Reposition"],
+    movementSpeed: 7,
+    range: "Ground navigation",
+    knockback: "None",
+    stagger: "None",
+    damageType: "Movement",
+    blockable: false,
+    dodgeable: false,
+    parryable: false,
+    interruptible: true,
+    animation: { assetName: "CH_Run", requiredClips: ["CH_Run"], keyPoses: "Low shell silhouette with fast alternating leg contact.", rootMotion: "Forward ground movement", looping: "Loops while navigating", notes: "Animation playback should scale cleanly with the configured movement speed." },
+    developer: { blueprint: "BP_Crayhusk_Run", abilityClass: "Movement", aiBehavior: "Navigate toward the current combat destination", selectionConditions: ["A movement destination is active"], minimumDistance: 0, maximumDistance: 30, attackWeight: 0, phaseAvailability: "Standard kit", notes: "Use the movement speed value as the shared design reference for navigation and animation playback." }
+  });
+}
+
 function createStarterEnemies(): CombatEnemy[] {
+  const crayhuskRun = createCrayhuskRunMove();
   const crayhuskRush = starterEnemyAttack({
     id: "crayhusk-rush-bite",
     internalId: "CH_RushBite",
     name: "Rush Bite",
-    order: 0,
+    order: 1,
     summary: "The Crayhusk rapidly closes the gap and bites the player at melee range.",
     purpose: "Turns the Crayhusk into fast close-range pressure and prevents the player from ignoring it while focusing on flying enemies.",
     playerRead: "It lowers its shell, spreads its legs, and chatters its claws before sprinting in a straight line.",
@@ -153,7 +179,7 @@ function createStarterEnemies(): CombatEnemy[] {
     id: "crayhusk-burrowed-forage",
     internalId: "CH_BurrowedForage",
     name: "Burrowed Forage",
-    order: 1,
+    order: 2,
     summary: "The Crayhusk hops, digs into the ground, and pulls out a rock or vegetable that a Dapplefly can collect and throw.",
     purpose: "Creates shared battlefield ammunition and establishes the Crayhusk/Dapplefly teamwork loop.",
     playerRead: "It hops in place, raises both claws, then plunges into loose soil as the ground shakes around it.",
@@ -303,7 +329,7 @@ function createStarterEnemies(): CombatEnemy[] {
   });
 
   return [
-    normalizeCombatEnemy({ id: "crayhusk", name: "Crayhusk", family: "Insects", tier: "Standard", role: "Fast melee support", act: "Act I — The Queen Beneath the Frost", location: "Whisker Woods and Kap's Pond", threatLevel: "Standard enemy", summary: "A fast ground insect that rushes the player and digs up ammunition for allied Dappleflies.", behavior: "Runs quickly toward the player for a close-range bite. When supported by a Dapplefly, it can jump, burrow into loose ground, and pull out a rock or vegetable for the flyer to collect.", teamSynergy: "Crayhusks create shared ThrowablePickup objects. Dappleflies reserve, collect, and throw those objects, turning the pair into a coordinated ground-and-air threat.", status: "In Progress", attacks: [crayhuskRush, crayhuskForage], animationNotes: "Requires idle, fast run, bite, jump, dig start/loop/end, hit reaction, and defeat animation sets.", references: [], tags: ["Insects", "Whisker Woods", "Melee", "Team Utility"], updatedAt: "2026-08-21T00:00:00.000Z" }),
+    normalizeCombatEnemy({ id: "crayhusk", name: "Crayhusk", family: "Insects", tier: "Standard", role: "Fast melee support", act: "Act I — The Queen Beneath the Frost", location: "Whisker Woods and Kap's Pond", threatLevel: "Standard enemy", summary: "A fast ground insect that rushes the player and digs up ammunition for allied Dappleflies.", behavior: "Runs quickly toward the player for a close-range bite. When supported by a Dapplefly, it can jump, burrow into loose ground, and pull out a rock or vegetable for the flyer to collect.", teamSynergy: "Crayhusks create shared ThrowablePickup objects. Dappleflies reserve, collect, and throw those objects, turning the pair into a coordinated ground-and-air threat.", status: "In Progress", attacks: [crayhuskRun, crayhuskRush, crayhuskForage], animationNotes: "Requires idle, fast run, bite, jump, dig start/loop/end, hit reaction, and defeat animation sets.", references: [], tags: ["Insects", "Whisker Woods", "Melee", "Team Utility"], updatedAt: "2026-08-21T00:00:00.000Z" }),
     normalizeCombatEnemy({ id: "dapplefly", name: "Dapplefly", family: "Insects", tier: "Standard", role: "Flying ranged support", act: "Act I — The Queen Beneath the Frost", location: "Whisker Woods and Kap's Pond", threatLevel: "Standard enemy", summary: "A flying insect that scavenges loose objects and throws them at the player along a clearly telegraphed arc.", behavior: "Circles above the encounter until it sees the player and an available object. It dives, picks the object up, gains altitude, then displays its throw arc and landing marker before releasing.", teamSynergy: "Prioritizes rocks and vegetables unearthed by Crayhusks, but can also use approved throwable objects already placed in the environment.", status: "In Progress", attacks: [dappleflyPickup, dappleflyThrow], animationNotes: "Requires idle flight, travel flight, search hover, dive, pickup, weighted carry, throw, hit reaction, and defeat animations.", references: [], tags: ["Insects", "Whisker Woods", "Flying", "Projectile", "Team Utility"], updatedAt: "2026-08-21T00:00:00.000Z" }),
     normalizeCombatEnemy({ id: "prawnhusk", name: "Prawnhusk", family: "Insects", tier: "Elite", role: "Armored elite bruiser", act: "Act I — The Queen Beneath the Frost", location: "Kap's Corrupted Pond", threatLevel: "Elite encounter", summary: "A heavily armored insect elite that controls space with a slam, punishes reckless attacks with its shell, and charges across the arena.", behavior: "Alternates between deliberate area pressure and armored defense. Its tells are larger than a standard enemy's, but failed reads carry stronger knockback and stun consequences.", teamSynergy: "Acts as the center of an insect encounter while standard insects create movement pressure around its slow, high-impact attacks.", status: "In Progress", attacks: [prawnhuskSlam, prawnhuskParry, prawnhuskCharge], animationNotes: "Requires elite idle, locomotion, slam, shell guard/parry, charge, hit reaction, stagger, and defeat animation sets.", references: [], tags: ["Insects", "Elite", "Kap's Pond", "Armored", "Act I"], updatedAt: "2026-08-21T00:00:00.000Z" })
   ];
@@ -373,7 +399,7 @@ export function createStarterCombatData(): CombatData {
   });
 
   return normalizeCombatData({
-    schemaVersion: 2,
+    schemaVersion: 3,
     bosses: [{
       id: "ice-queen",
       name: "Ice Queen",
@@ -409,16 +435,29 @@ export function normalizeCombatData(value: unknown): CombatData {
   const source = value && typeof value === "object" ? value as Partial<CombatData> : {};
   const sourceVersion = numberOr(source.schemaVersion, 1);
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     bosses: Array.isArray(source.bosses) ? source.bosses.map((boss) => normalizeCombatBoss(boss)) : [],
     enemies: Array.isArray(source.enemies)
-      ? source.enemies.map((enemy) => normalizeCombatEnemy(enemy))
+      ? migrateCombatEnemies(source.enemies.map((enemy) => normalizeCombatEnemy(enemy)), sourceVersion)
       : sourceVersion < 2 ? createStarterEnemies() : [],
     enemiesNotes: text(source.enemiesNotes),
     playerCombatNotes: text(source.playerCombatNotes),
     combatSystemsNotes: text(source.combatSystemsNotes),
     updatedAt: text(source.updatedAt) || new Date().toISOString()
   };
+}
+
+function migrateCombatEnemies(enemies: CombatEnemy[], sourceVersion: number) {
+  if (sourceVersion >= 3) return enemies;
+  return enemies.map((enemy) => {
+    const hasRunMove = enemy.attacks.some((attack) => attack.id === "crayhusk-run" || normalizedEnemyName(attack.name) === "run");
+    if (normalizedEnemyName(enemy.name) !== "crayhusk" || hasRunMove) return enemy;
+    return { ...enemy, attacks: [createCrayhuskRunMove(), ...enemy.attacks].map((attack, order) => ({ ...attack, order })) };
+  });
+}
+
+function normalizedEnemyName(value: unknown) {
+  return text(value).toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
 export function normalizeCombatEnemy(value: Partial<CombatEnemy>): CombatEnemy {
@@ -478,7 +517,7 @@ export function normalizeCombatAttack(value: Partial<CombatAttack>): CombatAttac
   return {
     id: text(value.id) || createCombatId("attack"), internalId: text(value.internalId), name: text(value.name) || "Untitled Attack", order: numberOr(value.order, 0),
     summary: text(value.summary), purpose: text(value.purpose), playerRead: text(value.playerRead), expectedResponses: stringList(value.expectedResponses), customResponse: text(value.customResponse),
-    damage: optionalNumber(value.damage), startup: optionalNumber(value.startup), activeTime: optionalNumber(value.activeTime), recovery: optionalNumber(value.recovery), cooldown: optionalNumber(value.cooldown),
+    damage: optionalNumber(value.damage), startup: optionalNumber(value.startup), activeTime: optionalNumber(value.activeTime), recovery: optionalNumber(value.recovery), cooldown: optionalNumber(value.cooldown), movementSpeed: optionalNumber(value.movementSpeed),
     range: text(value.range), knockback: text(value.knockback), stagger: text(value.stagger), damageType: text(value.damageType),
     blockable: optionalBoolean(value.blockable), dodgeable: optionalBoolean(value.dodgeable), parryable: optionalBoolean(value.parryable), interruptible: optionalBoolean(value.interruptible),
     production: createProductionState(value.production),
@@ -498,7 +537,7 @@ export function normalizeCombatMedia(value: Partial<CombatMediaReference>, index
   const kinds = ["Rough Sketch", "Storyboard", "Keyframe", "Animation Reference", "Final Animation", "VFX Reference", "In-Game Capture", "Hitbox Reference"];
   return {
     id: text(value.id) || createCombatId("media"), kind: kinds.includes(text(value.kind)) ? value.kind! : "Keyframe", label: text(value.label) || `Reference ${index + 1}`,
-    imageUrl: text(value.imageUrl), webViewLink: text(value.webViewLink) || undefined, imageFit: normalizeImageFit(value.imageFit || defaultImageFit), timestamp: text(value.timestamp) || undefined,
+    imageUrl: text(value.imageUrl), webViewLink: text(value.webViewLink) || undefined, imageFit: normalizeImageFit(value.imageFit || defaultImageFit), spriteAnimation: normalizeSpriteAnimationSlotReference(value.spriteAnimation), timestamp: text(value.timestamp) || undefined,
     notes: text(value.notes), order: numberOr(value.order, index)
   };
 }

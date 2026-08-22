@@ -1227,6 +1227,25 @@ textarea {
   padding: 13px;
 }
 
+.combat-enemy-move-preview {
+  display: grid;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--card-border);
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--field-bg) 88%, #000);
+}
+
+.combat-enemy-move-preview > div:not(.sprite-aware-image) {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  color: var(--muted-ink);
+  font-size: 0.68rem;
+}
+
 .combat-enemy-move-card > header {
   display: grid;
   grid-template-columns: 42px minmax(0, 1fr) auto;
@@ -1281,8 +1300,12 @@ textarea {
 
 .combat-enemy-move-values {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 4px;
+}
+
+.combat-enemy-move-values span:last-child {
+  grid-column: 1 / -1;
 }
 
 .combat-enemy-move-values span {
@@ -1360,6 +1383,11 @@ textarea {
   gap: 9px;
 }
 
+.combat-enemy-media-grid > .combat-empty-inline {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
 .combat-enemy-media-grid article {
   display: grid;
   align-content: start;
@@ -1383,6 +1411,15 @@ textarea {
   width: 100%;
   height: 100%;
   object-fit: contain;
+}
+
+.combat-enemy-media-grid .sprite-aware-image,
+.combat-attack-preview .sprite-aware-image,
+.combat-media-selected .sprite-aware-image,
+.combat-media-thumbnails .sprite-aware-image,
+.combat-reference-gallery .sprite-aware-image {
+  width: 100%;
+  height: 100%;
 }
 
 .combat-enemy-media-grid article small,
@@ -1536,7 +1573,8 @@ textarea {
 .combat-media-stage aside p { color: var(--muted-ink); line-height: 1.55; }
 .combat-media-stage aside a { display: inline-flex; align-items: center; gap: 5px; color: var(--gold); font-size: .72rem; }
 .combat-media-thumbnails { display: flex; gap: 7px; overflow-x: auto; margin-top: 10px; padding-bottom: 4px; }
-.combat-media-thumbnails button { display: grid; min-width: 138px; grid-template-columns: 52px minmax(0,1fr); gap: 2px 7px; align-items: center; border: 1px solid var(--card-border); border-radius: 5px; background: var(--card-bg); padding: 5px; color: var(--app-ink); text-align: left; }
+.combat-media-thumbnails button,
+.combat-media-thumbnails .combat-linked-animation-thumb { display: grid; min-width: 138px; grid-template-columns: 52px minmax(0,1fr); gap: 2px 7px; align-items: center; border: 1px solid var(--card-border); border-radius: 5px; background: var(--card-bg); padding: 5px; color: var(--app-ink); text-align: left; }
 .combat-media-thumbnails button.active { border-color: var(--gold); }
 .combat-media-thumbnails span { display: grid; grid-row: 1 / 3; width: 52px; aspect-ratio: 16/10; place-items: center; overflow: hidden; background: var(--field-bg); color: var(--gold); }
 .combat-media-thumbnails img { width: 100%; height: 100%; object-fit: cover; }
@@ -26967,6 +27005,30 @@ body > .picker-dialog-bg {
   flex: 0 0 auto;
   object-fit: fill;
   image-rendering: pixelated;
+}
+
+.sprite-aware-image {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  place-items: center;
+  overflow: hidden;
+}
+
+.sprite-aware-image-inner {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  will-change: transform;
+}
+
+.sprite-aware-image .sprite-animation,
+.sprite-aware-image .sprite-animation-frame {
+  width: 100%;
+  height: 100%;
 }
 
 .sprite-timeline-wrap {

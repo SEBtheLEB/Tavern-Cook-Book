@@ -67,6 +67,7 @@ import { useRealtimeCollaboration } from "./RealtimeCollaborationContext";
 import { RichLoreText, RichTextEditor } from "./RichText";
 import { FavoriteButton } from "./FavoriteButton";
 import { StoryReaderModal, type StoryReaderSection, type StoryReaderStep } from "./StoryReaderModal";
+import { SpriteAwareImage } from "./SpriteAwareImage";
 
 type ImageSlot =
   | "iconImage"
@@ -2864,8 +2865,8 @@ function CharacterArtVaultView({
         )}
         <button className="character-art-vault-slot-main" onClick={() => triggerPrimarySlotAction(ref)}>
           <div className="character-art-vault-slot-preview">
-            {slot.image?.thumbnailUrl ? (
-              <GalleryThumbnail src={slot.image.thumbnailUrl} title={slot.label} imageFit={slot.image.imageFit} />
+            {slot.image?.thumbnailUrl || slot.image?.spriteAnimation ? (
+              <SpriteAwareImage src={slot.image?.thumbnailUrl} spriteAnimation={slot.image?.spriteAnimation} imageFit={slot.image?.imageFit} alt={`${slot.label} preview`} />
             ) : (
               <div className="character-art-vault-slot-placeholder">
                 <span className="character-art-vault-linework" />
@@ -3320,8 +3321,8 @@ function CharacterArtVaultView({
                       )}
                       <button className="character-art-vault-slot-main" onClick={() => triggerPrimarySlotAction(ref)}>
                         <div className="character-art-vault-slot-preview">
-                          {slot.image?.thumbnailUrl ? (
-                            <GalleryThumbnail src={slot.image.thumbnailUrl} title={slot.label} imageFit={slot.image.imageFit} />
+                          {slot.image?.thumbnailUrl || slot.image?.spriteAnimation ? (
+                            <SpriteAwareImage src={slot.image?.thumbnailUrl} spriteAnimation={slot.image?.spriteAnimation} imageFit={slot.image?.imageFit} alt={`${slot.label} preview`} />
                           ) : (
                             <div className="character-art-vault-slot-placeholder">
                               <span className="character-art-vault-linework" />
@@ -3527,16 +3528,16 @@ function CharacterArtVaultSlotModal({
 
         <div className="character-art-vault-slot-modal-body">
           <div className="character-art-vault-slot-modal-preview">
-            {isEditing && draft.image?.thumbnailUrl ? (
+            {isEditing && (draft.image?.thumbnailUrl || draft.image?.spriteAnimation) ? (
               <button
                 className="editable-image-trigger"
                 onClick={(event) => onAdjustImage(frameFromElement(event.currentTarget))}
               >
-                <GalleryThumbnail src={draft.image.thumbnailUrl} title={draft.label} imageFit={draft.image.imageFit} />
+                <SpriteAwareImage src={draft.image?.thumbnailUrl} spriteAnimation={draft.image?.spriteAnimation} imageFit={draft.image?.imageFit} alt={`${draft.label} preview`} />
                 <span>Adjust</span>
               </button>
             ) : (
-              <GalleryThumbnail src={draft.image?.thumbnailUrl || ""} title={draft.label} imageFit={draft.image?.imageFit} />
+              <SpriteAwareImage src={draft.image?.thumbnailUrl} spriteAnimation={draft.image?.spriteAnimation} imageFit={draft.image?.imageFit} alt={`${draft.label} preview`} />
             )}
             <span className={`character-art-vault-status ${draft.status || "empty"}`}>
               {artVaultStatusText(draft.status)}

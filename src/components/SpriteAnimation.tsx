@@ -11,11 +11,13 @@ interface SpriteAnimationProps {
   playOnHover?: boolean;
   resetOnMouseLeave?: boolean;
   loopWhileHovering?: boolean;
+  loopOverride?: boolean;
   playOnce?: boolean;
   fpsOverride?: number;
   frameOverride?: number | null;
   frameImages?: SpriteAnimationFrameImage[];
   className?: string;
+  fluid?: boolean;
   onFrameChange?: (frameIndex: number) => void;
 }
 
@@ -26,11 +28,13 @@ export function SpriteAnimation({
   playOnHover = false,
   resetOnMouseLeave = true,
   loopWhileHovering = true,
+  loopOverride,
   playOnce,
   fpsOverride,
   frameOverride = null,
   frameImages = [],
   className = "",
+  fluid = false,
   onFrameChange
 }: SpriteAnimationProps) {
   const holdSignature = JSON.stringify(preset.frameHoldCounts || {});
@@ -41,7 +45,7 @@ export function SpriteAnimation({
   const frame = frameOverride ?? sequence[Math.min(sequenceIndex, Math.max(0, sequence.length - 1))] ?? preset.startFrame;
   const active = autoplay || (playOnHover && hovered);
   const shouldPlayOnce = playOnce ?? preset.playOnce;
-  const shouldLoop = playOnHover && hovered ? loopWhileHovering : preset.loop;
+  const shouldLoop = loopOverride ?? (playOnHover && hovered ? loopWhileHovering : preset.loop);
 
   useEffect(() => {
     if (frameOverride == null) return;
@@ -96,11 +100,13 @@ export function SpriteAnimation({
   const scale = Math.max(0.25, preset.scale || 1);
   const width = preset.frameWidth * scale;
   const height = preset.frameHeight * scale;
+  const column = Math.floor(sourceX / Math.max(1, preset.frameWidth));
+  const row = Math.floor(sourceY / Math.max(1, preset.frameHeight));
 
   return (
     <div
       className={`sprite-animation ${className}`.trim()}
-      style={{ width, height }}
+      style={fluid ? { width: "100%", height: "100%" } : { width, height }}
       onMouseEnter={() => {
         if (playOnHover) setHovered(true);
       }}
@@ -114,16 +120,18 @@ export function SpriteAnimation({
       aria-label={`${spriteSheet.name} ${preset.animationName} animation`}
     >
       {frameImageSrc ? (
-        <img className="sprite-animation-frame-image" src={frameImageSrc} alt="" draggable={false} style={{ width, height }} />
+        <img className="sprite-animation-frame-image" src={frameImageSrc} alt="" draggable={false} style={fluid ? { width: "100%", height: "100%", objectFit: "contain" } : { width, height }} />
       ) : (
         <div
           className="sprite-animation-frame"
           style={{
-            width,
-            height,
+            width: fluid ? "100%" : width,
+            height: fluid ? "100%" : height,
             backgroundImage: imageUrl ? `url(${imageUrl})` : undefined,
-            backgroundSize: `${preset.columns * preset.frameWidth * scale}px ${preset.rows * preset.frameHeight * scale}px`,
-            backgroundPosition: `-${sourceX * scale}px -${sourceY * scale}px`
+            backgroundSize: fluid ? `${preset.columns * 100}% ${preset.rows * 100}%` : `${preset.columns * preset.frameWidth * scale}px ${preset.rows * preset.frameHeight * scale}px`,
+            backgroundPosition: fluid
+              ? `${preset.columns > 1 ? column / (preset.columns - 1) * 100 : 0}% ${preset.rows > 1 ? row / (preset.rows - 1) * 100 : 0}%`
+              : `-${sourceX * scale}px -${sourceY * scale}px`
           }}
         />
       )}
