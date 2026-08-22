@@ -32,6 +32,8 @@ import {
 } from "../utils/combat";
 import { normalizeBestiaryCreature } from "../utils/bestiary";
 import { normalizeImageFit } from "../utils/imageFit";
+import { inferArtVaultSpriteAnimation } from "../utils/spriteAnimationSlots";
+import { loadSpriteSheetAssets } from "../utils/spriteSheets";
 import { AssignableModule } from "./AssignmentSystem";
 import { CustomSelect } from "./CustomSelect";
 import { Icon } from "./Icon";
@@ -344,10 +346,12 @@ type CreatureArtAsset = {
 
 function creatureArtAssets(creature: BestiaryCreature | null): CreatureArtAsset[] {
   if (!creature) return [];
+  const spriteSheetAssets = loadSpriteSheetAssets();
   return (creature.artVault?.sections || []).flatMap((section) => section.slots.flatMap((slot) => {
     const image = slot.image;
     const imageUrl = image?.thumbnailUrl || image?.downloadUrl || "";
-    return imageUrl || image?.spriteAnimation ? [{ id: image?.id || `${section.id}-${slot.id}`, sectionId: section.id, slotId: slot.id, label: slot.label, section: section.title, imageUrl, imageFit: image?.imageFit, spriteAnimation: image?.spriteAnimation }] : [];
+    const spriteAnimation = inferArtVaultSpriteAnimation(image, slot.label, section.title, spriteSheetAssets);
+    return imageUrl || spriteAnimation ? [{ id: image?.id || `${section.id}-${slot.id}`, sectionId: section.id, slotId: slot.id, label: slot.label, section: section.title, imageUrl, imageFit: image?.imageFit, spriteAnimation }] : [];
   }));
 }
 

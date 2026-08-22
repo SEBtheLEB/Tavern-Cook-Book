@@ -16,6 +16,7 @@ import {
   type SpriteAnimationPreset,
   type SpriteSheetAsset
 } from "./spriteSheets";
+import { extractGoogleDriveFileId } from "./imageFit";
 
 export interface SpriteAnimationSlotAssets {
   frameImages?: SpriteAnimationFrameImage[];
@@ -112,22 +113,58 @@ export function resolveSpriteAnimationSlot(value: unknown): {
   return { asset, preset, reference };
 }
 
+export function inferArtVaultSpriteAnimation(
+  image: ArtVaultImageMetadata | null | undefined,
+  slotLabel = "",
+  sectionTitle = "",
+  availableAssets?: SpriteSheetAsset[]
+): SpriteAnimationSlotReference | undefined {
+  if (!image) return undefined;
+  const current = normalizeSpriteAnimationSlotReference(image.spriteAnimation);
+  const currentResolution = current ? resolveSpriteAnimationSlot(current) : null;
+  if (currentResolution?.asset && currentResolution.preset && currentResolution.reference) {
+    return currentResolution.reference;
+  }
+
+  const identity = [slotLabel, sectionTitle, image.title, image.category, image.fileName].filter(Boolean).join(" ");
+  if (!current && !/sprite\s*sheet|sprite\s*animation|animation\s*sheet/i.test(identity)) return undefined;
+
+  const assets = availableAssets || loadSpriteSheetsSafely();
+  const asset = findMatchingSpriteSheetAsset(image, identity, current, assets);
+  const preset = findMatchingSpriteAnimationPreset(asset, identity, current?.animationPresetId || "");
+  if (!asset || !preset) return current;
+
+  return createSpriteAnimationSlotReference(
+    asset,
+    preset,
+    current?.playback || "autoplay",
+    current?.loop !== false,
+    {
+      frameImages: current?.frameImages,
+      frameFolderId: current?.frameFolderId,
+      frameFolderLink: current?.frameFolderLink,
+      frameFolderName: current?.frameFolderName
+    }
+  );
+}
+
 export function hydrateDatabaseSpriteAnimationSnapshots(database: LoreDatabase): { database: LoreDatabase; changed: boolean } {
   let changed = false;
+  const spriteSheetAssets = loadSpriteSheetsSafely();
   const entries = (database.entries || []).map((entry) => {
-    const hydratedVault = hydrateArtVault(entry.artVault);
+    const hydratedVault = hydrateArtVault(entry.artVault, spriteSheetAssets);
     if (!hydratedVault.changed) return entry;
     changed = true;
     return { ...entry, artVault: hydratedVault.vault || entry.artVault };
   });
   const bestiary = (database.bestiary || []).map((creature) => {
-    const hydratedVault = hydrateArtVault(creature.artVault);
+    const hydratedVault = hydrateArtVault(creature.artVault, spriteSheetAssets);
     if (!hydratedVault.changed) return creature;
     changed = true;
     return { ...creature, artVault: hydratedVault.vault || creature.artVault };
   });
   const bestiaryCategoryVaults = (database.bestiaryCategoryVaults || []).map((vault) => {
-    const hydratedVault = hydrateArtVault(vault.artVault);
+    const hydratedVault = hydrateArtVault(vault.artVault, spriteSheetAssets);
     if (!hydratedVault.changed) return vault;
     changed = true;
     return { ...vault, artVault: hydratedVault.vault || vault.artVault };
@@ -263,41 +300,132 @@ function findLocalSpriteAnimationPreset(asset: SpriteSheetAsset | null, animatio
     (asset.animationPresets.length === 1 ? asset.animationPresets[0] : null);
 }
 
+function findMatchingSpriteSheetAsset(
+  image: ArtVaultImageMetadata,
+  identity: string,
+  current: SpriteAnimationSlotReference | undefined,
+  assets: SpriteSheetAsset[]
+) {
+  if (!assets.length) return null;
+  const driveIds = new Set([
+    text(image.driveFileId),
+    extractGoogleDriveFileId(text(image.thumbnailUrl)),
+    extractGoogleDriveFileId(text(image.webViewLink)),
+    extractGoogleDriveFileId(text(image.downloadUrl))
+  ].filter(Boolean));
+  const direct = assets.find((asset) =>
+    asset.id === current?.spriteSheetAssetId ||
+    (asset.driveFileId && driveIds.has(asset.driveFileId))
+  );
+  if (direct) return direct;
+
+  const targetTerms = spriteIdentityTerms(identity);
+  const ranked = assets
+    .map((asset) => ({
+      asset,
+      score: spriteIdentityScore(
+        targetTerms,
+        spriteIdentityTerms(`${asset.name} ${asset.originalFileName} ${asset.category}`)
+      )
+    }))
+    .filter((item) => item.score > 0)
+    .sort((left, right) => right.score - left.score);
+  return ranked[0]?.asset || null;
+}
+
+function findMatchingSpriteAnimationPreset(
+  asset: SpriteSheetAsset | null,
+  identity: string,
+  animationPresetId: string
+) {
+  if (!asset?.animationPresets.length) return null;
+  const direct = asset.animationPresets.find((preset) => preset.id === animationPresetId);
+  if (direct) return direct;
+  if (asset.animationPresets.length === 1) return asset.animationPresets[0];
+
+  const targetTerms = spriteIdentityTerms(identity);
+  const ranked = asset.animationPresets
+    .map((preset) => ({
+      preset,
+      score: spriteIdentityScore(
+        targetTerms,
+        spriteIdentityTerms(`${preset.animationName} ${preset.presetName}`)
+      )
+    }))
+    .filter((item) => item.score > 0)
+    .sort((left, right) => right.score - left.score);
+  return ranked[0]?.preset || null;
+}
+
+function spriteIdentityTerms(value: string) {
+  const ignored = new Set(["sprite", "sprites", "sheet", "animation", "animations", "frame", "frames", "art", "core", "creature", "bestiary"]);
+  return new Set(
+    value
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter((term) => term.length >= 2 && !ignored.has(term))
+  );
+}
+
+function spriteIdentityScore(target: Set<string>, candidate: Set<string>) {
+  let score = 0;
+  candidate.forEach((term) => {
+    if (target.has(term)) score += term.length >= 6 ? 3 : 1;
+  });
+  return score;
+}
+
 function driveFileIdFromSpriteSheetAssetId(spriteSheetAssetId: string) {
   const match = spriteSheetAssetId.match(/^sprite-sheet-(.+)-\d+$/);
   return match?.[1] || "";
 }
 
-function hydrateArtVault(vault: CharacterArtVault | undefined): { vault: CharacterArtVault | undefined; changed: boolean } {
+function hydrateArtVault(
+  vault: CharacterArtVault | undefined,
+  spriteSheetAssets: SpriteSheetAsset[]
+): { vault: CharacterArtVault | undefined; changed: boolean } {
   if (!vault?.sections?.length) return { vault, changed: false };
   let changed = false;
   const sections = vault.sections.map((section) => {
-    const hydrated = hydrateSection(section);
+    const hydrated = hydrateSection(section, spriteSheetAssets);
     if (hydrated.changed) changed = true;
     return hydrated.section;
   });
   return changed ? { vault: { ...vault, sections }, changed: true } : { vault, changed: false };
 }
 
-function hydrateSection(section: ArtVaultSection): { section: ArtVaultSection; changed: boolean } {
+function hydrateSection(
+  section: ArtVaultSection,
+  spriteSheetAssets: SpriteSheetAsset[]
+): { section: ArtVaultSection; changed: boolean } {
   let changed = false;
   const slots = (section.slots || []).map((slot) => {
-    const hydrated = hydrateSlot(slot);
+    const hydrated = hydrateSlot(slot, section.title, spriteSheetAssets);
     if (hydrated.changed) changed = true;
     return hydrated.slot;
   });
   return changed ? { section: { ...section, slots }, changed: true } : { section, changed: false };
 }
 
-function hydrateSlot(slot: ArtVaultSlot): { slot: ArtVaultSlot; changed: boolean } {
-  const hydrated = hydrateImage(slot.image);
+function hydrateSlot(
+  slot: ArtVaultSlot,
+  sectionTitle: string,
+  spriteSheetAssets: SpriteSheetAsset[]
+): { slot: ArtVaultSlot; changed: boolean } {
+  const hydrated = hydrateImage(slot.image, slot.label, sectionTitle, spriteSheetAssets);
   if (!hydrated.changed) return { slot, changed: false };
   return { slot: { ...slot, image: hydrated.image }, changed: true };
 }
 
-function hydrateImage(image: ArtVaultImageMetadata | null): { image: ArtVaultImageMetadata | null; changed: boolean } {
-  if (!image?.spriteAnimation) return { image, changed: false };
-  const normalized = normalizeSpriteAnimationSlotReference(image.spriteAnimation);
+function hydrateImage(
+  image: ArtVaultImageMetadata | null,
+  slotLabel: string,
+  sectionTitle: string,
+  spriteSheetAssets: SpriteSheetAsset[]
+): { image: ArtVaultImageMetadata | null; changed: boolean } {
+  if (!image) return { image, changed: false };
+  const normalized = inferArtVaultSpriteAnimation(image, slotLabel, sectionTitle, spriteSheetAssets);
   if (!normalized) return { image, changed: false };
   if (sameValue(normalized, image.spriteAnimation)) return { image, changed: false };
   return { image: { ...image, spriteAnimation: normalized }, changed: true };
