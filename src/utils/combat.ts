@@ -159,7 +159,7 @@ function createStarterEnemies(): CombatEnemy[] {
     summary: "The Crayhusk rapidly closes the gap and bites the player at melee range.",
     purpose: "Turns the Crayhusk into fast close-range pressure and prevents the player from ignoring it while focusing on flying enemies.",
     playerRead: "It lowers its shell, spreads its legs, and chatters its claws before sprinting in a straight line.",
-    expectedResponses: ["Dodge", "Block", "Reposition"],
+    expectedResponses: ["Dash", "Block", "Reposition"],
     damage: 18,
     startup: 0.35,
     activeTime: 0.25,
@@ -232,9 +232,9 @@ function createStarterEnemies(): CombatEnemy[] {
     name: "Arcing Throw",
     order: 1,
     summary: "While carrying an object, the Dapplefly throws it toward the player along a visible arc with a marked landing point.",
-    purpose: "Adds dodgeable aerial pressure without creating an unreadable off-screen projectile.",
+    purpose: "Adds clearly telegraphed aerial pressure that the player can dash away from without creating an unreadable off-screen projectile.",
     playerRead: "The Dapplefly hovers, pulls the object backward, and draws a visible trajectory arc and landing marker before release.",
-    expectedResponses: ["Dodge", "Leave marked area"],
+    expectedResponses: ["Dash", "Leave marked area"],
     damage: 16,
     startup: 0.8,
     activeTime: 1.1,
@@ -260,7 +260,7 @@ function createStarterEnemies(): CombatEnemy[] {
     summary: "The Prawnhusk winds up and slams the ground, sending a circular shockwave through the arena.",
     purpose: "Forces the player to dash out during the windup and dash back in through the recovery window.",
     playerRead: "It rises high on its rear legs, lifts both claws, and holds for a clear beat before crashing down.",
-    expectedResponses: ["Dodge", "Reposition"],
+    expectedResponses: ["Dash", "Reposition"],
     customResponse: "Dash away, then dash back during recovery",
     damage: 35,
     startup: 1.05,
@@ -309,9 +309,9 @@ function createStarterEnemies(): CombatEnemy[] {
     name: "Armored Charge",
     order: 2,
     summary: "The Prawnhusk lines up with the player and charges forward behind its armored shell.",
-    purpose: "Creates a direct lane threat and gives the player a clean lateral-dodge test.",
+    purpose: "Creates a direct lane threat and gives the player a clean lateral-dash test.",
     playerRead: "It scrapes the ground, lowers its shell, and locks its body into a straight charging line.",
-    expectedResponses: ["Dodge", "Reposition"],
+    expectedResponses: ["Dash", "Reposition"],
     damage: 28,
     startup: 0.7,
     activeTime: 1.15,
@@ -326,7 +326,7 @@ function createStarterEnemies(): CombatEnemy[] {
     parryable: false,
     interruptible: false,
     animation: { assetName: "PH_ArmoredCharge", requiredClips: ["PH_Charge_Tell", "PH_Charge_Loop", "PH_Charge_Stop"], keyPoses: "Ground scrape, shell-forward sprint, braking skid.", rootMotion: "Fast forward charge", looping: "Charge loop", notes: "Maintain the lane tell long enough for a deliberate side dash." },
-    developer: { blueprint: "BP_Prawnhusk_ArmoredCharge", abilityClass: "Linear charge", aiBehavior: "Commit to player-facing lane", selectionConditions: ["Player is outside melee range", "Straight path is available", "Charge cooldown complete"], minimumDistance: 5, maximumDistance: 16, attackWeight: 1, phaseAvailability: "Elite kit", notes: "Lock the target lane near the end of startup so the player can dodge perpendicular to it." }
+    developer: { blueprint: "BP_Prawnhusk_ArmoredCharge", abilityClass: "Linear charge", aiBehavior: "Commit to player-facing lane", selectionConditions: ["Player is outside melee range", "Straight path is available", "Charge cooldown complete"], minimumDistance: 5, maximumDistance: 16, attackWeight: 1, phaseAvailability: "Elite kit", notes: "Lock the target lane near the end of startup so the player can dash perpendicular to it." }
   });
 
   return [
@@ -343,9 +343,9 @@ export function createStarterCombatData(): CombatData {
     name: "Frost Sweep",
     order: 0,
     summary: "The Ice Queen sweeps her arm across the arena and releases a horizontal wave of ice toward the player.",
-    purpose: "Prevents the player from remaining directly in front of the Ice Queen and encourages jumping.",
+    purpose: "Prevents the player from remaining directly in front of the Ice Queen and requires a well-timed dash through or away from the ice wave.",
     playerRead: "The Ice Queen raises her right arm and frost begins collecting around it.",
-    expectedResponses: ["Jump", "Dodge"],
+    expectedResponses: ["Dash"],
     customResponse: "",
     damage: 35,
     startup: 0.8,
@@ -400,7 +400,7 @@ export function createStarterCombatData(): CombatData {
   });
 
   return normalizeCombatData({
-    schemaVersion: 4,
+    schemaVersion: 5,
     bosses: [{
       id: "ice-queen",
       name: "Ice Queen",
@@ -436,7 +436,7 @@ export function normalizeCombatData(value: unknown): CombatData {
   const source = value && typeof value === "object" ? value as Partial<CombatData> : {};
   const sourceVersion = numberOr(source.schemaVersion, 1);
   return {
-    schemaVersion: 4,
+    schemaVersion: 5,
     bosses: Array.isArray(source.bosses) ? source.bosses.map((boss) => normalizeCombatBoss(boss)) : [],
     enemies: Array.isArray(source.enemies)
       ? migrateCombatEnemies(source.enemies.map((enemy) => normalizeCombatEnemy(enemy)), sourceVersion)
@@ -517,7 +517,7 @@ export function normalizeCombatAttack(value: Partial<CombatAttack>): CombatAttac
   const developer = value.developer || {} as CombatAttack["developer"];
   return {
     id: text(value.id) || createCombatId("attack"), internalId: text(value.internalId), name: text(value.name) || "Untitled Attack", order: numberOr(value.order, 0),
-    summary: text(value.summary), purpose: text(value.purpose), playerRead: text(value.playerRead), expectedResponses: stringList(value.expectedResponses), customResponse: text(value.customResponse), specialAttack: value.specialAttack === true,
+    summary: text(value.summary), purpose: normalizePlayerMovementCopy(value.purpose), playerRead: text(value.playerRead), expectedResponses: normalizePlayerResponses(value.expectedResponses), customResponse: normalizePlayerMovementCopy(value.customResponse), specialAttack: value.specialAttack === true,
     damage: optionalNumber(value.damage), startup: optionalNumber(value.startup), activeTime: optionalNumber(value.activeTime), recovery: optionalNumber(value.recovery), cooldown: optionalNumber(value.cooldown), movementSpeed: optionalNumber(value.movementSpeed),
     range: text(value.range), knockback: text(value.knockback), stagger: text(value.stagger), damageType: text(value.damageType),
     blockable: optionalBoolean(value.blockable), dodgeable: optionalBoolean(value.dodgeable), parryable: optionalBoolean(value.parryable), interruptible: optionalBoolean(value.interruptible),
@@ -527,7 +527,7 @@ export function normalizeCombatAttack(value: Partial<CombatAttack>): CombatAttac
     animation: { assetName: text(animation.assetName), requiredClips: stringList(animation.requiredClips), keyPoses: text(animation.keyPoses), rootMotion: text(animation.rootMotion), looping: text(animation.looping), notes: text(animation.notes) },
     vfx: { windup: text(vfx.windup), attack: text(vfx.attack), projectile: text(vfx.projectile), impact: text(vfx.impact), environmental: text(vfx.environmental), notes: text(vfx.notes) },
     audio: { charge: text(audio.charge), swing: text(audio.swing), projectile: text(audio.projectile), impact: text(audio.impact), vocalization: text(audio.vocalization), environmental: text(audio.environmental), notes: text(audio.notes) },
-    developer: { blueprint: text(developer.blueprint), abilityClass: text(developer.abilityClass), aiBehavior: text(developer.aiBehavior), selectionConditions: stringList(developer.selectionConditions), minimumDistance: optionalNumber(developer.minimumDistance), maximumDistance: optionalNumber(developer.maximumDistance), attackWeight: optionalNumber(developer.attackWeight), phaseAvailability: text(developer.phaseAvailability), notes: text(developer.notes) },
+    developer: { blueprint: text(developer.blueprint), abilityClass: text(developer.abilityClass), aiBehavior: text(developer.aiBehavior), selectionConditions: stringList(developer.selectionConditions), minimumDistance: optionalNumber(developer.minimumDistance), maximumDistance: optionalNumber(developer.maximumDistance), attackWeight: optionalNumber(developer.attackWeight), phaseAvailability: text(developer.phaseAvailability), notes: normalizePlayerMovementCopy(developer.notes) },
     comments: Array.isArray(value.comments) ? value.comments.map((comment) => ({ id: text(comment.id) || createCombatId("comment"), author: text(comment.author), authorEmail: text(comment.authorEmail), text: text(comment.text), createdAt: text(comment.createdAt) || new Date().toISOString() })) : [],
     history: Array.isArray(value.history) ? value.history.map((item) => ({ id: text(item.id) || createCombatId("history"), message: text(item.message), createdAt: text(item.createdAt) || new Date().toISOString() })) : [],
     updatedAt: text(value.updatedAt) || new Date().toISOString()
@@ -564,4 +564,14 @@ function numberOr(value: unknown, fallback: number) { const next = Number(value)
 function optionalNumber(value: unknown) { if (value === "" || value === null || value === undefined) return undefined; const next = Number(value); return Number.isFinite(next) ? next : undefined; }
 function optionalBoolean(value: unknown) { return typeof value === "boolean" ? value : undefined; }
 function stringList(value: unknown) { return Array.isArray(value) ? value.map((item) => String(item || "").trim()).filter(Boolean) : []; }
+function normalizePlayerResponses(value: unknown) {
+  return Array.from(new Set(stringList(value).map((response) => /^(jump|dodge)$/i.test(response) ? "Dash" : response)));
+}
+function normalizePlayerMovementCopy(value: unknown) {
+  return text(value)
+    .replace(/\bjumping\b/gi, (match) => match[0] === "J" ? "Dashing" : "dashing")
+    .replace(/\bjump\b/gi, (match) => match[0] === "J" ? "Dash" : "dash")
+    .replace(/\bdodging\b/gi, (match) => match[0] === "D" ? "Dashing" : "dashing")
+    .replace(/\bdodge\b/gi, (match) => match[0] === "D" ? "Dash" : "dash");
+}
 function byOrder<T extends { order: number }>(a: T, b: T) { return a.order - b.order; }

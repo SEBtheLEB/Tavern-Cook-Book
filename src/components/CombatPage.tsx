@@ -62,7 +62,7 @@ type MediaTarget = { type: "boss"; bossId: string } | { type: "phase"; bossId: s
 
 const bossTypes: CombatBossType[] = ["Main Boss", "Mini Boss", "Elite Encounter", "Tutorial Boss"];
 const bossTabs: BossTab[] = ["Overview", "Moveset", "Animation", "Balance", "References"];
-const responseOptions = ["Jump", "Dodge", "Block", "Parry", "Move behind boss", "Leave marked area"];
+const responseOptions = ["Dash", "Block", "Parry", "Move behind boss", "Leave marked area"];
 const mediaKinds: CombatMediaKind[] = ["Rough Sketch", "Storyboard", "Keyframe", "Animation Reference", "Final Animation", "VFX Reference", "In-Game Capture", "Hitbox Reference"];
 
 export function CombatPage({ combat, bestiary, readOnly, currentUser, onCombatChange, onSaveCreature, focusRoute = "" }: CombatPageProps) {

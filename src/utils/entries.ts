@@ -227,7 +227,7 @@ const baseArtVaultBlueprints = [
       "Walk Sprite Sheet",
       "Run Sprite Sheet",
       "Dash Sprite Sheet",
-      "Jump / Fall Sprite Sheet",
+      "Fall / Landing Sprite Sheet",
       "Turnaround Sprite Sheet",
       "Expression Sprite Sheet",
       "General Movement Cleanup Sheet"
@@ -635,6 +635,14 @@ function consolidateCharacterSpriteSections(vault: CharacterArtVault): Character
   const spriteBlueprint = baseArtVaultBlueprints.find((section) => section.id === "sprite-sheets");
   let spriteSection = sections.find((section) => section.id === "sprite-sheets") ||
     sections.find((section) => section.title.trim().toLowerCase() === "sprite sheets");
+
+  if (spriteSection) {
+    spriteSection.slots = spriteSection.slots.map((slot) =>
+      /^jump\s*\/\s*fall sprite sheet$/i.test(slot.label.trim())
+        ? { ...slot, label: "Fall / Landing Sprite Sheet" }
+        : slot
+    );
+  }
 
   if (!spriteSection && spriteBlueprint) {
     spriteSection = createArtVaultSectionFromBlueprint(spriteBlueprint, sections.length);
