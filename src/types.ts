@@ -1112,6 +1112,7 @@ export interface CombatAttack {
   playerRead: string;
   expectedResponses: string[];
   customResponse: string;
+  specialAttack: boolean;
   damage?: number;
   startup?: number;
   activeTime?: number;

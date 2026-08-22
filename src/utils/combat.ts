@@ -42,6 +42,7 @@ export function createBlankAttack(order = 0): CombatAttack {
     playerRead: "",
     expectedResponses: [],
     customResponse: "",
+    specialAttack: false,
     range: "",
     knockback: "",
     stagger: "",
@@ -399,7 +400,7 @@ export function createStarterCombatData(): CombatData {
   });
 
   return normalizeCombatData({
-    schemaVersion: 3,
+    schemaVersion: 4,
     bosses: [{
       id: "ice-queen",
       name: "Ice Queen",
@@ -435,7 +436,7 @@ export function normalizeCombatData(value: unknown): CombatData {
   const source = value && typeof value === "object" ? value as Partial<CombatData> : {};
   const sourceVersion = numberOr(source.schemaVersion, 1);
   return {
-    schemaVersion: 3,
+    schemaVersion: 4,
     bosses: Array.isArray(source.bosses) ? source.bosses.map((boss) => normalizeCombatBoss(boss)) : [],
     enemies: Array.isArray(source.enemies)
       ? migrateCombatEnemies(source.enemies.map((enemy) => normalizeCombatEnemy(enemy)), sourceVersion)
@@ -516,7 +517,7 @@ export function normalizeCombatAttack(value: Partial<CombatAttack>): CombatAttac
   const developer = value.developer || {} as CombatAttack["developer"];
   return {
     id: text(value.id) || createCombatId("attack"), internalId: text(value.internalId), name: text(value.name) || "Untitled Attack", order: numberOr(value.order, 0),
-    summary: text(value.summary), purpose: text(value.purpose), playerRead: text(value.playerRead), expectedResponses: stringList(value.expectedResponses), customResponse: text(value.customResponse),
+    summary: text(value.summary), purpose: text(value.purpose), playerRead: text(value.playerRead), expectedResponses: stringList(value.expectedResponses), customResponse: text(value.customResponse), specialAttack: value.specialAttack === true,
     damage: optionalNumber(value.damage), startup: optionalNumber(value.startup), activeTime: optionalNumber(value.activeTime), recovery: optionalNumber(value.recovery), cooldown: optionalNumber(value.cooldown), movementSpeed: optionalNumber(value.movementSpeed),
     range: text(value.range), knockback: text(value.knockback), stagger: text(value.stagger), damageType: text(value.damageType),
     blockable: optionalBoolean(value.blockable), dodgeable: optionalBoolean(value.dodgeable), parryable: optionalBoolean(value.parryable), interruptible: optionalBoolean(value.interruptible),
