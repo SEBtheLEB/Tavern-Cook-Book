@@ -764,13 +764,7 @@ function encodeStoragePath(path: string) {
 }
 
 function supabaseStorageHeaders() {
-  const key = supabaseServiceRoleKey();
-  const headers: Record<string, string> = {
-    apikey: key,
-    Accept: "application/json"
-  };
-  if (!key.startsWith("sb_secret_")) headers.Authorization = `Bearer ${key}`;
-  return headers;
+  return supabaseBackendHeaders();
 }
 
 async function supabaseStorageError(response: Response, fallback: string) {
@@ -810,13 +804,7 @@ function supabaseUrl() {
 }
 
 function supabaseServiceRoleKey() {
-  return (
-    process.env.TAVERN_SUPABASE_SECRET_KEY
-    || process.env.SUPABASE_SECRET_KEY
-    || process.env.TAVERN_SUPABASE_SERVICE_ROLE_KEY
-    || process.env.SUPABASE_SERVICE_ROLE_KEY
-    || ""
-  ).trim();
+  return supabaseBackendKey();
 }
 
 function githubSyncToken() {
@@ -921,3 +909,4 @@ async function verifyGoogleCredential(headers: IncomingHttpHeaders): Promise<
 > {
   return verifyRequestIdentity(headers);
 }
+import { supabaseBackendHeaders, supabaseBackendKey } from "./supabaseCredentials.js";

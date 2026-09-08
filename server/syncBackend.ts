@@ -1,6 +1,7 @@
 import type { IncomingHttpHeaders } from "node:http";
 import { ACADEMY_PLACE_MIGRATION_ID, ACADEMY_PLACE_PAGE } from "../src/data/academyPlacePage.js";
 import { verifyRequestIdentity } from "./authSession.js";
+import { supabaseBackendHeaders, supabaseBackendKey } from "./supabaseCredentials.js";
 
 type SyncScope = "published" | "user" | "settings" | "health";
 type SyncProvider = "supabase" | "github" | "none";
@@ -453,13 +454,7 @@ function supabaseRowToEnvelope(row: SupabaseSyncRow): SyncEnvelope {
 }
 
 function supabaseHeaders() {
-  const key = supabaseServiceRoleKey();
-  const headers: Record<string, string> = {
-    apikey: key,
-    Accept: "application/json"
-  };
-  if (!key.startsWith("sb_secret_")) headers.Authorization = `Bearer ${key}`;
-  return headers;
+  return supabaseBackendHeaders(true);
 }
 
 async function supabaseError(response: Response, fallback: string) {
@@ -672,13 +667,7 @@ function supabaseRestBaseUrl() {
 }
 
 function supabaseServiceRoleKey() {
-  return (
-    process.env.TAVERN_SUPABASE_SECRET_KEY
-    || process.env.SUPABASE_SECRET_KEY
-    || process.env.TAVERN_SUPABASE_SERVICE_ROLE_KEY
-    || process.env.SUPABASE_SERVICE_ROLE_KEY
-    || ""
-  ).trim();
+  return supabaseBackendKey();
 }
 
 function supabaseTable() {
