@@ -1,5 +1,11 @@
 # The Tavern Cook Book Desktop App
 
+For the planned STL Workshop development-host integration, use the copy-ready handoff prompt in:
+
+`docs/handoffs/stl-workshop-tavern-cookbook-integration-prompt.md`
+
+That integration is intentionally separate from the standalone Tauri wrapper described below.
+
 The desktop app is a Tauri wrapper around the live Vercel app:
 
 - Live app URL: `https://the-tavern-cook-book.vercel.app`
