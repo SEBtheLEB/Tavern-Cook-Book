@@ -1,23 +1,16 @@
 import type { AccessRole, GoogleAccountUser } from "../types";
 import { decodeGoogleCredential, saveGoogleAccount, saveGoogleCredential } from "./accessControl";
-
-interface LauncherSessionPayload {
-  type?: string;
-  appId?: string;
-  user?: {
-    name?: string;
-    email?: string;
-    picture?: string;
-    role?: string;
-    permissions?: string[];
-  };
-  googleCredential?: string;
-}
-
-interface LauncherProgressRequestPayload {
-  type?: string;
-  appId?: string;
-}
+import {
+  COOKBOOK_APP_ID,
+  WORKSHOP_PROGRESS_TYPE,
+  WORKSHOP_SESSION_REQUEST_TYPE,
+  isTrustedLauncherEvent,
+  launcherOrigins,
+  validateLauncherSessionPayload,
+  validateProgressRequest,
+  type LauncherSession
+} from "./launcherProtocol";
+import { workshopHost } from "./workshopRuntime";
 
 interface LauncherProgressPayload {
   percent: number;
@@ -27,67 +20,89 @@ interface LauncherProgressPayload {
   source: string;
 }
 
-const WORKSHOP_SESSION_TYPE = "stl-workshop-session";
-const WORKSHOP_SESSION_REQUEST_TYPE = "stl-workshop-session-request";
-const WORKSHOP_PROGRESS_TYPE = "stl-workshop-progress";
-const WORKSHOP_PROGRESS_REQUEST_TYPE = "stl-workshop-progress-request";
-const COOKBOOK_APP_ID = "tavern-cook-book";
+// Exact launcher origins (VITE_STL_WORKSHOP_ORIGINS, comma separated). Same-origin pages are always trusted.
+const allowedLauncherOrigins = launcherOrigins(import.meta.env.VITE_STL_WORKSHOP_ORIGINS);
+
+function launcherWindows() {
+  const windows: Window[] = [];
+  if (window.parent && window.parent !== window) windows.push(window.parent);
+  if (window.opener && window.opener !== window) windows.push(window.opener as Window);
+  return windows;
+}
+
+function launcherEventContext() {
+  return {
+    allowedOrigins: allowedLauncherOrigins,
+    selfOrigin: window.location.origin,
+    selfWindow: window,
+    trustedSources: launcherWindows()
+  };
+}
 
 export function requestLauncherSession() {
   const request = {
     type: WORKSHOP_SESSION_REQUEST_TYPE,
     appId: COOKBOOK_APP_ID
   };
-  if (window.parent !== window) {
-    window.parent.postMessage(request, "*");
-  }
-  if (window.opener && window.opener !== window) {
-    window.opener.postMessage(request, "*");
+  // Addressed to each approved origin; the browser drops it for any other parent/opener.
+  const targetOrigins = new Set([...allowedLauncherOrigins, window.location.origin]);
+  for (const target of launcherWindows()) {
+    for (const origin of targetOrigins) {
+      try {
+        target.postMessage(request, origin);
+      } catch {
+        // A closed opener or detached frame cannot answer; Google sign-in remains available.
+      }
+    }
   }
 }
 
 export function listenForLauncherSession(onSession: (user: GoogleAccountUser) => void) {
-  const handler = (event: MessageEvent) => {
-    if (!isAllowedLauncherOrigin(event.origin)) return;
-    const payload = event.data as LauncherSessionPayload;
-    if (!payload || payload.type !== WORKSHOP_SESSION_TYPE) return;
-    if (payload.appId && payload.appId !== COOKBOOK_APP_ID && payload.appId !== "tales-codex") return;
-    const credentialUser = payload.googleCredential ? decodeLauncherCredential(payload.googleCredential) : null;
-    const user = normalizeLauncherUser(payload.user, credentialUser);
+  const accept = (data: unknown) => {
+    const result = validateLauncherSessionPayload(data);
+    if (!result.ok) return;
+    const user = normalizeLauncherUser(result.value);
     if (!user) return;
 
-    if (payload.googleCredential) saveGoogleCredential(payload.googleCredential);
+    if (result.value.googleCredential) saveGoogleCredential(result.value.googleCredential);
     saveGoogleAccount(user);
     onSession(user);
   };
+  const handler = (event: MessageEvent) => {
+    if (!isTrustedLauncherEvent(event, launcherEventContext())) return;
+    accept(event.data);
+  };
 
   window.addEventListener("message", handler);
+  // STL Workshop's desktop host hands the session over through its preload bridge instead of postMessage.
+  const stopHostSession = workshopHost?.onSession(accept);
+  if (workshopHost) void workshopHost.requestSession().then(accept).catch(() => {});
   requestLauncherSession();
-  return () => window.removeEventListener("message", handler);
+  return () => {
+    window.removeEventListener("message", handler);
+    stopHostSession?.();
+  };
 }
 
 export function listenForLauncherProgressRequests(getProgress: () => LauncherProgressPayload) {
   const handler = (event: MessageEvent) => {
-    if (!isAllowedLauncherOrigin(event.origin)) return;
-    const payload = event.data as LauncherProgressRequestPayload;
-    if (!payload || payload.type !== WORKSHOP_PROGRESS_REQUEST_TYPE) return;
-    if (payload.appId && payload.appId !== COOKBOOK_APP_ID && payload.appId !== "tales-codex") return;
+    if (!isTrustedLauncherEvent(event, launcherEventContext())) return;
+    if (!validateProgressRequest(event.data)) return;
     const source = event.source as Window | null;
     source?.postMessage({
       type: WORKSHOP_PROGRESS_TYPE,
       appId: COOKBOOK_APP_ID,
       progress: getProgress()
-    }, event.origin || "*");
+    }, event.origin);
   };
 
   window.addEventListener("message", handler);
   return () => window.removeEventListener("message", handler);
 }
 
-function normalizeLauncherUser(
-  user: LauncherSessionPayload["user"],
-  credentialUser: GoogleAccountUser | null
-): GoogleAccountUser | null {
+function normalizeLauncherUser(session: LauncherSession): GoogleAccountUser | null {
+  const credentialUser = session.googleCredential ? decodeLauncherCredential(session.googleCredential) : null;
+  const user = session.user;
   const email = String(credentialUser?.email || user?.email || "").trim().toLowerCase();
   if (!email || !email.includes("@")) return null;
   const launcherRole = roleFromLauncher(user?.role, user?.permissions, credentialUser?.role);
@@ -123,22 +138,4 @@ function roleFromLauncher(role: string | undefined, permissions: string[] | unde
   }
   if (normalizedRole.includes("viewer")) return "viewer";
   return fallback;
-}
-
-function isAllowedLauncherOrigin(origin: string) {
-  const allowed = (import.meta.env.VITE_STL_WORKSHOP_ORIGINS || "")
-    .split(",")
-    .map((item: string) => item.trim())
-    .filter(Boolean);
-  if (!allowed.length) {
-    if (origin === window.location.origin) return true;
-    if (new URLSearchParams(window.location.search).get("launcher") !== "stl-workshop") return false;
-    try {
-      const host = new URL(origin).hostname;
-      return host.includes("stl-workshop") || host === "localhost" || host === "127.0.0.1";
-    } catch {
-      return false;
-    }
-  }
-  return allowed.includes(origin);
 }

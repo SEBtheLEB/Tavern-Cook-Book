@@ -8,3 +8,6 @@ dist/
 
 .vercel
 src-tauri/target/
+
+# STL Workshop local project state (editor layout, recovery drafts)
+.stl/

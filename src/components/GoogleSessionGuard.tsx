@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { GoogleAccountUser } from "../types";
 import { renderGoogleSignInButton } from "../utils/accessControl";
+import { listenForDesktopAuthCredential, openDesktopSignInInSystemBrowser } from "../utils/desktopShell";
+import { workshopSignInAvailable } from "../utils/workshopRuntime";
 import { Icon } from "./Icon";
 
 interface GoogleSessionGuardProps {
@@ -13,9 +15,34 @@ export function GoogleSessionGuard({ currentUser, open, onCredential }: GoogleSe
   const buttonRef = useRef<HTMLDivElement | null>(null);
   const [message, setMessage] = useState("");
   const [working, setWorking] = useState(false);
+  // STL Workshop's Launch Live Cookbook preview reconnects through the system browser, like its sign-in page.
+  const browserReconnect = workshopSignInAvailable();
 
   useEffect(() => {
-    if (!open || !buttonRef.current) return;
+    if (!open || !browserReconnect) return;
+    let disposed = false;
+    let cleanup = () => {};
+    void listenForDesktopAuthCredential(
+      (credential) => {
+        setWorking(true);
+        void onCredential(credential)
+          .then(() => setMessage("Connected."))
+          .catch((error) => setMessage(error instanceof Error ? error.message : "Google could not reconnect."))
+          .finally(() => setWorking(false));
+      },
+      (errorMessage) => setMessage(errorMessage)
+    ).then((unlisten) => {
+      if (disposed) unlisten();
+      else cleanup = unlisten;
+    });
+    return () => {
+      disposed = true;
+      cleanup();
+    };
+  }, [open, browserReconnect, onCredential]);
+
+  useEffect(() => {
+    if (!open || browserReconnect || !buttonRef.current) return;
     let cancelled = false;
     setMessage("");
     void renderGoogleSignInButton(buttonRef.current, (response) => {
@@ -31,7 +58,7 @@ export function GoogleSessionGuard({ currentUser, open, onCredential }: GoogleSe
     return () => {
       cancelled = true;
     };
-  }, [open, onCredential]);
+  }, [open, browserReconnect, onCredential]);
 
   if (!open) return null;
 
@@ -47,7 +74,22 @@ export function GoogleSessionGuard({ currentUser, open, onCredential }: GoogleSe
             live collaboration, and protected tools.
           </span>
         </div>
-        <div ref={buttonRef} className={working ? "google-session-button working" : "google-session-button"} />
+        {browserReconnect ? (
+          <button
+            className="button-frame access-button"
+            disabled={working}
+            onClick={() => {
+              void openDesktopSignInInSystemBrowser()
+                .then(() => setMessage("Finish Google sign-in in your browser. You will be returned here automatically."))
+                .catch((error) => setMessage(error instanceof Error ? error.message : "Could not open Google sign-in in your browser."));
+            }}
+          >
+            <Icon name="ExternalLink" className="h-4 w-4" />
+            Reconnect Google in Browser
+          </button>
+        ) : (
+          <div ref={buttonRef} className={working ? "google-session-button working" : "google-session-button"} />
+        )}
         {message && <small>{message}</small>}
       </section>
     </div>

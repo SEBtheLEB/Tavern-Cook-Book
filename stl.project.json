@@ -1,0 +1,77 @@
+{
+  "formatVersion": 1,
+  "engineVersion": "0.2.0",
+  "id": "tavern-cook-book",
+  "displayName": "The Tavern Cook Book",
+  "thumbnail": "thumbnail.jpg",
+  "settings": {
+    "width": 1280,
+    "height": 820,
+    "kind": "application"
+  },
+  "startup": {
+    "entry": "index.html",
+    "screen": "Tavern Cook Book"
+  },
+  "build": {
+    "technology": "vite-web-application",
+    "deployment": "Vercel Git integration from GitHub pushes. STL Workshop never builds, publishes or deploys this application."
+  },
+  "content": {
+    "Assets": ["public", "src/assets"],
+    "Characters": [],
+    "Movesets": [],
+    "Enemies": [],
+    "Hazards": [],
+    "Levels": [],
+    "UI": ["index.html", "src"],
+    "Audio": [],
+    "Scripts": ["server", "api", "scripts", "tests"],
+    "Settings": ["package.json", "vite.config.mjs", "tsconfig.json", "tailwind.config.js", "postcss.config.js", "src-tauri/tauri.conf.json"]
+  },
+  "editor": {
+    "webApplication": {
+      "version": 1,
+      "id": "tavern-cook-book",
+      "title": "Tavern Cook Book",
+      "framework": "vite",
+      "repository": "https://github.com/SEBtheLEB/Tavern-Cook-Book",
+      "scripts": {
+        "dev": "dev:client",
+        "check": "typecheck"
+      },
+      "output": "dist",
+      "launcherAppIds": ["tavern-cook-book", "tales-codex"],
+      "modes": {
+        "offline": {
+          "label": "Workshop Offline Preview",
+          "action": "Workshop Preview",
+          "port": 5181,
+          "api": ["/api"]
+        },
+        "live": {
+          "label": "Connected Live Preview",
+          "action": "Launch Live Cookbook",
+          "port": 5182,
+          "api": ["/api"],
+          "backend": "https://the-tavern-cook-book.vercel.app",
+          "signIn": {
+            "url": "https://the-tavern-cook-book.vercel.app/?desktopAuth=1",
+            "returnParam": "desktopReturn",
+            "credentialParam": "credential",
+            "issuers": ["accounts.google.com", "https://accounts.google.com"],
+            "audiences": ["55508806253-p292f7oom6s1do0f9er1unfhi0mjjaen.apps.googleusercontent.com"]
+          },
+          "mediaSignIn": {
+            "label": "Drive images sign-in",
+            "url": "https://accounts.google.com/ServiceLogin?continue=https%3A%2F%2Fdrive.google.com%2Fdrive%2Fmy-drive",
+            "origins": ["https://accounts.google.com", "https://accounts.youtube.com", "https://drive.google.com", "https://www.google.com", "https://myaccount.google.com"]
+          }
+        }
+      },
+      "snapshot": {
+        "maxBytes": 67108864
+      }
+    }
+  }
+}

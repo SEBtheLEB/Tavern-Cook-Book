@@ -16,7 +16,8 @@
     "desktop:dev": "tauri dev",
     "preview": "vite preview --host 127.0.0.1",
     "tauri": "tauri",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test tests/*.test.ts"
   },
   "dependencies": {
     "@liveblocks/client": "^3.19.0",

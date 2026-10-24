@@ -1,5 +1,6 @@
 import type { CharacterArtGalleryItem } from "../types";
 import { getDriveSettings, isDriveConfigured, isUsableGoogleApiKey, showDriveSetupMessage } from "./driveSettings";
+import { OFFLINE_SERVICE_MESSAGE, isWorkshopOffline } from "./workshopRuntime";
 
 const GOOGLE_IDENTITY_SCRIPT_ID = "google-identity-services";
 const GOOGLE_IDENTITY_SCRIPT_SRC = "https://accounts.google.com/gsi/client";
@@ -185,6 +186,7 @@ const driveImageBlobUrlCache = new Map<string, string>();
 export const GOOGLE_DRIVE_AUTH_EVENT = "tavern-google-drive-authenticated";
 
 export function loadGoogleApiScripts() {
+  if (isWorkshopOffline()) return Promise.reject(new Error(OFFLINE_SERVICE_MESSAGE));
   if (window.google?.accounts?.oauth2) return Promise.resolve();
   if (scriptLoadPromise) return scriptLoadPromise;
 

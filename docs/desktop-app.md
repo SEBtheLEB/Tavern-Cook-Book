@@ -1,8 +1,6 @@
 # The Tavern Cook Book Desktop App
 
-For the planned STL Workshop development-host integration, use the copy-ready handoff prompt in:
-
-`docs/handoffs/stl-workshop-tavern-cookbook-integration-prompt.md`
+The STL Workshop development-host integration (Workshop Preview and Launch Live Cookbook) is described in `docs/stl-workshop-integration.md`. The original handoff is `docs/handoffs/stl-workshop-tavern-cookbook-integration-prompt.md`.
 
 That integration is intentionally separate from the standalone Tauri wrapper described below.
 

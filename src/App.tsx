@@ -46,6 +46,7 @@ import { ArtDirectionPage } from "./components/ArtDirectionPage";
 import { ArtVaultDashboard } from "./components/ArtVaultDashboard";
 import type { ArtBinderInitialFilter, ArtBinderKind, ArtBinderSessionState } from "./components/ArtBinderPage";
 import { AccessGate } from "./components/AccessGate";
+import { WorkshopModeBadge } from "./components/WorkshopModeBadge";
 import { GoogleSessionGuard } from "./components/GoogleSessionGuard";
 import { AssistantPanel } from "./components/AssistantPanel";
 import { BestiaryPage } from "./components/BestiaryPage";
@@ -107,6 +108,14 @@ import {
 import { isDesktopBrowserAuthRequest } from "./utils/desktopShell";
 import { isFavorite as favoriteIncludes, loadFavorites, saveFavorites, toggleFavorite } from "./utils/favorites";
 import { listenForLauncherProgressRequests, listenForLauncherSession } from "./utils/launcherBridge";
+import {
+  cacheWorkshopSnapshot,
+  chooseOfflineDatabase,
+  loadOfflineBase,
+  loadWorkshopSnapshot,
+  saveOfflineBase,
+  workshopMode
+} from "./utils/workshopRuntime";
 import { hydrateDatabaseSpriteAnimationSnapshots } from "./utils/spriteAnimationSlots";
 import {
   applySelectedPublishChanges,
@@ -389,6 +398,9 @@ function buildWorkshopProgress(database: LoreDatabase, currentUser: GoogleAccoun
 
 export default function App() {
   const hostedViewer = import.meta.env.VITE_READONLY_VIEWER === "true";
+  // STL Workshop Offline Preview: never contacts team sync, sessions, realtime rooms or paid services.
+  const workshopOffline = workshopMode === "offline";
+  const remoteDisabled = hostedViewer || workshopOffline;
   const forcedReadOnly =
     hostedViewer || new URLSearchParams(window.location.search).get("readonly") === "1";
   const initialSessionUiRef = useRef<AppSessionUiState | null | undefined>(undefined);
@@ -495,6 +507,7 @@ export default function App() {
   const syncSettingsSaveTimerRef = useRef<number | null>(null);
   const remoteSettingsLoadedRef = useRef(false);
   const sessionUiStateRef = useRef<AppSessionUiState | null>(null);
+  const offlineLoadRef = useRef("");
   const restoredSessionScrollRef = useRef(false);
   const restoredSessionEntryRef = useRef(Boolean(selectedEntry));
   const appSessionReady = appSessionStatus === "ready";
@@ -505,7 +518,7 @@ export default function App() {
   const canAdministerStory = currentRole === "admin" && !forcedReadOnly;
   const canUseTavernScribe = !freelancerMode && canEdit;
   const canWriteTeamDatabase = LIVE_TEAM_SYNC && canEdit;
-  const realtimeActive = Boolean(currentUser && !hostedViewer && appSessionReady && realtimeReady);
+  const realtimeActive = Boolean(currentUser && !remoteDisabled && appSessionReady && realtimeReady);
   // Sync readiness must not demote an editor into the Live View UI. Local changes remain
   // queued while cloud/session services reconnect, and the sync controls report that state.
   const readOnly = forcedReadOnly || !canEdit;
@@ -521,18 +534,18 @@ export default function App() {
     databaseRef.current = next;
     setLocalDatabase(next);
     if (options.source === "remote") return;
-    if (canWriteTeamDatabase && currentUser && !hostedViewer && !readOnly) {
+    if (canWriteTeamDatabase && currentUser && !remoteDisabled && !readOnly) {
       const pending = savePendingTeamChange(next);
       pendingTeamChangeHashRef.current = pending.hash;
       setTeamSaveSignal((value) => value + 1);
     }
-  }, [canWriteTeamDatabase, currentUser?.email, hostedViewer, readOnly]);
+  }, [canWriteTeamDatabase, currentUser?.email, remoteDisabled, readOnly]);
   useEffect(() => {
     databaseRef.current = database;
   }, [database]);
 
   useEffect(() => {
-    if (!currentUser || hostedViewer) {
+    if (!currentUser || remoteDisabled) {
       setAppSessionStatus(currentUser ? "ready" : "signedOut");
       return;
     }
@@ -568,7 +581,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [currentUser?.email, hostedViewer]);
+  }, [currentUser?.email, remoteDisabled]);
 
   const reconnectGoogleSession = useCallback(async (credential: string) => {
     if (!currentUser) throw new Error("Open your Cookbook account before reconnecting Google.");
@@ -619,7 +632,7 @@ export default function App() {
   }, []);
 
   const scheduleLiveBackup = useCallback((nextHash: string) => {
-    if (!LIVE_TEAM_SYNC || !currentUser || hostedViewer) return;
+    if (!LIVE_TEAM_SYNC || !currentUser || remoteDisabled) return;
     if (nextHash === lastLiveBackupHashRef.current) return;
     if (liveBackupTimerRef.current) {
       window.clearTimeout(liveBackupTimerRef.current);
@@ -671,10 +684,10 @@ export default function App() {
           }));
         });
     }, LIVE_BACKUP_SAVE_DELAY_MS);
-  }, [currentUser?.email, hostedViewer]);
+  }, [currentUser?.email, remoteDisabled]);
 
   useEffect(() => {
-    if (!currentUser || hostedViewer) return;
+    if (!currentUser || remoteDisabled) return;
     if (realtimeStatus === "disconnected" || realtimeStatus.startsWith("failed")) {
       setCloudSync((current) => ({
         ...current,
@@ -685,7 +698,7 @@ export default function App() {
         configured: current.configured
       }));
     }
-  }, [currentUser, hostedViewer, realtimeStatus]);
+  }, [currentUser, remoteDisabled, realtimeStatus]);
   const hiddenViewIds = useMemo(
     () => canAccessSettings || !currentUser
       ? []
@@ -774,7 +787,7 @@ export default function App() {
 
   useEffect(() => {
     if (!publishedReady) return;
-    if (!currentUser || readOnly || hostedViewer || !appSessionReady || remoteLoadRef.current || realtimeRemoteLoadRef.current) return;
+    if (!currentUser || readOnly || remoteDisabled || !appSessionReady || remoteLoadRef.current || realtimeRemoteLoadRef.current) return;
     const pendingDatabase = databaseRef.current;
     const nextHash = databaseSyncHash(pendingDatabase);
     if (nextHash === lastDraftHashRef.current && nextHash !== pendingTeamChangeHashRef.current) return;
@@ -841,13 +854,13 @@ export default function App() {
     }, LIVE_SYNC_AUTOSAVE_DELAY_MS);
 
     return () => window.clearTimeout(timer);
-  }, [database, teamSaveSignal, currentUser?.email, readOnly, hostedViewer, publishedReady, realtimeActive, appSessionReady]);
+  }, [database, teamSaveSignal, currentUser?.email, readOnly, remoteDisabled, publishedReady, realtimeActive, appSessionReady]);
 
   useEffect(() => {
     if (!LIVE_TEAM_SYNC) return;
     if (!REALTIME_DATABASE_SYNC) return;
     if (!publishedReady || !realtimeActive) return;
-    if (!currentUser || readOnly || hostedViewer) return;
+    if (!currentUser || readOnly || remoteDisabled) return;
     if (remoteLoadRef.current || realtimeRemoteLoadRef.current) return;
     const publisher = realtimePublisherRef.current;
     if (!publisher) return;
@@ -902,7 +915,7 @@ export default function App() {
         realtimePublishTimerRef.current = null;
       }
     };
-  }, [database, currentUser?.email, readOnly, hostedViewer, publishedReady, realtimeActive, scheduleLiveBackup]);
+  }, [database, currentUser?.email, readOnly, remoteDisabled, publishedReady, realtimeActive, scheduleLiveBackup]);
 
   useEffect(() => {
     saveTheme(theme);
@@ -918,7 +931,7 @@ export default function App() {
 
   useEffect(() => {
     if (LIVE_TEAM_SYNC) return;
-    if (!currentUser || readOnly || hostedViewer) return;
+    if (!currentUser || readOnly || remoteDisabled) return;
     const interval = window.setInterval(() => {
       void fetchUserDraft(currentUser.email)
         .then((result) => {
@@ -956,11 +969,11 @@ export default function App() {
     }, 30_000);
 
     return () => window.clearInterval(interval);
-  }, [currentUser?.email, database, readOnly, hostedViewer]);
+  }, [currentUser?.email, database, readOnly, remoteDisabled]);
 
   useEffect(() => {
     if (!publishedReady) return;
-    if (!currentUser || hostedViewer) return;
+    if (!currentUser || remoteDisabled) return;
     const interval = window.setInterval(() => {
       void fetchPublishedDatabase()
         .then((result) => {
@@ -1066,7 +1079,7 @@ export default function App() {
     }, LIVE_TEAM_SYNC ? LIVE_SYNC_POLL_MS : 15_000);
 
     return () => window.clearInterval(interval);
-  }, [currentUser?.email, database, readOnly, hostedViewer, explicitRemovalSet, publishedReady, realtimeActive, canAccessSettings]);
+  }, [currentUser?.email, database, readOnly, remoteDisabled, explicitRemovalSet, publishedReady, realtimeActive, canAccessSettings]);
 
   useEffect(() => {
     saveAssignments(assignments);
@@ -1164,7 +1177,7 @@ export default function App() {
 
   useEffect(() => {
     saveAppSyncSettings(appSyncSettings);
-    if (!currentUser || !canAccessSettings || hostedViewer) return;
+    if (!currentUser || !canAccessSettings || remoteDisabled) return;
     if (!remoteSettingsLoadedRef.current) return;
     if (syncSettingsSaveTimerRef.current) window.clearTimeout(syncSettingsSaveTimerRef.current);
     syncSettingsSaveTimerRef.current = window.setTimeout(() => {
@@ -1177,7 +1190,7 @@ export default function App() {
         syncSettingsSaveTimerRef.current = null;
       }
     };
-  }, [appSyncSettings, currentUser?.email, canAccessSettings, hostedViewer]);
+  }, [appSyncSettings, currentUser?.email, canAccessSettings, remoteDisabled]);
 
   useEffect(() => {
     if (!currentUser) {
@@ -1212,6 +1225,57 @@ export default function App() {
     if (!currentUser || hostedViewer) return;
     let cancelled = false;
     const localDatabase = initialLocalDatabaseRef.current || database;
+
+    if (workshopOffline) {
+      // Offline Preview: the last team snapshot Launch Live Cookbook cached, or local data. Never the team database.
+      // Runs once per page load and preview account, so session updates cannot replay it against a stale baseline.
+      if (offlineLoadRef.current === currentUser.email) return;
+      offlineLoadRef.current = currentUser.email;
+      const loadOfflineState = async () => {
+        const snapshot = await loadWorkshopSnapshot();
+        const snapshotDatabase = snapshot ? migrateDatabase(snapshot.database) : null;
+        const base = loadOfflineBase();
+        const choice = chooseOfflineDatabase({
+          snapshotSavedAt: snapshot?.savedAt || null,
+          localHash: databaseSyncHash(localDatabase),
+          base
+        });
+        const chosenDatabase = choice === "snapshot" && snapshotDatabase ? snapshotDatabase : localDatabase;
+        if (snapshot?.settings && choice === "snapshot") {
+          try {
+            const snapshotSettings = normalizeAppSyncSettings(snapshot.settings);
+            saveAppSyncSettings(snapshotSettings);
+            setAppSyncSettings(snapshotSettings);
+          } catch {
+            // Settings are optional for layout inspection; the cached database still loads.
+          }
+        }
+        if (choice === "snapshot" || !base) {
+          saveOfflineBase({ savedAt: choice === "snapshot" && snapshot ? snapshot.savedAt : "local", hash: databaseSyncHash(chosenDatabase) });
+        }
+        remoteLoadRef.current = true;
+        setDatabase(chosenDatabase, { source: "remote" });
+        saveDatabase(chosenDatabase);
+        window.setTimeout(() => {
+          remoteLoadRef.current = false;
+        }, 0);
+        const snapshotTime = snapshot?.teamUpdatedAt || snapshot?.savedAt || "";
+        setCloudSync({
+          phase: "offline",
+          message: choice === "snapshot"
+            ? `Workshop Offline Preview: showing the team snapshot cached ${snapshotTime ? new Date(snapshotTime).toLocaleString() : "earlier"}. Nothing here is saved to the team.`
+            : choice === "local-drafts"
+              ? "Workshop Offline Preview: kept your local offline drafts. A newer team snapshot is cached; use Reset offline data in Workshop to load it."
+              : snapshot
+                ? "Workshop Offline Preview: showing local offline data. Nothing here is saved to the team."
+                : "Workshop Offline Preview: showing starter data. Launch Live Cookbook once while online to cache a team snapshot.",
+          lastSavedAt: "",
+          configured: false
+        });
+      };
+      void loadOfflineState();
+      return;
+    }
 
     const loadRemoteState = async () => {
       setPublishedReady(false);
@@ -1436,7 +1500,23 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [currentUser?.email, currentUser?.role, hostedViewer, explicitRemovalSet, appSessionReady, appSessionRevision]);
+  }, [currentUser?.email, currentUser?.role, hostedViewer, workshopOffline, explicitRemovalSet, appSessionReady, appSessionRevision]);
+
+  // Launch Live Cookbook caches the latest published team copy for later offline inspection in Workshop.
+  useEffect(() => {
+    if (workshopMode !== "live" || !currentUser || !publishedReady || !appSessionReady) return;
+    const timer = window.setTimeout(() => {
+      void cacheWorkshopSnapshot({
+        teamUpdatedAt: loadPublishedSyncState().updatedAt,
+        database: sanitizeDatabaseForPersistence(publishedDatabase),
+        settings: {
+          ...appSyncSettings,
+          driveSettings: { ...appSyncSettings.driveSettings, googleApiKey: "" }
+        }
+      });
+    }, 4000);
+    return () => window.clearTimeout(timer);
+  }, [publishedDatabase, publishedReady, appSyncSettings, currentUser?.email, appSessionReady]);
 
   useEffect(() => {
     if (!readOnly || (!artVaultDashboardOpen && activeView !== "artVault")) return;
@@ -1832,7 +1912,7 @@ export default function App() {
   };
 
   const forceSaveTeamDatabase = async () => {
-    if (!LIVE_TEAM_SYNC || !currentUser || readOnly || hostedViewer) return;
+    if (!LIVE_TEAM_SYNC || !currentUser || readOnly || remoteDisabled) return;
     const databaseToSave = databaseRef.current;
     const databaseToSaveHash = databaseSyncHash(databaseToSave);
     const pending = savePendingTeamChange(databaseToSave);
@@ -2884,7 +2964,7 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (!currentUser || hostedViewer || canAccessSettings || !appSessionReady) return;
+    if (!currentUser || remoteDisabled || canAccessSettings || !appSessionReady) return;
     let cancelled = false;
 
     const refreshAccessFromSharedSettings = async () => {
@@ -2943,7 +3023,7 @@ export default function App() {
       window.clearInterval(interval);
       window.removeEventListener("focus", handleFocus);
     };
-  }, [currentUser?.email, currentUser?.role, hostedViewer, canAccessSettings, appSessionReady]);
+  }, [currentUser?.email, currentUser?.role, remoteDisabled, canAccessSettings, appSessionReady]);
 
   useEffect(() => {
     const openSpriteAnimator = () => {
@@ -2972,10 +3052,26 @@ export default function App() {
   const sharedAssignmentIds = assignmentIdsFromLocation();
   const assignmentShareMode = sharedAssignmentIds.length > 0;
 
+  if (!currentUser && workshopOffline) {
+    return (
+      <div className={themeClassName}>
+        <main className="access-gate">
+          <section className="access-card">
+            <p className="access-eyebrow">Workshop Offline Preview</p>
+            <h1 className="font-display">STL Productionz</h1>
+            <p>Opening The Tavern Cook Book from local source. Team services stay disconnected.</p>
+          </section>
+        </main>
+        <WorkshopModeBadge />
+      </div>
+    );
+  }
+
   if (!currentUser || desktopBrowserAuthMode) {
     return (
       <div className={themeClassName}>
         <AccessGate onSignIn={setCurrentUser} />
+        <WorkshopModeBadge />
       </div>
     );
   }
@@ -2993,7 +3089,7 @@ export default function App() {
         activeView={activeView}
         selectedEntry={selectedEntry}
         selectedBestiaryCreatureId={selectedBestiaryCreatureId}
-        enabled={Boolean(currentUser && !hostedViewer && appSessionReady)}
+        enabled={Boolean(currentUser && !remoteDisabled && appSessionReady)}
         onDatabaseFromRoom={handleRealtimeDatabase}
         onPublisherReady={handleRealtimePublisherReady}
         onResetterReady={handleRealtimeResetterReady}
@@ -3477,7 +3573,7 @@ export default function App() {
 
         <GoogleSessionGuard
           currentUser={currentUser}
-          open={!hostedViewer && appSessionStatus === "needsAuth"}
+          open={!remoteDisabled && appSessionStatus === "needsAuth"}
           onCredential={reconnectGoogleSession}
         />
 
@@ -3513,6 +3609,7 @@ export default function App() {
       </div>
       </RealtimeCollaborationContext.Provider>
       </LoreKeywordProvider>
+      <WorkshopModeBadge />
     </div>
   );
 }

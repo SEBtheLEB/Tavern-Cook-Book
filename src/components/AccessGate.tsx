@@ -16,10 +16,10 @@ import { fetchRemoteAppSettings } from "../utils/cloudSync";
 import { createAppSession } from "../utils/appSession";
 import {
   isDesktopBrowserAuthRequest,
-  isTauriDesktopShell,
   listenForDesktopAuthCredential,
   openDesktopSignInInSystemBrowser,
-  redirectDesktopBrowserCredential
+  redirectDesktopBrowserCredential,
+  usesExternalBrowserSignIn
 } from "../utils/desktopShell";
 import { DriveAwareImage } from "./DriveAwareImage";
 import { Icon } from "./Icon";
@@ -30,7 +30,8 @@ interface AccessGateProps {
 
 export function AccessGate({ onSignIn }: AccessGateProps) {
   const buttonRef = useRef<HTMLDivElement | null>(null);
-  const desktopShell = isTauriDesktopShell();
+  // The Tauri app and STL Workshop's Launch Live Cookbook preview send Google sign-in to the system browser.
+  const desktopShell = usesExternalBrowserSignIn();
   const desktopBrowserAuthMode = isDesktopBrowserAuthRequest();
   const desktopExternalSignIn = desktopShell && !desktopBrowserAuthMode;
   const missingClientIdOnLoad = !desktopExternalSignIn && !getAccessGoogleClientId();
